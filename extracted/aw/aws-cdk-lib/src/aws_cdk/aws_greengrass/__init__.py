@@ -235,6 +235,7 @@ class CfnConnectorDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -310,7 +311,7 @@ class CfnConnectorDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ab45f89ff0cfe141f0220b75cd71c3d899658dfb0c0d902360ceac2645761b8c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -323,7 +324,7 @@ class CfnConnectorDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__60332b2bd3d1f19c86feea95dba6bf261745105b22e69096e4be69004bdad03b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="initialVersion")
@@ -341,7 +342,7 @@ class CfnConnectorDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0415a38346fbe03d6f5624bc1964761ae159cabc533cd2810f1187fb94a9e76e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "initialVersion", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnConnectorDefinition.ConnectorDefinitionVersionProperty",
@@ -738,6 +739,7 @@ class CfnConnectorDefinitionVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -779,7 +781,7 @@ class CfnConnectorDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46572beae401fe5e838cb0b02ec437b067f98ac0ae5835d7ef8ce870c4ac7d90)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectorDefinitionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectorDefinitionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectors")
@@ -797,7 +799,7 @@ class CfnConnectorDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5ed3abea511a407254df28d178fbfb71f43dee9315c0aeca3095f062663236ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectors", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectors", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnConnectorDefinitionVersion.ConnectorProperty",
@@ -1161,6 +1163,7 @@ class CfnCoreDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1234,7 +1237,7 @@ class CfnCoreDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ac51622030b12c5c1ad466a72f36fc6ae109a83246daf2e9b37011f5db34b4b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1247,7 +1250,7 @@ class CfnCoreDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__99697b8dad691477ff836e154bb3c9f516a73f2882f23a90d55ddc3f167aadd8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="initialVersion")
@@ -1265,7 +1268,7 @@ class CfnCoreDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__92abb907cfcf9216f792b317f8eb26a0b6c421a027b2e96eefee9e1fd17d6fc7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "initialVersion", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnCoreDefinition.CoreDefinitionVersionProperty",
@@ -1676,6 +1679,7 @@ class CfnCoreDefinitionVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1717,7 +1721,7 @@ class CfnCoreDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce705d0cc1809364da37b409e24bfddfab55386d0858b4c4146d9a22a2a2f40a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "coreDefinitionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "coreDefinitionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="cores")
@@ -1735,7 +1739,7 @@ class CfnCoreDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1bffbbd7f9c7ce8f8528729042b02d09f335ab5562e19bf5da873a4a6ae6b05)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cores", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cores", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnCoreDefinitionVersion.CoreProperty",
@@ -2111,6 +2115,7 @@ class CfnDeviceDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2186,7 +2191,7 @@ class CfnDeviceDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3a2194bc46e61deb1c1fcc4553ae866524155d250a4d6110495f31209d88865d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2199,7 +2204,7 @@ class CfnDeviceDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fa56b64210e79fff38ab545ae87d1988b94100fdbaa646f7ebeda88559aeeacb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="initialVersion")
@@ -2217,7 +2222,7 @@ class CfnDeviceDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__860ed955c6c53de09524817b41d262c302d0a99f94c5e829c77f1df83b034260)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "initialVersion", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnDeviceDefinition.DeviceDefinitionVersionProperty",
@@ -2624,6 +2629,7 @@ class CfnDeviceDefinitionVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2665,7 +2671,7 @@ class CfnDeviceDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e81c0aa8405667eeeaadd67c78cb7b7ddd5bc27f106a564e32912851386e4931)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deviceDefinitionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deviceDefinitionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="devices")
@@ -2683,7 +2689,7 @@ class CfnDeviceDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a0aabdafe61d8e2100f8e9a731798871a20d7438db750e894f114287763994f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "devices", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "devices", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnDeviceDefinitionVersion.DeviceProperty",
@@ -3088,6 +3094,7 @@ class CfnFunctionDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3163,7 +3170,7 @@ class CfnFunctionDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__63f3586ebd22c8d7efa859e3b07e7a1d59b40ead5bd2fcda78d352eb33e98b21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3176,7 +3183,7 @@ class CfnFunctionDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__de5a19ed9c188b2bb1a6eecf3c47192c7edf18069ffe0cdf6838d6eadee8effd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="initialVersion")
@@ -3194,7 +3201,7 @@ class CfnFunctionDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__09ef946c280aa3fe299d97090ecfb5dfa4af0a16702b75c593ec39701a3cb62b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "initialVersion", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnFunctionDefinition.DefaultConfigProperty",
@@ -4382,6 +4389,7 @@ class CfnFunctionDefinitionVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4423,7 +4431,7 @@ class CfnFunctionDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__089983427f200b57e702fff54bb0b007c29cdd60772ebee7e6374971f11b5d3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "functionDefinitionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "functionDefinitionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="functions")
@@ -4441,7 +4449,7 @@ class CfnFunctionDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__793cfd87f23bbd9bf6e301d174c974540fcb771743c65e05c1a0a4025bf87005)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "functions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "functions", value)
 
     @builtins.property
     @jsii.member(jsii_name="defaultConfig")
@@ -4459,7 +4467,7 @@ class CfnFunctionDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0390fd3aa93f9d9e878e662d53c38486d861c310d7e93ad7f1c0f86c70cee20c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "defaultConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnFunctionDefinitionVersion.DefaultConfigProperty",
@@ -5558,6 +5566,7 @@ class CfnGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5649,7 +5658,7 @@ class CfnGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ea2b1b818ef0cc72e4ff310dbf9eae157f92e5c04d08514478628c08a3dc867)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -5662,7 +5671,7 @@ class CfnGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf681fed500903d683fa2fe379335268fbe2011999bfef05177c39ea864332eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="initialVersion")
@@ -5680,7 +5689,7 @@ class CfnGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7a38b6bf42dcdd50e398f34bf87a366c206fb7d56a14edcfa088d38beb0169bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "initialVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -5693,7 +5702,7 @@ class CfnGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6675e04cf0ab21e346afb29e4e19bde19ea87ea432acc7787de29c5be10f7aa2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnGroup.GroupVersionProperty",
@@ -6109,6 +6118,7 @@ class CfnGroupVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6148,7 +6158,7 @@ class CfnGroupVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b70513b04a0647c95bbd78b71c611749688212d95d6b7f6be24e153474ced833)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groupId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "groupId", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectorDefinitionVersionArn")
@@ -6164,7 +6174,7 @@ class CfnGroupVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9b4083383be53e8192919e7978982b4c98f55ff47f025a1a51181578579b3852)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectorDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectorDefinitionVersionArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="coreDefinitionVersionArn")
@@ -6177,7 +6187,7 @@ class CfnGroupVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c64b7407ff4176f922aa431270cee22c78db47ad08a470b616f3102fe257bdb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "coreDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "coreDefinitionVersionArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="deviceDefinitionVersionArn")
@@ -6193,7 +6203,7 @@ class CfnGroupVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4af68e21601bf6750c71f6f0c2bc6538974bed68a360dd4d6148cec732594fb4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deviceDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deviceDefinitionVersionArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="functionDefinitionVersionArn")
@@ -6209,7 +6219,7 @@ class CfnGroupVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bafc0081999bcf69f5529249f5611a5bfac796128da383e18f805601ef9f7d1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "functionDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "functionDefinitionVersionArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggerDefinitionVersionArn")
@@ -6225,7 +6235,7 @@ class CfnGroupVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e34a3066bf41e65e71062cbc53c28ee0f3c8407b337545091f2f03096c48c2aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggerDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggerDefinitionVersionArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceDefinitionVersionArn")
@@ -6241,7 +6251,7 @@ class CfnGroupVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7a37b5dcc0ee3133f870c3a3fe994fa624423839bc6ae69bf0187a55c1045179)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceDefinitionVersionArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="subscriptionDefinitionVersionArn")
@@ -6257,7 +6267,7 @@ class CfnGroupVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__401c05e2b55805214eb63cf50bc055afc162c24db366d22d1d8583f411101e56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscriptionDefinitionVersionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subscriptionDefinitionVersionArn", value)
 
 
 @jsii.data_type(
@@ -6606,6 +6616,7 @@ class CfnLoggerDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6681,7 +6692,7 @@ class CfnLoggerDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__03643a56201d8ee41ec6cb2d06bf4a744b44f9e140baade1eee0f8923f4de100)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -6694,7 +6705,7 @@ class CfnLoggerDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1467bdc61b875959389bcefa758a86026e2fb80e0b9db5da7327a4e0b2c1c6b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="initialVersion")
@@ -6712,7 +6723,7 @@ class CfnLoggerDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d933992b8def94152adabe1624210ae1c6c2ac626a5a9fd2af376a7f9128d123)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "initialVersion", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnLoggerDefinition.LoggerDefinitionVersionProperty",
@@ -7142,6 +7153,7 @@ class CfnLoggerDefinitionVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7183,7 +7195,7 @@ class CfnLoggerDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dccc4692452b48425650c13195e73d6c200e1a8087f73abc40b4266aa7098102)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggerDefinitionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggerDefinitionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggers")
@@ -7201,7 +7213,7 @@ class CfnLoggerDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__935a7882eea62e6e59dbe2f8f1f89290502193c1dc3234cdc82edf49948aac83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggers", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnLoggerDefinitionVersion.LoggerProperty",
@@ -7641,6 +7653,7 @@ class CfnResourceDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7716,7 +7729,7 @@ class CfnResourceDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0256b19a6270c50864dd0afa1219a1b6be7518258daea855f19ca60744fa0d27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7729,7 +7742,7 @@ class CfnResourceDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9f8767a6e08f9caeed0ccc0cab826c0939740af34c6b569658174c0ac9284975)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="initialVersion")
@@ -7747,7 +7760,7 @@ class CfnResourceDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0e477611b342531c61501bce71bad63149180465d67fa02234b702f1d04ed88e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "initialVersion", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnResourceDefinition.GroupOwnerSettingProperty",
@@ -9168,6 +9181,7 @@ class CfnResourceDefinitionVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -9209,7 +9223,7 @@ class CfnResourceDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__62580ea31539bd91a408bb34b014f3d32df9c5903336db1a3dd73bad8e783dc2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceDefinitionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceDefinitionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="resources")
@@ -9227,7 +9241,7 @@ class CfnResourceDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__74096283c52a878723fa8ea3375fb7a3d8f6b1924db6d17a865bc7f6ab31cce8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resources", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnResourceDefinitionVersion.GroupOwnerSettingProperty",
@@ -10520,6 +10534,7 @@ class CfnSubscriptionDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -10595,7 +10610,7 @@ class CfnSubscriptionDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c7419a41b1a2fd9cbc8893cf41814a9d4402f8bbf4b3926c9d4eae1050a3cb2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -10608,7 +10623,7 @@ class CfnSubscriptionDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f3c68b21f52fe99f3d6a88bd9e881c4d030dd6c2bef09d8ac0a05a8c5ff59c37)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="initialVersion")
@@ -10626,7 +10641,7 @@ class CfnSubscriptionDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb5bd9630745b54bebd6a65c27d16ed4621705d8b40d785efc3fcf8eda69d66a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "initialVersion", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty",
@@ -11026,6 +11041,7 @@ class CfnSubscriptionDefinitionVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -11067,7 +11083,7 @@ class CfnSubscriptionDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a9eaeca2366167091d0a98772cb6ca7a6cc6e0b9cb92f4e5f40dbbe066f0768e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscriptionDefinitionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subscriptionDefinitionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="subscriptions")
@@ -11085,7 +11101,7 @@ class CfnSubscriptionDefinitionVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9ba4cd67c8807aa76b5b15f0cc7031c8c93e9db957d1dcbe2f07f9d22c3d9b57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscriptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subscriptions", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnSubscriptionDefinitionVersion.SubscriptionProperty",

@@ -693,7 +693,7 @@ class HttpAlbIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ddd81275967dd8f82fea61a7accd8241f873539fe596998c66af3c580e913284)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionType", value)
 
     @builtins.property
     @jsii.member(jsii_name="httpMethod")
@@ -705,7 +705,7 @@ class HttpAlbIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__49d2707c331ffacddcce15a9f8462f5b4bd86acafca4f99ffac86d61fdd968c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "httpMethod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "httpMethod", value)
 
     @builtins.property
     @jsii.member(jsii_name="integrationType")
@@ -720,7 +720,7 @@ class HttpAlbIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__68d6f772e2a89442556f1760d95c537293e8868e69f39350b976830ea7c5d7c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "integrationType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "integrationType", value)
 
     @builtins.property
     @jsii.member(jsii_name="payloadFormatVersion")
@@ -737,7 +737,7 @@ class HttpAlbIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6120aff86732fb3507f4b0835b6bc561a686dcb25788f79481dc42c78203b26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "payloadFormatVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "payloadFormatVersion", value)
 
 
 class HttpEventBridgeIntegration(
@@ -1280,7 +1280,7 @@ class HttpNlbIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d360e4b817e6fc6c8ae4e1350d9dd6b3d69b40c54401465c6ef888953f765e38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionType", value)
 
     @builtins.property
     @jsii.member(jsii_name="httpMethod")
@@ -1292,7 +1292,7 @@ class HttpNlbIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4c789ab75d5a6290c76fe8fce0b824cd0926bb50f6f9fb91ff77ef01e82a1ea0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "httpMethod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "httpMethod", value)
 
     @builtins.property
     @jsii.member(jsii_name="integrationType")
@@ -1307,7 +1307,7 @@ class HttpNlbIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__585857799e486703df2825ecce003717b9e731a7928c8409a6da811435c79165)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "integrationType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "integrationType", value)
 
     @builtins.property
     @jsii.member(jsii_name="payloadFormatVersion")
@@ -1324,7 +1324,7 @@ class HttpNlbIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__36f10890866a2476ef7a837c18a7bab079976e4adf47e736ccebe3fc7ec980ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "payloadFormatVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "payloadFormatVersion", value)
 
 
 @jsii.data_type(
@@ -1556,7 +1556,7 @@ class HttpServiceDiscoveryIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__88fa11bc73bf44288cb7467c39d6aa21cc34611adb58ae52dbcb42fe2150a266)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionType", value)
 
     @builtins.property
     @jsii.member(jsii_name="httpMethod")
@@ -1568,7 +1568,7 @@ class HttpServiceDiscoveryIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3cc3ee501484e0e7058df9083bcfc3e410c2de2357a283e797038514e45bae8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "httpMethod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "httpMethod", value)
 
     @builtins.property
     @jsii.member(jsii_name="integrationType")
@@ -1583,7 +1583,7 @@ class HttpServiceDiscoveryIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5909d37808307699be7a07730689164f1e138383252eae1d7c68420302f2e9c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "integrationType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "integrationType", value)
 
     @builtins.property
     @jsii.member(jsii_name="payloadFormatVersion")
@@ -1600,7 +1600,7 @@ class HttpServiceDiscoveryIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2db70ce1255fd6ff4a3b0a88a1c0a0096c5eb165bf1ce3544bee82d10bcc54d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "payloadFormatVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "payloadFormatVersion", value)
 
 
 @jsii.data_type(

@@ -62,6 +62,7 @@ class TestLauncherDetection:
         assert _is_submit_launcher(["modal", "deploy", "app.py"]) is True
         hint = _forwarding_hint(["uv", "run", "modal", "deploy", "app.py"], "RID", 3)
         assert hint and "modal.Secret.from_dict" in hint
+        assert "modal.Secret.from_name" in hint and "PROBE_API_KEY" not in hint
         assert "RID" in hint and '"3"' in hint
 
     def test_a_blocking_launcher_gets_no_hint_and_is_not_a_handoff(self) -> None:

@@ -254,7 +254,7 @@ class HTTPClientMixin:
                         detail = ''
                     msg = detail or (
                         "Authentication required. "
-                        "Set your API key in ~/.featrix (as api_key=sk_live_...) "
+                        "Set your API key in ~/.featrix (as api_key=fx_...) "
                         "or the FEATRIX_API_KEY environment variable."
                     )
                     raise FeatrixAuthenticationError(msg, status_code=401) from e

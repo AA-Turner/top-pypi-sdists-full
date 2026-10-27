@@ -199,6 +199,7 @@ from .enums import (  # noqa: F401 - re-exported
     AppPapersCitationStoreDirection,
     AppProjectsTwinScopeKind,
     AppSummariesSchemasAnchorType,
+    Source5,
 )
 
 
@@ -755,33 +756,6 @@ class UserCode(RootModel[str]):
 class ClaimViewIn(BaseModel):
     claim_attempt_token: str = Field(
         ..., max_length=200, min_length=1, title='Claim Attempt Token'
-    )
-
-
-class ClassifyIn(BaseModel):
-    digest: str = Field(
-        ...,
-        description='The session so far, as the daemon digests it (no tool output).',
-        max_length=400000,
-        title='Digest',
-    )
-
-
-class ClassifyOut(BaseModel):
-    act: bool = Field(
-        ...,
-        description='May the daemon act on it (pause)? False in shadow, off, or without an answer.',
-        title='Act',
-    )
-    mode: str = Field(
-        ...,
-        description="The gate's mode for this team: off, shadow or on.",
-        title='Mode',
-    )
-    p_ml: float | None = Field(
-        ...,
-        description="Jev's probability that the session is ML work; null: no answer.",
-        title='P Ml',
     )
 
 
@@ -2474,21 +2448,6 @@ class ExpectedRevision(RootModel[int]):
 class MixturePart(BaseModel):
     share: float = Field(..., title='Share')
     target: str = Field(..., max_length=2048, min_length=1, title='Target')
-
-
-class PMl(RootModel[float]):
-    root: float = Field(..., ge=0.0, le=1.0, title='P Ml')
-
-
-class MlState(BaseModel):
-    """
-    The session's ML-gate state as the service read it from the daemon's
-    worker store. `signal`: a deterministic ML signal fired; `p_ml`: the gate's
-    last answer. Null on the request when there is no worker or no answer.
-    """
-
-    p_ml: PMl | None = Field(None, title='P Ml')
-    signal: bool | None = Field(False, title='Signal')
 
 
 class MultipartCreate(BaseModel):
@@ -6587,6 +6546,13 @@ class AppOverviewsVisualsScopeOut(BaseModel):
     kind: AppOverviewsVisualsScopeKind
 
 
+class CaptureCredentialIn(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    source: Source5 = Field(..., title='Source')
+
+
 class ArtifactDetailOut(BaseModel):
     """
     The id-addressed artifact read plus its display containment path.
@@ -7789,7 +7755,6 @@ class HintRecord(BaseModel):
     doc_id: str = Field(..., title='Doc Id')
     identity: str = Field(..., title='Identity')
     kind: RecordKind
-    ml_record: bool = Field(..., title='Ml Record')
     name: str | None = Field(
         None,
         description='The name that found it (`via: name`), normalized.',
@@ -7820,7 +7785,6 @@ class HintsIn(BaseModel):
         max_length=16,
         title='Exclude Session Ids',
     )
-    ml: MlState | None = None
     segments: list[Segment] | None = Field(
         None,
         description="`window` only: the agent's messages of the window, newest first, each looked up on its own. Ignored for every other trigger.",

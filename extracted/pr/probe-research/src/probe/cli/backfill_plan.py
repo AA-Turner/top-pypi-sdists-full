@@ -31,6 +31,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from probe._compat import StrEnum
+
 from .backfill import REFERENCE_ABOVE_BYTES, _embedded_summaries
 from .backfill_evidence import Evidence, Tier
 from .backfill_ledger import Unit, UnitKind, new_unit_id
@@ -45,6 +47,26 @@ MAX_UNIT_FILES = 400
 MAX_UNIT_BYTES = 2 * 1024 * 1024 * 1024
 
 
+class Origin(StrEnum):
+    """Where a plan's project comes from (`backfill_projects.settle` decides).
+
+    A NEW project is the default. An import files into a project that already
+    exists only when code says this folder's work lives there (RULE), or when
+    the classifier selected it with `probe-backfill-plan project --reuse` and a
+    person approves it on the review screen (MODEL). On 2026-10-26 two
+    throwaway folders were filed into unrelated existing projects because the
+    classifier was told to prefer existing projects; an unattended import now
+    turns a MODEL reuse into a new project.
+    """
+
+    NEW = "new"
+    #: This folder was imported into it before, it holds this folder's
+    #: repository as a code source, or the import was pointed at it.
+    RULE = "rule"
+    #: The classifier selected it; a person confirms it on review.
+    MODEL = "model"
+
+
 @dataclass
 class ProjectSpec:
     """A project the classification asked for."""
@@ -53,6 +75,19 @@ class ProjectSpec:
     name: str = ""
     description: str = ""
     tags: list[str] = field(default_factory=list)
+    #: `Origin` value. A spec saved by an older CLI has none (`""`), and its
+    #: approved request resolves by slug as it always did.
+    origin: str = Origin.NEW.value
+    #: The existing project's id, for RULE and MODEL.
+    project_id: str | None = None
+    #: Why code reused it (RULE), or what the existing project already holds
+    #: (MODEL): shown on the review screen and written to `plan.json`.
+    reason: str = ""
+    #: NEW only: an existing project's slug a small edit away from this one.
+    near: str = ""
+    #: MODEL only: what the existing project holds, when it could be read.
+    existing_runs: int | None = None
+    existing_files: int | None = None
 
 
 @dataclass
@@ -135,6 +170,14 @@ class Plan:
     excluded: list[str] = field(default_factory=list)
     #: Counts for `backfill.plan_ready` (refused selectors, failed sessions...).
     stats: dict = field(default_factory=dict)
+    #: Experiments the classifier named: slug -> {slug, project, name, question,
+    #: under}. Code builds them after approval (`backfill_structure`).
+    experiments: dict[str, dict] = field(default_factory=dict)
+    #: Runs: folder -> {under, experiment, project}. One folder is one run.
+    runs: dict[str, dict] = field(default_factory=dict)
+    #: Already-imported files the plan organizes but never re-uploads:
+    #: path -> the project slug they are in (`backfill_import._run`).
+    fixed: dict[str, str] = field(default_factory=dict)
 
 
 def parse(tail: str) -> Plan | None:

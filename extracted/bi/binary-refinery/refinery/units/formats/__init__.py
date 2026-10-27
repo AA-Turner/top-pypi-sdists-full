@@ -10,14 +10,19 @@ import fnmatch
 import re
 
 from collections import Counter
-from zlib import adler32
 
 from refinery.lib import json as libjson
 from refinery.lib.argformats import pathvar
 from refinery.lib.loader import load
-from refinery.lib.meta import ByteStringWrapper, LazyMetaOracle, metavars
-from refinery.lib.tools import exception_to_string, get_terminal_size
-from refinery.lib.types import Callable, Iterable, Param, buf, isbuffer
+from refinery.lib.meta import (
+    MV,
+    ByteStringWrapper,
+    LazyMetaOracle,
+    check_variable_names_of_unit,
+    metavars,
+)
+from refinery.lib.tools import HandOver, exception_to_string, get_terminal_size
+from refinery.lib.types import Callable, Iterable, NamedTuple, Param, buf, isbuffer
 from refinery.lib.xml import XMLNodeBase
 from refinery.units import Arg, Chunk, RefineryPartialResult, RefineryPotentialUserError, Unit
 
@@ -30,16 +35,51 @@ def pathspec(expression):
     return '/'.join(re.split(R'[\\\/]', expression))
 
 
+def number_repeated_names(names: list[str], separator: str = '/') -> list[str]:
+    """
+    Returns the given names in their order, with a number appended to every name that occurs more
+    than once: the copies of a name are counted in order, and a number is skipped when the numbered
+    name would be equal to another given name or to an earlier numbered one. No two returned names
+    are equal. Path extractors use this for repeated paths and for repeated names of groups, such as
+    two tables or archives with one name.
+    """
+    occurrences = Counter(names)
+    taken = set(occurrences)
+    counters: Counter[str] = Counter()
+    numbered: list[str] = []
+    for name in names:
+        if occurrences[name] < 2:
+            numbered.append(name)
+            continue
+        while True:
+            counters[name] += 1
+            candidate = F'{name}{separator}{counters[name]}'
+            if candidate not in taken:
+                break
+        taken.add(candidate)
+        numbered.append(candidate)
+    return numbered
+
+
 class UnpackResult:
 
     def get_data(self) -> buf:
-        if callable(self.data):
-            self.data = self.data()
-        return self.data
+        if (data := self.data) is None:
+            raise RuntimeError(F'The data of {self.path} was already handed out.')
+        if callable(data):
+            self.data = data = data()
+        return data
+
+    def release(self):
+        """
+        Drops the data of this result; it cannot be retrieved afterwards.
+        """
+        self.data = None
 
     def __init__(self, _br__path: str, _br__data: buf | Callable[[], buf], **_br__meta):
+        check_variable_names_of_unit(_br__meta)
         self.path = _br__path
-        self.data = _br__data
+        self.data: buf | Callable[[], buf] | None = _br__data
         self.meta = _br__meta
         for key in [key for key, value in _br__meta.items() if value is None]:
             del _br__meta[key]
@@ -57,15 +97,19 @@ class PathPattern:
         self.exclude = exclude
         self.compile()
 
-    def compile(self, **kw):
+    def compile(self):
         query = self.query
         self.stops = []
         if not self.regex:
             self.stops = re.split(R'([/*?]+)', query)
-            query, _, _ = fnmatch.translate(query).partition(r'\Z')
-        p1 = re.compile(query, **kw)
+            query = fnmatch.translate(query)
+            for anchor in (R'\Z', R'\z'):
+                query = query.removesuffix(anchor)
+        p1 = re.compile(query)
         p2 = re.compile(F'.*?{query}')
+        p3 = re.compile(query, re.IGNORECASE)
         self.matchers = [p1.fullmatch, p2.fullmatch, p1.search]
+        self.matchers_ignoring_case = [p3.fullmatch, p2.fullmatch, p3.search]
 
     def reach(self, path: str):
         """
@@ -87,12 +131,27 @@ class PathPattern:
                 return True
         return False
 
-    def check(self, path, fuzzy=0):
+    def check(self, path, fuzzy=0, ignorecase=False):
         fuzzy = min(fuzzy, 2)
-        return bool(self.matchers[fuzzy](path))
+        matchers = self.matchers_ignoring_case if ignorecase else self.matchers
+        return bool(matchers[fuzzy](path))
 
     def __repr__(self):
         return F'<PathPattern:{"".join(self.stops) or "RE"}>'
+
+
+class _Selectable(NamedTuple):
+    result: UnpackResult
+    names: tuple[str, ...]
+    ignorecase: bool
+
+
+def _caseless(name: str) -> str:
+    """
+    Folds the case of the given name at least as far as a case-insensitive regular expression does:
+    Two names that such an expression cannot tell apart get the same result.
+    """
+    return name.casefold().replace(chr(0x131), 'i').replace(chr(0x307), '')
 
 
 class PathExtractorUnit(Unit, abstract=True):
@@ -117,7 +176,10 @@ class PathExtractorUnit(Unit, abstract=True):
         emit data | ... | <this> [| dump extracted/{path} ]
 
     The value `{path}` is a placeholder which is substituted by the virtual path of the extracted
-    item. When using <this> to unpack a file on disk, the following pattern can be useful:
+    item. When several items have the same path, each of them gets a number appended to its path in
+    the order in which <this> lists them, and a pattern that matches the path before the number
+    selects all of them. When using <this> to unpack a file on disk, the following pattern can be
+    useful:
 
         ef pack.bin [| <this> -j | d2p ]
 
@@ -168,7 +230,7 @@ class PathExtractorUnit(Unit, abstract=True):
             help='Use regular expressions instead of wildcard patterns.')] = False,
         path: Param[buf, Arg('-P', metavar='NAME', help=(
             'Name of the meta variable to receive the extracted path. The default value is '
-            '"{default}".'))] = b'path',
+            '"{default}".'))] = MV.PATH.encode(),
         **keywords
     ):
         super().__init__(
@@ -210,15 +272,18 @@ class PathExtractorUnit(Unit, abstract=True):
             patterns.append(PathPattern(check_pattern(query), self.args.regex, exclude=True))
         return patterns
 
-    def _select(self, pattern: PathPattern, results: list[UnpackResult]) -> list[UnpackResult]:
+    def _select(self, pattern: PathPattern, candidates: list[_Selectable]) -> list[UnpackResult]:
         """
-        Returns the results whose path is matched by the given pattern. If the pattern matches
-        nothing and neither exact nor fuzzy matching is configured, its fuzziness is increased
-        until at least one result matches.
+        Returns the results that the given pattern matches by one of their names. If the pattern
+        matches nothing and neither exact nor fuzzy matching is configured, its fuzziness is
+        increased until at least one result matches.
         """
         matches = []
         for fuzzy in range(min(self.args.fuzzy, 2), 3):
-            matches = [r for r in results if pattern.check(r.path, fuzzy)]
+            matches = [
+                candidate.result for candidate in candidates
+                if any(pattern.check(name, fuzzy, candidate.ignorecase) for name in candidate.names)
+            ]
             if matches or self.args.exact or self.args.fuzzy:
                 break
         return matches
@@ -227,26 +292,80 @@ class PathExtractorUnit(Unit, abstract=True):
     def unpack(self, data: Chunk) -> Iterable[UnpackResult]:
         raise NotImplementedError
 
-    def process(self, data: Chunk) -> buf:
+    def _get_data(self, result: UnpackResult) -> buf:
+        try:
+            return result.get_data()
+        except RefineryPartialResult as error:
+            if not self.args.lenient:
+                raise
+            self.log_warn(F'extracting {result.path} despite an error: {error!s}')
+            result.data = data = error.partial
+            return data
+
+    def _data_unless_unreadable(self, result: UnpackResult) -> buf | None:
+        """
+        The data of the given result, or `None` if reading it fails; the failure is reported when
+        the result is extracted.
+        """
+        try:
+            return self._get_data(result)
+        except Exception:
+            return None
+
+    def _number_repeated_paths(self, results: list[UnpackResult]) -> dict[UnpackResult, str]:
+        """
+        Appends a number to the path of every result whose path repeats, as `number_repeated_names`
+        does. Returns the path that each numbered result had before.
+        """
+        paths = number_repeated_names([result.path for result in results], self._get_path_separator())
+        bases: dict[UnpackResult, str] = {}
+        for result, path in zip(results, paths):
+            if path == result.path:
+                continue
+            bases[result] = result.path
+            result.path = path
+            self.log_info(F'read chunk with duplicate path; deduplicating to {path}')
+        return bases
+
+    @staticmethod
+    def _selectable(
+        results: list[UnpackResult],
+        bases: dict[UnpackResult, str],
+    ) -> list[_Selectable]:
+        """
+        Pairs every result with the names by which a pattern selects it: its path and, for a
+        numbered result, its path before the number as given in `bases`. A pattern ignores case for
+        a result unless one of these names differs only by case from a name of a result that has
+        another path before the number.
+        """
+        owners: dict[str, set[str]] = collections.defaultdict(set)
+        for result in results:
+            base = bases.get(result, result.path)
+            owners[_caseless(result.path)].add(base)
+            owners[_caseless(base)].add(base)
+        ambiguous = {base for shared in owners.values() if len(shared) > 1 for base in shared}
+        selectable = []
+        for result in results:
+            if (base := bases.get(result)) is None:
+                names = (result.path,)
+                base = result.path
+            else:
+                names = (result.path, base)
+            selectable.append(_Selectable(result, names, base not in ambiguous))
+        return selectable
+
+    def _selection(self, data: Chunk, metavar: str) -> collections.deque[UnpackResult]:
+        """
+        Unpacks the input and returns the results that the path patterns select, in the order in
+        which they are extracted. A result appears once for every pattern that selects it.
+        """
         meta = metavars(data)
         results: list[UnpackResult] = list(self.unpack(data))
 
         patterns = self._patterns
 
-        metavar = self.args.path.decode(self.codec)
-        occurrences = collections.defaultdict(int)
-        checksums = collections.defaultdict(set)
         root = ''
         uuid = 0
-
-        def get_data(result: UnpackResult):
-            try:
-                data = result.get_data()
-            except RefineryPartialResult as error:
-                if not self.args.lenient:
-                    raise
-                result.data = data = error.partial
-            return data
 
         def _uuid():
             nonlocal uuid
@@ -269,9 +388,8 @@ class PathExtractorUnit(Unit, abstract=True):
                         break
                 else:
                     break
-                size = len(part)
-                j = max(k - size, 0)
-                del parts[j:k + 1]
+                parents = max(len(part) - 1, 0)
+                del parts[max(k - parents, 0):k + 1]
             path = pathsep.join(parts)
             return path
 
@@ -286,30 +404,16 @@ class PathExtractorUnit(Unit, abstract=True):
             if not path:
                 from refinery.lib.mime import FileMagicInfo
                 path = _uuid()
-                ext = FileMagicInfo(get_data(result)).extension
+                ext = 'bin'
+                if (content := self._data_unless_unreadable(result)) is not None:
+                    ext = FileMagicInfo(content).extension
                 if ext != 'bin':
                     path = F'{path}.{ext}'
                 self.log_warn(F'read chunk with empty path; using generated name {path}')
             result.path = path
-            occurrences[path] += 1
 
-        for result in results:
-            path = result.path
-            if occurrences[path] > 1:
-                checksum = adler32(get_data(result))
-                if checksum in checksums[path]:
-                    continue
-                checksums[path].add(checksum)
-                counter = len(checksums[path])
-                slash = self._get_path_separator()
-                if any(F'{result.path}{slash}{c}' in occurrences for c in range(occurrences[path])):
-                    counter = _uuid()
-                result.path = F'{result.path}{slash}{counter}'
-                self.log_info(F'read chunk with duplicate path; deduplicating to {result.path}')
-
-        if len({r.path.lower() for r in results}) == len(results):
-            for p in patterns:
-                p.compile(flags=re.IGNORECASE)
+        bases = self._number_repeated_paths(results)
+        candidates = self._selectable(results, bases)
 
         includes = [p for p in patterns if not p.exclude]
         excludes = [p for p in patterns if p.exclude]
@@ -317,29 +421,94 @@ class PathExtractorUnit(Unit, abstract=True):
         if excludes:
             discard = set()
             for x in excludes:
-                discard.update(self._select(x, results))
-            results = [r for r in results if r not in discard]
+                discard.update(self._select(x, candidates))
+            candidates = [c for c in candidates if c.result not in discard]
 
-        for p in includes:
-            for result in self._select(p, results):
-                path = result.path
-                if self.args.list:
-                    yield self.labelled(path.encode(self.codec), **result.meta)
-                    continue
-                if not self.args.drop:
-                    result.meta[metavar] = path
-                try:
-                    chunk = get_data(result)
-                except Exception as error:
-                    if self.log_debug():
-                        raise
-                    message = exception_to_string(error)
-                    if path not in message:
-                        message = F'extraction failure for {path}: {exception_to_string(error)}'
-                    self.log_warn(message)
-                else:
-                    self.log_debug(F'extraction success for {path}')
-                    yield self.labelled(chunk, **result.meta)
+        return collections.deque(result for p in includes for result in self._select(p, candidates))
+
+    def _extract(self, result: UnpackResult, release: bool) -> Chunk | None:
+        path = result.path
+        try:
+            data = self._get_data(result)
+        except Exception as error:
+            if self.log_debug():
+                raise
+            message = exception_to_string(error)
+            if path not in message:
+                message = F'extraction failure for {path}: {message}'
+            if isinstance(error, RefineryPartialResult):
+                message = F'{message} (use -L to extract it anyway)'
+            self.log_warn(message)
+            return None
+        self.log_debug(F'extraction success for {path}')
+        if release:
+            result.release()
+        return self.labelled(data, **result.meta)
+
+    def process(self, data: Chunk):
+        metavar = self.args.path.decode(self.codec)
+        selection = self._selection(data, metavar)
+        remaining = Counter(selection)
+        while selection:
+            result = selection.popleft()
+            last = remaining[result] == 1
+            if last:
+                del remaining[result]
+            else:
+                remaining[result] -= 1
+            path = result.path
+            if self.args.list:
+                yield self.labelled(path.encode(self.codec), **result.meta)
+                continue
+            if not self.args.drop:
+                result.meta[metavar] = path
+            yield from HandOver(self._extract(result, release=last))
+
+
+def read_parts(
+    unit: Unit,
+    data: buf,
+    extractor: type[PathExtractorUnit],
+    *names: str,
+) -> list[Chunk | None]:
+    """
+    Unpacks the given container once with the given extractor and returns, for each given name, the
+    first item that the extractor lists under this name, or `None` if there is none or it cannot be
+    read. A name that differs only by case or by backslashes in place of forward slashes is used
+    when no item has the exact name. No other item is read. The given unit warns when more than one
+    item has a name and reports why an item cannot be read.
+    """
+    def folded(name: str) -> str:
+        return name.replace('\\', '/').lower()
+    items = list(extractor().unpack(Chunk.Wrap(data)))
+    parts: list[Chunk | None] = []
+    for name in names:
+        if not (named := [item for item in items if item.path == name]):
+            named = [item for item in items if folded(item.path) == folded(name)]
+        if not named:
+            parts.append(None)
+            continue
+        if (count := len(named)) > 1:
+            unit.log_warn(F'the input has {count} items named {name}; reading the first one')
+        try:
+            parts.append(Chunk.Wrap(named[0].get_data()))
+        except Exception as error:
+            unit.log_info(F'failed to read {name}: {exception_to_string(error)}')
+            parts.append(None)
+    return parts
+
+
+def read_part(
+    unit: Unit,
+    data: buf,
+    extractor: type[PathExtractorUnit],
+    name: str,
+) -> Chunk | None:
+    """
+    The result of `read_parts` for a single name.
+    """
+    [part] = read_parts(unit, data, extractor, name)
+    return part
 
 
 class XMLToPathExtractorUnit(PathExtractorUnit, abstract=True):
@@ -352,7 +521,7 @@ class XMLToPathExtractorUnit(PathExtractorUnit, abstract=True):
             'tree to use for generating paths.'
         ))] = None,
         list=False, join_path=False, drop_path=False, fuzzy=0, exact=False, regex=False,
-        path=b'path', exclude=None, **keywords
+        path=MV.PATH.encode(), exclude=None, **keywords
     ):
         super().__init__(
             *paths,
@@ -383,6 +552,45 @@ class XMLToPathExtractorUnit(PathExtractorUnit, abstract=True):
         a = re.sub(r'[^\w]+', '_', a)
         return a
 
+    @staticmethod
+    def _rank_attribute(attribute: str):
+        length = len(attribute)
+        scount = length - len(re.sub(r'\s+', '', attribute))
+        return (1 / length, scount)
+
+    @classmethod
+    def _map_path_attributes(cls, node: XMLNodeBase, nmap: dict):
+        """
+        Maps the path of every node below the given one to the attribute that names it among its
+        siblings, or to `None` if there is no such attribute.
+        """
+        nval = cls._normalize_val
+        children = node.children
+        tags = set()
+        for child in children:
+            if (tag := child.tag) not in tags:
+                tags.add(tag)
+                continue
+            candidates = [
+                candidate for candidate, count in Counter(
+                    key for child in children for key, val in child.attributes.items()
+                    if len(val) in range(2, 65) and re.fullmatch(R'[-\s\w+,.;@()]+', nval(val))
+                ).items()
+                if count == len(children) == len(
+                    {child.attributes[candidate] for child in children})
+            ]
+            break
+        else:
+            candidates = None
+        if not candidates:
+            attr = None
+        else:
+            candidates.sort(key=cls._rank_attribute)
+            attr = candidates[0]
+        for child in children:
+            nmap[child.path] = attr
+            cls._map_path_attributes(child, nmap)
+
     def _make_path_builder(
         self,
         meta: LazyMetaOracle,
@@ -395,39 +603,7 @@ class XMLToPathExtractorUnit(PathExtractorUnit, abstract=True):
         nmap = {}
 
         if nfmt is None:
-            def rank_attribute(attribute: str):
-                length = len(attribute)
-                scount = length - len(re.sub(r'\s+', '', attribute))
-                return (1 / length, scount)
-
-            def walk(node: XMLNodeBase):
-                children = node.children
-                __tags = set()
-                for child in children:
-                    if (tag := child.tag) not in __tags:
-                        __tags.add(tag)
-                        continue
-                    candidates = [
-                        candidate for candidate, count in Counter(
-                            key for child in children for key, val in child.attributes.items()
-                            if len(val) in range(2, 65) and re.fullmatch(R'[-\s\w+,.;@()]+', nval(val))
-                        ).items()
-                        if count == len(children) == len(
-                            {child.attributes[candidate] for child in children})
-                    ]
-                    break
-                else:
-                    candidates = None
-                if not candidates:
-                    attr = None
-                else:
-                    candidates.sort(key=rank_attribute)
-                    attr = candidates[0]
-                for child in children:
-                    nmap[child.path] = attr
-                    walk(child)
-
-            walk(root)
+            self._map_path_attributes(root, nmap)
 
         def path_builder(node: XMLNodeBase) -> str:
             if node.tag is None:

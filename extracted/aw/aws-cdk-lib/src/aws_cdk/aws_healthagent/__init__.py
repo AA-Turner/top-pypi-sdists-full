@@ -183,6 +183,7 @@ class CfnDomain(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -265,7 +266,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dd1b1558229fe92b5444f9b0c8605d0604d32ce632fe2f210f79d91f46894fed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -281,7 +282,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1c650db4443cca1a9d3bb1a55984179f35f6a3fde7c531ce503f6c1db016a365)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_healthagent.CfnDomain.EncryptionContextProperty",

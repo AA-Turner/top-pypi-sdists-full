@@ -262,6 +262,25 @@ def _row(label: str, value: str) -> str:
     return f"  {label:<24} {value}"
 
 
+def _dropped_with_rows() -> list[str]:
+    """The packages added beside the CLI (`uv tool install --with`) that an
+    update had to leave out, and the exact command that adds them back
+    (`updater.dropped_with_command`). Nothing when there are none."""
+    try:
+        from probe.cli import updater
+
+        found = updater.dropped_with_command()
+    except Exception:  # noqa: BLE001 -- a diagnostic line, never a failed doctor
+        return []
+    if not found:
+        return []
+    missing, command = found
+    return [
+        _row("Left out", f"{', '.join(missing)} (would not install beside the last update)"),
+        _row("Add back", command),
+    ]
+
+
 #: How many floating runs one look counts before saying "N+".
 UNFILED_LIMIT = 200
 
@@ -731,6 +750,22 @@ def service_rows(view: dict) -> list[str]:
         + (f", {r['failures']} restart(s)" if r.get("failures") else ""),
     )
     listed("Hook hosts", view.get("hook_hosts") or [], lambda h: f"{h.get('root')} (pid {h.get('pid')})")
+    unreached = view.get("hints_unreached") or []
+    if unreached:
+        from probe.harness import registry
+
+        def agent(harness: object) -> str:
+            row = registry.get_registry().find(harness) if isinstance(harness, str) else None
+            return row.label if row is not None else "the agent"
+
+        # Its deliverer (a hook or extension) loaded before an update is dead or
+        # old: a new process loads the current one (`/reload` is not enough on pi).
+        listed(
+            "Hints not reaching",
+            unreached,
+            lambda u: f"{_short(u.get('sid'))} ({u.get('missed')} missed, quit {agent(u.get('harness'))} "
+            "and resume the session)",
+        )
     listed(
         "Runs in flight",
         view.get("runs") or [],
@@ -853,7 +888,9 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None, service: di
     lines.append(_row("Status", capture_status))
     if caps.capture_device_id:
         lines.append(_row("Paired device", caps.capture_device_id))
-    if caps.capture_killswitched:
+    if caps.capture_awaiting_confirmation:
+        lines.append(_row("Killswitch", "ON — waiting for Install to confirm capture (run `probe wizard`)"))
+    elif caps.capture_killswitched:
         lines.append(_row("Killswitch", "ON — capture is disabled locally"))
     # The last time this machine's probe CLI deliberately stopped the uploader.
     # A daemon found dead WITHOUT a matching stop here was killed by something
@@ -914,7 +951,11 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None, service: di
         lines.append("")
 
     lines.append("Auto-update")
-    lines.append(_row("Enabled", "yes" if caps.auto_update_enabled else "no"))
+    lines.append(_row(
+        "Enabled",
+        "yes (on by default for this install)" if caps.auto_update_by_default
+        else "yes" if caps.auto_update_enabled else "no",
+    ))
     lines.append(_row("Last attempt", caps.last_update_attempt or "never run on this device"))
     # A SEPARATE line, never folded into the one above. Once the run lock exists,
     # a box that has been training all week is deliberately not updating -- and
@@ -922,6 +963,7 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None, service: di
     # that died. This is the line that tells them apart.
     if caps.last_update_skip:
         lines.append(_row("Deferred", caps.last_update_skip))
+    lines.extend(_dropped_with_rows())
     if caps.live_runs:
         shown = ", ".join(caps.live_runs[:3])
         if len(caps.live_runs) > 3:
@@ -975,6 +1017,101 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None, service: di
             lines.append(f"  ! {warning}")
 
     return "\n".join(lines)
+
+
+def _device_problems(caps: Capabilities, recorder: str | None) -> list[str]:
+    """What the full report's device sections say is wrong (the daemon, the
+    outbox), for `summary`: the sections themselves stay in the report. Only
+    states that are a problem whenever they hold: the daemon's error log also
+    takes routine notes (a reinstall), and an outbox's last error can belong
+    to a queue already emptied, so both stay in the full report alone."""
+    from probe.sdk import session_marker
+
+    from probe.cli import setup as wizard
+
+    found: list[str] = []
+    if recorder == session_marker.RECORDER_DAEMON and not wizard.companion_token_held():
+        found.append("The Probe daemon has no key: press Enter on Who records to approve one.")
+    if recorder == session_marker.RECORDER_DAEMON and caps.daemon_ai_libraries == "missing":
+        found.append("The Probe daemon's AI libraries are missing: press Enter on Who records to install them.")
+    status = caps.outbox_status or {}
+    if status:
+        from ..sdk.journal import auth_blocked_since
+
+        if status.get("failed"):
+            found.append(f"Outbox: {status['failed']} write(s) dead-lettered (`probe outbox status`).")
+
+        if auth_blocked_since(status):
+            found.append(f"Outbox: blocked on its credential since {auth_blocked_since(status)} (`probe outbox status`).")
+        if status.get("paused"):
+            found.append("Outbox: paused (`probe outbox resume`).")
+        if (status.get("rescue") or {}).get("cannot_rescue"):
+            found.append("Outbox: writes stranded under a revoked credential (`probe outbox status`).")
+    return found
+
+
+def summary(caps_by_source: "dict[str, Capabilities]", *, recorder: str | None = None) -> list[str]:
+    """Diagnose's page in the wizard: the verdict, a line for the device and
+    one per coding agent, then the problems and what to do about each. The
+    full report (`render`, every section for every agent: ~300 lines for four
+    agents, most of it the device's own sections said four times) is what `c`
+    copies and `probe doctor` prints."""
+    from probe.cli import actions, codex_hooks
+    from probe.cli import setup as wizard
+
+    from probe.cli.capabilities import McpState
+
+    per_agent: dict[str, list[str]] = {}
+    for source, caps in caps_by_source.items():
+        found = [*caps.warnings, *actions.problems(caps)]
+        # Codex's own warning already says its MCP is not logged in.
+        if caps.mcp_state == McpState.LOGIN_NEEDED and not any("not logged in" in w for w in found):
+            found.append(f"MCP {caps.mcp_status()}")
+        per_agent[source] = list(dict.fromkeys(found))
+    # Each problem once, naming the agents that have it; one every agent has
+    # is the device's, and goes unnamed.
+    holders: dict[str, list[str]] = {}
+    for source, found in per_agent.items():
+        for w in found:
+            holders.setdefault(w, []).append(source)
+    problems = []
+    for w, sources in holders.items():
+        label = wizard.agent_label(sources)
+        if len(per_agent) > 1 and len(sources) == len(per_agent):
+            problems.append(w)
+        else:
+            problems.append(w if w.startswith(f"{label}:") else f"{label}: {w}")
+    if any(caps.codex_available for caps in caps_by_source.values()):
+        hooks = codex_hooks.status()
+        if hooks is not None and hooks.untrusted:
+            problems.append(
+                f"Codex: {len(hooks.untrusted)} of {hooks.total} Probe hooks are off until approved; "
+                "in Codex, type /hooks and approve the Probe Research hooks."
+            )
+        problems += [f"Codex warns: {warning[:200]}" for warning in (hooks.warnings if hooks else ())]
+    first = next(iter(caps_by_source.values()), None)
+    if first is not None:
+        problems += _device_problems(first, recorder)
+    count = len(problems)
+    verdict = "no problems found" if not count else f"{count} problem{'' if count == 1 else 's'}"
+    lines = [f"Probe Research doctor: {verdict}"]
+    if first is not None:
+        device = [first.logged_in_as or "not signed in", f"CLI {first.cli_version or 'not found'}"]
+        if recorder:
+            device.append(f"Who records: {recorder}")
+        lines.append(" · ".join(device))
+    if caps_by_source:
+        width = max(len(wizard.agent_label(source)) for source in caps_by_source)
+        lines.append("")
+        lines += [
+            f"  {wizard.agent_label(source):<{width}}   tracking {'on' if caps.tracking_on else 'off'}"
+            f" · capture {wizard._capture_word(caps)}"  # the menu's words: a sign-in's lock says what lifts it
+            for source, caps in caps_by_source.items()
+        ]
+    if problems:
+        lines += ["", "Problems:", *(f"  {problem}" for problem in problems)]
+    lines += ["", "c copies the full report; `probe doctor` prints it."]
+    return lines
 
 
 def stale_codex_token_warning() -> str | None:
@@ -1169,6 +1306,12 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
     selected_tap = capture_plugin_name(selected_agent)
     if plugins is None:
         plugins = installed_plugins(source=selected_agent, local=local)
+    try:
+        from probe.cli import integration_repair
+
+        unusable = integration_repair.unusable_plugins(selected_agent)
+    except Exception:  # noqa: BLE001 -- a check, never a failed snapshot
+        unusable = {}
     sources = capture_token_sources(selected_agent)
     # Resolved HERE, after the slowest local check above (the agent's own
     # plugin CLI), so that check ran while the request was in flight.
@@ -1296,14 +1439,19 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
         api_credential_valid=api_credential_valid,
         base_url=base_url,
         config_context=config_context,
-        tracking_plugin_installed=TRACK in plugins,
-        capture_plugin_installed=selected_tap in plugins,
+        # Installed means USABLE (plan clean-uninstall-reinstall R-T5): a record
+        # whose files are gone, a disabled plugin, a project-scope install or
+        # pi's filtered-out extension reads as not installed, so configure
+        # puts it right instead of saying "Nothing to change".
+        tracking_plugin_installed=TRACK in plugins and TRACK not in unusable,
+        capture_plugin_installed=selected_tap in plugins and selected_tap not in unusable,
         legacy_capture_plugin_installed=LEGACY_CODEX_TAP_PLUGIN_ID in plugins,
         plugins_verified=plugins.verified,
         plugins_error=plugins.error,
         capture_token_sources=sources,
         capture_credential_valid=credential_valid,
         capture_killswitched=(tap_plugin_dir(selected_agent) / ".disabled").exists(),
+        capture_awaiting_confirmation=_capture_awaiting_confirmation(selected_agent),
         capture_python_missing=python_missing,
         capture_device_id=capture_device_id(selected_agent),
         capture_last_stop=_capture_last_stop(),
@@ -1314,6 +1462,7 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
         agent_rules_installed=rules_installed,
         agent_rules_stale=rules_stale,
         auto_update_enabled=settings_autoupdate.enabled,
+        auto_update_by_default=settings_autoupdate.by_default,
         last_update_attempt=(
             _attempt_as_it_stands(
                 settings_autoupdate.last_attempt, _probe_plugin_of(selected_agent, TRACK in plugins)
@@ -1389,6 +1538,15 @@ def _daemon_ai_libraries() -> str | None:
         return located_ai_libraries() or "missing"
     except Exception:  # noqa: BLE001 - a diagnostic must never crash
         return None
+
+
+def _capture_awaiting_confirmation(source: str) -> bool:
+    try:
+        from probe.cli import capture
+
+        return capture.awaiting_confirmation(source)
+    except Exception:  # noqa: BLE001 - a diagnostic must never crash
+        return False
 
 
 def _capture_last_stop() -> str | None:

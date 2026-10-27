@@ -47,6 +47,20 @@ class TestDashboardsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_organization_consumption_dashboard(self) -> None:
+        """Test case for get_organization_consumption_dashboard
+
+        Get The Organization Consumption Dashboard
+        """
+        pass
+
+    def test_get_organization_consumption_dashboard_upsolve_token(self) -> None:
+        """Test case for get_organization_consumption_dashboard_upsolve_token
+
+        Get Upsolve Jwt For The Organization Consumption Dashboard
+        """
+        pass
+
     def test_update_dashboard(self) -> None:
         """Test case for update_dashboard
 

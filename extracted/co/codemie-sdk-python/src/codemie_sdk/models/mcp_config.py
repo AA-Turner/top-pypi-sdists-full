@@ -24,6 +24,16 @@ class MCPServerConfigData(BaseModel):
     allow_issuer_prefix_match: bool = False
 
 
+class MCPVariableDefinition(BaseModel):
+    """Definition of an environment variable required by an MCP server."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str
+    description: str
+    required: bool = True
+
+
 class MCPConfigCreateRequest(BaseModel):
     """Request model for creating a global MCP configuration entry."""
 
@@ -39,6 +49,42 @@ class MCPConfigCreateRequest(BaseModel):
     is_public: bool = False
 
 
+class MCPConfigCloneRequest(BaseModel):
+    """Request model for cloning a global MCP configuration from a submitted form payload.
+
+    ``is_public`` and ``is_system`` are not part of the request: the clone always
+    inherits them from the source configuration.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+    server_home_url: str | None = None
+    source_url: str | None = None
+    logo_url: str | None = None
+    categories: list[str] = Field(default_factory=list)
+    config: MCPServerConfigData
+    required_env_vars: list[MCPVariableDefinition] = Field(default_factory=list)
+
+
+class MCPConfigUpdateRequest(BaseModel):
+    """Request model for updating a global MCP configuration; only provided fields are sent."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    server_home_url: str | None = None
+    source_url: str | None = None
+    logo_url: str | None = None
+    categories: list[str] | None = None
+    config: MCPServerConfigData | None = None
+    required_env_vars: list[MCPVariableDefinition] | None = None
+    is_public: bool | None = None
+    is_active: bool | None = None
+
+
 class MCPConfigResponse(BaseModel):
     """Response model for a global MCP configuration entry."""
 
@@ -52,6 +98,7 @@ class MCPConfigResponse(BaseModel):
     logo_url: str | None = None
     categories: list[str] = Field(default_factory=list)
     config: MCPServerConfigData | None = None
+    required_env_vars: list[MCPVariableDefinition] = Field(default_factory=list)
     user_id: str | None = None
     is_public: bool = False
     is_system: bool = False
@@ -66,7 +113,7 @@ class MCPConfigListResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    data: list[MCPConfigResponse] = Field(default_factory=list)
+    configs: list[MCPConfigResponse] = Field(default_factory=list)
     total: int = 0
     page: int = 0
     per_page: int = 20

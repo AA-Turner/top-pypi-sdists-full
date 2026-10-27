@@ -13,6 +13,7 @@ Usage::
     from mypy_boto3_mediaconnect.client import MediaConnectClient
     from mypy_boto3_mediaconnect.paginator import (
         ListBridgesPaginator,
+        ListDestinationEndpointsPaginator,
         ListEntitlementsPaginator,
         ListFlowsPaginator,
         ListGatewayInstancesPaginator,
@@ -22,12 +23,14 @@ Usage::
         ListRouterInputsPaginator,
         ListRouterNetworkInterfacesPaginator,
         ListRouterOutputsPaginator,
+        ListSourceEndpointsPaginator,
     )
 
     session = Session()
     client: MediaConnectClient = session.client("mediaconnect")
 
     list_bridges_paginator: ListBridgesPaginator = client.get_paginator("list_bridges")
+    list_destination_endpoints_paginator: ListDestinationEndpointsPaginator = client.get_paginator("list_destination_endpoints")
     list_entitlements_paginator: ListEntitlementsPaginator = client.get_paginator("list_entitlements")
     list_flows_paginator: ListFlowsPaginator = client.get_paginator("list_flows")
     list_gateway_instances_paginator: ListGatewayInstancesPaginator = client.get_paginator("list_gateway_instances")
@@ -37,6 +40,7 @@ Usage::
     list_router_inputs_paginator: ListRouterInputsPaginator = client.get_paginator("list_router_inputs")
     list_router_network_interfaces_paginator: ListRouterNetworkInterfacesPaginator = client.get_paginator("list_router_network_interfaces")
     list_router_outputs_paginator: ListRouterOutputsPaginator = client.get_paginator("list_router_outputs")
+    list_source_endpoints_paginator: ListSourceEndpointsPaginator = client.get_paginator("list_source_endpoints")
     ```
 """
 
@@ -50,6 +54,8 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     ListBridgesRequestPaginateTypeDef,
     ListBridgesResponseTypeDef,
+    ListDestinationEndpointsRequestPaginateTypeDef,
+    ListDestinationEndpointsResponseTypeDef,
     ListEntitlementsRequestPaginateTypeDef,
     ListEntitlementsResponseTypeDef,
     ListFlowsRequestPaginateTypeDef,
@@ -68,6 +74,8 @@ from .type_defs import (
     ListRouterNetworkInterfacesResponseTypeDef,
     ListRouterOutputsRequestPaginateTypeDef,
     ListRouterOutputsResponseTypeDef,
+    ListSourceEndpointsRequestPaginateTypeDef,
+    ListSourceEndpointsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -77,6 +85,7 @@ else:
 
 __all__ = (
     "ListBridgesPaginator",
+    "ListDestinationEndpointsPaginator",
     "ListEntitlementsPaginator",
     "ListFlowsPaginator",
     "ListGatewayInstancesPaginator",
@@ -86,6 +95,7 @@ __all__ = (
     "ListRouterInputsPaginator",
     "ListRouterNetworkInterfacesPaginator",
     "ListRouterOutputsPaginator",
+    "ListSourceEndpointsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -104,6 +114,24 @@ class ListBridgesPaginator(_ListBridgesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListBridges.html#MediaConnect.Paginator.ListBridges.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/paginators/#listbridgespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDestinationEndpointsPaginatorBase = Paginator[ListDestinationEndpointsResponseTypeDef]
+else:
+    _ListDestinationEndpointsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDestinationEndpointsPaginator(_ListDestinationEndpointsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListDestinationEndpoints.html#MediaConnect.Paginator.ListDestinationEndpoints)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/paginators/#listdestinationendpointspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDestinationEndpointsRequestPaginateTypeDef]
+    ) -> PageIterator[ListDestinationEndpointsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListDestinationEndpoints.html#MediaConnect.Paginator.ListDestinationEndpoints.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/paginators/#listdestinationendpointspaginator)
         """
 
 if TYPE_CHECKING:
@@ -268,4 +296,22 @@ class ListRouterOutputsPaginator(_ListRouterOutputsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListRouterOutputs.html#MediaConnect.Paginator.ListRouterOutputs.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/paginators/#listrouteroutputspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListSourceEndpointsPaginatorBase = Paginator[ListSourceEndpointsResponseTypeDef]
+else:
+    _ListSourceEndpointsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListSourceEndpointsPaginator(_ListSourceEndpointsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListSourceEndpoints.html#MediaConnect.Paginator.ListSourceEndpoints)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/paginators/#listsourceendpointspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSourceEndpointsRequestPaginateTypeDef]
+    ) -> PageIterator[ListSourceEndpointsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/paginator/ListSourceEndpoints.html#MediaConnect.Paginator.ListSourceEndpoints.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediaconnect/paginators/#listsourceendpointspaginator)
         """

@@ -342,6 +342,104 @@ class ApprovalPolicyReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.AssignmentReference",
+    jsii_struct_bases=[],
+    name_mapping={"assignment_arn": "assignmentArn"},
+)
+class AssignmentReference:
+    def __init__(self, *, assignment_arn: builtins.str) -> None:
+        '''A reference to a Assignment resource.
+
+        :param assignment_arn: The Arn of the Assignment resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            assignment_reference = interfaces_quicksight.AssignmentReference(
+                assignment_arn="assignmentArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__68c4aac0dba01ee51e5f1b3088b875a5b8c047b6e5092f52e7d52e5493217c84)
+            check_type(argname="argument assignment_arn", value=assignment_arn, expected_type=type_hints["assignment_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "assignment_arn": assignment_arn,
+        }
+
+    @builtins.property
+    def assignment_arn(self) -> builtins.str:
+        '''The Arn of the Assignment resource.'''
+        result = self._values.get("assignment_arn")
+        assert result is not None, "Required property 'assignment_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AssignmentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.BrandReference",
+    jsii_struct_bases=[],
+    name_mapping={"brand_arn": "brandArn"},
+)
+class BrandReference:
+    def __init__(self, *, brand_arn: builtins.str) -> None:
+        '''A reference to a Brand resource.
+
+        :param brand_arn: The Arn of the Brand resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            brand_reference = interfaces_quicksight.BrandReference(
+                brand_arn="brandArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__75b8f913001a1bb6e1bf61a381a6c8fb7a8816ed11156f25e3cc591887433def)
+            check_type(argname="argument brand_arn", value=brand_arn, expected_type=type_hints["brand_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "brand_arn": brand_arn,
+        }
+
+    @builtins.property
+    def brand_arn(self) -> builtins.str:
+        '''The Arn of the Brand resource.'''
+        result = self._values.get("brand_arn")
+        assert result is not None, "Required property 'brand_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BrandReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_quicksight.CustomPermissionsReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -925,6 +1023,55 @@ class FolderReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_quicksight.GroupReference",
+    jsii_struct_bases=[],
+    name_mapping={"group_arn": "groupArn"},
+)
+class GroupReference:
+    def __init__(self, *, group_arn: builtins.str) -> None:
+        '''A reference to a Group resource.
+
+        :param group_arn: The Arn of the Group resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_quicksight as interfaces_quicksight
+            
+            group_reference = interfaces_quicksight.GroupReference(
+                group_arn="groupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__516caa6631900b1d06c8a1e2701d65463d1cf18debd77a07c79906c3cdb9441d)
+            check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "group_arn": group_arn,
+        }
+
+    @builtins.property
+    def group_arn(self) -> builtins.str:
+        '''The Arn of the Group resource.'''
+        result = self._values.get("group_arn")
+        assert result is not None, "Required property 'group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GroupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IActionConnectorRef")
 class IActionConnectorRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1103,6 +1250,96 @@ class _IApprovalPolicyRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IApprovalPolicyRef).__jsii_proxy_class__ = lambda : _IApprovalPolicyRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IAssignmentRef")
+class IAssignmentRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Assignment.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="assignmentRef")
+    def assignment_ref(self) -> "AssignmentReference":
+        '''(experimental) A reference to a Assignment resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAssignmentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Assignment.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IAssignmentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="assignmentRef")
+    def assignment_ref(self) -> "AssignmentReference":
+        '''(experimental) A reference to a Assignment resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AssignmentReference", jsii.get(self, "assignmentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAssignmentRef).__jsii_proxy_class__ = lambda : _IAssignmentRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IBrandRef")
+class IBrandRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Brand.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="brandRef")
+    def brand_ref(self) -> "BrandReference":
+        '''(experimental) A reference to a Brand resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IBrandRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Brand.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IBrandRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="brandRef")
+    def brand_ref(self) -> "BrandReference":
+        '''(experimental) A reference to a Brand resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("BrandReference", jsii.get(self, "brandRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IBrandRef).__jsii_proxy_class__ = lambda : _IBrandRefProxy
 
 
 @jsii.interface(
@@ -1465,6 +1702,51 @@ class _IFolderRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IFolderRef).__jsii_proxy_class__ = lambda : _IFolderRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IGroupRef")
+class IGroupRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Group.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> "GroupReference":
+        '''(experimental) A reference to a Group resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IGroupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Group.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_quicksight.IGroupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> "GroupReference":
+        '''(experimental) A reference to a Group resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("GroupReference", jsii.get(self, "groupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IGroupRef).__jsii_proxy_class__ = lambda : _IGroupRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_quicksight.IKnowledgeBaseRef")
@@ -2715,6 +2997,8 @@ __all__ = [
     "AgentReference",
     "AnalysisReference",
     "ApprovalPolicyReference",
+    "AssignmentReference",
+    "BrandReference",
     "CustomPermissionsReference",
     "CustomizationReference",
     "DLPSettingReference",
@@ -2723,10 +3007,13 @@ __all__ = [
     "DataSourceReference",
     "FlowReference",
     "FolderReference",
+    "GroupReference",
     "IActionConnectorRef",
     "IAgentRef",
     "IAnalysisRef",
     "IApprovalPolicyRef",
+    "IAssignmentRef",
+    "IBrandRef",
     "ICustomPermissionsRef",
     "ICustomizationRef",
     "IDLPSettingRef",
@@ -2735,6 +3022,7 @@ __all__ = [
     "IDataSourceRef",
     "IFlowRef",
     "IFolderRef",
+    "IGroupRef",
     "IKnowledgeBaseRef",
     "ILimitsProfileRef",
     "IOAuthClientApplicationRef",
@@ -2790,6 +3078,20 @@ def _typecheckingstub__8878a7f31995e6d02338f2326e2f0bb99ed5c1a6419c6f06a22e33137
     *,
     policy_arn: builtins.str,
     policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68c4aac0dba01ee51e5f1b3088b875a5b8c047b6e5092f52e7d52e5493217c84(
+    *,
+    assignment_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75b8f913001a1bb6e1bf61a381a6c8fb7a8816ed11156f25e3cc591887433def(
+    *,
+    brand_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2858,6 +3160,13 @@ def _typecheckingstub__68d11833d18be618b7ec87af3be2a77728a162bc466dd4aaa5584c1b4
     aws_account_id: builtins.str,
     folder_arn: builtins.str,
     folder_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__516caa6631900b1d06c8a1e2701d65463d1cf18debd77a07c79906c3cdb9441d(
+    *,
+    group_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2951,5 +3260,5 @@ def _typecheckingstub__8a94c806f9f5d8f329e5fe8025b2cd7112ef5f8d032fce0a9cf2e9f64
     """Type checking stubs"""
     pass
 
-for cls in [IActionConnectorRef, IAgentRef, IAnalysisRef, IApprovalPolicyRef, ICustomPermissionsRef, ICustomizationRef, IDLPSettingRef, IDashboardRef, IDataSetRef, IDataSourceRef, IFlowRef, IFolderRef, IKnowledgeBaseRef, ILimitsProfileRef, IOAuthClientApplicationRef, IRefreshScheduleRef, ISpaceRef, ITemplateRef, IThemeRef, ITopicRef, ITopicV2Ref, IVPCConnectionRef]:
+for cls in [IActionConnectorRef, IAgentRef, IAnalysisRef, IApprovalPolicyRef, IAssignmentRef, IBrandRef, ICustomPermissionsRef, ICustomizationRef, IDLPSettingRef, IDashboardRef, IDataSetRef, IDataSourceRef, IFlowRef, IFolderRef, IGroupRef, IKnowledgeBaseRef, ILimitsProfileRef, IOAuthClientApplicationRef, IRefreshScheduleRef, ISpaceRef, ITemplateRef, IThemeRef, ITopicRef, ITopicV2Ref, IVPCConnectionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

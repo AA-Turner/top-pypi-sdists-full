@@ -293,6 +293,20 @@ def _set_killswitch() -> bool:
 AWAITING_CONFIRMATION = "Awaiting confirmation in the Probe install wizard.\n"
 
 
+def awaiting_confirmation(source: str | None = None) -> bool:
+    """`.disabled` is a sign-in's pending lock, not a deliberate off.
+
+    Both read as "killswitch set" to the tap, which is right: neither may ship.
+    The wizard has to tell them apart, because only one of them is something
+    the person is still in the middle of: a sign-in on a machine whose plugins
+    are already installed leaves the lock, the person picks Update rather than
+    Install, and nothing said that Install was what would lift it."""
+    try:
+        return (tap_plugin_dir(source) / ".disabled").read_text(encoding="utf-8") == AWAITING_CONFIRMATION
+    except (OSError, ValueError):
+        return False
+
+
 def clear_stray_pi_killswitch() -> bool:
     """Remove pi's leftover sign-in marker, and only that (decision D4, narrowed).
 

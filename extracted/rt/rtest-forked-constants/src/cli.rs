@@ -1,6 +1,8 @@
+use crate::scheduler::DistributionMode;
 use clap::{Parser, ValueEnum};
-use std::path::PathBuf;
-use std::str::FromStr;
+#[cfg(feature = "extension-module")]
+use std::io::{self, Write};
+use std::num::NonZeroUsize;
 
 /// Exit codes for the CLI.
 /// These follow standard conventions and match pytest's exit codes where applicable.
@@ -23,33 +25,6 @@ pub enum Runner {
     Pytest,
 }
 
-/// Where to emit machine-readable cannot-expand records.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum CannotExpandReport {
-    /// Print `rtest-cannot-expand:` lines on stdout (default).
-    #[default]
-    Stdout,
-    /// Print `rtest-cannot-expand:` lines on stderr.
-    Stderr,
-    /// Do not emit machine-readable records (human warnings still print).
-    None,
-    /// Write records to this path, one `rtest-cannot-expand: <nodeid>` line per test.
-    File(PathBuf),
-}
-
-impl FromStr for CannotExpandReport {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "stdout" | "-" => Self::Stdout,
-            "stderr" => Self::Stderr,
-            "none" | "off" => Self::None,
-            other => Self::File(PathBuf::from(other)),
-        })
-    }
-}
-
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
@@ -57,29 +32,29 @@ pub struct Args {
     #[arg(long, short)]
     pub env: Vec<String>,
 
-    /// Number of processes to run tests in parallel
+    /// Worker count: a positive integer, auto, or logical
     #[arg(long, short = 'n', alias = "numprocesses")]
-    pub numprocesses: Option<String>,
+    pub numprocesses: Option<NumProcesses>,
 
-    /// Maximum number of worker processes
+    /// Maximum number of worker processes (must be positive)
     #[arg(long)]
-    pub maxprocesses: Option<usize>,
+    pub maxprocesses: Option<NonZeroUsize>,
 
     /// Distribution mode for parallel execution
     #[arg(long, default_value = "load")]
-    pub dist: String,
+    pub dist: DistributionMode,
 
     /// Collect tests only, don't run them
     #[arg(long)]
     pub collect_only: bool,
 
-    /// Where to write machine-readable cannot-expand records (pytest-incompatible cases).
-    ///
-    /// `stdout` (default) prints `rtest-cannot-expand: <nodeid>` after collection warnings.
-    /// `stderr` writes the same lines to stderr. A file path writes those lines to the file
-    /// and leaves collect-only stdout unchanged. `none` omits the records (warnings remain).
-    #[arg(long, default_value = "stdout", value_name = "DEST")]
-    pub cannot_expand_report: CannotExpandReport,
+    /// Where to write pytest fallback nodeids: stdout, stderr, none, or a file path
+    #[arg(long, default_value = "stdout")]
+    pub cannot_expand_report: String,
+
+    /// Pytest version whose duplicate parametrize IDs to reproduce (default: installed pytest)
+    #[arg(long, value_name = "VERSION")]
+    pub pytest_version: Option<String>,
 
     /// Test runner backend
     #[arg(long, value_enum, default_value = "pytest")]
@@ -90,33 +65,38 @@ pub struct Args {
     pub files: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
+#[cfg(feature = "extension-module")]
+impl Args {
+    /// Open before collection so a failed/empty run cannot leave a stale report.
+    pub(crate) fn report_writer(&self) -> io::Result<Box<dyn Write>> {
+        match self.cannot_expand_report.as_str() {
+            "stdout" => Ok(Box::new(io::stdout())),
+            "stderr" => Ok(Box::new(io::stderr())),
+            "none" => Ok(Box::new(io::sink())),
+            path => Ok(Box::new(std::fs::File::create(path)?)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NumProcesses {
     Auto,
     Logical,
-    Count(usize),
+    Count(NonZeroUsize),
 }
 
-impl Args {
-    pub fn get_num_processes(&self) -> Result<Option<NumProcesses>, String> {
-        match &self.numprocesses {
-            None => Ok(None),
-            Some(s) => match s.as_str() {
-                "auto" => Ok(Some(NumProcesses::Auto)),
-                "logical" => Ok(Some(NumProcesses::Logical)),
-                _ => match s.parse::<usize>() {
-                    Ok(n) => Ok(Some(NumProcesses::Count(n))),
-                    Err(_) => Err(format!("Invalid number: {s}")),
-                },
-            },
-        }
-    }
+impl std::str::FromStr for NumProcesses {
+    type Err = String;
 
-    pub fn validate_dist(&self) -> Result<(), String> {
-        // Use the FromStr implementation which has proper error handling
-        match self.dist.parse::<crate::scheduler::DistributionMode>() {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.to_string()),
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "auto" => Ok(Self::Auto),
+            "logical" => Ok(Self::Logical),
+            _ => value.parse().map(Self::Count).map_err(|_| {
+                format!(
+                    "Invalid worker count: {value}; expected a positive integer, auto, or logical"
+                )
+            }),
         }
     }
 }
@@ -124,7 +104,6 @@ impl Args {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::CommandFactory;
 
     #[test]
     fn test_cli_parsing_defaults() {
@@ -133,14 +112,10 @@ mod tests {
         assert!(args.env.is_empty());
         assert!(args.numprocesses.is_none());
         assert!(args.maxprocesses.is_none());
-        assert_eq!(args.dist, "load");
+        assert_eq!(args.dist, DistributionMode::Load);
         assert!(!args.collect_only);
         assert!(args.files.is_empty());
         assert!(matches!(args.runner, Runner::Pytest));
-        assert!(matches!(
-            args.cannot_expand_report,
-            CannotExpandReport::Stdout
-        ));
     }
 
     #[test]
@@ -151,136 +126,54 @@ mod tests {
     }
 
     #[test]
-    fn test_cli_parsing_all_options() {
-        let args = Args::parse_from(["rtest", "--env", "DEBUG=1", "--env", "ENV=test"]);
-
-        assert_eq!(args.env, vec!["DEBUG=1", "ENV=test"]);
-    }
-
-    #[test]
-    fn test_cli_help_generation() {
-        let mut cmd = Args::command();
-        let help = cmd.render_help();
-
-        assert!(help.to_string().contains("env"));
-    }
-
-    #[test]
     fn test_cli_parsing_with_numprocesses() {
         let args = Args::parse_from(["rtest", "-n", "4"]);
-        assert_eq!(args.numprocesses, Some("4".into()));
+        assert_eq!(
+            args.numprocesses,
+            Some(NumProcesses::Count(NonZeroUsize::new(4).expect("positive")))
+        );
 
         let args = Args::parse_from(["rtest", "--numprocesses", "auto"]);
-        assert_eq!(args.numprocesses, Some("auto".into()));
+        assert_eq!(args.numprocesses, Some(NumProcesses::Auto));
+
+        let args = Args::parse_from(["rtest", "-n", "logical"]);
+        assert_eq!(args.numprocesses, Some(NumProcesses::Logical));
     }
 
     #[test]
     fn test_cli_parsing_with_maxprocesses() {
         let args = Args::parse_from(["rtest", "--maxprocesses", "8"]);
-        assert_eq!(args.maxprocesses, Some(8));
+        assert_eq!(args.maxprocesses.map(NonZeroUsize::get), Some(8));
     }
 
     #[test]
     fn test_cli_parsing_with_dist() {
-        let args = Args::parse_from(["rtest", "--dist", "load"]);
-        assert_eq!(args.dist, "load");
-    }
-
-    #[test]
-    fn test_get_num_processes() {
-        let args = Args::parse_from(["rtest", "-n", "auto"]);
-        assert!(matches!(
-            args.get_num_processes(),
-            Ok(Some(NumProcesses::Auto))
-        ));
-
-        let args = Args::parse_from(["rtest", "-n", "logical"]);
-        assert!(matches!(
-            args.get_num_processes(),
-            Ok(Some(NumProcesses::Logical))
-        ));
-
-        let args = Args::parse_from(["rtest", "-n", "4"]);
-        assert!(matches!(
-            args.get_num_processes(),
-            Ok(Some(NumProcesses::Count(4)))
-        ));
-
-        let args = Args::parse_from(["rtest"]);
-        assert!(matches!(args.get_num_processes(), Ok(None)));
-
-        let args = Args::parse_from(["rtest", "-n", "invalid"]);
-        assert!(args.get_num_processes().is_err());
-    }
-
-    #[test]
-    fn test_validate_dist() {
-        let args = Args::parse_from(["rtest", "--dist", "load"]);
-        assert!(args.validate_dist().is_ok());
-
         let args = Args::parse_from(["rtest", "--dist", "loadscope"]);
-        assert!(args.validate_dist().is_ok());
+        assert_eq!(args.dist, DistributionMode::LoadScope);
+    }
 
-        let args = Args::parse_from(["rtest", "--dist", "loadfile"]);
-        assert!(args.validate_dist().is_ok());
-
-        let args = Args::parse_from(["rtest", "--dist", "worksteal"]);
-        assert!(args.validate_dist().is_ok());
-
-        let args = Args::parse_from(["rtest", "--dist", "no"]);
-        assert!(args.validate_dist().is_ok());
-
-        let args = Args::parse_from(["rtest", "--dist", "invalid"]);
-        assert!(args.validate_dist().is_err());
-
-        let args = Args::parse_from(["rtest", "--dist", "loadgroup"]);
-        assert!(args.validate_dist().is_err()); // No longer supported
+    #[test]
+    fn test_invalid_cli_configuration_rejected_at_parse_boundary() {
+        for arguments in [
+            ["rtest", "-n", "0"],
+            ["rtest", "-n", "invalid"],
+            ["rtest", "--maxprocesses", "0"],
+            ["rtest", "--dist", "invalid"],
+            ["rtest", "--dist", "loadgroup"],
+        ] {
+            assert!(Args::try_parse_from(arguments).is_err());
+        }
     }
 
     #[test]
     fn test_cli_parsing_with_collect_only() {
         let args = Args::parse_from(["rtest", "--collect-only"]);
         assert!(args.collect_only);
-
-        let args = Args::parse_from(["rtest"]);
-        assert!(!args.collect_only);
     }
 
     #[test]
     fn test_cli_parsing_with_runner() {
         let args = Args::parse_from(["rtest", "--runner", "native"]);
         assert!(matches!(args.runner, Runner::Native));
-
-        let args = Args::parse_from(["rtest", "--runner", "pytest"]);
-        assert!(matches!(args.runner, Runner::Pytest));
-    }
-
-    #[test]
-    fn test_cli_parsing_cannot_expand_report() {
-        let args = Args::parse_from(["rtest"]);
-        assert!(matches!(
-            args.cannot_expand_report,
-            CannotExpandReport::Stdout
-        ));
-
-        let args = Args::parse_from(["rtest", "--cannot-expand-report", "stderr"]);
-        assert!(matches!(
-            args.cannot_expand_report,
-            CannotExpandReport::Stderr
-        ));
-
-        let args = Args::parse_from(["rtest", "--cannot-expand-report", "none"]);
-        assert!(matches!(
-            args.cannot_expand_report,
-            CannotExpandReport::None
-        ));
-
-        let args = Args::parse_from(["rtest", "--cannot-expand-report", "report.txt"]);
-        match args.cannot_expand_report {
-            CannotExpandReport::File(path) => {
-                assert_eq!(path, PathBuf::from("report.txt"));
-            }
-            other => panic!("expected File, got {other:?}"),
-        }
     }
 }

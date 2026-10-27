@@ -1,26 +1,36 @@
-import operator
-from functools import reduce
+import warnings
 
 from django import forms
 from django.forms.utils import flatatt
 from django.utils.html import format_html, mark_safe
 
 from js_asset._compat import MediaAsset, Script, Stylesheet
-from js_asset.js import CSS, JS, JSON, ImportMap
+from js_asset.js import ImportMap, RemovedInDjangoJsAsset60Warning
 
 
 __all__ = ["Media"]
+
+
+def _merge(first, second):
+    if first is None:
+        return second
+    if second is None:
+        return first
+    return first | second
+
+
+def _has_nonce(nonce):
+    # Not a truth test, see ``Media._resolve_nonce``.
+    return nonce is not None and (type(nonce) is not str or nonce != "")
 
 
 class Media(forms.Media):
     """
     A ``forms.Media`` subclass with two extra abilities:
 
-    * It merges all :class:`~js_asset.js.ImportMap` objects found in its assets
-      into a single ``<script type="importmap">`` tag, rendered before any
-      other script. This avoids the need for a global importmap which is always
-      the same regardless of the assets actually required by the current code
-      path.
+    * It holds an import map (``importmap=``) and merges the import maps of
+      media added together. The result is a single ``<script type="importmap">``
+      tag, rendered before any other script.
     * It applies a (request-scoped) CSP ``nonce`` to the rendered tags.
 
     Because it implements both ``__add__`` and ``__radd__`` it preserves its
@@ -30,16 +40,18 @@ class Media(forms.Media):
     it ended up on the right-hand side of an addition.
     """
 
-    def __init__(self, media=None, *, nonce="", css=None, js=None):
+    def __init__(self, media=None, *, nonce="", css=None, js=None, importmap=None):
         self.nonce = nonce
         super().__init__(media=media, css=css, js=js)
+        if media is not None:
+            importmap = getattr(media, "importmap", None)
+        self._importmap = importmap
 
     # -- Normalization ----------------------------------------------------
 
-    # ``forms.Media.__init__`` calls these through ``self``, so a subclass can
-    # override them. They only exist -- and are only reached -- on Django >=
-    # 6.1; older versions keep js/css entries as given and ``_render_{js,css}``
-    # wraps them at render time instead.
+    # ``forms.Media.__init__`` calls these through ``self`` on Django >= 6.1,
+    # so a subclass can override them. Older versions keep js/css entries as
+    # given, so ``render_{js,css}`` call them too.
     #
     # Django 6.1 normalizes with ``isinstance(path, str)``, which swallows
     # html-safe strings: a ``SafeString`` such as
@@ -70,17 +82,19 @@ class Media(forms.Media):
         }
 
     @classmethod
-    def from_media(cls, media, *, nonce=""):
+    def from_media(cls, media, *, nonce=None):
         """
         Wrap an existing ``forms.Media`` instance (e.g. ``form.media``), keeping
-        its assets and optionally attaching a nonce.
+        its assets, import map and nonce. Pass ``nonce`` to replace the nonce.
 
         Useful when you cannot control how the media was created -- note that
         ``Media(form.media)`` does *not* work, because ``forms.Media`` copies
         assets from a media *definition* (with ``css``/``js`` attributes), not
         from a media *instance*.
         """
-        clone = cls(nonce=nonce)
+        if nonce is None:
+            nonce = getattr(media, "nonce", "")
+        clone = cls(nonce=nonce, importmap=getattr(media, "_importmap", None))
         clone._css_lists = media._css_lists[:]
         clone._js_lists = media._js_lists[:]
         return clone
@@ -92,17 +106,16 @@ class Media(forms.Media):
     # -- Addition ---------------------------------------------------------
 
     def _combine(self, first, second):
-        combined = Media(
-            nonce=getattr(first, "nonce", "") or getattr(second, "nonce", "")
+        nonce = getattr(first, "nonce", "")
+        if not _has_nonce(nonce):
+            nonce = getattr(second, "nonce", "")
+        # Django's ``__add__`` combines the asset lists, but returns a plain
+        # ``forms.Media``.
+        combined = self.from_media(forms.Media.__add__(first, second), nonce=nonce)
+        # Import maps are merged right away, so the media added later wins.
+        combined._importmap = _merge(
+            getattr(first, "_importmap", None), getattr(second, "_importmap", None)
         )
-        combined._css_lists = first._css_lists[:]
-        combined._js_lists = first._js_lists[:]
-        for item in second._css_lists:
-            if item and item not in combined._css_lists:
-                combined._css_lists.append(item)
-        for item in second._js_lists:
-            if item and item not in combined._js_lists:
-                combined._js_lists.append(item)
         return combined
 
     def __add__(self, other):
@@ -118,41 +131,82 @@ class Media(forms.Media):
     # -- Access -----------------------------------------------------------
 
     def __getitem__(self, name):
-        # Django's ``__getitem__`` hardcodes ``forms.Media``, so ``media["js"]``
-        # -- reached from templates as ``{{ media.js }}``, and used by the admin
-        # as ``{% csp_nonce_attr media.js %}`` -- would drop our type, and with
-        # it the nonce and the import-map merging.
-        return self.from_media(super().__getitem__(name), nonce=self.nonce)
+        if name == "importmap":
+            # ``{{ media.importmap }}``
+            return type(self)(nonce=self.nonce, importmap=self._importmap)
+        if name in ("css", "js"):
+            # Django's ``__getitem__`` hardcodes ``forms.Media``, so
+            # ``media["js"]`` -- reached from templates as ``{{ media.js }}``,
+            # and used by the admin as ``{% csp_nonce_attr media.js %}`` --
+            # would drop our type, and with it the nonce. Building the subset
+            # through this class also keeps html-safe strings verbatim, which
+            # ``forms.Media``'s normalization mangles on Django 6.1.0 and main.
+            return type(self)(nonce=self.nonce, **{name: getattr(self, "_" + name)})
+        return super().__getitem__(name)
 
     # -- Rendering --------------------------------------------------------
 
     def render(self, *, nonce=None, attrs=None):
-        nonce = self._resolve_nonce(nonce, attrs)
+        if nonce is not None:
+            warnings.warn(
+                "Media.render(nonce=...) is deprecated, use"
+                " render(attrs={'nonce': ...}) instead.",
+                RemovedInDjangoJsAsset60Warning,
+                stacklevel=2,
+            )
+            attrs = {"nonce": nonce} | (attrs or {})
         return mark_safe(
-            "\n".join(filter(None, [*self._render_css(nonce), *self._render_js(nonce)]))
+            "\n".join(
+                [
+                    *self.render_importmap(attrs=attrs),
+                    *self.render_css(attrs=attrs),
+                    *self.render_js(attrs=attrs),
+                ]
+            )
         )
 
+    # ``render_{css,js}`` are part of ``forms.Media``'s public API (and are what
+    # Django's own ``render()`` calls), so they have to apply the nonce as well
+    # -- otherwise anything rendering the media through them silently loses it.
+
+    def render_importmap(self, *, attrs=None):
+        if self._importmap is None:
+            return []
+        return [self._importmap.render(attrs=self._resolve_attrs(attrs))]
+
     def render_css(self, *, attrs=None):
-        return self._render_css(self._resolve_nonce(None, attrs))
+        attrs = self._resolve_attrs(attrs)
+        css = self._normalize_css(self._css)
+        return [
+            self._render_asset(asset, attrs)
+            for medium in sorted(css)
+            for asset in css[medium]
+        ]
 
     def render_js(self, *, attrs=None):
-        # ``render_{css,js}`` are part of ``forms.Media``'s public API (and are
-        # what Django's own ``render()`` calls), so they have to apply the nonce
-        # and hoist import maps as well -- otherwise anything rendering the
-        # media through them silently loses both. The ``attrs`` keyword only
-        # exists on Django >= 6.1; accepting it keeps the signature compatible.
-        return self._render_js(self._resolve_nonce(None, attrs))
+        attrs = self._resolve_attrs(attrs)
+        # Django < 6.1 keeps bare paths as strings, so wrap them here as well.
+        return [
+            self._render_asset(asset, attrs) for asset in self._normalize_js(self._js)
+        ]
 
-    def _resolve_nonce(self, nonce, attrs):
-        # ``attrs`` is accepted for compatibility with Django >= 6.1, whose
+    def _resolve_attrs(self, attrs):
+        # ``attrs`` are added to every tag, like Django >= 6.1 does. Its
         # built-in CSP integration renders media via
         # ``media.render(attrs={"nonce": nonce})`` (see the ``csp_nonce_attr``
-        # template tag). Only the nonce is honoured; the stored nonce is used
-        # as a fallback, since templates call ``render()`` without arguments.
-        if attrs and attrs.get("nonce") is not None:
-            nonce = attrs["nonce"]
+        # template tag). The stored nonce is used as a fallback, since
+        # templates call ``render()`` without arguments.
+        attrs = dict(attrs or {})
+        nonce = self._resolve_nonce(attrs.pop("nonce", None))
+        if nonce:
+            attrs["nonce"] = nonce
+        return attrs
+
+    def _resolve_nonce(self, nonce):
         if nonce is None:
             nonce = self.nonce
+        if nonce is None:
+            return ""
         if type(nonce) is not str:
             # Django's ``LazyNonce`` (the ``csp_nonce`` context value on >= 6.0)
             # is deliberately *falsy* until it is first read, so truth-testing
@@ -162,60 +216,51 @@ class Media(forms.Media):
             # media does not generate a nonce (and add it to the CSP header).
             # ``isinstance`` is no use for the check: a lazy object reports the
             # wrapped value's class -- and evaluates itself while doing so.
-            nonce = str(nonce) if any(self._js_lists) or any(self._css_lists) else ""
+            nonce = (
+                str(nonce)
+                if any(self._js_lists) or any(self._css_lists) or self._importmap
+                else ""
+            )
         return nonce
 
-    def _render_js(self, nonce):
-        importmap = reduce(
-            operator.or_,
-            (asset for asset in self._js if isinstance(asset, ImportMap)),
-            ImportMap({}),
-        )
-        rendered = []
-        if importmap:
-            rendered.append(importmap.render(attrs={"nonce": nonce} if nonce else None))
-        for item in self._js:
-            if isinstance(item, ImportMap):
-                continue
-            # ``hasattr(item, "__html__")`` -- not ``isinstance(item, str)``:
-            # ``SafeString`` is a ``str`` subclass, and html-safe strings such
-            # as ``mark_safe("<script defer src=...></script>")`` are complete
-            # tags which must render verbatim instead of being resolved through
-            # ``static()``. Only bare paths are wrapped. (Django hit the same
-            # trap in 6.1, fixed for 6.1.1 -- ticket #37262.)
-            asset = item if hasattr(item, "__html__") else JS(item)
-            rendered.append(self._render_asset(asset, nonce))
-        return rendered
-
-    def _render_css(self, nonce):
-        rendered = []
-        for medium in sorted(self._css):
-            for item in self._css[medium]:
-                # See ``_render_js`` on the ``__html__`` check.
-                asset = item if hasattr(item, "__html__") else CSS(item, media=medium)
-                rendered.append(self._render_asset(asset, nonce))
-        return rendered
+    @property
+    def _js(self):
+        # Check before ``Media.merge`` runs, which would fail with a less
+        # helpful error since import maps aren't hashable. A migration aid for
+        # 5.0, remove it in 6.0 (``Media.merge`` still raises a TypeError).
+        if any(isinstance(item, ImportMap) for js in self._js_lists for item in js):
+            raise TypeError(
+                "Import maps in js lists aren't supported anymore, pass them"
+                " as Media(importmap=...) instead."
+            )
+        return super()._js
 
     @staticmethod
-    def _render_asset(asset, nonce):
+    def _render_asset(asset, attrs):
         if isinstance(asset, MediaAsset):
-            if not nonce:
+            if not attrs:
                 return asset.__html__()
-            # Inject the nonce ourselves rather than via MediaAsset.render(
+            if conflicts := attrs.keys() & asset.attributes.keys():
+                # Raise like Django's ``MediaAsset.render(attrs=)`` (>= 6.1)
+                # instead of silently replacing the asset's own attributes,
+                # e.g. its nonce, so the behavior doesn't depend on which
+                # ``Media`` class renders.
+                raise ValueError(
+                    f"{asset.__class__.__qualname__} has conflicting attributes: "
+                    + ", ".join(sorted(conflicts))
+                )
+            # Add the attributes ourselves rather than via MediaAsset.render(
             # attrs=), which only exists on Django >= 6.1. Rebuilding the tag
             # from ``element_template`` keeps output identical on every
             # supported Django (4.2 -> main), and ``flatatt`` sorts the
-            # attributes so the nonce lands in the same place as Django's own.
+            # attributes so they land in the same place as with Django's own.
             return format_html(
                 asset.element_template,
                 path=asset.path,
-                attributes=flatatt({**asset.attributes, "nonce": nonce}),
+                attributes=flatatt(attrs | asset.attributes),
             )
-        if isinstance(asset, (ImportMap, JSON)):
-            # Our own non-MediaAsset types take a ``nonce`` keyword.
-            return asset.render(nonce=nonce)
         # Any other asset follows Django's plain ``__html__`` media contract
         # (an object that only knows how to render itself). Mirror
-        # ``forms.Media``'s fallback so such assets keep working -- the nonce
-        # cannot be threaded through, just as with stock Django.
+        # ``forms.Media``'s fallback so such assets keep working -- the
+        # attributes cannot be threaded through, just as with stock Django.
         return asset.__html__()

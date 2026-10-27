@@ -797,12 +797,8 @@ PENDING: dict[Op, str] = {
     # lands, `test_allowlisted_operations_are_still_unreachable` fails here
     # and this entry is deleted with it.
     ("POST", "/v1/companion/complete"): "companion daemon lane; its client ships separately",
-    # Surfaced 2026-10-06 by the `dump-openapi` that accompanied the workspace
-    # canvas reads: the daemon's ML gate (#2385) shipped on the backend while
-    # the checked-in schema sat stale. Same lane and story as `complete` above.
-    ("POST", "/v1/companion/classify"): "companion daemon ML gate (#2385); its client ships separately",
     # The daemon's shell command check (shell approvals F8): the same lane and
-    # story as `classify` above; its client is `probe/daemon/command_check.py`.
+    # story as `complete` above; its client is `probe/daemon/command_check.py`.
     ("POST", "/v1/companion/command-check"): "companion daemon shell command check; its client ships separately",
     # Surfaced 2026-09-21 by the `dump-openapi` that accompanied the
     # `summary_markdown` retirement (0220), second batch: main landed the
@@ -1217,6 +1213,13 @@ CLIENT_AHEAD: dict[Op, str] = {
     ("DELETE", "/v1/workspaces/{}/files/multipart/{}"): "retired workspace multipart: 410 (anchor retirement)",
     ("POST", "/v1/workspace-files/{}/share"): "retired loose-file move: 410 client_too_old (files freeze)",
     ("POST", "/v1/shared/files/{}/unshare"): "retired loose-file move: 410 client_too_old (files freeze)",
+    # Per-run tokens (server 0399), not yet in the schema snapshot. An older
+    # server 404s: `probe exec` falls back to the secret-store hand-off and
+    # `probe run token` says the server predates them.
+    ("POST", "/v1/runs/{}/tokens"): "per-run tokens: 404 on an older server, hand-off falls back",
+    ("POST", "/v1/runs/{}/tokens/extend"): "per-run tokens: 404 on an older server",
+    ("POST", "/v1/runs/{}/tokens/revoke"): "per-run tokens: 404 on an older server",
+    ("GET", "/v1/runs/{}/tokens"): "per-run tokens: 404 on an older server",
 }
 
 _ALLOWED: dict[Op, str] = {**NOT_CLIENT_SURFACE, **PENDING}

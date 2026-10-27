@@ -392,7 +392,6 @@ def test_the_gate_does_not_print_the_warning_twice(folder, monkeypatch):
     files = _all_files(folder)
     plan = _plan(dict.fromkeys(files, "odyssey"))
     monkeypatch.setattr(br, "classify", lambda *a, **k: (plan, "", "sess-1"))
-    monkeypatch.setattr(br, "ensure_projects", lambda c, p, a: (["odyssey"], []))
     monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
     monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
     _review_dialog(monkeypatch)

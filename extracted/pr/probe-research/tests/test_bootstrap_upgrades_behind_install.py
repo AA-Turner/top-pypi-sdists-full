@@ -42,6 +42,11 @@ def test_a_behind_install_is_brought_to_this_exact_version(monkeypatch):
 
 
 def test_an_install_still_behind_afterwards_says_so_and_how_to_fix_it(monkeypatch):
+    """Where the CLI lives side by side, the fix is `npx probe-research repair`:
+    a `uv tool install --force` through its link replaces it with uv's own
+    folder (plan clean-uninstall-reinstall R4). Elsewhere, the plain install."""
+    from probe.cli import install_pipeline
+
     _behind(monkeypatch, before="0.0.1", after="0.0.1")
     monkeypatch.setattr(bootstrap.shutil, "which", lambda name: "/usr/bin/uv" if name == "uv" else None)
 
@@ -49,6 +54,11 @@ def test_an_install_still_behind_afterwards_says_so_and_how_to_fix_it(monkeypatc
 
     assert not result.installed
     assert result.message.startswith("! the installed `probe` is still 0.0.1")
+    assert "npx probe-research repair" in result.message
+
+    monkeypatch.setattr(install_pipeline, "layout_usable", lambda tools: False)
+    _behind(monkeypatch, before="0.0.1", after="0.0.1")
+    result = bootstrap.ensure_persistent_install()
     assert f"uv tool install --force '{bootstrap.INSTALL_SPEC}=={__version__}'" in result.message
 
 
@@ -68,7 +78,16 @@ def test_no_install_at_all_installs_the_newest(monkeypatch):
     assert calls == [bootstrap.INSTALL_SPEC]
 
 
+def _in_place_machine(monkeypatch) -> None:
+    """A machine whose CLI is not side by side (Windows, the versions folder on
+    another filesystem): the bootstrap's own `uv tool install`, as before."""
+    from probe.cli import install_pipeline
+
+    monkeypatch.setattr(install_pipeline, "layout_usable", lambda tools: False)
+
+
 def test_a_pinned_reinstall_pins_the_uv_spec_and_reads_a_fresh_index(monkeypatch):
+    _in_place_machine(monkeypatch)
     seen: list[list[str]] = []
 
     def run(command, **kwargs):
@@ -90,6 +109,7 @@ def test_a_pinned_reinstall_pins_the_uv_spec_and_reads_a_fresh_index(monkeypatch
 def test_a_reinstall_over_an_existing_tool_environment_does_not_force(monkeypatch, tmp_path):
     """`--force` deletes and rebuilds the environment under every running `probe`
     (2026-10-12); over an existing uv tool a plain install upgrades in place."""
+    _in_place_machine(monkeypatch)
     seen: list[list[str]] = []
 
     def run(command, **kwargs):
@@ -117,10 +137,14 @@ def test_an_update_from_a_stale_copy_pins_to_the_newer_target(monkeypatch):
     assert result.installed
 
 
-def test_the_still_behind_hint_names_the_installer_this_machine_has(monkeypatch):
+def test_without_uv_the_still_behind_hint_installs_uv_first(monkeypatch):
+    """pipx is no longer an install of its own (plan clean-uninstall-reinstall
+    R-T1): the managed install is uv's, so the hint puts uv on the machine."""
+    from probe.cli import install_pipeline
+
     _behind(monkeypatch, before="0.0.1", after="0.0.1")
     monkeypatch.setattr(bootstrap.shutil, "which", lambda name: "/usr/bin/pipx" if name == "pipx" else None)
 
     result = bootstrap.ensure_persistent_install()
 
-    assert f"pipx install --force '{bootstrap.INSTALL_SPEC}=={__version__}'" in result.message
+    assert install_pipeline.UV_INSTALL in result.message and "npx probe-research repair" in result.message

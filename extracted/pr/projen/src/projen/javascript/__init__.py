@@ -269,22 +269,26 @@ class Biome(
         javascript: typing.Optional[typing.Union["_biome_config_8d74827f.JsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         json: typing.Optional[typing.Union["_biome_config_8d74827f.JsonConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         linter: typing.Optional[typing.Union["_biome_config_8d74827f.OverrideLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        markdown: typing.Optional[typing.Union["_biome_config_8d74827f.MarkdownConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
+        yaml: typing.Optional[typing.Union["_biome_config_8d74827f.YamlConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Add a biome override to set rules for a specific file pattern.
 
-        :param assist: (experimental) Specific configuration for the Json language.
-        :param css: (experimental) Specific configuration for the CSS language.
-        :param files: (experimental) Specific configuration for the filesystem.
-        :param formatter: (experimental) Specific configuration for the Json language.
-        :param graphql: (experimental) Specific configuration for the Graphql language.
-        :param grit: (experimental) Specific configuration for the GritQL language.
-        :param html: (experimental) Specific configuration for the GritQL language.
-        :param includes: (experimental) A list of glob patterns. Biome will include files/folders that will match these patterns.
-        :param javascript: (experimental) Specific configuration for the JavaScript language.
-        :param json: (experimental) Specific configuration for the Json language.
-        :param linter: (experimental) Specific configuration for the Json language.
-        :param plugins: (experimental) Specific configuration for additional plugins.
+        :param assist: (experimental) Assist settings for matched files.
+        :param css: (experimental) CSS-specific settings for matched files.
+        :param files: (experimental) File-handling settings for matched files.
+        :param formatter: (experimental) Formatter settings for matched files.
+        :param graphql: (experimental) GraphQL-specific settings for matched files.
+        :param grit: (experimental) GritQL-specific settings for matched files.
+        :param html: (experimental) HTML-specific settings for matched files.
+        :param includes: (experimental) A list of glob patterns selecting the files to which this override applies. If omitted, the override applies to every file. An empty list applies to no files.
+        :param javascript: (experimental) JavaScript-specific settings for matched files.
+        :param json: (experimental) JSON-specific settings for matched files.
+        :param linter: (experimental) Linter settings for matched files.
+        :param markdown: (experimental) Specific configuration for the Markdown language.
+        :param plugins: (experimental) Additional plugins for matched files.
+        :param yaml: (experimental) Specific configuration for the YAML language.
 
         :see: https://biomejs.dev/reference/configuration/#overrides
         :stability: experimental
@@ -301,7 +305,9 @@ class Biome(
             javascript=javascript,
             json=json,
             linter=linter,
+            markdown=markdown,
             plugins=plugins,
+            yaml=yaml,
         )
 
         return typing.cast(None, jsii.invoke(self, "addOverride", [override]))
@@ -330,8 +336,8 @@ class Biome(
         :param correctness: 
         :param nursery: 
         :param performance: 
-        :param preset: (experimental) The rule presets to use.
-        :param recommended: (experimental) It enables the lint rules recommended by Biome. ``true`` by default.
+        :param preset: (experimental) Selects the baseline set of lint rules. ``recommended`` enables Biome's recommended non-nursery rules, ``all`` enables all non-nursery rules, and ``none`` starts with no rules enabled. Group-level settings and explicit rule settings override this preset. Defaults to ``recommended``. Default: recommended`.
+        :param recommended: (experimental) Enables or disables Biome's recommended non-nursery rules. Defaults to ``true``. **Deprecated:** This option will be removed in the next major version. Use ``linter.rules.preset`` instead, or run ``biome migrate`` to update the configuration. Default: true`.
         :param security: 
         :param style: 
         :param suspicious: 

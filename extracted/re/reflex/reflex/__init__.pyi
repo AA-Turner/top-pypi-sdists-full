@@ -61,6 +61,7 @@ from reflex_components_lucide import icon as icon
 from reflex_components_markdown.markdown import markdown as markdown
 from reflex_components_moment import MomentDelta as MomentDelta
 from reflex_components_moment import moment as moment
+from reflex_components_moment import moment_provider as moment_provider
 from reflex_components_plotly import plotly as plotly
 from reflex_components_radix.primitives.accordion import accordion as accordion
 from reflex_components_radix.primitives.drawer import drawer as drawer
@@ -350,6 +351,7 @@ __all__ = [
     "mobile_only",
     "model",
     "moment",
+    "moment_provider",
     "noop",
     "ordered_list",
     "page",

@@ -3,21 +3,18 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 import pytest
 
-import lib_log_rich.adapters.dump as dump_module
 from lib_log_rich.adapters.dump import DumpAdapter
 from lib_log_rich.domain.context import LogContext
 from lib_log_rich.domain.dump import DumpFormat
+from lib_log_rich.domain.enums import ConsoleTheme, FormatPreset
 from lib_log_rich.domain.events import LogEvent
 from lib_log_rich.domain.levels import LogLevel
 from lib_log_rich.domain.ring_buffer import RingBuffer
 from tests.os_markers import OS_AGNOSTIC
-
-if TYPE_CHECKING:
-    from lib_log_rich.domain.dump_filter import DumpFilter
 
 pytestmark = [OS_AGNOSTIC]
 
@@ -58,13 +55,11 @@ def render_dump(
     dump_format: DumpFormat,
     path: Path | None = None,
     min_level: LogLevel | None = None,
-    format_preset: str | None = None,
+    format_preset: FormatPreset | None = None,
     format_template: str | None = None,
-    text_template: str | None = None,
     colorize: bool = False,
-    theme: str | None = None,
+    theme: ConsoleTheme | None = None,
     console_styles: dict[str, str] | None = None,
-    filters: DumpFilter | None = None,
 ) -> str:
     adapter = DumpAdapter()
     return adapter.dump(
@@ -74,11 +69,9 @@ def render_dump(
         min_level=min_level,
         format_preset=format_preset,
         format_template=format_template,
-        text_template=text_template,
         colorize=colorize,
         theme=theme,
         console_styles=console_styles,
-        filters=filters,
     )
 
 
@@ -94,18 +87,18 @@ def test_text_dump_includes_event_id() -> None:
 
 def test_text_dump_respects_min_level() -> None:
     events = [build_event(level=LogLevel.INFO, message="info"), build_event(1, level=LogLevel.ERROR, message="error")]
-    payload = render_dump(events, dump_format=DumpFormat.TEXT, min_level=LogLevel.ERROR, text_template="{level}:{message}:{event_id}")
+    payload = render_dump(events, dump_format=DumpFormat.TEXT, min_level=LogLevel.ERROR, format_template="{level}:{message}:{event_id}")
     assert payload.splitlines() == ["ERROR:error:evt-1"]
 
 
 def test_text_dump_respects_template_tokens() -> None:
     event = build_event(message="clock")
-    payload = render_dump([event], dump_format=DumpFormat.TEXT, text_template="{YYYY}-{MM}-{DD}T{hh}:{mm}:{ss}")
+    payload = render_dump([event], dump_format=DumpFormat.TEXT, format_template="{YYYY}-{MM}-{DD}T{hh}:{mm}:{ss}")
     assert payload == "2025-09-23T12:00:00"
 
 
 def test_text_dump_short_preset_prefixes_logger() -> None:
-    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset="short")
+    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=FormatPreset.SHORT)
     assert payload.startswith("12:00:00|INFO|tests:")
 
 
@@ -163,12 +156,12 @@ def test_html_table_dump_escapes_greater_than(tmp_path: Path) -> None:
 
 
 def test_html_txt_dump_colorizes_with_theme() -> None:
-    payload = render_dump([build_event()], dump_format=DumpFormat.HTML_TXT, format_template="{message}", colorize=True, theme="classic")
+    payload = render_dump([build_event()], dump_format=DumpFormat.HTML_TXT, format_template="{message}", colorize=True, theme=ConsoleTheme.CLASSIC)
     assert "<span" in payload
 
 
 def test_html_txt_dump_includes_message_when_colorized() -> None:
-    payload = render_dump([build_event()], dump_format=DumpFormat.HTML_TXT, format_template="{message}", colorize=True, theme="classic")
+    payload = render_dump([build_event()], dump_format=DumpFormat.HTML_TXT, format_template="{message}", colorize=True, theme=ConsoleTheme.CLASSIC)
     assert "message-0" in payload
 
 
@@ -183,28 +176,61 @@ def test_html_txt_dump_includes_message_when_monochrome() -> None:
 
 
 def test_short_loc_preset_contains_logger() -> None:
-    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset="short_loc")
+    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=FormatPreset.SHORT_LOC)
     assert "|tests:" in payload
 
 
 def test_short_loc_preset_contains_separator() -> None:
-    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset="short_loc")
+    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=FormatPreset.SHORT_LOC)
     assert ":" in payload.splitlines()[0]
 
 
+@pytest.mark.parametrize("preset", list(FormatPreset), ids=lambda preset: preset.value)
+def test_a_text_dump_renders_exactly_the_presets_the_domain_says_it_can(preset: FormatPreset) -> None:
+    # Settings resolution refuses a dump preset by FormatPreset.renders_in_text_dump;
+    # this keeps that rule and the adapter's template table from drifting apart.
+    if preset.renders_in_text_dump:
+        assert "message-0" in render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=preset)
+    else:
+        with pytest.raises(ValueError, match="Unknown text dump preset"):
+            render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=preset)
+
+
 def test_full_loc_preset_contains_timestamp() -> None:
-    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset="full_loc")
+    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=FormatPreset.FULL_LOC)
     assert "T" in payload
 
 
 def test_full_loc_preset_contains_logger() -> None:
-    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset="full_loc")
+    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=FormatPreset.FULL_LOC)
     assert "tests" in payload
 
 
-def test_unknown_text_preset_raises_value_error() -> None:
-    with pytest.raises(ValueError, match="Unknown text dump preset"):
-        cast("Any", dump_module)._resolve_preset("unknown")
+def test_short_loc_icon_preset_is_refused_by_text_dumps() -> None:
+    with pytest.raises(ValueError, match="Unknown text dump preset: 'short_loc_icon'"):
+        render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=FormatPreset.SHORT_LOC_ICON)
+
+
+def test_an_untyped_unknown_preset_string_still_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="Unknown text dump preset: 'bogus'"):
+        render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=cast("Any", "bogus"))
+
+
+@pytest.mark.parametrize("preset", [preset for preset in FormatPreset if preset is not FormatPreset.SHORT_LOC_ICON])
+def test_every_other_preset_renders_a_text_dump(preset: FormatPreset) -> None:
+    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=preset)
+    assert "message-0" in payload
+
+
+def test_an_explicit_template_wins_over_the_preset() -> None:
+    payload = render_dump([build_event()], dump_format=DumpFormat.TEXT, format_preset=FormatPreset.FULL, format_template="{message}")
+    assert payload == "message-0"
+
+
+def test_dump_no_longer_accepts_text_template() -> None:
+    adapter = cast("Any", DumpAdapter())
+    with pytest.raises(TypeError, match="text_template"):
+        adapter.dump([build_event()], dump_format=DumpFormat.TEXT, text_template="{message}")
 
 
 def test_render_text_returns_empty_string_for_no_events() -> None:
@@ -250,74 +276,6 @@ def test_render_html_text_returns_minimal_document_when_no_events() -> None:
     assert cast("Any", DumpAdapter)._render_html_text([], template=None, colorize=False) == expected_html
 
 
-def test_render_html_table_handles_string_process_chain() -> None:
-    event = build_event(extra={})
-
-    class CustomContext:
-        """Mock context with string process_id_chain for testing HTML escaping."""
-
-        service = "svc"
-        environment = "test"
-        job_id = "job"
-        process_id = 1
-        process_id_chain = "root>child"
-        user_name = None
-        hostname = None
-        request_id = None
-        user_id = None
-        trace_id = None
-        span_id = None
-        extra: dict[str, object] = {}
-
-        def to_dict(self, *, include_none: bool = False) -> dict[str, object]:
-            return {
-                "timestamp": event.timestamp.isoformat(),
-                "service": self.service,
-                "environment": self.environment,
-                "job_id": self.job_id,
-                "logger_name": event.logger_name,
-                "process_id": self.process_id,
-                "process_id_chain": self.process_id_chain,
-            }
-
-    object.__setattr__(event, "context", CustomContext())
-    html_table = cast("Any", DumpAdapter)._render_html_table([event])
-    assert "root&gt;child" in html_table
-
-
-def test_render_html_table_handles_missing_process_chain() -> None:
-    event = build_event(extra={})
-
-    class CustomContext:
-        """Mock context with empty process_id_chain for testing omission."""
-
-        service = "svc"
-        environment = "test"
-        job_id = "job"
-        process_id = 1
-        process_id_chain: tuple[int, ...] = ()
-        user_name = None
-        hostname = None
-        request_id = None
-        user_id = None
-        trace_id = None
-        span_id = None
-        extra: dict[str, object] = {}
-
-        def to_dict(self, *, include_none: bool = False) -> dict[str, object]:
-            return {
-                "timestamp": event.timestamp.isoformat(),
-                "service": self.service,
-                "environment": self.environment,
-                "job_id": self.job_id,
-                "process_id": self.process_id,
-            }
-
-    object.__setattr__(event, "context", CustomContext())
-    html_table = cast("Any", DumpAdapter)._render_html_table([event])
-    assert "PROCESS_ID_CHAIN" not in html_table
-
-
 def test_theme_placeholder_uses_extra_field() -> None:
     event = build_event(extra={"theme": "classic"})
     payload = render_dump([event], dump_format=DumpFormat.TEXT, format_template="{theme}")
@@ -341,6 +299,38 @@ def test_text_dump_uses_theme_from_event_extra() -> None:
     payload = render_dump([event], dump_format=DumpFormat.TEXT, colorize=True)
     assert "\x1b[36m" in payload
     assert "\x1b[32m" not in payload
+
+
+def test_an_event_theme_extra_in_any_case_picks_that_palette() -> None:
+    event = build_event(level=LogLevel.INFO, extra={"theme": " Classic "})
+    payload = render_dump([event], dump_format=DumpFormat.TEXT, colorize=True, theme=ConsoleTheme.NEON)
+    assert "\x1b[36m" in payload  # classic INFO is cyan
+
+
+@pytest.mark.parametrize("extra_theme", ["nope", 7])
+def test_an_event_theme_extra_that_names_no_palette_keeps_the_dump_theme(extra_theme: object) -> None:
+    event = build_event(level=LogLevel.INFO, extra={"theme": extra_theme})
+    payload = render_dump([event], dump_format=DumpFormat.TEXT, colorize=True, theme=ConsoleTheme.CLASSIC)
+    assert "\x1b[36m" in payload
+
+
+def test_an_html_event_theme_extra_that_names_no_palette_keeps_the_dump_theme() -> None:
+    plain = render_dump(
+        [build_event(level=LogLevel.INFO)], dump_format=DumpFormat.HTML_TXT, format_template="{message}", colorize=True, theme=ConsoleTheme.CLASSIC
+    )
+    odd = render_dump(
+        [build_event(level=LogLevel.INFO, extra={"theme": "nope"})],
+        dump_format=DumpFormat.HTML_TXT,
+        format_template="{message}",
+        colorize=True,
+        theme=ConsoleTheme.CLASSIC,
+    )
+    assert odd == plain
+
+
+def test_an_untyped_unknown_dump_theme_is_refused() -> None:
+    with pytest.raises(ValueError, match="Unknown console theme: 'nope'"):
+        render_dump([build_event()], dump_format=DumpFormat.TEXT, colorize=True, theme=cast("Any", "nope"))
 
 
 def test_html_text_dump_uses_console_styles() -> None:
@@ -386,3 +376,31 @@ def test_dump_propagates_write_errors(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.setattr(Path, "write_text", failing_write)
     with pytest.raises(OSError, match="disk full"):
         render_dump(build_ring_buffer().snapshot(), dump_format=DumpFormat.TEXT, path=target)
+
+
+def test_html_table_dump_renders_an_empty_process_chain_as_an_empty_cell() -> None:
+    """An event without a PID chain closes its row with an empty chain cell."""
+    event = LogEvent(
+        event_id="evt-empty",
+        timestamp=datetime(2025, 9, 23, 12, 0, tzinfo=timezone.utc),
+        logger_name="tests",
+        level=LogLevel.INFO,
+        message="no chain",
+        context=LogContext(service="svc", environment="test", job_id="job"),
+    )
+    payload = render_dump([event], dump_format=DumpFormat.HTML_TABLE)
+    assert "<td>no chain</td><td></td><td></td><td></td><td></td></tr>" in payload
+
+
+def test_html_table_dump_joins_the_process_chain_with_escaped_arrows() -> None:
+    """A multi-PID chain renders as one escaped ``a>b>c`` cell."""
+    event = LogEvent(
+        event_id="evt-chain",
+        timestamp=datetime(2025, 9, 23, 12, 0, tzinfo=timezone.utc),
+        logger_name="tests",
+        level=LogLevel.INFO,
+        message="chained",
+        context=LogContext(service="svc", environment="test", job_id="job", process_id=3, process_id_chain=(1, 2, 3)),
+    )
+    payload = render_dump([event], dump_format=DumpFormat.HTML_TABLE)
+    assert "<td>3</td><td>1&gt;2&gt;3</td></tr>" in payload

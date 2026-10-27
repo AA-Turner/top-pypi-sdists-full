@@ -57,6 +57,13 @@ WATCHED = [
         frozenset({"push", "schedule"}),
     ),
     (
+        "airbytehq/ai-skills",
+        "sync-playbooks.yml",
+        "Playbook Sync (Devin API)",
+        None,
+        frozenset({"push"}),
+    ),
+    (
         "airbytehq/airbyte-ops-mcp",
         SELF_WORKFLOW_FILE,
         "Cron Watchdog",
@@ -525,9 +532,23 @@ def decide(
         and lines[0].startswith("✅ Monday heartbeat")
     )
     if lines and not heartbeat_only:
-        lines.extend(
-            _status_line(status, now) for status in statuses if status.error is None
-        )
+        checked = [status for status in statuses if status.error is None]
+        needs_attention = [
+            status
+            for status in checked
+            if status.disabled or status.unhealthy_since is not None
+        ]
+        healthy = [
+            status
+            for status in checked
+            if not status.disabled and status.unhealthy_since is None
+        ]
+        if needs_attention:
+            lines.append("*🔴 Needs attention*")
+            lines.extend(f"• {_status_line(status, now)}" for status in needs_attention)
+        if healthy:
+            lines.append("*🟢 Healthy*")
+            lines.extend(f"• {_status_line(status, now)}" for status in healthy)
 
     should_post = bool(lines)
     fallback_text = "\n".join(lines)

@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 
+from .record_utils import clean_record
+
 if TYPE_CHECKING:
     from .http_client import ClientContext
     from .foundational_model import FoundationalModel
@@ -134,7 +136,7 @@ class VectorDatabase:
         if not self._ctx:
             raise ValueError("VectorDatabase not connected to client")
 
-        cleaned_query = self._clean_record(query_record)
+        cleaned_query = clean_record(query_record)
 
         payload = {
             "query_record": cleaned_query,
@@ -173,7 +175,7 @@ class VectorDatabase:
         if hasattr(records, 'to_dict'):
             records = records.to_dict('records')
 
-        cleaned_records = [self._clean_record(r) for r in records]
+        cleaned_records = [clean_record(r) for r in records]
 
         total_added = 0
         for i in range(0, len(cleaned_records), batch_size):
@@ -247,7 +249,7 @@ class VectorDatabase:
         elif hasattr(records, 'to_dict'):
             records = records.to_dict('records')
 
-        cleaned_records = [self._clean_record(r) for r in records]
+        cleaned_records = [clean_record(r) for r in records]
 
         body: Dict[str, Any] = {"records": cleaned_records}
         if intent is not None:
@@ -267,20 +269,6 @@ class VectorDatabase:
         if intent is not None:
             return [r.get('embedding') for r in results]
         return [r.get('embedding_long', r.get('embedding')) for r in results]
-
-    def _clean_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean a record for API submission."""
-        import math
-
-        cleaned = {}
-        for key, value in record.items():
-            if isinstance(value, float):
-                if math.isnan(value) or math.isinf(value):
-                    value = None
-            if hasattr(value, 'item'):
-                value = value.item()
-            cleaned[key] = value
-        return cleaned
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation."""

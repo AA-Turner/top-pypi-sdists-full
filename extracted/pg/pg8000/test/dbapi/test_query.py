@@ -5,7 +5,6 @@ import pytest
 import pg8000.dbapi
 from pg8000.converters import INET_ARRAY, INTEGER
 
-
 # Tests relating to the basic operation of the database driver, driven by the
 # pg8000 custom interface.
 
@@ -295,16 +294,14 @@ def test_unexecuted_cursor_description(con):
 
 def test_callproc(pg_version, cursor):
     if pg_version > 10:
-        cursor.execute(
-            """
+        cursor.execute("""
 CREATE PROCEDURE echo(INOUT val text)
   LANGUAGE plpgsql AS
 $proc$
 BEGIN
 END
 $proc$;
-"""
-        )
+""")
 
         cursor.callproc("echo", ["hello"])
         assert cursor.fetchall() == (["hello"],)

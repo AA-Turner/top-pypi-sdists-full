@@ -21,9 +21,10 @@ Example usage:
 
 import itertools
 import warnings
+from collections.abc import Iterable
 from dataclasses import dataclass
 from types import FunctionType, MappingProxyType
-from typing import Callable, NamedTuple, Sequence, TypeVar
+from typing import Callable, NamedTuple, Sequence, TypeVar, cast
 
 # TypeVar for decorators that preserve function signatures
 # The bound includes "type" to support decorating classes as well as functions
@@ -41,27 +42,16 @@ SKIP_DEPRECATION_MSG = (
 )
 
 
-@dataclass
-class ParametrizeSpec:
-    """Specification for a single @parametrize decorator."""
-
-    argnames: tuple[str, ...]
-    argvalues: tuple[object, ...]
-    ids: tuple[str, ...] | None
-
-
-class PytestMarkerArgs(NamedTuple):
-    """Extracted arguments from a pytest marker."""
-
-    argnames: object
-    argvalues: object
-
-
 class ExpandedCase(NamedTuple):
     """A single expanded test case with its ID and kwargs."""
 
     case_id: str
     kwargs: dict[str, object]
+
+
+@dataclass(frozen=True)
+class SkipInfo:
+    reason: str
 
 
 class Mark:
@@ -101,17 +91,14 @@ class Mark:
 
         materialized_ids: tuple[str, ...] | None = tuple(ids) if ids is not None else None
 
-        spec = ParametrizeSpec(
-            argnames=parsed_argnames,
-            argvalues=tuple(argvalues),
-            ids=materialized_ids,
-        )
+        cases = _expand_cases(parsed_argnames, tuple(argvalues), materialized_ids)
 
         def decorator(func: F) -> F:
-            cases_list: list[ParametrizeSpec] = getattr(func, "__rtest_cases__", None) or []
-            if not getattr(func, "__rtest_cases__", None):
-                func.__rtest_cases__ = cases_list  # type: ignore[union-attr]
-            cases_list.append(spec)
+            cases_list: list[tuple[ExpandedCase, ...]] | None = getattr(func, "__rtest_cases__", None)
+            if not cases_list:
+                cases_list = []
+                setattr(func, "__rtest_cases__", cases_list)
+            cases_list.append(cases)
             return func
 
         return decorator
@@ -137,8 +124,7 @@ class Mark:
         """
 
         def decorator(func_or_class: F) -> F:
-            func_or_class.__rtest_skip__ = True  # type: ignore[union-attr]
-            func_or_class.__rtest_skip_reason__ = reason  # type: ignore[union-attr]
+            setattr(func_or_class, "__rtest_skip__", SkipInfo(reason))
             return func_or_class
 
         return decorator
@@ -177,19 +163,16 @@ def _value_to_id_string(value: object) -> str:
         return repr(value)
 
 
-def _expand_single_spec(spec: ParametrizeSpec) -> list[ExpandedCase]:
-    """Expand a single parametrize spec into ExpandedCase entries."""
-    argnames = spec.argnames
-    argvalues = spec.argvalues
+def _expand_cases(
+    argnames: tuple[str, ...], argvalues: tuple[object, ...], ids: tuple[str, ...] | None
+) -> tuple[ExpandedCase, ...]:
+    """Validate external rows once, then retain only executable argument mappings."""
+    if not argnames or any(not name for name in argnames):
+        raise ValueError("argnames must contain at least one nonempty name")
     num_args = len(argnames)
 
-    raw_ids: list[str] = []
-    for i, value in enumerate(argvalues):
-        if spec.ids is not None and i < len(spec.ids):
-            raw_ids.append(spec.ids[i])
-        else:
-            # Generate value-based ID
-            raw_ids.append(_value_to_id_string(value))
+    raw_ids = list(ids or ())[: len(argvalues)]
+    raw_ids.extend(_value_to_id_string(value) for value in argvalues[len(raw_ids) :])
 
     unique_ids = _deduplicate_ids(raw_ids)
 
@@ -211,31 +194,18 @@ def _expand_single_spec(spec: ParametrizeSpec) -> list[ExpandedCase]:
 
         entries.append(ExpandedCase(token, kwargs))
 
-    return entries
+    return tuple(entries)
 
 
-def _extract_pytest_marker_args(mark_args: tuple[object, ...]) -> PytestMarkerArgs:
-    """Extract argnames and argvalues from pytest marker args.
-
-    Returns:
-        PytestMarkerArgs with defaults for missing values.
-    """
-    if len(mark_args) >= 2:
-        return PytestMarkerArgs(mark_args[0], mark_args[1])
-    elif len(mark_args) == 1:
-        return PytestMarkerArgs(mark_args[0], [])
-    return PytestMarkerArgs("", [])
-
-
-def _get_parametrize_specs(func: FunctionType) -> list[ParametrizeSpec]:
+def _get_case_groups(func: FunctionType) -> list[tuple[ExpandedCase, ...]]:
     """Get parametrize specs from rtest or pytest markers."""
     # Check rtest markers first
-    rtest_specs: list[ParametrizeSpec] = getattr(func, "__rtest_cases__", [])
+    rtest_specs: list[tuple[ExpandedCase, ...]] = getattr(func, "__rtest_cases__", [])
     if rtest_specs:
         return rtest_specs
 
     # Check pytest markers (with deprecation warning)
-    specs: list[ParametrizeSpec] = []
+    groups: list[tuple[ExpandedCase, ...]] = []
     pytest_marks: list[object] = getattr(func, "pytestmark", [])
     for pytest_mark in pytest_marks:
         if getattr(pytest_mark, "name", None) == "parametrize":
@@ -244,42 +214,36 @@ def _get_parametrize_specs(func: FunctionType) -> list[ParametrizeSpec]:
                 DeprecationWarning,
                 stacklevel=4,
             )
-            # Convert pytest marker to ParametrizeSpec
+            # Normalize the external pytest marker into executable cases
             mark_args: tuple[object, ...] = getattr(pytest_mark, "args", ())
             mark_kwargs: MappingProxyType[str, object] = getattr(pytest_mark, "kwargs", MappingProxyType({}))
-            argnames_raw, argvalues_raw = _extract_pytest_marker_args(mark_args)
+            args = iter(mark_args)
+            argnames_raw, argvalues_raw = next(args, ""), next(args, [])
             ids_raw: object = mark_kwargs.get("ids")
 
             if isinstance(argnames_raw, str):
                 parsed_argnames = tuple(name.strip() for name in argnames_raw.split(","))
             else:
-                # Assume it's a sequence of strings - need type ignore for iteration on object
-                parsed_argnames = tuple(str(n) for n in argnames_raw)  # type: ignore[attr-defined]
+                parsed_argnames = tuple(str(n) for n in cast(Iterable[object], argnames_raw))
 
             # Convert argvalues to tuple
             argvalues_seq: Sequence[object] = argvalues_raw if isinstance(argvalues_raw, (list, tuple)) else []
 
             # Handle ids
             ids_tuple: tuple[str, ...] | None = None
-            if ids_raw is not None and isinstance(ids_raw, (list, tuple)):
+            if isinstance(ids_raw, (list, tuple)):
                 ids_tuple = tuple(str(i) for i in ids_raw)
 
-            specs.append(
-                ParametrizeSpec(
-                    argnames=parsed_argnames,
-                    argvalues=tuple(argvalues_seq),
-                    ids=ids_tuple,
-                )
-            )
+            groups.append(_expand_cases(parsed_argnames, tuple(argvalues_seq), ids_tuple))
 
-    return specs
+    return groups
 
 
-def expand_parametrize(func: FunctionType) -> list[ExpandedCase]:
+def expand_parametrize(func: FunctionType) -> list[ExpandedCase] | None:
     """Expand test cases for a test function.
 
-    If the function has no @rtest.mark.cases decorators, returns a single
-    entry with empty case_id and empty kwargs.
+    If the function has no @rtest.mark.cases decorators, returns None.
+    An empty list means a decorated test has no parameter cases.
 
     For multiple stacked @cases decorators, computes the cartesian product.
 
@@ -291,15 +255,12 @@ def expand_parametrize(func: FunctionType) -> list[ExpandedCase]:
         - case_id is the string identifier for the test case (e.g., "0", "a-1")
         - kwargs is the dict of arguments to pass to the function
     """
-    specs = _get_parametrize_specs(func)
-
-    if not specs:
-        return [ExpandedCase("", {})]
-
-    expanded_specs: list[list[ExpandedCase]] = [_expand_single_spec(spec) for spec in specs]
+    groups = _get_case_groups(func)
+    if not groups:
+        return None
 
     result: list[ExpandedCase] = []
-    for combo in itertools.product(*expanded_specs):
+    for combo in itertools.product(*groups):
         tokens: list[str] = []
         merged_kwargs: dict[str, object] = {}
         for case in combo:
@@ -308,11 +269,3 @@ def expand_parametrize(func: FunctionType) -> list[ExpandedCase]:
         result.append(ExpandedCase("-".join(tokens), merged_kwargs))
 
     return result
-
-
-def get_case_nodeid_suffix(case_id: str) -> str:
-    """Get the nodeid suffix for a case ID.
-
-    Returns empty string if no case_id, otherwise [case_id].
-    """
-    return f"[{case_id}]" if case_id else ""

@@ -2127,6 +2127,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_17_9")
+    @builtins.classmethod
     def VER_1_17_9(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.17.9".
 
@@ -2136,6 +2137,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_19_0")
+    @builtins.classmethod
     def VER_1_19_0(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.19.0".
 
@@ -2145,6 +2147,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_19_1")
+    @builtins.classmethod
     def VER_1_19_1(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.19.1".
 
@@ -2154,6 +2157,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_19_2")
+    @builtins.classmethod
     def VER_1_19_2(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.19.2".
 
@@ -2163,6 +2167,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_19_5")
+    @builtins.classmethod
     def VER_1_19_5(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.19.5".
 
@@ -2172,6 +2177,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_19_6")
+    @builtins.classmethod
     def VER_1_19_6(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.19.6".
 
@@ -2181,6 +2187,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_20_0")
+    @builtins.classmethod
     def VER_1_20_0(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.20.0".
 
@@ -2190,6 +2197,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_20_1")
+    @builtins.classmethod
     def VER_1_20_1(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.20.1".
 
@@ -2199,6 +2207,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_21_0")
+    @builtins.classmethod
     def VER_1_21_0(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.21.0".
 
@@ -2208,6 +2217,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_22_0")
+    @builtins.classmethod
     def VER_1_22_0(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.22.0".
 
@@ -2217,6 +2227,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_22_1")
+    @builtins.classmethod
     def VER_1_22_1(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.22.1".
 
@@ -2226,6 +2237,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_22_1_3")
+    @builtins.classmethod
     def VER_1_22_1_3(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.22.1.3".
 
@@ -2235,6 +2247,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_22_2")
+    @builtins.classmethod
     def VER_1_22_2(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.22.2".
 
@@ -2244,6 +2257,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_22_3")
+    @builtins.classmethod
     def VER_1_22_3(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.22.3".
 
@@ -2253,6 +2267,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_22_4")
+    @builtins.classmethod
     def VER_1_22_4(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.22.4".
 
@@ -2262,6 +2277,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_22_5")
+    @builtins.classmethod
     def VER_1_22_5(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.22.5".
 
@@ -2271,6 +2287,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_23_0")
+    @builtins.classmethod
     def VER_1_23_0(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.23.0".
 
@@ -2280,6 +2297,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_23_1")
+    @builtins.classmethod
     def VER_1_23_1(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.23.1".
 
@@ -2289,6 +2307,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_23_2")
+    @builtins.classmethod
     def VER_1_23_2(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.23.2".
 
@@ -2298,6 +2317,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_23_3")
+    @builtins.classmethod
     def VER_1_23_3(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.23.3".
 
@@ -2307,6 +2327,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_1_23_4")
+    @builtins.classmethod
     def VER_1_23_4(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.mysql_aurora.1.23.4".
 
@@ -2316,6 +2337,7 @@ class AuroraEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10A")
+    @builtins.classmethod
     def VER_10_A(cls) -> "AuroraEngineVersion":
         '''(deprecated) Version "5.6.10a".
 
@@ -2453,6 +2475,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_02_3")
+    @builtins.classmethod
     def VER_2_02_3(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.02.3".
 
@@ -2464,6 +2487,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_03_2")
+    @builtins.classmethod
     def VER_2_03_2(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.03.2".
 
@@ -2475,6 +2499,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_03_3")
+    @builtins.classmethod
     def VER_2_03_3(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.03.3".
 
@@ -2486,6 +2511,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_03_4")
+    @builtins.classmethod
     def VER_2_03_4(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.03.4".
 
@@ -2497,6 +2523,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_04_0")
+    @builtins.classmethod
     def VER_2_04_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.04.0".
 
@@ -2508,6 +2535,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_04_1")
+    @builtins.classmethod
     def VER_2_04_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.04.1".
 
@@ -2519,6 +2547,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_04_2")
+    @builtins.classmethod
     def VER_2_04_2(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.04.2".
 
@@ -2530,6 +2559,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_04_3")
+    @builtins.classmethod
     def VER_2_04_3(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.04.3".
 
@@ -2541,6 +2571,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_04_4")
+    @builtins.classmethod
     def VER_2_04_4(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.04.4".
 
@@ -2552,6 +2583,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_04_5")
+    @builtins.classmethod
     def VER_2_04_5(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.04.5".
 
@@ -2563,6 +2595,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_04_6")
+    @builtins.classmethod
     def VER_2_04_6(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.04.6".
 
@@ -2574,6 +2607,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_04_7")
+    @builtins.classmethod
     def VER_2_04_7(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.04.7".
 
@@ -2585,6 +2619,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_04_8")
+    @builtins.classmethod
     def VER_2_04_8(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.04.8".
 
@@ -2596,6 +2631,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_04_9")
+    @builtins.classmethod
     def VER_2_04_9(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.04.9".
 
@@ -2607,6 +2643,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_05_0")
+    @builtins.classmethod
     def VER_2_05_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.05.0".
 
@@ -2618,6 +2655,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_05_1")
+    @builtins.classmethod
     def VER_2_05_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.05.1".
 
@@ -2629,6 +2667,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_06_0")
+    @builtins.classmethod
     def VER_2_06_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.06.0".
 
@@ -2640,6 +2679,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_0")
+    @builtins.classmethod
     def VER_2_07_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.0".
 
@@ -2651,6 +2691,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_1")
+    @builtins.classmethod
     def VER_2_07_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.1".
 
@@ -2662,6 +2703,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_10")
+    @builtins.classmethod
     def VER_2_07_10(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.10".
 
@@ -2673,6 +2715,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_2")
+    @builtins.classmethod
     def VER_2_07_2(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.2".
 
@@ -2684,6 +2727,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_3")
+    @builtins.classmethod
     def VER_2_07_3(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.3".
 
@@ -2695,6 +2739,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_4")
+    @builtins.classmethod
     def VER_2_07_4(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.4".
 
@@ -2706,6 +2751,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_5")
+    @builtins.classmethod
     def VER_2_07_5(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.5".
 
@@ -2717,6 +2763,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_6")
+    @builtins.classmethod
     def VER_2_07_6(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.6".
 
@@ -2728,6 +2775,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_7")
+    @builtins.classmethod
     def VER_2_07_7(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.7".
 
@@ -2739,6 +2787,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_8")
+    @builtins.classmethod
     def VER_2_07_8(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.8".
 
@@ -2750,6 +2799,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_07_9")
+    @builtins.classmethod
     def VER_2_07_9(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.07.9".
 
@@ -2761,6 +2811,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_08_0")
+    @builtins.classmethod
     def VER_2_08_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.08.0".
 
@@ -2772,6 +2823,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_08_1")
+    @builtins.classmethod
     def VER_2_08_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.08.1".
 
@@ -2783,6 +2835,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_08_2")
+    @builtins.classmethod
     def VER_2_08_2(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.08.2".
 
@@ -2794,6 +2847,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_08_3")
+    @builtins.classmethod
     def VER_2_08_3(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.08.3".
 
@@ -2805,6 +2859,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_08_4")
+    @builtins.classmethod
     def VER_2_08_4(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.08.4".
 
@@ -2816,6 +2871,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_09_0")
+    @builtins.classmethod
     def VER_2_09_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.09.0".
 
@@ -2827,6 +2883,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_09_1")
+    @builtins.classmethod
     def VER_2_09_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.09.1".
 
@@ -2838,6 +2895,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_09_2")
+    @builtins.classmethod
     def VER_2_09_2(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.09.2".
 
@@ -2849,6 +2907,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_09_3")
+    @builtins.classmethod
     def VER_2_09_3(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.09.3".
 
@@ -2860,6 +2919,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_10_0")
+    @builtins.classmethod
     def VER_2_10_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.10.0".
 
@@ -2871,6 +2931,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_10_1")
+    @builtins.classmethod
     def VER_2_10_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.10.1".
 
@@ -2882,6 +2943,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_10_2")
+    @builtins.classmethod
     def VER_2_10_2(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.10.2".
 
@@ -2893,6 +2955,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_10_3")
+    @builtins.classmethod
     def VER_2_10_3(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.10.3".
 
@@ -2904,6 +2967,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_11_0")
+    @builtins.classmethod
     def VER_2_11_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.mysql_aurora.2.11.0".
 
@@ -2915,84 +2979,98 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_11_1")
+    @builtins.classmethod
     def VER_2_11_1(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.11.1".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_11_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_11_2")
+    @builtins.classmethod
     def VER_2_11_2(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.11.2".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_11_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_11_3")
+    @builtins.classmethod
     def VER_2_11_3(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.11.3".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_11_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_11_4")
+    @builtins.classmethod
     def VER_2_11_4(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.11.4".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_11_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_11_5")
+    @builtins.classmethod
     def VER_2_11_5(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.11.5".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_11_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_11_6")
+    @builtins.classmethod
     def VER_2_11_6(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.11.6".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_11_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_12_0")
+    @builtins.classmethod
     def VER_2_12_0(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.12.0".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_12_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_12_1")
+    @builtins.classmethod
     def VER_2_12_1(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.12.1".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_12_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_12_2")
+    @builtins.classmethod
     def VER_2_12_2(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.12.2".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_12_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_12_3")
+    @builtins.classmethod
     def VER_2_12_3(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.12.3".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_12_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_12_4")
+    @builtins.classmethod
     def VER_2_12_4(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.12.4".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_12_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_12_5")
+    @builtins.classmethod
     def VER_2_12_5(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.12.5".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_12_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_2_12_6")
+    @builtins.classmethod
     def VER_2_12_6(cls) -> "AuroraMysqlEngineVersion":
         '''Version "5.7.mysql_aurora.2.12.6".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_2_12_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_01_0")
+    @builtins.classmethod
     def VER_3_01_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.01.0".
 
@@ -3004,6 +3082,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_01_1")
+    @builtins.classmethod
     def VER_3_01_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.01.1".
 
@@ -3015,6 +3094,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_02_0")
+    @builtins.classmethod
     def VER_3_02_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.02.0".
 
@@ -3026,6 +3106,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_02_1")
+    @builtins.classmethod
     def VER_3_02_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.02.1".
 
@@ -3037,6 +3118,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_02_2")
+    @builtins.classmethod
     def VER_3_02_2(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.02.2".
 
@@ -3048,6 +3130,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_02_3")
+    @builtins.classmethod
     def VER_3_02_3(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.02.3".
 
@@ -3059,6 +3142,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_03_0")
+    @builtins.classmethod
     def VER_3_03_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.03.0".
 
@@ -3070,6 +3154,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_03_1")
+    @builtins.classmethod
     def VER_3_03_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.03.1".
 
@@ -3081,6 +3166,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_03_2")
+    @builtins.classmethod
     def VER_3_03_2(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.03.2".
 
@@ -3092,6 +3178,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_03_3")
+    @builtins.classmethod
     def VER_3_03_3(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.03.3".
 
@@ -3103,42 +3190,49 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_04_0")
+    @builtins.classmethod
     def VER_3_04_0(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.04.0".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_04_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_04_1")
+    @builtins.classmethod
     def VER_3_04_1(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.04.1".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_04_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_04_2")
+    @builtins.classmethod
     def VER_3_04_2(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.04.2".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_04_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_04_3")
+    @builtins.classmethod
     def VER_3_04_3(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.04.3".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_04_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_04_4")
+    @builtins.classmethod
     def VER_3_04_4(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.04.4".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_04_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_04_6")
+    @builtins.classmethod
     def VER_3_04_6(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.04.6".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_04_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_05_0")
+    @builtins.classmethod
     def VER_3_05_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.05.0".
 
@@ -3150,6 +3244,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_05_1")
+    @builtins.classmethod
     def VER_3_05_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.05.1".
 
@@ -3161,6 +3256,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_05_2")
+    @builtins.classmethod
     def VER_3_05_2(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.05.2".
 
@@ -3172,6 +3268,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_06_0")
+    @builtins.classmethod
     def VER_3_06_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.06.0".
 
@@ -3183,6 +3280,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_06_1")
+    @builtins.classmethod
     def VER_3_06_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.06.1".
 
@@ -3194,6 +3292,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_07_0")
+    @builtins.classmethod
     def VER_3_07_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.07.0".
 
@@ -3205,6 +3304,7 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_07_1")
+    @builtins.classmethod
     def VER_3_07_1(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.07.1".
 
@@ -3216,78 +3316,91 @@ class AuroraMysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_08_0")
+    @builtins.classmethod
     def VER_3_08_0(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.08.0".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_08_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_08_1")
+    @builtins.classmethod
     def VER_3_08_1(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.08.1".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_08_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_08_2")
+    @builtins.classmethod
     def VER_3_08_2(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.08.2".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_08_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_09_0")
+    @builtins.classmethod
     def VER_3_09_0(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.09.0".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_09_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_10_0")
+    @builtins.classmethod
     def VER_3_10_0(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.10.0".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_10_1")
+    @builtins.classmethod
     def VER_3_10_1(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.10.1".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_10_2")
+    @builtins.classmethod
     def VER_3_10_2(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.10.2".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_10_3")
+    @builtins.classmethod
     def VER_3_10_3(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.10.3".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_10_4")
+    @builtins.classmethod
     def VER_3_10_4(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.10.4".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_11_0")
+    @builtins.classmethod
     def VER_3_11_0(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.11.0".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_11_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_11_1")
+    @builtins.classmethod
     def VER_3_11_1(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.11.1".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_11_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_12_0")
+    @builtins.classmethod
     def VER_3_12_0(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.12.0".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_12_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_12")
+    @builtins.classmethod
     def VER_5_7_12(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.12".
 
@@ -3529,6 +3642,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11")
+    @builtins.classmethod
     def VER_10_11(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.11".
 
@@ -3540,6 +3654,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_12")
+    @builtins.classmethod
     def VER_10_12(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.12".
 
@@ -3551,6 +3666,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_13")
+    @builtins.classmethod
     def VER_10_13(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.13".
 
@@ -3562,6 +3678,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_14")
+    @builtins.classmethod
     def VER_10_14(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.14".
 
@@ -3573,6 +3690,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_16")
+    @builtins.classmethod
     def VER_10_16(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.16".
 
@@ -3584,6 +3702,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_17")
+    @builtins.classmethod
     def VER_10_17(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.17".
 
@@ -3595,6 +3714,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_18")
+    @builtins.classmethod
     def VER_10_18(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.18".
 
@@ -3606,6 +3726,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_19")
+    @builtins.classmethod
     def VER_10_19(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.19".
 
@@ -3617,6 +3738,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_20")
+    @builtins.classmethod
     def VER_10_20(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.20".
 
@@ -3628,6 +3750,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_21")
+    @builtins.classmethod
     def VER_10_21(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.21".
 
@@ -3639,6 +3762,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4")
+    @builtins.classmethod
     def VER_10_4(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.4".
 
@@ -3650,6 +3774,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5")
+    @builtins.classmethod
     def VER_10_5(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.5".
 
@@ -3661,6 +3786,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6")
+    @builtins.classmethod
     def VER_10_6(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.6".
 
@@ -3672,6 +3798,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_7")
+    @builtins.classmethod
     def VER_10_7(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "10.7".
 
@@ -3683,6 +3810,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_11")
+    @builtins.classmethod
     def VER_11_11(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.11".
 
@@ -3694,6 +3822,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_12")
+    @builtins.classmethod
     def VER_11_12(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.12".
 
@@ -3705,6 +3834,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_13")
+    @builtins.classmethod
     def VER_11_13(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.13".
 
@@ -3716,6 +3846,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_14")
+    @builtins.classmethod
     def VER_11_14(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.14".
 
@@ -3727,6 +3858,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_15")
+    @builtins.classmethod
     def VER_11_15(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.15".
 
@@ -3738,6 +3870,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_16")
+    @builtins.classmethod
     def VER_11_16(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.16".
 
@@ -3749,6 +3882,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_17")
+    @builtins.classmethod
     def VER_11_17(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.17".
 
@@ -3760,6 +3894,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_18")
+    @builtins.classmethod
     def VER_11_18(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.18".
 
@@ -3771,6 +3906,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_19")
+    @builtins.classmethod
     def VER_11_19(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.19".
 
@@ -3782,6 +3918,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_20")
+    @builtins.classmethod
     def VER_11_20(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.20".
 
@@ -3793,12 +3930,14 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_21")
+    @builtins.classmethod
     def VER_11_21(cls) -> "AuroraPostgresEngineVersion":
         '''Version "11.21".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_11_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4")
+    @builtins.classmethod
     def VER_11_4(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.4".
 
@@ -3810,6 +3949,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_6")
+    @builtins.classmethod
     def VER_11_6(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.6".
 
@@ -3821,6 +3961,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_7")
+    @builtins.classmethod
     def VER_11_7(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.7".
 
@@ -3832,6 +3973,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_8")
+    @builtins.classmethod
     def VER_11_8(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "11.8".
 
@@ -3843,12 +3985,14 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_9")
+    @builtins.classmethod
     def VER_11_9(cls) -> "AuroraPostgresEngineVersion":
         '''Version "11.9".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_11_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_10")
+    @builtins.classmethod
     def VER_12_10(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.10".
 
@@ -3860,6 +4004,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_11")
+    @builtins.classmethod
     def VER_12_11(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.11".
 
@@ -3871,6 +4016,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_12")
+    @builtins.classmethod
     def VER_12_12(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.12".
 
@@ -3882,6 +4028,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_13")
+    @builtins.classmethod
     def VER_12_13(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.13".
 
@@ -3893,6 +4040,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_14")
+    @builtins.classmethod
     def VER_12_14(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.14".
 
@@ -3904,6 +4052,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_15")
+    @builtins.classmethod
     def VER_12_15(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.15".
 
@@ -3915,6 +4064,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_16")
+    @builtins.classmethod
     def VER_12_16(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.16".
 
@@ -3926,6 +4076,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_17")
+    @builtins.classmethod
     def VER_12_17(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.17".
 
@@ -3937,6 +4088,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_18")
+    @builtins.classmethod
     def VER_12_18(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.18".
 
@@ -3948,6 +4100,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_19")
+    @builtins.classmethod
     def VER_12_19(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.19".
 
@@ -3959,6 +4112,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_20")
+    @builtins.classmethod
     def VER_12_20(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.20".
 
@@ -3970,6 +4124,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_21")
+    @builtins.classmethod
     def VER_12_21(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.21".
 
@@ -3981,12 +4136,14 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_22")
+    @builtins.classmethod
     def VER_12_22(cls) -> "AuroraPostgresEngineVersion":
         '''Version "12.22".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_12_22"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_4")
+    @builtins.classmethod
     def VER_12_4(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.4".
 
@@ -3998,6 +4155,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_6")
+    @builtins.classmethod
     def VER_12_6(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.6".
 
@@ -4009,6 +4167,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_7")
+    @builtins.classmethod
     def VER_12_7(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.7".
 
@@ -4020,6 +4179,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_8")
+    @builtins.classmethod
     def VER_12_8(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "12.8".
 
@@ -4031,12 +4191,14 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_9")
+    @builtins.classmethod
     def VER_12_9(cls) -> "AuroraPostgresEngineVersion":
         '''Version "12.9".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_12_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_10")
+    @builtins.classmethod
     def VER_13_10(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.10".
 
@@ -4048,6 +4210,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_11")
+    @builtins.classmethod
     def VER_13_11(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.11".
 
@@ -4059,6 +4222,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_12")
+    @builtins.classmethod
     def VER_13_12(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.12".
 
@@ -4070,6 +4234,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_13")
+    @builtins.classmethod
     def VER_13_13(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.13".
 
@@ -4081,6 +4246,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_14")
+    @builtins.classmethod
     def VER_13_14(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.14".
 
@@ -4092,6 +4258,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_15")
+    @builtins.classmethod
     def VER_13_15(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.15".
 
@@ -4103,12 +4270,14 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_16")
+    @builtins.classmethod
     def VER_13_16(cls) -> "AuroraPostgresEngineVersion":
         '''Version "13.16".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_16"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_17")
+    @builtins.classmethod
     def VER_13_17(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.17".
 
@@ -4120,6 +4289,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_18")
+    @builtins.classmethod
     def VER_13_18(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.18".
 
@@ -4131,6 +4301,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_20")
+    @builtins.classmethod
     def VER_13_20(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.20".
 
@@ -4142,6 +4313,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_21")
+    @builtins.classmethod
     def VER_13_21(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.21".
 
@@ -4153,6 +4325,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_22")
+    @builtins.classmethod
     def VER_13_22(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.22".
 
@@ -4164,12 +4337,14 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_23")
+    @builtins.classmethod
     def VER_13_23(cls) -> "AuroraPostgresEngineVersion":
         '''Version "13.23".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_23"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_3")
+    @builtins.classmethod
     def VER_13_3(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.3".
 
@@ -4181,6 +4356,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_4")
+    @builtins.classmethod
     def VER_13_4(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.4".
 
@@ -4192,6 +4368,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_5")
+    @builtins.classmethod
     def VER_13_5(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.5".
 
@@ -4203,6 +4380,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_6")
+    @builtins.classmethod
     def VER_13_6(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.6".
 
@@ -4214,6 +4392,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_7")
+    @builtins.classmethod
     def VER_13_7(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.7".
 
@@ -4225,6 +4404,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_8")
+    @builtins.classmethod
     def VER_13_8(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "13.8".
 
@@ -4236,12 +4416,14 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_9")
+    @builtins.classmethod
     def VER_13_9(cls) -> "AuroraPostgresEngineVersion":
         '''Version "13.9".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_10")
+    @builtins.classmethod
     def VER_14_10(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.10".
 
@@ -4253,6 +4435,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_11")
+    @builtins.classmethod
     def VER_14_11(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.11".
 
@@ -4264,6 +4447,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_12")
+    @builtins.classmethod
     def VER_14_12(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.12".
 
@@ -4275,12 +4459,14 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_13")
+    @builtins.classmethod
     def VER_14_13(cls) -> "AuroraPostgresEngineVersion":
         '''Version "14.13".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_14")
+    @builtins.classmethod
     def VER_14_14(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.14".
 
@@ -4292,42 +4478,49 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_15")
+    @builtins.classmethod
     def VER_14_15(cls) -> "AuroraPostgresEngineVersion":
         '''Version "14.15".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_17")
+    @builtins.classmethod
     def VER_14_17(cls) -> "AuroraPostgresEngineVersion":
         '''Version "14.17".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_18")
+    @builtins.classmethod
     def VER_14_18(cls) -> "AuroraPostgresEngineVersion":
         '''Version "14.18".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_19")
+    @builtins.classmethod
     def VER_14_19(cls) -> "AuroraPostgresEngineVersion":
         '''Version "14.19".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_19"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_20")
+    @builtins.classmethod
     def VER_14_20(cls) -> "AuroraPostgresEngineVersion":
         '''Version "14.20".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_22")
+    @builtins.classmethod
     def VER_14_22(cls) -> "AuroraPostgresEngineVersion":
         '''Version "14.22".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_22"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_3")
+    @builtins.classmethod
     def VER_14_3(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.3".
 
@@ -4339,6 +4532,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_4")
+    @builtins.classmethod
     def VER_14_4(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.4".
 
@@ -4350,6 +4544,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_5")
+    @builtins.classmethod
     def VER_14_5(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.5".
 
@@ -4361,12 +4556,14 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_6")
+    @builtins.classmethod
     def VER_14_6(cls) -> "AuroraPostgresEngineVersion":
         '''Version "14.6".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_7")
+    @builtins.classmethod
     def VER_14_7(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.7".
 
@@ -4378,6 +4575,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_8")
+    @builtins.classmethod
     def VER_14_8(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.8".
 
@@ -4389,6 +4587,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_9")
+    @builtins.classmethod
     def VER_14_9(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "14.9".
 
@@ -4400,42 +4599,49 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_10")
+    @builtins.classmethod
     def VER_15_10(cls) -> "AuroraPostgresEngineVersion":
         '''Version "15.10".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_12")
+    @builtins.classmethod
     def VER_15_12(cls) -> "AuroraPostgresEngineVersion":
         '''Version "15.12".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_13")
+    @builtins.classmethod
     def VER_15_13(cls) -> "AuroraPostgresEngineVersion":
         '''Version "15.13".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_14")
+    @builtins.classmethod
     def VER_15_14(cls) -> "AuroraPostgresEngineVersion":
         '''Version "15.14".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_14"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_15")
+    @builtins.classmethod
     def VER_15_15(cls) -> "AuroraPostgresEngineVersion":
         '''Version "15.15".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_17")
+    @builtins.classmethod
     def VER_15_17(cls) -> "AuroraPostgresEngineVersion":
         '''Version "15.17".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_2")
+    @builtins.classmethod
     def VER_15_2(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "15.2".
 
@@ -4447,6 +4653,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_3")
+    @builtins.classmethod
     def VER_15_3(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "15.3".
 
@@ -4458,6 +4665,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_4")
+    @builtins.classmethod
     def VER_15_4(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "15.4".
 
@@ -4469,6 +4677,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_5")
+    @builtins.classmethod
     def VER_15_5(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "15.5".
 
@@ -4480,6 +4689,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_6")
+    @builtins.classmethod
     def VER_15_6(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "15.6".
 
@@ -4491,6 +4701,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_7")
+    @builtins.classmethod
     def VER_15_7(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "15.7".
 
@@ -4502,12 +4713,14 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_8")
+    @builtins.classmethod
     def VER_15_8(cls) -> "AuroraPostgresEngineVersion":
         '''Version "15.8".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_9")
+    @builtins.classmethod
     def VER_15_9(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "15.9".
 
@@ -4519,6 +4732,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_0")
+    @builtins.classmethod
     def VER_16_0(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "16.0".
 
@@ -4530,6 +4744,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_1")
+    @builtins.classmethod
     def VER_16_1(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "16.1".
 
@@ -4541,42 +4756,49 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_10")
+    @builtins.classmethod
     def VER_16_10(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.10".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_10_LIMITLESS")
+    @builtins.classmethod
     def VER_16_10_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.10 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_10_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_11")
+    @builtins.classmethod
     def VER_16_11(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.11".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_11_LIMITLESS")
+    @builtins.classmethod
     def VER_16_11_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.11 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_11_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_13")
+    @builtins.classmethod
     def VER_16_13(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.13".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_13_LIMITLESS")
+    @builtins.classmethod
     def VER_16_13_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.13 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_13_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_2")
+    @builtins.classmethod
     def VER_16_2(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "16.2".
 
@@ -4588,6 +4810,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_3")
+    @builtins.classmethod
     def VER_16_3(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "16.3".
 
@@ -4599,18 +4822,21 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_4")
+    @builtins.classmethod
     def VER_16_4(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.4".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_4_LIMITLESS")
+    @builtins.classmethod
     def VER_16_4_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.4 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_4_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_5")
+    @builtins.classmethod
     def VER_16_5(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "16.5".
 
@@ -4622,42 +4848,49 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_6")
+    @builtins.classmethod
     def VER_16_6(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.6".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_6_LIMITLESS")
+    @builtins.classmethod
     def VER_16_6_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.6 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_6_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_8")
+    @builtins.classmethod
     def VER_16_8(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.8".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_8_LIMITLESS")
+    @builtins.classmethod
     def VER_16_8_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.8 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_8_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_9")
+    @builtins.classmethod
     def VER_16_9(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.9".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_9_LIMITLESS")
+    @builtins.classmethod
     def VER_16_9_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
         '''Version "16.9 limitless".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_9_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_1")
+    @builtins.classmethod
     def VER_17_1(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "17.1".
 
@@ -4669,6 +4902,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_2")
+    @builtins.classmethod
     def VER_17_2(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "17.2".
 
@@ -4680,54 +4914,63 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_4")
+    @builtins.classmethod
     def VER_17_4(cls) -> "AuroraPostgresEngineVersion":
         '''Version "17.4".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_5")
+    @builtins.classmethod
     def VER_17_5(cls) -> "AuroraPostgresEngineVersion":
         '''Version "17.5".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_6")
+    @builtins.classmethod
     def VER_17_6(cls) -> "AuroraPostgresEngineVersion":
         '''Version "17.6".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_7")
+    @builtins.classmethod
     def VER_17_7(cls) -> "AuroraPostgresEngineVersion":
         '''Version "17.7".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_9")
+    @builtins.classmethod
     def VER_17_9(cls) -> "AuroraPostgresEngineVersion":
         '''Version "17.9".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_3")
+    @builtins.classmethod
     def VER_18_3(cls) -> "AuroraPostgresEngineVersion":
         '''Version "18.3".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_18_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_4")
+    @builtins.classmethod
     def VER_18_4(cls) -> "AuroraPostgresEngineVersion":
         '''Version "18.4".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_18_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_6")
+    @builtins.classmethod
     def VER_18_6(cls) -> "AuroraPostgresEngineVersion":
         '''Version "18.6".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_18_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_11")
+    @builtins.classmethod
     def VER_9_6_11(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "9.6.11".
 
@@ -4739,6 +4982,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_12")
+    @builtins.classmethod
     def VER_9_6_12(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "9.6.12".
 
@@ -4750,6 +4994,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_16")
+    @builtins.classmethod
     def VER_9_6_16(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "9.6.16".
 
@@ -4761,6 +5006,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_17")
+    @builtins.classmethod
     def VER_9_6_17(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "9.6.17".
 
@@ -4772,6 +5018,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_18")
+    @builtins.classmethod
     def VER_9_6_18(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "9.6.18".
 
@@ -4783,6 +5030,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_19")
+    @builtins.classmethod
     def VER_9_6_19(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "9.6.19".
 
@@ -4794,6 +5042,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_22")
+    @builtins.classmethod
     def VER_9_6_22(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "9.6.22".
 
@@ -4805,6 +5054,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_8")
+    @builtins.classmethod
     def VER_9_6_8(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "9.6.8".
 
@@ -4816,6 +5066,7 @@ class AuroraPostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_9")
+    @builtins.classmethod
     def VER_9_6_9(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "9.6.9".
 
@@ -4970,6 +5221,7 @@ class CaCertificate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_2019")
+    @builtins.classmethod
     def RDS_CA_2019(cls) -> "CaCertificate":
         '''(deprecated) rds-ca-2019 certificate authority.
 
@@ -4981,12 +5233,14 @@ class CaCertificate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_ECC384_G1")
+    @builtins.classmethod
     def RDS_CA_ECC384_G1(cls) -> "CaCertificate":
         '''rds-ca-ecc384-g1 certificate authority.'''
         return typing.cast("CaCertificate", jsii.sget(cls, "RDS_CA_ECC384_G1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_RDS2048_G1")
+    @builtins.classmethod
     def RDS_CA_RDS2048_G1(cls) -> "CaCertificate":
         '''(deprecated) rds-ca-rsa2048-g1 certificate authority.
 
@@ -4998,6 +5252,7 @@ class CaCertificate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_RDS4096_G1")
+    @builtins.classmethod
     def RDS_CA_RDS4096_G1(cls) -> "CaCertificate":
         '''(deprecated) rds-ca-rsa4096-g1 certificate authority.
 
@@ -5009,12 +5264,14 @@ class CaCertificate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_RSA2048_G1")
+    @builtins.classmethod
     def RDS_CA_RSA2048_G1(cls) -> "CaCertificate":
         '''rds-ca-rsa2048-g1 certificate authority.'''
         return typing.cast("CaCertificate", jsii.sget(cls, "RDS_CA_RSA2048_G1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_RSA4096_G1")
+    @builtins.classmethod
     def RDS_CA_RSA4096_G1(cls) -> "CaCertificate":
         '''rds-ca-rsa4096-g1 certificate authority.'''
         return typing.cast("CaCertificate", jsii.sget(cls, "RDS_CA_RSA4096_G1"))
@@ -5118,6 +5375,7 @@ class CfnClusterSnapshot(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5319,7 +5577,7 @@ class CfnClusterSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__341e244d6327da16f81c63a6dd38b530b1d05037d874cd60c94e677867f0025f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterSnapshotIdentifier")
@@ -5332,7 +5590,7 @@ class CfnClusterSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3186a275081e63254522988a8ae3004b5981d35f51b5a76ba8fe6ecee31aed56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterSnapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterSnapshotIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5348,7 +5606,7 @@ class CfnClusterSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ff2cfb1ed050bdf888a11a570cab1f93dedd84645dd143b0f061e24c8ae8c88)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -5588,6 +5846,7 @@ class CfnCustomDBEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5636,7 +5895,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__57b06d6a61a7aa40468b988c47f903780541aacb379dfa0bf146f37e0c779729)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engine", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineVersion")
@@ -5649,7 +5908,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__09530b6c217cbc4998aaea3601330c702807beb29fc30fa9af5ceab12214408d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="databaseInstallationFiles")
@@ -5664,7 +5923,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__daf9d4b57d65db7666c5ea645dbc79729fd6c79857c2ded1ba31894860a221f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "databaseInstallationFiles", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "databaseInstallationFiles", value)
 
     @builtins.property
     @jsii.member(jsii_name="databaseInstallationFilesS3BucketName")
@@ -5682,7 +5941,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e8dcd4aecfb92c6617a76401829247508a5196d1219bdf3c496c1eef202e0c37)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "databaseInstallationFilesS3BucketName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "databaseInstallationFilesS3BucketName", value)
 
     @builtins.property
     @jsii.member(jsii_name="databaseInstallationFilesS3Prefix")
@@ -5698,7 +5957,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eed0c37a026ac98aca414552d356dfb6e8f65704640034a73702c850f465b41a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "databaseInstallationFilesS3Prefix", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "databaseInstallationFilesS3Prefix", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -5711,7 +5970,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4aaac4d275f054bf611e124a013cfc149ce4ce49db255d6b8bdbf993794d3044)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="imageId")
@@ -5724,7 +5983,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__573de89cab865fb2fe6437920ada3b601ffcf5832b228e0d126bedaf494c57eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "imageId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "imageId", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -5737,7 +5996,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1a0cd73871adb0d339f703041dbaa1e90b6c3ad3be57fe4b1f55f2e61af11dca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="manifest")
@@ -5750,7 +6009,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__463fc7056b1df9d389ba18cfed697b7ea579834be61dc7627fe4a6bba7a0ce5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manifest", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "manifest", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceCustomDbEngineVersionIdentifier")
@@ -5768,7 +6027,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ab74f194180555de35de6a9023fe9e2d2972ffd40051f7cc505df6dd0438f8d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceCustomDbEngineVersionIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceCustomDbEngineVersionIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -5781,7 +6040,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec128ecf80f4b2e6d4529f80259fe9fb957476b36db57ec7b870982375842eac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5797,7 +6056,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72ea58fd4af1464d2f87e63b0113772cf0f44d78fc2c75319017136876b35c90)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="useAwsProvidedLatestImage")
@@ -5815,7 +6074,7 @@ class CfnCustomDBEngineVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__30204c42eef4323c823e84f7a43420a689740a78fa5382e0d646d46b0102a5c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "useAwsProvidedLatestImage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "useAwsProvidedLatestImage", value)
 
 
 @jsii.data_type(
@@ -6510,6 +6769,7 @@ class CfnDBCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6652,7 +6912,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b26bf63f703c49cf31086603eee69e2db43fbf32c1853bc110ebaf79f1dab39a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allocatedStorage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allocatedStorage", value)
 
     @builtins.property
     @jsii.member(jsii_name="associatedRoles")
@@ -6670,7 +6930,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__de474bccf1889322c51196d8d4ba255be11c15b5fc0aedc1544af2907fa6839c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "associatedRoles", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "associatedRoles", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoMinorVersionUpgrade")
@@ -6688,7 +6948,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b57470a09145bed53fc4a1308635f9b075d8f9123010ef7c1dc3b85c549e681)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoMinorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoMinorVersionUpgrade", value)
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZones")
@@ -6704,7 +6964,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b64e0486b077769f0d7b122ad62924be65560c00ad9f13d222f1ab55fd1051ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZones", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZones", value)
 
     @builtins.property
     @jsii.member(jsii_name="backtrackWindow")
@@ -6720,7 +6980,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d3f12b5a2273631891f7cf85219c21cc48606155594350de01bdcdd7a4cf403b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "backtrackWindow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "backtrackWindow", value)
 
     @builtins.property
     @jsii.member(jsii_name="backupRetentionPeriod")
@@ -6733,7 +6993,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8dbb89a95c41c7cbbc3c4804ae23a1ef19f4b4b61e97878b54d704b3dc955eb7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "backupRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "backupRetentionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="clusterScalabilityType")
@@ -6746,7 +7006,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aa79454f09bd865c2e6aaff719f2c4f06381f6f4444dd1e6568c9be39dfe64df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterScalabilityType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clusterScalabilityType", value)
 
     @builtins.property
     @jsii.member(jsii_name="copyTagsToSnapshot")
@@ -6764,7 +7024,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7aaebe942bef486fa4f2def6b116a47a3513d6909fa29d9fdd20eb31f9d9dc03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "copyTagsToSnapshot", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "copyTagsToSnapshot", value)
 
     @builtins.property
     @jsii.member(jsii_name="databaseInsightsMode")
@@ -6777,7 +7037,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__95529055a06b2a5642399d211890b3949094262771feb4c9ba4efe7d394d8efa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "databaseInsightsMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "databaseInsightsMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="databaseName")
@@ -6790,7 +7050,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__133622b74470290a34fd20f1677f713d047e14ddfc8138b0693817c347f0904f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "databaseName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "databaseName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterIdentifier")
@@ -6806,7 +7066,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__55617043df14666e3665f3947be2c7d08d730bd5dafad5d1b2b7394f6af7e64a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterInstanceClass")
@@ -6819,7 +7079,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4698294b15845f23b998066d033e773c1f919d48f4dd8d3547ae9465ca4c8623)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterInstanceClass", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterInstanceClass", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterParameterGroupName")
@@ -6835,7 +7095,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a8ce71543e697fea0216ebbb847f7ea81a4524c91c47b22e9025e7907c8d944e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterParameterGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterParameterGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceParameterGroupName")
@@ -6851,7 +7111,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__030bf42bf8de41396ecd68ad44900e73fba0d7d7b572e13c4693f5c399f4ece6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceParameterGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbInstanceParameterGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbSubnetGroupName")
@@ -6864,7 +7124,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2659ab1026eaa69df2aeac64c6195777b6de1b6c75de8c797bfe2b7420168e99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSubnetGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbSystemId")
@@ -6877,7 +7137,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__41f2773ed2c93659b8bf06ee2830b9675bbe867fb30ad2e89f77f72a45a3b0e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSystemId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSystemId", value)
 
     @builtins.property
     @jsii.member(jsii_name="deleteAutomatedBackups")
@@ -6895,7 +7155,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e8a2ba2ab46cead449dbe97283d45de5dd8c86ea7d68521f70c997f8eb39235)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deleteAutomatedBackups", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deleteAutomatedBackups", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtection")
@@ -6913,7 +7173,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a96b132db813926d0ef31c223b961804a782255c93a76d8ab91de8c2ca7b0f35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="domain")
@@ -6926,7 +7186,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4c2ea957168641e8393a37255bd4ba2d434b8e535b1d5a9ab7fa27f77a5170ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domain", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainIamRoleName")
@@ -6939,7 +7199,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c5de45b0b0fd43e3ef9a298cddfe7e10c64f9f20a7d58aa4ee83b083b4846a61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainIamRoleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainIamRoleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableCloudwatchLogsExports")
@@ -6957,7 +7217,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f36bc814efe003a4b1230628ace46a0c376dd67efae9edd14e7b2455cddae236)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableCloudwatchLogsExports", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableCloudwatchLogsExports", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableGlobalWriteForwarding")
@@ -6975,7 +7235,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__38ca7c1872335fd2182c5ed7074d233593534aaa2d9b95ebed74e7577dd81551)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableGlobalWriteForwarding", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableGlobalWriteForwarding", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableHttpEndpoint")
@@ -6996,7 +7256,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a15b1a5e04501a5e471c4c72ca3df92d9893d051244504b2eb71d63cca41b49)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableHttpEndpoint", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableHttpEndpoint", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableIamDatabaseAuthentication")
@@ -7014,7 +7274,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7946d487f5118b449bf2e0669e304a130a394dee094f86279a80a19ef45afaf6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableIamDatabaseAuthentication", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableIamDatabaseAuthentication", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableLocalWriteForwarding")
@@ -7032,7 +7292,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a595f3e36536e3c842268826e5bbf22a2b627b51c58cb99201c084493b91fd7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableLocalWriteForwarding", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableLocalWriteForwarding", value)
 
     @builtins.property
     @jsii.member(jsii_name="engine")
@@ -7045,7 +7305,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b719515b7b61b9703874b8014129227da07665daf27a6c705c2777e43612e46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engine", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineLifecycleSupport")
@@ -7058,7 +7318,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1bcf395c2b58052ef29e580f58a0ee658dd38127a749a7b05934c9fe89fb1578)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineLifecycleSupport", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineLifecycleSupport", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineMode")
@@ -7071,7 +7331,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1720afb1a1233807859444f6991dbfb4334fef08adc5e3a2104ed03f4269a766)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineVersion")
@@ -7084,7 +7344,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fb241407bb17623e1e6f2f9310a1b3ebac9240cdbdcf5b152e7df5cc0a21488)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalClusterIdentifier")
@@ -7097,7 +7357,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__32506437b25c6239bdf71df465671ddee1a1e4067ca0e6d79b7399d81b6b7f45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="iops")
@@ -7110,7 +7370,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d385d85f593ce39d43b397540e5fb9f90e7feb955d365ea85b413633bb27d03d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "iops", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "iops", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -7123,7 +7383,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b8d0fdd0070aafd30ad6bcb3a42b259df4088aada78fe5a4669ad688f585b7f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="manageMasterUserPassword")
@@ -7141,7 +7401,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ca876954b5556832b0c941ce0f6ef94a61eb0cd960bb6e8a0106369ccc13a12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "manageMasterUserPassword", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUserAuthenticationType")
@@ -7157,7 +7417,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__910a49e316ebe92edf4e4f3c3db84de89812fb192f5741dd59271a8ec7200008)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserAuthenticationType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUserAuthenticationType", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUsername")
@@ -7170,7 +7430,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0dd3cba91c2c8db72b7eb5eeec9e8fbd7f06d277b876e3e89834d03071aaf6d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUsername", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUsername", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUserPassword")
@@ -7183,7 +7443,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__226485ff852dd8e2c2c05d1e84d6d461e5fa073f85f9c00a6f3481b72ef96495)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUserPassword", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUserSecret")
@@ -7201,7 +7461,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca6746fea0781a1a399dcc243d901ddf185eaeeaa1c195a09f668c467ff7485f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserSecret", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUserSecret", value)
 
     @builtins.property
     @jsii.member(jsii_name="monitoringInterval")
@@ -7214,7 +7474,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca22a124f153ad06adcc2d086a7b548cb1efcf6716b8a7b1f4f3241a11ab9538)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitoringInterval", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitoringInterval", value)
 
     @builtins.property
     @jsii.member(jsii_name="monitoringRoleArn")
@@ -7227,7 +7487,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a0ed903ae6c409f8db9f60a46656ecd36777befccd23abacc27700b6b56ac0f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitoringRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitoringRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkType")
@@ -7240,7 +7500,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d91088eeabeff13b3d044e9d5767593b2142a6f71342b829d605562d87e4dab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkType", value)
 
     @builtins.property
     @jsii.member(jsii_name="performanceInsightsEnabled")
@@ -7258,7 +7518,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66cd4e8195f60ef500150681ff7782ad12c06bfe45fa29747fcfabdccca5ba66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "performanceInsightsEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "performanceInsightsEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="performanceInsightsKmsKeyId")
@@ -7274,7 +7534,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cf157608d0a77dbe9fb6c7ea88b4e939cfbeafdeede50421bf1570b1de2e8aa2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "performanceInsightsKmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "performanceInsightsKmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="performanceInsightsRetentionPeriod")
@@ -7290,7 +7550,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd68a178f4f64cdaf56c7b6d5478f034a1449271243c8949641c0f1d1278e6e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "performanceInsightsRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "performanceInsightsRetentionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="port")
@@ -7303,7 +7563,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07fd869af6e08eb8d08ffcb2930cfc8084e9af885f80caa554c1017a14533953)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "port", value)
 
     @builtins.property
     @jsii.member(jsii_name="preferredBackupWindow")
@@ -7316,7 +7576,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46ed70953175e13a4a0e3215c1f628258e678b4b33374b7bcab3055aa26f43b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredBackupWindow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preferredBackupWindow", value)
 
     @builtins.property
     @jsii.member(jsii_name="preferredMaintenanceWindow")
@@ -7332,7 +7592,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__99907fd311daffb4e77200a4de40cf06114de840559ce190f327fae84815447d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preferredMaintenanceWindow", value)
 
     @builtins.property
     @jsii.member(jsii_name="publiclyAccessible")
@@ -7350,7 +7610,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3a0b6d6f1bc188271336aaf17873ab87aacd8647ebe3cf297378988a529d0cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "publiclyAccessible", value)
 
     @builtins.property
     @jsii.member(jsii_name="replicationSourceIdentifier")
@@ -7366,7 +7626,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__56b1a90f3bce5fc91bac762e68220d7408521d009b606dc505619b0c7ebd3c64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicationSourceIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replicationSourceIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="restoreToTime")
@@ -7379,7 +7639,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__968c8eea9022fda98e791ba1ed74ac7968f89dc147e76f278478ff3ed225bb72)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "restoreToTime", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "restoreToTime", value)
 
     @builtins.property
     @jsii.member(jsii_name="restoreType")
@@ -7395,7 +7655,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4a357bfe90277fc3992eb9dae141ee8d090d0466086def5838c34cce565f37fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "restoreType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "restoreType", value)
 
     @builtins.property
     @jsii.member(jsii_name="scalingConfiguration")
@@ -7413,7 +7673,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8471c5722f16288bc2a5c637b511c81be4cd4b09f3f7899592b7fd02808dba4c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scalingConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scalingConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="serverlessV2ScalingConfiguration")
@@ -7431,7 +7691,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d0876352acbd9ca1b842c3ece417cf0c5ed155f8c160597474dd24e11ac318ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serverlessV2ScalingConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serverlessV2ScalingConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="snapshotIdentifier")
@@ -7444,7 +7704,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25045b6189370a8d94ebe994abba5de432cd9df49345a99151f42b12416f3025)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snapshotIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceDbClusterIdentifier")
@@ -7460,7 +7720,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__df647406eec5ba2e24bb07694e286def32cd947e8728ac6ec3727fd145515f2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceDbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceDbClusterResourceId")
@@ -7476,7 +7736,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__08ac64c9167e517f4b6604f3b8380f98125ef714845161ef2afeeebf02f97b3b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceDbClusterResourceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceDbClusterResourceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceRegion")
@@ -7492,7 +7752,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2ee6860d8d1d897c5c878ca6693329e97bdddac0cb37f822ceb26aabdb5b78fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceRegion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceRegion", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageEncrypted")
@@ -7510,7 +7770,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__723ea3f9c61b8480429b9258611e755a66af6ea0e34bcf9fb1b6bcb4a5d1fcfd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageEncrypted", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageEncrypted", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageType")
@@ -7523,7 +7783,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6ea7aa6db917d8cfeff95d9bf2e01ba5d459e1c34f195572dd025eb91defd280)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageType", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7539,7 +7799,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9de4e86900354e8eebc50b0e6116dbdd0a6d9a349167c497c58d101074aacdf5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="useLatestRestorableTime")
@@ -7557,7 +7817,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2233cd63167d19c1f7b632ba4a2ecd1142eba944359f46221ba7e9394e0501c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "useLatestRestorableTime", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "useLatestRestorableTime", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSecurityGroupIds")
@@ -7573,7 +7833,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9157d76fdc416fb2667fc663c3e08fe740d3b43b5c2fb5bc0da881dc4fd3d1c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSecurityGroupIds", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rds.CfnDBCluster.DBClusterRoleProperty",
@@ -8262,6 +8522,7 @@ class CfnDBClusterEndpoint(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -8346,7 +8607,7 @@ class CfnDBClusterEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3f3ddcee9ac118bd83d9511969c5756e14d64a4eefbce74845b5dfb9a3517508)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customEndpointType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customEndpointType", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterEndpointIdentifier")
@@ -8359,7 +8620,7 @@ class CfnDBClusterEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__992aa888c12cd6e3b1df01a903ca138be1f27284452970fa4753ff0a54bb1c2e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterEndpointIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterEndpointIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterIdentifier")
@@ -8372,7 +8633,7 @@ class CfnDBClusterEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e4ec24d91ba3ee08147923a3842432c925069c2f60411a7e27562e235e7f2166)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="excludedMembers")
@@ -8388,7 +8649,7 @@ class CfnDBClusterEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eff1bbc878c0065a41011698e313fc8e442519aec824cd6eeb6134be802e9c5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "excludedMembers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "excludedMembers", value)
 
     @builtins.property
     @jsii.member(jsii_name="staticMembers")
@@ -8401,7 +8662,7 @@ class CfnDBClusterEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__470de6612d62324d29bc0fbba23b9a3563fb39f1c67eafe81ff173deeecfc6ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "staticMembers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "staticMembers", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -8417,7 +8678,7 @@ class CfnDBClusterEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13cd16164def3ff8342675535c7b0d19d017a22c4d4c0d6932e4ab82687d7725)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -8688,6 +8949,7 @@ class CfnDBClusterParameterGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -8727,7 +8989,7 @@ class CfnDBClusterParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a385d094303e0167ab68da37077fab8909f20f87d11b139fd5ef69090e76f8fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="family")
@@ -8740,7 +9002,7 @@ class CfnDBClusterParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dbdfcaf985524b33f444a02535bb68b9ba3263c90ef5e0985151f104aeeb260b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "family", value)
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
@@ -8753,7 +9015,7 @@ class CfnDBClusterParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c77a7367d69d8d946eb31a37bfbabde86b3fd025985be9f6006fb54af746b2a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "parameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterParameterGroupName")
@@ -8769,7 +9031,7 @@ class CfnDBClusterParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f4022845bd024f0aff7d6277fa4309ef0b25b2e9f601bc06782d5194fdea18a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterParameterGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterParameterGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -8785,7 +9047,7 @@ class CfnDBClusterParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8018e8ecfbc68fa3bab5cb42941501fe1a025ce67315e44b2774f271f35ea411)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -10938,6 +11200,7 @@ class CfnDBInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -11266,7 +11529,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dda0bdd3fe5099dfc5cbc483ada68d64d6ac9883e0efdd60179d7ddbfe8b3a67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "additionalStorageVolumes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "additionalStorageVolumes", value)
 
     @builtins.property
     @jsii.member(jsii_name="allocatedStorage")
@@ -11279,7 +11542,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__59d3152c4d5e7cecbdcd76480fe92201176e0eb1c7199001a91e36c3d8409682)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allocatedStorage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allocatedStorage", value)
 
     @builtins.property
     @jsii.member(jsii_name="allowMajorVersionUpgrade")
@@ -11297,7 +11560,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__57716fbcac28344145554895630d9e7d3ed16ff833d836025eba0e8559dae931)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowMajorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allowMajorVersionUpgrade", value)
 
     @builtins.property
     @jsii.member(jsii_name="applyImmediately")
@@ -11315,7 +11578,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__541ae79271b3863f62364d17706d85a7c492cd2e7587446eabdb62da45fc95fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applyImmediately", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "applyImmediately", value)
 
     @builtins.property
     @jsii.member(jsii_name="associatedRoles")
@@ -11333,7 +11596,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4ce8e79d061f4d460ac08196091e00285779b468080063faf9f5f8f7466a94f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "associatedRoles", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "associatedRoles", value)
 
     @builtins.property
     @jsii.member(jsii_name="automaticBackupReplicationKmsKeyId")
@@ -11349,7 +11612,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7de66731ee5fdd45e40db8d58e3041a46d64fff9265d6aa870ac5ff27419bb86)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "automaticBackupReplicationKmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "automaticBackupReplicationKmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="automaticBackupReplicationRegion")
@@ -11365,7 +11628,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__570af392a4da1d3a00accc2e05674065be4ff1306321cb7944dc793fd8d479ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "automaticBackupReplicationRegion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "automaticBackupReplicationRegion", value)
 
     @builtins.property
     @jsii.member(jsii_name="automaticBackupReplicationRetentionPeriod")
@@ -11383,7 +11646,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d7fb4363483ec2dd18b694be4fd9914af029e1ce875ba624528a2e1d48f82961)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "automaticBackupReplicationRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "automaticBackupReplicationRetentionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoMinorVersionUpgrade")
@@ -11401,7 +11664,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e378bc6005eb441ad86673219aa0312b39d55a509b73b385123b215a0aeff4c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoMinorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoMinorVersionUpgrade", value)
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZone")
@@ -11414,7 +11677,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2e158ac3f914684014bad2a96a64f29bf9a9be0671712af053302bafb993e770)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZone", value)
 
     @builtins.property
     @jsii.member(jsii_name="backupRetentionPeriod")
@@ -11427,7 +11690,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fd3e9f688b875610637e10e82f5815bcffe370acaf10d2173ec8c9703912f28b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "backupRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "backupRetentionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="backupTarget")
@@ -11440,7 +11703,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d01b6bd3366a70d949ce4b76b7922f17c0009fda45951b31e9665ddfed4729e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "backupTarget", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "backupTarget", value)
 
     @builtins.property
     @jsii.member(jsii_name="caCertificateIdentifier")
@@ -11453,7 +11716,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__62ccd61fdb1bb7842d321fcd1476ed686baf586bf907671076cafd6ba9e2c776)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "caCertificateIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "caCertificateIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="certificateRotationRestart")
@@ -11471,7 +11734,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8300a7358b8f3721e212076b4d43c16dce7eaecbef2865d4c267632cacd1e540)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateRotationRestart", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificateRotationRestart", value)
 
     @builtins.property
     @jsii.member(jsii_name="characterSetName")
@@ -11484,7 +11747,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b1c408e443b2c694ab495abfa8baccc012dc2d461177a5fa00b9476bc4dc78a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "characterSetName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "characterSetName", value)
 
     @builtins.property
     @jsii.member(jsii_name="copyTagsToSnapshot")
@@ -11502,7 +11765,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cefd61afb4df8c491b91bfe227e165b190c98273315fd7ee9c3fb459c756ed53)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "copyTagsToSnapshot", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "copyTagsToSnapshot", value)
 
     @builtins.property
     @jsii.member(jsii_name="customIamInstanceProfile")
@@ -11515,7 +11778,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__226e820a1b504a7c3743da9e7c7340401e28197ad7bd4b0cb3f5526c4eee15e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customIamInstanceProfile", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customIamInstanceProfile", value)
 
     @builtins.property
     @jsii.member(jsii_name="databaseInsightsMode")
@@ -11528,7 +11791,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b46fcfbcf52de4fba0e79ef45cfd1f9b086be851a81f128b407d6e590bcc50de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "databaseInsightsMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "databaseInsightsMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterIdentifier")
@@ -11541,7 +11804,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__47e201d1e2bcfacba9b2fdb9245c97a0850bff8695fda8e45cb8e1df70fbde73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterSnapshotIdentifier")
@@ -11557,7 +11820,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f6ac99ea519540338b63e73e1edb5ebcecb0684d4ae715eddd3fc36e8cce5268)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterSnapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterSnapshotIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceClass")
@@ -11570,7 +11833,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e7a5d9ef2683da37e4ade6581c3ea4b7e1dd46b2492278a1c7d1aadacedc8f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceClass", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbInstanceClass", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceIdentifier")
@@ -11583,7 +11846,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d43e0be95e8cce4fb01016f4a0386ec7484b400a153c752c5dfc73e4b1b71899)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbInstanceIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbName")
@@ -11596,7 +11859,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d256e48a4652f318e0f5c5f55fdbb24a3bbb22c363551d47299bad26b3e97a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbParameterGroupName")
@@ -11609,7 +11872,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3a82f6fc74079b4a8567e6ca4252240887a8500538096be62863c72b24cec5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbParameterGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbParameterGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbSecurityGroups")
@@ -11625,7 +11888,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e071dd53356b085b74267fe26c1ebcd9289d04cd1ed93b2939cc4e361678c22)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSecurityGroups", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSecurityGroups", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbSnapshotIdentifier")
@@ -11638,7 +11901,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__320452dcf7b927bfc9aec68b39b5030136baa93bd57004318389808127706212)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSnapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSnapshotIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbSubnetGroupName")
@@ -11651,7 +11914,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee9b5bb70dbab22ab4481a77c04dc86a6cae16b4c7d30ccb17a77b55dfce2817)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSubnetGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbSystemId")
@@ -11664,7 +11927,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c2bcedc9b98a22e01ebba3d247528b50c6ecfcdf1d1d6193070deed3f0a91242)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSystemId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSystemId", value)
 
     @builtins.property
     @jsii.member(jsii_name="dedicatedLogVolume")
@@ -11682,7 +11945,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7cd09d7a96adc908e67e26f47cc2b3781666622d7377834d51fb7cb5e0371bcf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dedicatedLogVolume", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dedicatedLogVolume", value)
 
     @builtins.property
     @jsii.member(jsii_name="deleteAutomatedBackups")
@@ -11700,7 +11963,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c979622824ea89b2c82e75127adcccb34f01b788bee2b54f7640626087bf93fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deleteAutomatedBackups", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deleteAutomatedBackups", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtection")
@@ -11718,7 +11981,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b43d542832e60e979f75dde2ef2c09d4c4186b15c1ab0b0111aa86d3d9f6241c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="domain")
@@ -11731,7 +11994,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__983187a72c004fd527e146e600a3ba6e403cc37a21153eb4891e215e54ee58df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domain", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainAuthSecretArn")
@@ -11744,7 +12007,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9b5d4902ede3d92cf4c7fab61f72976571c6eb7c6ab3f302c7a3141ebf579693)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainAuthSecretArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainAuthSecretArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainDnsIps")
@@ -11757,7 +12020,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a7b0abeab7a2e8161cf91da1b3dc87147814a47d1bfd5ad97fc9f7e9cf76a60e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainDnsIps", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainDnsIps", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainFqdn")
@@ -11770,7 +12033,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7df38ba6bc42bad8a2ae880683ff414eeb28bb260f5afef16aa42f7acff5f965)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainFqdn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainFqdn", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainIamRoleName")
@@ -11783,7 +12046,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7fd9be68a3f0ada770758f20ae678e93c881b405fc762613862a364717217184)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainIamRoleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainIamRoleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainOu")
@@ -11796,7 +12059,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2fbe1d1078f743fa5360c26d9fed3f54f1a508a16b962a9b930ace1bb00a3a25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainOu", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainOu", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableCloudwatchLogsExports")
@@ -11814,7 +12077,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c0c6818a7c294ab57309fd6f8297e3dcbd9fe8f30e3c917aa472918a93f5ab3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableCloudwatchLogsExports", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableCloudwatchLogsExports", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableIamDatabaseAuthentication")
@@ -11832,7 +12095,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02b9754bcfc32fe9a220fb4db94bd394cdd93ece54fea3e49ae5a0855157e259)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableIamDatabaseAuthentication", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableIamDatabaseAuthentication", value)
 
     @builtins.property
     @jsii.member(jsii_name="enablePerformanceInsights")
@@ -11850,7 +12113,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__55acaa45776cf6b5432f2a97177653a9807b3c5b475626ccb7e031f2c6fba8b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enablePerformanceInsights", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enablePerformanceInsights", value)
 
     @builtins.property
     @jsii.member(jsii_name="engine")
@@ -11863,7 +12126,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c1390f99110e4c5a9ba1f2e9dd4d5ccd134a1dd6c4610d4f96e29fca66cf7a9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engine", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineLifecycleSupport")
@@ -11876,7 +12139,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e4a3baa949212d23dabaa3b33ca02f43095e7fa1f113950ef1f68fb171220fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineLifecycleSupport", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineLifecycleSupport", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineVersion")
@@ -11889,7 +12152,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8701105551fd11936573565b33d18a229c8e49f33df0332b41d26d0e2844e469)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="iops")
@@ -11902,7 +12165,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4dbde1a697cf13178cdc952ba20d96e49376a7d1a06d1a66526a976aed755024)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "iops", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "iops", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -11915,7 +12178,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__de6372899c9340294ca3177a2377c0d7daa930a95e1af32be42f420531b1b38e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseModel")
@@ -11928,7 +12191,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c41787d61e55405af610e638cfb248119ac823a7f335c64acea8a348fe45c03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseModel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseModel", value)
 
     @builtins.property
     @jsii.member(jsii_name="manageMasterUserPassword")
@@ -11946,7 +12209,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8ecef20f6921c76abf800f6b708fec7f9adf740c5601480addc60f0e306f478d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "manageMasterUserPassword", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUserAuthenticationType")
@@ -11962,7 +12225,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__619116fe6142881faa76cfea60c3ef852326ec74e01502e52b5f4e5f78feb598)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserAuthenticationType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUserAuthenticationType", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUsername")
@@ -11975,7 +12238,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e4f4f227c9a762f25ad0222448fd600edf7e310cc003e4a2fed9244a343499d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUsername", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUsername", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUserPassword")
@@ -11991,7 +12254,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a65967234a8bc97dd1c51d3614691b923323d4f925dea11d8efcd922f9c90774)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUserPassword", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUserSecret")
@@ -12009,7 +12272,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1517e3589a0cd23b097cdb03130a65dc936f20953fc163bd77838fa521130dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserSecret", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUserSecret", value)
 
     @builtins.property
     @jsii.member(jsii_name="maxAllocatedStorage")
@@ -12022,7 +12285,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb250fb7de4268a630027fa9d484face4c61a0e4b77adb24be3cd520b206064e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxAllocatedStorage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maxAllocatedStorage", value)
 
     @builtins.property
     @jsii.member(jsii_name="monitoringInterval")
@@ -12035,7 +12298,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b528d960661e1022702318dc03705b042bc858142a319cc10ec73e9b1e97c946)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitoringInterval", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitoringInterval", value)
 
     @builtins.property
     @jsii.member(jsii_name="monitoringRoleArn")
@@ -12048,7 +12311,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7bedeace820a42b41d81c9462da797c3dc857df410e818904dbf41f51f08b8ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitoringRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitoringRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="multiAz")
@@ -12066,7 +12329,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3327a234013f3d0335a19b3511368b3abb4012a785056954d57fd348f2fa5338)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiAz", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "multiAz", value)
 
     @builtins.property
     @jsii.member(jsii_name="ncharCharacterSetName")
@@ -12079,7 +12342,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__892bb93f0162e32f045bd286f21569851a2ad0901f846b0f97f5f799b92c5c12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ncharCharacterSetName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ncharCharacterSetName", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkType")
@@ -12092,7 +12355,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3e81a4acfb4dd0912b4cfd138d002111d620357759e7ea378643291526acd06)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkType", value)
 
     @builtins.property
     @jsii.member(jsii_name="optionGroupName")
@@ -12105,7 +12368,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c2c9f5e382f496654dae761c27630aa8347daa36712b25ae0ab1d5510c8a482)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "optionGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "optionGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="performanceInsightsKmsKeyId")
@@ -12121,7 +12384,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0b2c4ed20f0c5bd0071d155c8fb9f35b9f449062dc47146657cb0b594689ce7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "performanceInsightsKmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "performanceInsightsKmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="performanceInsightsRetentionPeriod")
@@ -12137,7 +12400,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fb914e791795f1a4e550f9cee3704def112b60601f4bf9edb1a56e6eaccd14a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "performanceInsightsRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "performanceInsightsRetentionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="port")
@@ -12150,7 +12413,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__50adadf77381c2728bec99c8b734bfb963b3e4a2c290d2556fdee15d6691af74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "port", value)
 
     @builtins.property
     @jsii.member(jsii_name="preferredBackupWindow")
@@ -12163,7 +12426,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fa4b3fb0a080432fe19a9cc48251373285d2ef78d3f0997ec15a613e49eafc46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredBackupWindow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preferredBackupWindow", value)
 
     @builtins.property
     @jsii.member(jsii_name="preferredMaintenanceWindow")
@@ -12179,7 +12442,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__17724379e33a6330192b417d9aed05a4de6e5dd002684e29f403d3dd93c845ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preferredMaintenanceWindow", value)
 
     @builtins.property
     @jsii.member(jsii_name="processorFeatures")
@@ -12197,7 +12460,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a8243c3c3cfc99dee0c95cbbece0bf27fc12383f043ab0dfbe786d7d666807b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "processorFeatures", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "processorFeatures", value)
 
     @builtins.property
     @jsii.member(jsii_name="promotionTier")
@@ -12210,7 +12473,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__33e74d15d4d5a91207335c5c9d0dd5a8206f8a5538c08e40663b0d0c1dccd362)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "promotionTier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "promotionTier", value)
 
     @builtins.property
     @jsii.member(jsii_name="publiclyAccessible")
@@ -12228,7 +12491,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a8c13e6d86c8f02d54e695d3280055c4d496df3feac4a13a1b2068a580c019e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "publiclyAccessible", value)
 
     @builtins.property
     @jsii.member(jsii_name="replicaMode")
@@ -12241,7 +12504,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3591a1aca4c267b7cff5154e9b62939375b9a03cceff31d5ee1c7b3a9abd5c5f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicaMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replicaMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="restoreTime")
@@ -12254,7 +12517,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__263fd1ac2359aa08c71bfffc7bfa9a50b76cd283ff791db92e88940527896ed0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "restoreTime", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "restoreTime", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceDbClusterIdentifier")
@@ -12270,7 +12533,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c25e998ba1faa1810a989309027441507208bcd60b801d55051b0646ace6beb8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceDbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceDbInstanceAutomatedBackupsArn")
@@ -12286,7 +12549,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__af18d610cff75c65be584ce8e423768f378e5c61ac363a8cbaf9d3b96beb20b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceDbInstanceAutomatedBackupsArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceDbInstanceAutomatedBackupsArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceDbInstanceIdentifier")
@@ -12302,7 +12565,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1da20396eef426f835570b10e92c00cf53d2a42dd847d680daf9832f45ca5d76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceDbInstanceIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceDbInstanceIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceDbiResourceId")
@@ -12315,7 +12578,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d4ea3cac4a190f60e6b97aa5cf291a71db11554bc2d7074974c73bd6d712ce9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceDbiResourceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceDbiResourceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceRegion")
@@ -12328,7 +12591,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__54e6abd38ac0878b58009488af0c37180d8361eafe2d4e20fd21251d299b85ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceRegion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceRegion", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageEncrypted")
@@ -12349,7 +12612,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e45dbb04a9f91d51cce34e9ad406fb8b0bf3ca45ebf5191d2c3fe3ef60c0f73a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageEncrypted", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageEncrypted", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageThroughput")
@@ -12362,7 +12625,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6a2e75b4699a0265165309d411411ba379fe29e69969b094d7db7f269836aee7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageThroughput", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageThroughput", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageType")
@@ -12375,7 +12638,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__877e0a83255a41fdac41927a9ffb31f450bea764beca34bd0e59e3090b315b5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageType", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -12391,7 +12654,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7e28bda6bffa5708d614b6dbf2bcc12b7ed3e773a09aba9e074145058e8d2ec4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="tdeCredentialArn")
@@ -12408,7 +12671,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__676317149c4a3de99c6ac649dc1e80f08f5849f0b7fbabd025fea2dd4a79256d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tdeCredentialArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tdeCredentialArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tdeCredentialPassword")
@@ -12425,7 +12688,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0055a17c45941e376527b711affd5635db14800a343e4607b2485142c5b20328)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tdeCredentialPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tdeCredentialPassword", value)
 
     @builtins.property
     @jsii.member(jsii_name="timezone")
@@ -12438,7 +12701,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8e8a3ddd2e63e665f0964d94694ca633ce56b8b4a4257c33430373cb04ea8633)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timezone", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "timezone", value)
 
     @builtins.property
     @jsii.member(jsii_name="useDefaultProcessorFeatures")
@@ -12456,7 +12719,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ea18e3dd0128a4bd7998126d71646de66d7aaf15a75a3ef90a69134b69dac881)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "useDefaultProcessorFeatures", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "useDefaultProcessorFeatures", value)
 
     @builtins.property
     @jsii.member(jsii_name="useLatestRestorableTime")
@@ -12474,7 +12737,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7795f768216594eb6974dbf42046d2cc7bad24f83c78e5c2389203a763ca5edf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "useLatestRestorableTime", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "useLatestRestorableTime", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSecurityGroups")
@@ -12490,7 +12753,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__347bbde8fcaff5958e8257d0b86319fb49d7cad9dd1f919f9270a1de11ca907c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSecurityGroups", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSecurityGroups", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rds.CfnDBInstance.AdditionalStorageVolumeProperty",
@@ -15621,6 +15884,7 @@ class CfnDBParameterGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -15675,7 +15939,7 @@ class CfnDBParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b1e742192c12a8df7282b8be0119d1f389986eece1c470f22704a55b6114379)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="family")
@@ -15688,7 +15952,7 @@ class CfnDBParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e21a919c5d348b9b21e85ad530ebd9d61da372e1b23e938e25fddde0c0ce7d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "family", value)
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
@@ -15701,7 +15965,7 @@ class CfnDBParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__987f1082fdf4a5da0b26fcc782aacbe415062f22410b31c0cf4ce6fdbfcf67ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "parameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbParameterGroupName")
@@ -15714,7 +15978,7 @@ class CfnDBParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a22c7ecd784517cdedb05f2be1ead50de4ec8f05506992db84a909159e60e408)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbParameterGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbParameterGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -15730,7 +15994,7 @@ class CfnDBParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f20b9c07a30514ec36b0488f4811c4317ff75f401d721897e197726d01ce214)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -16080,6 +16344,7 @@ class CfnDBProxy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -16146,7 +16411,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3a9e7095215a0a9bdb8ab44b83362bbd101299c63fc799b2a6ff66bca4e33e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbProxyName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbProxyName", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineFamily")
@@ -16159,7 +16424,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__33274cc615f5efe896fb2bb53359c7a72868f554a4c622c60251562ecf4513b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineFamily", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineFamily", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -16172,7 +16437,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__26bbab9272e0e8cc38f3c322aa24d461c5a03ae7e9f59e8ca108b48fb8b1f3a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSubnetIds")
@@ -16185,7 +16450,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__41d92774518120032be7c505a800af682ea1962c565406683dc31aa332e238e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSubnetIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSubnetIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="auth")
@@ -16203,7 +16468,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__869ef0e6807a044fbcf1b07244e827164f63faefbf4f14d0b5f86f685fd1c949)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "auth", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "auth", value)
 
     @builtins.property
     @jsii.member(jsii_name="debugLogging")
@@ -16221,7 +16486,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__74bf8fd129aa7db6aa8cbe4c31cc1e5c4cc49092cdf5e1df037dc0169913f027)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "debugLogging", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "debugLogging", value)
 
     @builtins.property
     @jsii.member(jsii_name="defaultAuthScheme")
@@ -16234,7 +16499,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__18dc20cb6c7198c733585aea9169142348f96482c7091e5ff56866cefa172b68)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultAuthScheme", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "defaultAuthScheme", value)
 
     @builtins.property
     @jsii.member(jsii_name="endpointNetworkType")
@@ -16247,7 +16512,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4b7b706fa2b81a42f739d93aa1586cfc3f9c177800bd27f17441dd2628140627)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "endpointNetworkType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "endpointNetworkType", value)
 
     @builtins.property
     @jsii.member(jsii_name="idleClientTimeout")
@@ -16260,7 +16525,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__20d24f3922bd4d273f50d9ca90e005b2b8fc4e91024a96337ec2377ca188b833)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "idleClientTimeout", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "idleClientTimeout", value)
 
     @builtins.property
     @jsii.member(jsii_name="requireTls")
@@ -16278,7 +16543,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cafb97ac157af82b7b8950ec8723a47d1feed5e51aae3131c9f0eae5c7471530)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "requireTls", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "requireTls", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -16294,7 +16559,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40e4176c733c58b29a8f2c935c044c4a11574a0150e5b0cfa2bfd50ca6c8e729)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetConnectionNetworkType")
@@ -16310,7 +16575,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b826621bdca40a58dfea5c6aa2d64059dae2f19860bb147be23851703e84180)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetConnectionNetworkType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetConnectionNetworkType", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSecurityGroupIds")
@@ -16326,7 +16591,7 @@ class CfnDBProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0e3b5046d5f0ce58c561c6efda61644df88a6d63ab0ce20e5ce3314ed37dba62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSecurityGroupIds", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rds.CfnDBProxy.AuthFormatProperty",
@@ -16661,6 +16926,7 @@ class CfnDBProxyEndpoint(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -16738,7 +17004,7 @@ class CfnDBProxyEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4fb93bcffa32328d910e09228d3ab5aa421446dc563897ed2166fb90de6ef4b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbProxyEndpointName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbProxyEndpointName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbProxyName")
@@ -16751,7 +17017,7 @@ class CfnDBProxyEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3095e42d7cd1f0e74a79a5ee9fc57b041d819bd79c12932b424bf150aa93eea3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbProxyName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbProxyName", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSubnetIds")
@@ -16764,7 +17030,7 @@ class CfnDBProxyEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46c2bdfcac6804daeebeae78f3431ef98a8d5656ee2fedd5f51ebf7343ca46d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSubnetIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSubnetIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="endpointNetworkType")
@@ -16777,7 +17043,7 @@ class CfnDBProxyEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c98a9244985299acd378ba6ec6338a555d6cbfb215e627bdcfcfc077fea704e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "endpointNetworkType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "endpointNetworkType", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -16795,7 +17061,7 @@ class CfnDBProxyEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f6a5dc208e5f863d586ec1e35a3b9362d553db4adbb0ff7cc43308284678c640)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetRole")
@@ -16808,7 +17074,7 @@ class CfnDBProxyEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aee92c413e62fd2a5a22a00876726fa8421a5c4d7295829abae273dcf808ab6a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSecurityGroupIds")
@@ -16824,7 +17090,7 @@ class CfnDBProxyEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3cc8627aac139cb2d52a0c04399764a62f3f25267f6089132138b2c719830039)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSecurityGroupIds", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rds.CfnDBProxyEndpoint.TagFormatProperty",
@@ -17515,6 +17781,7 @@ class CfnDBProxyTargetGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -17563,7 +17830,7 @@ class CfnDBProxyTargetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c8ca62159383c226618750b550b9e5bec499f33b3efc4ee5837df640c5decb73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbProxyName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbProxyName", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetGroupName")
@@ -17576,7 +17843,7 @@ class CfnDBProxyTargetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ea68affa8cf2a2cfc1debf82e87971b7038f848912829aff3c950dded41eae3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectionPoolConfigurationInfo")
@@ -17594,7 +17861,7 @@ class CfnDBProxyTargetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__520851595c02429c55b9e77ddbc1a10539d75d1f1b3c4ee51d2f11794c3c6a8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionPoolConfigurationInfo", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionPoolConfigurationInfo", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterIdentifiers")
@@ -17610,7 +17877,7 @@ class CfnDBProxyTargetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__785e2a5c6a85bae9af5725efc3ca3a314f0cf13fb07115a23485e5f65478ef8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterIdentifiers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterIdentifiers", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceIdentifiers")
@@ -17626,7 +17893,7 @@ class CfnDBProxyTargetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__35bfb6397667331b569deebc6de4d2a7bb40d612d7d70e07f9191c69e9d56e7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceIdentifiers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbInstanceIdentifiers", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -17642,7 +17909,7 @@ class CfnDBProxyTargetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e250594b8aa4fb31be3354e01aba5b46b8a5c80578b4d34b73208caf15167909)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rds.CfnDBProxyTargetGroup.ConnectionPoolConfigurationInfoFormatProperty",
@@ -18079,6 +18346,7 @@ class CfnDBSecurityGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -18129,7 +18397,7 @@ class CfnDBSecurityGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f0a2828efed62f85e7a4227c409bcfcba0cc543df215aea11c2fbcb718b43eac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSecurityGroupIngress", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSecurityGroupIngress", value)
 
     @builtins.property
     @jsii.member(jsii_name="groupDescription")
@@ -18142,7 +18410,7 @@ class CfnDBSecurityGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f62ca646c854acb28107210bd01d8eb5aba231c9aed0b63a809dbbee3ce39ec1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groupDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "groupDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="ec2VpcId")
@@ -18155,7 +18423,7 @@ class CfnDBSecurityGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2dfd06adbf58bcb2beaf48e685c038d8a5fcd5eee11160cb7bbe777a59419f27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2VpcId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ec2VpcId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -18171,7 +18439,7 @@ class CfnDBSecurityGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3667d8b2d973d318f0e014ebba602f6aae225667dfa8531d6f63fb824fdcdcf1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rds.CfnDBSecurityGroup.IngressProperty",
@@ -18400,6 +18668,7 @@ class CfnDBSecurityGroupIngress(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -18441,7 +18710,7 @@ class CfnDBSecurityGroupIngress(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__33cb0b467b4b5a2127be68dfeee1b484e3f625bdde8c73d7f2f5861004c0f361)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSecurityGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSecurityGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="cidrip")
@@ -18454,7 +18723,7 @@ class CfnDBSecurityGroupIngress(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b822e8578847e0e12edd4bd77727d367bfdb2efdab5adb3a74ecbea2b11e891)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cidrip", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cidrip", value)
 
     @builtins.property
     @jsii.member(jsii_name="ec2SecurityGroupId")
@@ -18467,7 +18736,7 @@ class CfnDBSecurityGroupIngress(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc4d69fafb31a7c2c2d8154ceba60a149b275d471fe03bc14976992875633538)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2SecurityGroupId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ec2SecurityGroupId", value)
 
     @builtins.property
     @jsii.member(jsii_name="ec2SecurityGroupName")
@@ -18480,7 +18749,7 @@ class CfnDBSecurityGroupIngress(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d2349d21856d92d874a8cb171c952c917d8223483bc87d0e3d511d3ef6e07157)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2SecurityGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ec2SecurityGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="ec2SecurityGroupOwnerId")
@@ -18493,7 +18762,7 @@ class CfnDBSecurityGroupIngress(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__77347fbce3871e8527d4550ee6c73c1ce3513c725367d951e52c076697239be5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2SecurityGroupOwnerId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ec2SecurityGroupOwnerId", value)
 
 
 @jsii.data_type(
@@ -18872,6 +19141,7 @@ class CfnDBShardGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -18935,7 +19205,7 @@ class CfnDBShardGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0fa185a2f40b9212b5147eb4d2e648cee489755a739dc82acd6694faed21144c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="maxAcu")
@@ -18948,7 +19218,7 @@ class CfnDBShardGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6163ad5fb006f679705825f41c277b1da5dc16ed12dfceb41443fddbca344367)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxAcu", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maxAcu", value)
 
     @builtins.property
     @jsii.member(jsii_name="computeRedundancy")
@@ -18961,7 +19231,7 @@ class CfnDBShardGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fd80e47e2c74410c2d1aeb8f579de907d725ba0e70da1b0753127e2df7f84637)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computeRedundancy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "computeRedundancy", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbShardGroupIdentifier")
@@ -18974,7 +19244,7 @@ class CfnDBShardGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7af11f6d2eed7f548342c81ece5676801f4d8625f66e847de29d2626431af392)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbShardGroupIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbShardGroupIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="minAcu")
@@ -18987,7 +19257,7 @@ class CfnDBShardGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c6ca52dfd80fa80117e216210d5d25cc82690aab397e1de9dd9eb55e6bdf735)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "minAcu", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "minAcu", value)
 
     @builtins.property
     @jsii.member(jsii_name="publiclyAccessible")
@@ -19005,7 +19275,7 @@ class CfnDBShardGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b530f585e8ab66a043605af70336fcc88e00e107a4b74b4d628ab8b97ae684f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "publiclyAccessible", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -19021,7 +19291,7 @@ class CfnDBShardGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e53ef81264461b10bd3618ceed774b33f6e260d07c8e23c1e64729a118899057)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -19321,6 +19591,7 @@ class CfnDBSnapshot(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -19560,7 +19831,7 @@ class CfnDBSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f725e7260afb306dfc56692e1ed6af4f86836cd6bedaa0e1ba836270d7bcbfee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbInstanceIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbSnapshotIdentifier")
@@ -19573,7 +19844,7 @@ class CfnDBSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__70924dbcab62433a43ed9559c50f01924ae5cc9408612f2c59719b5a1376ae87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSnapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSnapshotIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -19589,7 +19860,7 @@ class CfnDBSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__88bb7ad5e931a72646c0c1b4456d65949d027756f32e67f27cbade6b882b8ed4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -19811,6 +20082,7 @@ class CfnDBSubnetGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -19856,7 +20128,7 @@ class CfnDBSubnetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f8fc42270bedfbabbcd6ae88d4f87f1ddad75d82484bd7bd257c9456db2629b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSubnetGroupDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSubnetGroupDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnetIds")
@@ -19869,7 +20141,7 @@ class CfnDBSubnetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__80adf03e2774c29f8199884349ab971da0c13541b8a93956d440e6cef2f35a33)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnetIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbSubnetGroupName")
@@ -19885,7 +20157,7 @@ class CfnDBSubnetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f106bcbb8c63de9fd9ad65eff1a8a73d3e0cdb022528b57cd97e00d93c8e504e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSubnetGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -19901,7 +20173,7 @@ class CfnDBSubnetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2de007053c0d484224b01fc0bfd1a04dc727898fdb5222faf562e7fd3461f37b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -20023,6 +20295,817 @@ class CfnDBSubnetGroupProps:
 
     def __repr__(self) -> str:
         return "CfnDBSubnetGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rds_26740a85.IDeploymentRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDeployment(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_rds.CfnDeployment",
+):
+    '''Resource Type definition for AWS::RDS::Deployment.
+
+    Creates and manages an Amazon RDS Blue/Green Deployment.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html
+    :cloudformationResource: AWS::RDS::Deployment
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_rds as rds
+        
+        cfn_deployment = rds.CfnDeployment(self, "MyCfnDeployment",
+            blue_green_deployment_name="blueGreenDeploymentName",
+            source="source",
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            target_allocated_storage=123,
+            target_db_cluster_parameter_group_name="targetDbClusterParameterGroupName",
+            target_db_instance_class="targetDbInstanceClass",
+            target_db_parameter_group_name="targetDbParameterGroupName",
+            target_engine_version="targetEngineVersion",
+            target_iops=123,
+            target_storage_throughput=123,
+            target_storage_type="targetStorageType",
+            upgrade_target_storage_config=False
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        blue_green_deployment_name: builtins.str,
+        source: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_allocated_storage: typing.Optional[jsii.Number] = None,
+        target_db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
+        target_db_instance_class: typing.Optional[builtins.str] = None,
+        target_db_parameter_group_name: typing.Optional[builtins.str] = None,
+        target_engine_version: typing.Optional[builtins.str] = None,
+        target_iops: typing.Optional[jsii.Number] = None,
+        target_storage_throughput: typing.Optional[jsii.Number] = None,
+        target_storage_type: typing.Optional[builtins.str] = None,
+        upgrade_target_storage_config: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+    ) -> None:
+        '''Create a new ``AWS::RDS::Deployment``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param blue_green_deployment_name: The name of the Blue/Green Deployment.
+        :param source: The ARN of the source production database.
+        :param tags: The tags assigned to the Blue/Green Deployment.
+        :param target_allocated_storage: The allocated storage size in GiB for the target DB instance.
+        :param target_db_cluster_parameter_group_name: The DB cluster parameter group for the target Aurora DB cluster.
+        :param target_db_instance_class: The DB instance class for target RDS DB instances.
+        :param target_db_parameter_group_name: The DB parameter group for the target DB instance.
+        :param target_engine_version: The DB engine version for the target database.
+        :param target_iops: The Provisioned IOPS value for the target DB instance.
+        :param target_storage_throughput: The storage throughput value for the target DB instance.
+        :param target_storage_type: The storage type for the target DB instance.
+        :param upgrade_target_storage_config: Whether to upgrade the storage file system configuration on the target database.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5b098b62eb891f057663cc545a2e3f96fe21f34380ff966dd0908ac2f83b5a25)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDeploymentProps(
+            blue_green_deployment_name=blue_green_deployment_name,
+            source=source,
+            tags=tags,
+            target_allocated_storage=target_allocated_storage,
+            target_db_cluster_parameter_group_name=target_db_cluster_parameter_group_name,
+            target_db_instance_class=target_db_instance_class,
+            target_db_parameter_group_name=target_db_parameter_group_name,
+            target_engine_version=target_engine_version,
+            target_iops=target_iops,
+            target_storage_throughput=target_storage_throughput,
+            target_storage_type=target_storage_type,
+            upgrade_target_storage_config=upgrade_target_storage_config,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDeployment")
+    @builtins.classmethod
+    def arn_for_deployment(
+        cls,
+        resource: "_aws_rds_26740a85.IDeploymentRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__03b95865d9ef68acecf0f9718a16b2100b0e21c84ba381754b9e09072aa240bb)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDeployment", [resource]))
+
+    @jsii.member(jsii_name="isCfnDeployment")
+    @builtins.classmethod
+    def is_cfn_deployment(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDeployment.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__74145d013681c700c1346e251c9c9e0a2e6cb448832abe5a95dd27f7b1f88bcf)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDeployment", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__69db4084dc445787ff5a5a489790329f490b1ad694e3f4026857cea3bfef979e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e2388220d9d03a4bddf3470ed375fca97f55e3d2782d769f8bec834e22aaf054)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Blue/Green Deployment.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBlueGreenDeploymentIdentifier")
+    def attr_blue_green_deployment_identifier(self) -> builtins.str:
+        '''The system-generated identifier of the Blue/Green Deployment.
+
+        :cloudformationAttribute: BlueGreenDeploymentIdentifier
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBlueGreenDeploymentIdentifier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreateTime")
+    def attr_create_time(self) -> builtins.str:
+        '''The time when the Blue/Green Deployment was created in UTC.
+
+        :cloudformationAttribute: CreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the Blue/Green Deployment.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSwitchoverDetails")
+    def attr_switchover_details(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The source and target member mappings in the Blue/Green Deployment.
+
+        :cloudformationAttribute: SwitchoverDetails
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrSwitchoverDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTarget")
+    def attr_target(self) -> builtins.str:
+        '''The ARN of the target database in the green environment.
+
+        :cloudformationAttribute: Target
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTarget"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTasks")
+    def attr_tasks(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The provisioning tasks for the Blue/Green Deployment.
+
+        :cloudformationAttribute: Tasks
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrTasks"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentRef")
+    def deployment_ref(self) -> "_aws_rds_26740a85.DeploymentReference":
+        '''A reference to a Deployment resource.'''
+        return typing.cast("_aws_rds_26740a85.DeploymentReference", jsii.get(self, "deploymentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="blueGreenDeploymentName")
+    def blue_green_deployment_name(self) -> builtins.str:
+        '''The name of the Blue/Green Deployment.'''
+        return typing.cast(builtins.str, jsii.get(self, "blueGreenDeploymentName"))
+
+    @blue_green_deployment_name.setter
+    def blue_green_deployment_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ded1ad6198d86b2e231a16b8a10d9aeead44a36482beb0d1a4bff4955380e12b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "blueGreenDeploymentName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="source")
+    def source(self) -> builtins.str:
+        '''The ARN of the source production database.'''
+        return typing.cast(builtins.str, jsii.get(self, "source"))
+
+    @source.setter
+    def source(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__053d1737a29902c23f2c62d604f516d9dafaf85c7fe3f2f8ddc705651b3c8d20)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "source", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags assigned to the Blue/Green Deployment.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__77bbab0902d3b4dc4f0ef36c2d300973aca76548cc3af5240f25776d2c32d042)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="targetAllocatedStorage")
+    def target_allocated_storage(self) -> typing.Optional[jsii.Number]:
+        '''The allocated storage size in GiB for the target DB instance.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "targetAllocatedStorage"))
+
+    @target_allocated_storage.setter
+    def target_allocated_storage(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__562696cbff2bb20123cb2093c8c528863693a6d7652c3b0f93aff29e14a4f29c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetAllocatedStorage", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="targetDbClusterParameterGroupName")
+    def target_db_cluster_parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The DB cluster parameter group for the target Aurora DB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetDbClusterParameterGroupName"))
+
+    @target_db_cluster_parameter_group_name.setter
+    def target_db_cluster_parameter_group_name(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8b8e4dbb2a107b506e27abbf11711e59d92a8303808e554bca61863f105a723d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetDbClusterParameterGroupName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="targetDbInstanceClass")
+    def target_db_instance_class(self) -> typing.Optional[builtins.str]:
+        '''The DB instance class for target RDS DB instances.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetDbInstanceClass"))
+
+    @target_db_instance_class.setter
+    def target_db_instance_class(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cef3421d163dfe5375ae86d1750c9efed8a01d477eefe944ffc35316dbd10ae9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetDbInstanceClass", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="targetDbParameterGroupName")
+    def target_db_parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The DB parameter group for the target DB instance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetDbParameterGroupName"))
+
+    @target_db_parameter_group_name.setter
+    def target_db_parameter_group_name(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ba6f49c76bca5ca7685b5131fd10e5e14886b88b963e530347ad635393e43a36)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetDbParameterGroupName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="targetEngineVersion")
+    def target_engine_version(self) -> typing.Optional[builtins.str]:
+        '''The DB engine version for the target database.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetEngineVersion"))
+
+    @target_engine_version.setter
+    def target_engine_version(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__56b19130283da7a21a099f838648c6da9ba9dbabaded4681e30f2fed739b55c3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetEngineVersion", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="targetIops")
+    def target_iops(self) -> typing.Optional[jsii.Number]:
+        '''The Provisioned IOPS value for the target DB instance.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "targetIops"))
+
+    @target_iops.setter
+    def target_iops(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d9fc01c7d2b6af720176b52b63f9987193de29fb5304f05c01ed6feefc13afcf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetIops", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="targetStorageThroughput")
+    def target_storage_throughput(self) -> typing.Optional[jsii.Number]:
+        '''The storage throughput value for the target DB instance.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "targetStorageThroughput"))
+
+    @target_storage_throughput.setter
+    def target_storage_throughput(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bd60fade798319eaff5e1e1683e261a4d0714fe86296473ee1d599a63c391627)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetStorageThroughput", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="targetStorageType")
+    def target_storage_type(self) -> typing.Optional[builtins.str]:
+        '''The storage type for the target DB instance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetStorageType"))
+
+    @target_storage_type.setter
+    def target_storage_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__021c01859a17bcd54f71904cf56b545db9449985bc2fa582a27812b17708812a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetStorageType", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="upgradeTargetStorageConfig")
+    def upgrade_target_storage_config(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether to upgrade the storage file system configuration on the target database.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "upgradeTargetStorageConfig"))
+
+    @upgrade_target_storage_config.setter
+    def upgrade_target_storage_config(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b54bdcd39d05967749d42fe745b3990d351b0f291bcd1350f86def85828fe8fd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "upgradeTargetStorageConfig", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_rds.CfnDeployment.DeploymentTaskProperty",
+        jsii_struct_bases=[],
+        name_mapping={"task_name": "taskName", "task_status": "taskStatus"},
+    )
+    class DeploymentTaskProperty:
+        def __init__(
+            self,
+            *,
+            task_name: typing.Optional[builtins.str] = None,
+            task_status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param task_name: The name of a Blue/Green Deployment provisioning task.
+            :param task_status: The status of a Blue/Green Deployment provisioning task.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-deployment-deploymenttask.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_rds as rds
+                
+                deployment_task_property = rds.CfnDeployment.DeploymentTaskProperty(
+                    task_name="taskName",
+                    task_status="taskStatus"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__6346dda064ad9b98e73400945bc530e2464745c039461aada9ba919d709e8a3b)
+                check_type(argname="argument task_name", value=task_name, expected_type=type_hints["task_name"])
+                check_type(argname="argument task_status", value=task_status, expected_type=type_hints["task_status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if task_name is not None:
+                self._values["task_name"] = task_name
+            if task_status is not None:
+                self._values["task_status"] = task_status
+
+        @builtins.property
+        def task_name(self) -> typing.Optional[builtins.str]:
+            '''The name of a Blue/Green Deployment provisioning task.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-deployment-deploymenttask.html#cfn-rds-deployment-deploymenttask-taskname
+            '''
+            result = self._values.get("task_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def task_status(self) -> typing.Optional[builtins.str]:
+            '''The status of a Blue/Green Deployment provisioning task.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-deployment-deploymenttask.html#cfn-rds-deployment-deploymenttask-taskstatus
+            '''
+            result = self._values.get("task_status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeploymentTaskProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_rds.CfnDeployment.SwitchoverDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "source_member": "sourceMember",
+            "switchover_detail_status": "switchoverDetailStatus",
+            "target_member": "targetMember",
+        },
+    )
+    class SwitchoverDetailProperty:
+        def __init__(
+            self,
+            *,
+            source_member: typing.Optional[builtins.str] = None,
+            switchover_detail_status: typing.Optional[builtins.str] = None,
+            target_member: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param source_member: The source database member in the Blue/Green Deployment.
+            :param switchover_detail_status: The status of this source and target member pair.
+            :param target_member: The target database member in the Blue/Green Deployment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-deployment-switchoverdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_rds as rds
+                
+                switchover_detail_property = rds.CfnDeployment.SwitchoverDetailProperty(
+                    source_member="sourceMember",
+                    switchover_detail_status="switchoverDetailStatus",
+                    target_member="targetMember"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f5a10b4424722b5ffed8838511e4437aab65fa8d05352f38b37db7493430c3f8)
+                check_type(argname="argument source_member", value=source_member, expected_type=type_hints["source_member"])
+                check_type(argname="argument switchover_detail_status", value=switchover_detail_status, expected_type=type_hints["switchover_detail_status"])
+                check_type(argname="argument target_member", value=target_member, expected_type=type_hints["target_member"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if source_member is not None:
+                self._values["source_member"] = source_member
+            if switchover_detail_status is not None:
+                self._values["switchover_detail_status"] = switchover_detail_status
+            if target_member is not None:
+                self._values["target_member"] = target_member
+
+        @builtins.property
+        def source_member(self) -> typing.Optional[builtins.str]:
+            '''The source database member in the Blue/Green Deployment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-deployment-switchoverdetail.html#cfn-rds-deployment-switchoverdetail-sourcemember
+            '''
+            result = self._values.get("source_member")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def switchover_detail_status(self) -> typing.Optional[builtins.str]:
+            '''The status of this source and target member pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-deployment-switchoverdetail.html#cfn-rds-deployment-switchoverdetail-switchoverdetailstatus
+            '''
+            result = self._values.get("switchover_detail_status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def target_member(self) -> typing.Optional[builtins.str]:
+            '''The target database member in the Blue/Green Deployment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-deployment-switchoverdetail.html#cfn-rds-deployment-switchoverdetail-targetmember
+            '''
+            result = self._values.get("target_member")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SwitchoverDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rds.CfnDeploymentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "blue_green_deployment_name": "blueGreenDeploymentName",
+        "source": "source",
+        "tags": "tags",
+        "target_allocated_storage": "targetAllocatedStorage",
+        "target_db_cluster_parameter_group_name": "targetDbClusterParameterGroupName",
+        "target_db_instance_class": "targetDbInstanceClass",
+        "target_db_parameter_group_name": "targetDbParameterGroupName",
+        "target_engine_version": "targetEngineVersion",
+        "target_iops": "targetIops",
+        "target_storage_throughput": "targetStorageThroughput",
+        "target_storage_type": "targetStorageType",
+        "upgrade_target_storage_config": "upgradeTargetStorageConfig",
+    },
+)
+class CfnDeploymentProps:
+    def __init__(
+        self,
+        *,
+        blue_green_deployment_name: builtins.str,
+        source: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_allocated_storage: typing.Optional[jsii.Number] = None,
+        target_db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
+        target_db_instance_class: typing.Optional[builtins.str] = None,
+        target_db_parameter_group_name: typing.Optional[builtins.str] = None,
+        target_engine_version: typing.Optional[builtins.str] = None,
+        target_iops: typing.Optional[jsii.Number] = None,
+        target_storage_throughput: typing.Optional[jsii.Number] = None,
+        target_storage_type: typing.Optional[builtins.str] = None,
+        upgrade_target_storage_config: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDeployment``.
+
+        :param blue_green_deployment_name: The name of the Blue/Green Deployment.
+        :param source: The ARN of the source production database.
+        :param tags: The tags assigned to the Blue/Green Deployment.
+        :param target_allocated_storage: The allocated storage size in GiB for the target DB instance.
+        :param target_db_cluster_parameter_group_name: The DB cluster parameter group for the target Aurora DB cluster.
+        :param target_db_instance_class: The DB instance class for target RDS DB instances.
+        :param target_db_parameter_group_name: The DB parameter group for the target DB instance.
+        :param target_engine_version: The DB engine version for the target database.
+        :param target_iops: The Provisioned IOPS value for the target DB instance.
+        :param target_storage_throughput: The storage throughput value for the target DB instance.
+        :param target_storage_type: The storage type for the target DB instance.
+        :param upgrade_target_storage_config: Whether to upgrade the storage file system configuration on the target database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rds as rds
+            
+            cfn_deployment_props = rds.CfnDeploymentProps(
+                blue_green_deployment_name="blueGreenDeploymentName",
+                source="source",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                target_allocated_storage=123,
+                target_db_cluster_parameter_group_name="targetDbClusterParameterGroupName",
+                target_db_instance_class="targetDbInstanceClass",
+                target_db_parameter_group_name="targetDbParameterGroupName",
+                target_engine_version="targetEngineVersion",
+                target_iops=123,
+                target_storage_throughput=123,
+                target_storage_type="targetStorageType",
+                upgrade_target_storage_config=False
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__30ad2aa4549a18d428b8d917456dc67134ee8ff97ac1ba76d333350d0edf4d5a)
+            check_type(argname="argument blue_green_deployment_name", value=blue_green_deployment_name, expected_type=type_hints["blue_green_deployment_name"])
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_allocated_storage", value=target_allocated_storage, expected_type=type_hints["target_allocated_storage"])
+            check_type(argname="argument target_db_cluster_parameter_group_name", value=target_db_cluster_parameter_group_name, expected_type=type_hints["target_db_cluster_parameter_group_name"])
+            check_type(argname="argument target_db_instance_class", value=target_db_instance_class, expected_type=type_hints["target_db_instance_class"])
+            check_type(argname="argument target_db_parameter_group_name", value=target_db_parameter_group_name, expected_type=type_hints["target_db_parameter_group_name"])
+            check_type(argname="argument target_engine_version", value=target_engine_version, expected_type=type_hints["target_engine_version"])
+            check_type(argname="argument target_iops", value=target_iops, expected_type=type_hints["target_iops"])
+            check_type(argname="argument target_storage_throughput", value=target_storage_throughput, expected_type=type_hints["target_storage_throughput"])
+            check_type(argname="argument target_storage_type", value=target_storage_type, expected_type=type_hints["target_storage_type"])
+            check_type(argname="argument upgrade_target_storage_config", value=upgrade_target_storage_config, expected_type=type_hints["upgrade_target_storage_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "blue_green_deployment_name": blue_green_deployment_name,
+            "source": source,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_allocated_storage is not None:
+            self._values["target_allocated_storage"] = target_allocated_storage
+        if target_db_cluster_parameter_group_name is not None:
+            self._values["target_db_cluster_parameter_group_name"] = target_db_cluster_parameter_group_name
+        if target_db_instance_class is not None:
+            self._values["target_db_instance_class"] = target_db_instance_class
+        if target_db_parameter_group_name is not None:
+            self._values["target_db_parameter_group_name"] = target_db_parameter_group_name
+        if target_engine_version is not None:
+            self._values["target_engine_version"] = target_engine_version
+        if target_iops is not None:
+            self._values["target_iops"] = target_iops
+        if target_storage_throughput is not None:
+            self._values["target_storage_throughput"] = target_storage_throughput
+        if target_storage_type is not None:
+            self._values["target_storage_type"] = target_storage_type
+        if upgrade_target_storage_config is not None:
+            self._values["upgrade_target_storage_config"] = upgrade_target_storage_config
+
+    @builtins.property
+    def blue_green_deployment_name(self) -> builtins.str:
+        '''The name of the Blue/Green Deployment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-bluegreendeploymentname
+        '''
+        result = self._values.get("blue_green_deployment_name")
+        assert result is not None, "Required property 'blue_green_deployment_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source(self) -> builtins.str:
+        '''The ARN of the source production database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-source
+        '''
+        result = self._values.get("source")
+        assert result is not None, "Required property 'source' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags assigned to the Blue/Green Deployment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def target_allocated_storage(self) -> typing.Optional[jsii.Number]:
+        '''The allocated storage size in GiB for the target DB instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-targetallocatedstorage
+        '''
+        result = self._values.get("target_allocated_storage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def target_db_cluster_parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The DB cluster parameter group for the target Aurora DB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-targetdbclusterparametergroupname
+        '''
+        result = self._values.get("target_db_cluster_parameter_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def target_db_instance_class(self) -> typing.Optional[builtins.str]:
+        '''The DB instance class for target RDS DB instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-targetdbinstanceclass
+        '''
+        result = self._values.get("target_db_instance_class")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def target_db_parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The DB parameter group for the target DB instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-targetdbparametergroupname
+        '''
+        result = self._values.get("target_db_parameter_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def target_engine_version(self) -> typing.Optional[builtins.str]:
+        '''The DB engine version for the target database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-targetengineversion
+        '''
+        result = self._values.get("target_engine_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def target_iops(self) -> typing.Optional[jsii.Number]:
+        '''The Provisioned IOPS value for the target DB instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-targetiops
+        '''
+        result = self._values.get("target_iops")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def target_storage_throughput(self) -> typing.Optional[jsii.Number]:
+        '''The storage throughput value for the target DB instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-targetstoragethroughput
+        '''
+        result = self._values.get("target_storage_throughput")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def target_storage_type(self) -> typing.Optional[builtins.str]:
+        '''The storage type for the target DB instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-targetstoragetype
+        '''
+        result = self._values.get("target_storage_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def upgrade_target_storage_config(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Whether to upgrade the storage file system configuration on the target database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html#cfn-rds-deployment-upgradetargetstorageconfig
+        '''
+        result = self._values.get("upgrade_target_storage_config")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDeploymentProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -20178,6 +21261,7 @@ class CfnEventSubscription(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -20215,7 +21299,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__725eef3acf6a3d45ddad2bbb8033eecd25b8265a0113b5a4bde635eccc922e26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snsTopicArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snsTopicArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -20233,7 +21317,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d27f61978b38a92532fbb55b533f68090bb9edde6df3cf1aae5ca81d6fd745cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="eventCategories")
@@ -20249,7 +21333,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b451c3a9b4f0ecc0f0d2566ff7304db2ebdbb202d3898d49b840a814d78832f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventCategories", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventCategories", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceIds")
@@ -20262,7 +21346,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__117c27a2bfa4fdddd71e0cf520f0a488e608552d4e40fc438d80956908d02094)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceType")
@@ -20275,7 +21359,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f291135ba489a08dc82c67edf431fcab65c4ee57d2fe99484d61a7278397a932)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceType", value)
 
     @builtins.property
     @jsii.member(jsii_name="subscriptionName")
@@ -20288,7 +21372,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d411ca6aa9fb044fefb897f96abcf36ea0e4876e110a7e51d644679861e68fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscriptionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subscriptionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -20304,7 +21388,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f9548d8c2732d5e0b965692b2b5ce0ada7fc0f66638ef417c33f207b05a8e478)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -20626,6 +21710,7 @@ class CfnGlobalCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -20676,7 +21761,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3cfbe56a53cd6d95cfdd32ab00cf3bfe312f7c16be1b0f4f4e34aeb398290763)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="engine")
@@ -20689,7 +21774,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__377a45f027efcee5d8bac171dee917b896fe5f052401019cb110b569cded8f8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engine", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineLifecycleSupport")
@@ -20702,7 +21787,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2520542b1261b31d9007187006a212fdaf668dc69447bad72f9ade5b3bfd3350)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineLifecycleSupport", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineLifecycleSupport", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineVersion")
@@ -20715,7 +21800,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__484590244ee41b9290f1f270ea1960cd87e41b189211e6d5978a3239b94469b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalClusterIdentifier")
@@ -20728,7 +21813,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8c0878c8feb5b0667b16ebe0d996cc33dadb0920b96e5594e9cf1b8cc8e82a5d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceDbClusterIdentifier")
@@ -20744,7 +21829,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b8b99331248625e609d8c61fdd2aeead968468cd83f1da2306ce25de200e221)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceDbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageEncrypted")
@@ -20762,7 +21847,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f760cdb237d4844bc219ed58856db0d37bc81d9e590f5413f4b7b4f0cdc9a17d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageEncrypted", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageEncrypted", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -20778,7 +21863,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__353dbc811b6418119794dea977794a47fb1500897063d3e8fdf280f56575e579)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rds.CfnGlobalCluster.GlobalEndpointProperty",
@@ -21189,6 +22274,7 @@ class CfnIntegration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -21244,7 +22330,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4ff54116f19c139bb3931b7f2a39aa904d2c464c4982c9f68dc93ed3ac29ffc6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetArn")
@@ -21257,7 +22343,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6dd8ff906d13523a9100f3e1da8891fd48222fa9aef07e443b5b2ab9f06db37b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="additionalEncryptionContext")
@@ -21275,7 +22361,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f7fbdfa17cddec711beb6235c912d759435b5df9d3a68892f8c59ac577e099e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "additionalEncryptionContext", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "additionalEncryptionContext", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataFilter")
@@ -21288,7 +22374,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8f252e37d51ec7f1680d3efcea4e0b7e52aad4f42ab7602e3513cfddd333cc79)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataFilter", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataFilter", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -21301,7 +22387,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f153335081bdb228cf54af39607edd8cc138405105c83cea1f20045a38af6740)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="integrationName")
@@ -21314,7 +22400,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d5b123c2905fc9a976f7d4b785712c7b5d8b6b3c679debd526c66604c144a9d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "integrationName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "integrationName", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -21327,7 +22413,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aad7195276c93d472e4715d546034cb06c361628e5b57dc7197786dbc43fe4b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -21343,7 +22429,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6b4346bf0db7d57b333211f6a259203a41499bb6b5a1a17f43f88ba74141158)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -21692,6 +22778,7 @@ class CfnOptionGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -21729,7 +22816,7 @@ class CfnOptionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72372a94787a9864fc46f22b9d45f7c5dcfcbad2eda2989a8adc542733e60f22)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineName", value)
 
     @builtins.property
     @jsii.member(jsii_name="majorEngineVersion")
@@ -21742,7 +22829,7 @@ class CfnOptionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4478385707495a878504e313bccb79280c8a7f007a5284e0d246df801ac15ecd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "majorEngineVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "majorEngineVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="optionGroupDescription")
@@ -21755,7 +22842,7 @@ class CfnOptionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__70a4d961d60d8299bea5f34463e0ff9bf36d78e4beac1ee95ab63c4f35ffad1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "optionGroupDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "optionGroupDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="optionConfigurations")
@@ -21773,7 +22860,7 @@ class CfnOptionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0e6faa2dc60f2e082ba41358aaa072b9f716e841d6d86aa8416dd4762d042f4b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "optionConfigurations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "optionConfigurations", value)
 
     @builtins.property
     @jsii.member(jsii_name="optionGroupName")
@@ -21786,7 +22873,7 @@ class CfnOptionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__83fce14b08e54b5e8de18e0a16de115b6e07a1cff51025c36b8d3fa95875349a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "optionGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "optionGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -21802,7 +22889,7 @@ class CfnOptionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6dd45d15262b2cfad6dac99cb65fcdda1cf93031597d136a60b79d9ab6ed5db6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rds.CfnOptionGroup.OptionConfigurationProperty",
@@ -24610,6 +25697,7 @@ class DatabaseClusterEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AURORA")
+    @builtins.classmethod
     def AURORA(cls) -> "IClusterEngine":
         '''(deprecated) The unversioned 'aurora' cluster engine.
 
@@ -24625,6 +25713,7 @@ class DatabaseClusterEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AURORA_MYSQL")
+    @builtins.classmethod
     def AURORA_MYSQL(cls) -> "IClusterEngine":
         '''The unversioned 'aurora-msql' cluster engine.
 
@@ -24636,6 +25725,7 @@ class DatabaseClusterEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AURORA_POSTGRESQL")
+    @builtins.classmethod
     def AURORA_POSTGRESQL(cls) -> "IClusterEngine":
         '''The unversioned 'aurora-postgresql' cluster engine.
 
@@ -27125,6 +28215,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MARIADB")
+    @builtins.classmethod
     def MARIADB(cls) -> "IInstanceEngine":
         '''The unversioned 'mariadb' instance engine.
 
@@ -27135,6 +28226,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MYSQL")
+    @builtins.classmethod
     def MYSQL(cls) -> "IInstanceEngine":
         '''The unversioned 'mysql' instance engine.
 
@@ -27145,6 +28237,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORACLE_EE")
+    @builtins.classmethod
     def ORACLE_EE(cls) -> "IInstanceEngine":
         '''The unversioned 'oracle-ee' instance engine.
 
@@ -27155,6 +28248,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORACLE_EE_CDB")
+    @builtins.classmethod
     def ORACLE_EE_CDB(cls) -> "IInstanceEngine":
         '''The unversioned 'oracle-ee-cdb' instance engine.
 
@@ -27165,6 +28259,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORACLE_SE2")
+    @builtins.classmethod
     def ORACLE_SE2(cls) -> "IInstanceEngine":
         '''The unversioned 'oracle-se2' instance engine.
 
@@ -27175,6 +28270,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORACLE_SE2_CDB")
+    @builtins.classmethod
     def ORACLE_SE2_CDB(cls) -> "IInstanceEngine":
         '''The unversioned 'oracle-se2-cdb' instance engine.
 
@@ -27185,6 +28281,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="POSTGRES")
+    @builtins.classmethod
     def POSTGRES(cls) -> "IInstanceEngine":
         '''The unversioned 'postgres' instance engine.
 
@@ -27195,6 +28292,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQL_SERVER_EE")
+    @builtins.classmethod
     def SQL_SERVER_EE(cls) -> "IInstanceEngine":
         '''The unversioned 'sqlserver-ee' instance engine.
 
@@ -27205,6 +28303,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQL_SERVER_EX")
+    @builtins.classmethod
     def SQL_SERVER_EX(cls) -> "IInstanceEngine":
         '''The unversioned 'sqlserver-ex' instance engine.
 
@@ -27215,6 +28314,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQL_SERVER_SE")
+    @builtins.classmethod
     def SQL_SERVER_SE(cls) -> "IInstanceEngine":
         '''The unversioned 'sqlserver-se' instance engine.
 
@@ -27225,6 +28325,7 @@ class DatabaseInstanceEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQL_SERVER_WEB")
+    @builtins.classmethod
     def SQL_SERVER_WEB(cls) -> "IInstanceEngine":
         '''The unversioned 'sqlserver-web' instance engine.
 
@@ -31440,6 +32541,7 @@ class DatabaseSecret(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -36081,48 +37183,56 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11")
+    @builtins.classmethod
     def VER_10_11(cls) -> "MariaDbEngineVersion":
         '''Version "10.11" (only a major version, without a specific minor version).'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_10")
+    @builtins.classmethod
     def VER_10_11_10(cls) -> "MariaDbEngineVersion":
         '''Version "10.11.10".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_11")
+    @builtins.classmethod
     def VER_10_11_11(cls) -> "MariaDbEngineVersion":
         '''Version "10.11.11".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_13")
+    @builtins.classmethod
     def VER_10_11_13(cls) -> "MariaDbEngineVersion":
         '''Version "10.11.13".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_14")
+    @builtins.classmethod
     def VER_10_11_14(cls) -> "MariaDbEngineVersion":
         '''Version "10.11.14".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_14"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_15")
+    @builtins.classmethod
     def VER_10_11_15(cls) -> "MariaDbEngineVersion":
         '''Version "10.11.15".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_16")
+    @builtins.classmethod
     def VER_10_11_16(cls) -> "MariaDbEngineVersion":
         '''Version "10.11.16".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_16"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_4")
+    @builtins.classmethod
     def VER_10_11_4(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.11.4".
 
@@ -36134,6 +37244,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_5")
+    @builtins.classmethod
     def VER_10_11_5(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.11.5".
 
@@ -36145,6 +37256,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_6")
+    @builtins.classmethod
     def VER_10_11_6(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.11.6".
 
@@ -36156,6 +37268,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_7")
+    @builtins.classmethod
     def VER_10_11_7(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.11.7".
 
@@ -36167,6 +37280,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_8")
+    @builtins.classmethod
     def VER_10_11_8(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.11.8".
 
@@ -36178,12 +37292,14 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_9")
+    @builtins.classmethod
     def VER_10_11_9(cls) -> "MariaDbEngineVersion":
         '''Version "10.11.9".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2")
+    @builtins.classmethod
     def VER_10_2(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2" (only a major version, without a specific minor version).
 
@@ -36195,6 +37311,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_11")
+    @builtins.classmethod
     def VER_10_2_11(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.11".
 
@@ -36206,6 +37323,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_12")
+    @builtins.classmethod
     def VER_10_2_12(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.12".
 
@@ -36217,6 +37335,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_15")
+    @builtins.classmethod
     def VER_10_2_15(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.15".
 
@@ -36228,6 +37347,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_21")
+    @builtins.classmethod
     def VER_10_2_21(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.21".
 
@@ -36239,6 +37359,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_32")
+    @builtins.classmethod
     def VER_10_2_32(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.32".
 
@@ -36250,6 +37371,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_37")
+    @builtins.classmethod
     def VER_10_2_37(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.37".
 
@@ -36261,6 +37383,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_39")
+    @builtins.classmethod
     def VER_10_2_39(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.39".
 
@@ -36272,6 +37395,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_40")
+    @builtins.classmethod
     def VER_10_2_40(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.40".
 
@@ -36283,6 +37407,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_41")
+    @builtins.classmethod
     def VER_10_2_41(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.41".
 
@@ -36294,6 +37419,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_43")
+    @builtins.classmethod
     def VER_10_2_43(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.43".
 
@@ -36305,6 +37431,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_2_44")
+    @builtins.classmethod
     def VER_10_2_44(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.2.44".
 
@@ -36316,6 +37443,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3")
+    @builtins.classmethod
     def VER_10_3(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3" (only a major version, without a specific minor version).
 
@@ -36327,6 +37455,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_13")
+    @builtins.classmethod
     def VER_10_3_13(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.13".
 
@@ -36338,6 +37467,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_20")
+    @builtins.classmethod
     def VER_10_3_20(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.20".
 
@@ -36349,6 +37479,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_23")
+    @builtins.classmethod
     def VER_10_3_23(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.23".
 
@@ -36360,6 +37491,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_28")
+    @builtins.classmethod
     def VER_10_3_28(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.28".
 
@@ -36371,6 +37503,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_31")
+    @builtins.classmethod
     def VER_10_3_31(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.31".
 
@@ -36382,6 +37515,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_32")
+    @builtins.classmethod
     def VER_10_3_32(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.32".
 
@@ -36393,6 +37527,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_34")
+    @builtins.classmethod
     def VER_10_3_34(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.34".
 
@@ -36404,6 +37539,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_35")
+    @builtins.classmethod
     def VER_10_3_35(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.35".
 
@@ -36415,6 +37551,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_36")
+    @builtins.classmethod
     def VER_10_3_36(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.36".
 
@@ -36426,6 +37563,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_37")
+    @builtins.classmethod
     def VER_10_3_37(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.37".
 
@@ -36437,6 +37575,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_38")
+    @builtins.classmethod
     def VER_10_3_38(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.38".
 
@@ -36448,6 +37587,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_39")
+    @builtins.classmethod
     def VER_10_3_39(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.39".
 
@@ -36459,6 +37599,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3_8")
+    @builtins.classmethod
     def VER_10_3_8(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.3.8".
 
@@ -36470,6 +37611,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4")
+    @builtins.classmethod
     def VER_10_4(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4" (only a major version, without a specific minor version).
 
@@ -36481,6 +37623,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_13")
+    @builtins.classmethod
     def VER_10_4_13(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.13".
 
@@ -36492,6 +37635,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_18")
+    @builtins.classmethod
     def VER_10_4_18(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.18".
 
@@ -36503,6 +37647,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_21")
+    @builtins.classmethod
     def VER_10_4_21(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.21".
 
@@ -36514,6 +37659,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_22")
+    @builtins.classmethod
     def VER_10_4_22(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.22".
 
@@ -36525,6 +37671,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_24")
+    @builtins.classmethod
     def VER_10_4_24(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.24".
 
@@ -36536,6 +37683,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_25")
+    @builtins.classmethod
     def VER_10_4_25(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.25".
 
@@ -36547,6 +37695,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_26")
+    @builtins.classmethod
     def VER_10_4_26(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.26".
 
@@ -36558,6 +37707,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_27")
+    @builtins.classmethod
     def VER_10_4_27(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.27".
 
@@ -36569,6 +37719,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_28")
+    @builtins.classmethod
     def VER_10_4_28(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.28".
 
@@ -36580,6 +37731,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_29")
+    @builtins.classmethod
     def VER_10_4_29(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.29".
 
@@ -36591,6 +37743,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_30")
+    @builtins.classmethod
     def VER_10_4_30(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.30".
 
@@ -36602,6 +37755,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_31")
+    @builtins.classmethod
     def VER_10_4_31(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.31".
 
@@ -36613,6 +37767,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_32")
+    @builtins.classmethod
     def VER_10_4_32(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.32".
 
@@ -36624,6 +37779,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_33")
+    @builtins.classmethod
     def VER_10_4_33(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.33".
 
@@ -36635,6 +37791,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_34")
+    @builtins.classmethod
     def VER_10_4_34(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.34".
 
@@ -36646,6 +37803,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4_8")
+    @builtins.classmethod
     def VER_10_4_8(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.4.8".
 
@@ -36657,12 +37815,14 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5")
+    @builtins.classmethod
     def VER_10_5(cls) -> "MariaDbEngineVersion":
         '''Version "10.5" (only a major version, without a specific minor version).'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_12")
+    @builtins.classmethod
     def VER_10_5_12(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.12".
 
@@ -36674,6 +37834,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_13")
+    @builtins.classmethod
     def VER_10_5_13(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.13".
 
@@ -36685,6 +37846,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_15")
+    @builtins.classmethod
     def VER_10_5_15(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.15".
 
@@ -36696,6 +37858,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_16")
+    @builtins.classmethod
     def VER_10_5_16(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.16".
 
@@ -36707,6 +37870,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_17")
+    @builtins.classmethod
     def VER_10_5_17(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.17".
 
@@ -36718,6 +37882,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_18")
+    @builtins.classmethod
     def VER_10_5_18(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.18".
 
@@ -36729,6 +37894,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_19")
+    @builtins.classmethod
     def VER_10_5_19(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.19".
 
@@ -36740,6 +37906,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_20")
+    @builtins.classmethod
     def VER_10_5_20(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.20".
 
@@ -36751,6 +37918,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_21")
+    @builtins.classmethod
     def VER_10_5_21(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.21".
 
@@ -36762,6 +37930,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_22")
+    @builtins.classmethod
     def VER_10_5_22(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.22".
 
@@ -36773,6 +37942,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_23")
+    @builtins.classmethod
     def VER_10_5_23(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.23".
 
@@ -36784,6 +37954,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_24")
+    @builtins.classmethod
     def VER_10_5_24(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.24".
 
@@ -36795,6 +37966,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_25")
+    @builtins.classmethod
     def VER_10_5_25(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.25".
 
@@ -36806,6 +37978,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_26")
+    @builtins.classmethod
     def VER_10_5_26(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.26".
 
@@ -36817,24 +37990,28 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_27")
+    @builtins.classmethod
     def VER_10_5_27(cls) -> "MariaDbEngineVersion":
         '''Version "10.5.27".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_5_27"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_28")
+    @builtins.classmethod
     def VER_10_5_28(cls) -> "MariaDbEngineVersion":
         '''Version "10.5.28".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_5_28"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_29")
+    @builtins.classmethod
     def VER_10_5_29(cls) -> "MariaDbEngineVersion":
         '''Version "10.5.29".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_5_29"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_8")
+    @builtins.classmethod
     def VER_10_5_8(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.8".
 
@@ -36846,6 +38023,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_9")
+    @builtins.classmethod
     def VER_10_5_9(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.9".
 
@@ -36857,12 +38035,14 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6")
+    @builtins.classmethod
     def VER_10_6(cls) -> "MariaDbEngineVersion":
         '''Version "10.6" (only a major version, without a specific minor version).'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_10")
+    @builtins.classmethod
     def VER_10_6_10(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.10".
 
@@ -36874,6 +38054,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_11")
+    @builtins.classmethod
     def VER_10_6_11(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.11".
 
@@ -36885,6 +38066,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_12")
+    @builtins.classmethod
     def VER_10_6_12(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.12".
 
@@ -36896,6 +38078,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_13")
+    @builtins.classmethod
     def VER_10_6_13(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.13".
 
@@ -36907,6 +38090,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_14")
+    @builtins.classmethod
     def VER_10_6_14(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.14".
 
@@ -36918,6 +38102,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_15")
+    @builtins.classmethod
     def VER_10_6_15(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.15".
 
@@ -36929,6 +38114,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_16")
+    @builtins.classmethod
     def VER_10_6_16(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.16".
 
@@ -36940,6 +38126,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_17")
+    @builtins.classmethod
     def VER_10_6_17(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.17".
 
@@ -36951,6 +38138,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_18")
+    @builtins.classmethod
     def VER_10_6_18(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.18".
 
@@ -36962,48 +38150,56 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_19")
+    @builtins.classmethod
     def VER_10_6_19(cls) -> "MariaDbEngineVersion":
         '''Version "10.6.19".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_19"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_20")
+    @builtins.classmethod
     def VER_10_6_20(cls) -> "MariaDbEngineVersion":
         '''Version "10.6.20".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_21")
+    @builtins.classmethod
     def VER_10_6_21(cls) -> "MariaDbEngineVersion":
         '''Version "10.6.21".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_22")
+    @builtins.classmethod
     def VER_10_6_22(cls) -> "MariaDbEngineVersion":
         '''Version "10.6.22".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_22"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_23")
+    @builtins.classmethod
     def VER_10_6_23(cls) -> "MariaDbEngineVersion":
         '''Version "10.6.23".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_23"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_24")
+    @builtins.classmethod
     def VER_10_6_24(cls) -> "MariaDbEngineVersion":
         '''Version "10.6.24".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_24"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_25")
+    @builtins.classmethod
     def VER_10_6_25(cls) -> "MariaDbEngineVersion":
         '''Version "10.6.25".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_25"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_5")
+    @builtins.classmethod
     def VER_10_6_5(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.5".
 
@@ -37015,6 +38211,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_7")
+    @builtins.classmethod
     def VER_10_6_7(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.7".
 
@@ -37026,6 +38223,7 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_8")
+    @builtins.classmethod
     def VER_10_6_8(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.8".
 
@@ -37037,60 +38235,70 @@ class MariaDbEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4_10")
+    @builtins.classmethod
     def VER_11_4_10(cls) -> "MariaDbEngineVersion":
         '''Version "11.4.10".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_4_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4_3")
+    @builtins.classmethod
     def VER_11_4_3(cls) -> "MariaDbEngineVersion":
         '''Version "11.4.3".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_4_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4_4")
+    @builtins.classmethod
     def VER_11_4_4(cls) -> "MariaDbEngineVersion":
         '''Version "11.4.4".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_4_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4_5")
+    @builtins.classmethod
     def VER_11_4_5(cls) -> "MariaDbEngineVersion":
         '''Version "11.4.5".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_4_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4_7")
+    @builtins.classmethod
     def VER_11_4_7(cls) -> "MariaDbEngineVersion":
         '''Version "11.4.7".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_4_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4_8")
+    @builtins.classmethod
     def VER_11_4_8(cls) -> "MariaDbEngineVersion":
         '''Version "11.4.8".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_4_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4_9")
+    @builtins.classmethod
     def VER_11_4_9(cls) -> "MariaDbEngineVersion":
         '''Version "11.4.9".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_4_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_8_3")
+    @builtins.classmethod
     def VER_11_8_3(cls) -> "MariaDbEngineVersion":
         '''Version "11.8.3".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_8_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_8_5")
+    @builtins.classmethod
     def VER_11_8_5(cls) -> "MariaDbEngineVersion":
         '''Version "11.8.5".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_8_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_8_6")
+    @builtins.classmethod
     def VER_11_8_6(cls) -> "MariaDbEngineVersion":
         '''Version "11.8.6".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_8_6"))
@@ -37259,6 +38467,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_5_54")
+    @builtins.classmethod
     def VER_5_5_54(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.5.54".
 
@@ -37270,12 +38479,14 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7")
+    @builtins.classmethod
     def VER_5_7(cls) -> "MysqlEngineVersion":
         '''Version "5.7" (only a major version, without a specific minor version).'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_16")
+    @builtins.classmethod
     def VER_5_7_16(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.16".
 
@@ -37287,6 +38498,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_17")
+    @builtins.classmethod
     def VER_5_7_17(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.17".
 
@@ -37298,6 +38510,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_19")
+    @builtins.classmethod
     def VER_5_7_19(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.19".
 
@@ -37309,6 +38522,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_21")
+    @builtins.classmethod
     def VER_5_7_21(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.21".
 
@@ -37320,6 +38534,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_22")
+    @builtins.classmethod
     def VER_5_7_22(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.22".
 
@@ -37331,6 +38546,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_23")
+    @builtins.classmethod
     def VER_5_7_23(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.23".
 
@@ -37342,6 +38558,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_24")
+    @builtins.classmethod
     def VER_5_7_24(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.24".
 
@@ -37353,6 +38570,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_25")
+    @builtins.classmethod
     def VER_5_7_25(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.25".
 
@@ -37364,6 +38582,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_26")
+    @builtins.classmethod
     def VER_5_7_26(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.26".
 
@@ -37375,6 +38594,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_28")
+    @builtins.classmethod
     def VER_5_7_28(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.28".
 
@@ -37386,6 +38606,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_30")
+    @builtins.classmethod
     def VER_5_7_30(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.30".
 
@@ -37397,6 +38618,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_31")
+    @builtins.classmethod
     def VER_5_7_31(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.31".
 
@@ -37408,6 +38630,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_33")
+    @builtins.classmethod
     def VER_5_7_33(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.33".
 
@@ -37419,6 +38642,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_34")
+    @builtins.classmethod
     def VER_5_7_34(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.34".
 
@@ -37430,6 +38654,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_35")
+    @builtins.classmethod
     def VER_5_7_35(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.35".
 
@@ -37441,6 +38666,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_36")
+    @builtins.classmethod
     def VER_5_7_36(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.36".
 
@@ -37452,6 +38678,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_37")
+    @builtins.classmethod
     def VER_5_7_37(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.37".
 
@@ -37463,6 +38690,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_38")
+    @builtins.classmethod
     def VER_5_7_38(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.38".
 
@@ -37474,6 +38702,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_39")
+    @builtins.classmethod
     def VER_5_7_39(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.39".
 
@@ -37485,6 +38714,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_40")
+    @builtins.classmethod
     def VER_5_7_40(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.40".
 
@@ -37496,6 +38726,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_41")
+    @builtins.classmethod
     def VER_5_7_41(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.41".
 
@@ -37507,6 +38738,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_42")
+    @builtins.classmethod
     def VER_5_7_42(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.42".
 
@@ -37518,6 +38750,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_43")
+    @builtins.classmethod
     def VER_5_7_43(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.43".
 
@@ -37529,6 +38762,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44")
+    @builtins.classmethod
     def VER_5_7_44(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.44".
 
@@ -37540,6 +38774,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20240408")
+    @builtins.classmethod
     def VER_5_7_44_RDS_20240408(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.44-rds.20240408".
 
@@ -37551,6 +38786,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20240529")
+    @builtins.classmethod
     def VER_5_7_44_RDS_20240529(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.44-rds.20240529".
 
@@ -37562,6 +38798,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20240808")
+    @builtins.classmethod
     def VER_5_7_44_RDS_20240808(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.44-rds.20240808".
 
@@ -37573,6 +38810,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20250103")
+    @builtins.classmethod
     def VER_5_7_44_RDS_20250103(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "5.7.44-rds.20250103".
 
@@ -37584,48 +38822,56 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20250213")
+    @builtins.classmethod
     def VER_5_7_44_RDS_20250213(cls) -> "MysqlEngineVersion":
         '''Version "5.7.44-rds.20250213".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20250213"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20250508")
+    @builtins.classmethod
     def VER_5_7_44_RDS_20250508(cls) -> "MysqlEngineVersion":
         '''Version "5.7.44-rds.20250508".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20250508"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20250818")
+    @builtins.classmethod
     def VER_5_7_44_RDS_20250818(cls) -> "MysqlEngineVersion":
         '''Version "5.7.44-rds.20250818".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20250818"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20251212")
+    @builtins.classmethod
     def VER_5_7_44_RDS_20251212(cls) -> "MysqlEngineVersion":
         '''Version "5.7.44-rds.20251212".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20251212"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20260212")
+    @builtins.classmethod
     def VER_5_7_44_RDS_20260212(cls) -> "MysqlEngineVersion":
         '''Version "5.7.44-rds.20260212".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20260212"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20260521")
+    @builtins.classmethod
     def VER_5_7_44_RDS_20260521(cls) -> "MysqlEngineVersion":
         '''Version "5.7.44-rds.20260521".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20260521"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0")
+    @builtins.classmethod
     def VER_8_0(cls) -> "MysqlEngineVersion":
         '''Version "8.0" (only a major version, without a specific minor version).'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_11")
+    @builtins.classmethod
     def VER_8_0_11(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.11".
 
@@ -37637,6 +38883,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_13")
+    @builtins.classmethod
     def VER_8_0_13(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.13".
 
@@ -37648,6 +38895,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_15")
+    @builtins.classmethod
     def VER_8_0_15(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.15".
 
@@ -37659,6 +38907,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_16")
+    @builtins.classmethod
     def VER_8_0_16(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.16".
 
@@ -37670,6 +38919,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_17")
+    @builtins.classmethod
     def VER_8_0_17(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.17".
 
@@ -37681,6 +38931,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_19")
+    @builtins.classmethod
     def VER_8_0_19(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.19".
 
@@ -37692,6 +38943,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_20")
+    @builtins.classmethod
     def VER_8_0_20(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.20".
 
@@ -37703,6 +38955,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_21")
+    @builtins.classmethod
     def VER_8_0_21(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.21".
 
@@ -37714,6 +38967,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_23")
+    @builtins.classmethod
     def VER_8_0_23(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.23".
 
@@ -37725,6 +38979,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_25")
+    @builtins.classmethod
     def VER_8_0_25(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.25".
 
@@ -37736,6 +38991,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_26")
+    @builtins.classmethod
     def VER_8_0_26(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.26".
 
@@ -37747,6 +39003,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_27")
+    @builtins.classmethod
     def VER_8_0_27(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.27".
 
@@ -37758,6 +39015,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_28")
+    @builtins.classmethod
     def VER_8_0_28(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.28".
 
@@ -37769,6 +39027,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_29")
+    @builtins.classmethod
     def VER_8_0_29(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.29".
 
@@ -37780,6 +39039,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_30")
+    @builtins.classmethod
     def VER_8_0_30(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.30".
 
@@ -37791,6 +39051,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_31")
+    @builtins.classmethod
     def VER_8_0_31(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.31".
 
@@ -37802,6 +39063,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_32")
+    @builtins.classmethod
     def VER_8_0_32(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.32".
 
@@ -37813,6 +39075,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_33")
+    @builtins.classmethod
     def VER_8_0_33(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.33".
 
@@ -37824,6 +39087,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_34")
+    @builtins.classmethod
     def VER_8_0_34(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.34".
 
@@ -37835,6 +39099,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_35")
+    @builtins.classmethod
     def VER_8_0_35(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.35".
 
@@ -37846,6 +39111,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_36")
+    @builtins.classmethod
     def VER_8_0_36(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.36".
 
@@ -37857,6 +39123,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_37")
+    @builtins.classmethod
     def VER_8_0_37(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.37".
 
@@ -37868,6 +39135,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_39")
+    @builtins.classmethod
     def VER_8_0_39(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.39".
 
@@ -37879,6 +39147,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_40")
+    @builtins.classmethod
     def VER_8_0_40(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.40".
 
@@ -37890,6 +39159,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_41")
+    @builtins.classmethod
     def VER_8_0_41(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.0.41".
 
@@ -37901,42 +39171,49 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_42")
+    @builtins.classmethod
     def VER_8_0_42(cls) -> "MysqlEngineVersion":
         '''Version "8.0.42".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_42"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_43")
+    @builtins.classmethod
     def VER_8_0_43(cls) -> "MysqlEngineVersion":
         '''Version "8.0.43".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_43"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_44")
+    @builtins.classmethod
     def VER_8_0_44(cls) -> "MysqlEngineVersion":
         '''Version "8.0.44".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_44"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_45")
+    @builtins.classmethod
     def VER_8_0_45(cls) -> "MysqlEngineVersion":
         '''Version "8.0.45".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_45"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_46")
+    @builtins.classmethod
     def VER_8_0_46(cls) -> "MysqlEngineVersion":
         '''Version "8.0.46".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_46"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_10")
+    @builtins.classmethod
     def VER_8_4_10(cls) -> "MysqlEngineVersion":
         '''Version "8.4.10".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_3")
+    @builtins.classmethod
     def VER_8_4_3(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.4.3".
 
@@ -37948,6 +39225,7 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_4")
+    @builtins.classmethod
     def VER_8_4_4(cls) -> "MysqlEngineVersion":
         '''(deprecated) Version "8.4.4".
 
@@ -37959,30 +39237,35 @@ class MysqlEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_5")
+    @builtins.classmethod
     def VER_8_4_5(cls) -> "MysqlEngineVersion":
         '''Version "8.4.5".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_6")
+    @builtins.classmethod
     def VER_8_4_6(cls) -> "MysqlEngineVersion":
         '''Version "8.4.6".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_7")
+    @builtins.classmethod
     def VER_8_4_7(cls) -> "MysqlEngineVersion":
         '''Version "8.4.7".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_8")
+    @builtins.classmethod
     def VER_8_4_8(cls) -> "MysqlEngineVersion":
         '''Version "8.4.8".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_9")
+    @builtins.classmethod
     def VER_8_4_9(cls) -> "MysqlEngineVersion":
         '''Version "8.4.9".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_9"))
@@ -38299,6 +39582,7 @@ class OptionGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -38593,6 +39877,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1")
+    @builtins.classmethod
     def VER_12_1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1" (only a major version, without a specific minor version).
 
@@ -38604,6 +39889,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V1")
+    @builtins.classmethod
     def VER_12_1_0_2_V1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v1".
 
@@ -38615,6 +39901,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V10")
+    @builtins.classmethod
     def VER_12_1_0_2_V10(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v10".
 
@@ -38626,6 +39913,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V11")
+    @builtins.classmethod
     def VER_12_1_0_2_V11(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v11".
 
@@ -38637,6 +39925,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V12")
+    @builtins.classmethod
     def VER_12_1_0_2_V12(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v12".
 
@@ -38648,6 +39937,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V13")
+    @builtins.classmethod
     def VER_12_1_0_2_V13(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v13".
 
@@ -38659,6 +39949,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V14")
+    @builtins.classmethod
     def VER_12_1_0_2_V14(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v14".
 
@@ -38670,6 +39961,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V15")
+    @builtins.classmethod
     def VER_12_1_0_2_V15(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v15".
 
@@ -38681,6 +39973,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V16")
+    @builtins.classmethod
     def VER_12_1_0_2_V16(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v16".
 
@@ -38692,6 +39985,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V17")
+    @builtins.classmethod
     def VER_12_1_0_2_V17(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v17".
 
@@ -38703,6 +39997,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V18")
+    @builtins.classmethod
     def VER_12_1_0_2_V18(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v18".
 
@@ -38714,6 +40009,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V19")
+    @builtins.classmethod
     def VER_12_1_0_2_V19(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v19".
 
@@ -38725,6 +40021,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V2")
+    @builtins.classmethod
     def VER_12_1_0_2_V2(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v2".
 
@@ -38736,6 +40033,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V20")
+    @builtins.classmethod
     def VER_12_1_0_2_V20(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v20".
 
@@ -38747,6 +40045,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V21")
+    @builtins.classmethod
     def VER_12_1_0_2_V21(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v21".
 
@@ -38758,6 +40057,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V22")
+    @builtins.classmethod
     def VER_12_1_0_2_V22(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v22".
 
@@ -38769,6 +40069,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V23")
+    @builtins.classmethod
     def VER_12_1_0_2_V23(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v23".
 
@@ -38780,6 +40081,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V24")
+    @builtins.classmethod
     def VER_12_1_0_2_V24(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v24".
 
@@ -38791,6 +40093,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V25")
+    @builtins.classmethod
     def VER_12_1_0_2_V25(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v25".
 
@@ -38802,6 +40105,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V26")
+    @builtins.classmethod
     def VER_12_1_0_2_V26(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v26".
 
@@ -38813,6 +40117,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V27")
+    @builtins.classmethod
     def VER_12_1_0_2_V27(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v27".
 
@@ -38824,6 +40129,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V28")
+    @builtins.classmethod
     def VER_12_1_0_2_V28(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v28".
 
@@ -38835,6 +40141,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V29")
+    @builtins.classmethod
     def VER_12_1_0_2_V29(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v29".
 
@@ -38846,6 +40153,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V3")
+    @builtins.classmethod
     def VER_12_1_0_2_V3(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v3".
 
@@ -38857,6 +40165,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V4")
+    @builtins.classmethod
     def VER_12_1_0_2_V4(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v4".
 
@@ -38868,6 +40177,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V5")
+    @builtins.classmethod
     def VER_12_1_0_2_V5(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v5".
 
@@ -38879,6 +40189,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V6")
+    @builtins.classmethod
     def VER_12_1_0_2_V6(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v6".
 
@@ -38890,6 +40201,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V7")
+    @builtins.classmethod
     def VER_12_1_0_2_V7(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v7".
 
@@ -38901,6 +40213,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V8")
+    @builtins.classmethod
     def VER_12_1_0_2_V8(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v8".
 
@@ -38912,6 +40225,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_1_0_2_V9")
+    @builtins.classmethod
     def VER_12_1_0_2_V9(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1.0.2.v9".
 
@@ -38923,6 +40237,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2")
+    @builtins.classmethod
     def VER_12_2(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.1" (only a major version, without a specific minor version).
 
@@ -38934,6 +40249,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2018_10_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2018_10_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2018-10.rur-2018-10.r1".
 
@@ -38945,6 +40261,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2019_01_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2019_01_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2019-01.rur-2019-01.r1".
 
@@ -38956,6 +40273,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2019_04_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2019_04_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2019-04.rur-2019-04.r1".
 
@@ -38967,6 +40285,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2019_07_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2019_07_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2019-07.rur-2019-07.r1".
 
@@ -38978,6 +40297,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2019_10_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2019_10_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2019-10.rur-2019-10.r1".
 
@@ -38989,6 +40309,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2020_01_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2020_01_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2020-01.rur-2020-01.r1".
 
@@ -39000,6 +40321,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2020_04_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2020_04_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2020-04.rur-2020-04.r1".
 
@@ -39011,6 +40333,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2020_07_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2020_07_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2020-07.rur-2020-07.r1".
 
@@ -39022,6 +40345,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2020_10_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2020_10_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2021-10.rur-2020-10.r1".
 
@@ -39033,6 +40357,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2021_01_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2021_01_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2021-01.rur-2021-01.r1".
 
@@ -39044,6 +40369,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2021_04_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2021_04_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2021-04.rur-2021-04.r1".
 
@@ -39055,6 +40381,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2021_07_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2021_07_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2021-07.rur-2021-07.r1".
 
@@ -39066,6 +40393,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2021_10_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2021_10_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2021-10.rur-2021-10.r1".
 
@@ -39077,6 +40405,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2_0_1_2022_01_R1")
+    @builtins.classmethod
     def VER_12_2_0_1_2022_01_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "12.2.0.1.ru-2022-01.rur-2022-01.r1".
 
@@ -39088,6 +40417,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18")
+    @builtins.classmethod
     def VER_18(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "18" (only a major version, without a specific minor version).
 
@@ -39099,6 +40429,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_0_0_0_2019_07_R1")
+    @builtins.classmethod
     def VER_18_0_0_0_2019_07_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "18.0.0.0.ru-2019-07.rur-2019-07.r1".
 
@@ -39110,6 +40441,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_0_0_0_2019_10_R1")
+    @builtins.classmethod
     def VER_18_0_0_0_2019_10_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "18.0.0.0.ru-2019-10.rur-2019-10.r1".
 
@@ -39121,6 +40453,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_0_0_0_2020_01_R1")
+    @builtins.classmethod
     def VER_18_0_0_0_2020_01_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "18.0.0.0.ru-2020-01.rur-2020-01.r1".
 
@@ -39132,6 +40465,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_0_0_0_2020_04_R1")
+    @builtins.classmethod
     def VER_18_0_0_0_2020_04_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "18.0.0.0.ru-2020-04.rur-2020-04.r1".
 
@@ -39143,6 +40477,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_0_0_0_2020_07_R1")
+    @builtins.classmethod
     def VER_18_0_0_0_2020_07_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "18.0.0.0.ru-2020-07.rur-2020-07.r1".
 
@@ -39154,6 +40489,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_0_0_0_2020_10_R1")
+    @builtins.classmethod
     def VER_18_0_0_0_2020_10_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "18.0.0.0.ru-2020-10.rur-2020-10.r1".
 
@@ -39165,6 +40501,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_0_0_0_2021_01_R1")
+    @builtins.classmethod
     def VER_18_0_0_0_2021_01_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "18.0.0.0.ru-2021-01.rur-2021-01.r1".
 
@@ -39176,6 +40513,7 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_0_0_0_2021_04_R1")
+    @builtins.classmethod
     def VER_18_0_0_0_2021_04_R1(cls) -> "OracleEngineVersion":
         '''(deprecated) Version "18.0.0.0.ru-2021-04.rur-2021-04.r1".
 
@@ -39187,264 +40525,308 @@ class OracleEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19")
+    @builtins.classmethod
     def VER_19(cls) -> "OracleEngineVersion":
         '''Version "19" (only a major version, without a specific minor version).'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2019_07_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2019_07_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2019-07.rur-2019-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2019_07_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2019_10_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2019_10_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2019-10.rur-2019-10.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2019_10_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2020_01_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2020_01_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2020-01.rur-2020-01.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2020_01_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2020_04_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2020_04_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2020-04.rur-2020-04.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2020_04_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2020_07_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2020_07_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2020-07.rur-2020-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2020_07_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2020_10_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2020_10_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2020-07.rur-2020-10.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2020_10_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2021_01_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2021_01_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2021-01.rur-2021-01.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2021_01_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2021_01_R2")
+    @builtins.classmethod
     def VER_19_0_0_0_2021_01_R2(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2021-01.rur-2021-01.r2".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2021_01_R2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2021_04_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2021_04_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2021-01.rur-2021-04.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2021_04_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2021_07_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2021_07_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2021-07.rur-2021-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2021_07_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2021_10_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2021_10_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2021-10.rur-2021-10.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2021_10_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2022_01_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2022_01_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2022-01.rur-2022-01.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2022_01_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2022_04_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2022_04_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2022-04.rur-2022-04.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2022_04_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2022_07_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2022_07_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2022-07.rur-2022-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2022_07_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2022_10_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2022_10_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2022-10.rur-2022-10.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2022_10_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2023_01_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2023_01_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2023-01.rur-2023-01.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2023_01_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2023_01_R2")
+    @builtins.classmethod
     def VER_19_0_0_0_2023_01_R2(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2023-01.rur-2023-01.r2".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2023_01_R2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2023_04_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2023_04_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2023-04.rur-2023-04.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2023_04_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2023_07_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2023_07_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2023-07.rur-2023-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2023_07_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2023_10_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2023_10_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2023-10.rur-2023-10.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2023_10_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2024_01_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2024_01_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2024-01.rur-2024-01.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2024_01_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2024_04_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2024_04_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2024-04.rur-2024-04.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2024_04_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2024_07_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2024_07_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2024-07.rur-2024-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2024_07_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2024_10_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2024_10_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2024-10.rur-2024-10.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2024_10_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2025_01_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2025_01_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2025-01.rur-2025-01.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2025_01_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2025_07_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2025_07_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2025-07.rur-2025-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2025_07_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_19_0_0_0_2025_10_R1")
+    @builtins.classmethod
     def VER_19_0_0_0_2025_10_R1(cls) -> "OracleEngineVersion":
         '''Version "19.0.0.0.ru-2025-10.rur-2025-10.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_19_0_0_0_2025_10_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21")
+    @builtins.classmethod
     def VER_21(cls) -> "OracleEngineVersion":
         '''Version "21" (only a major version, without a specific minor version).'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2022_01_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2022_01_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2022-01.rur-2022-01.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2022_01_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2022_04_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2022_04_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2022-04.rur-2022-04.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2022_04_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2022_07_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2022_07_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2022-07.rur-2022-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2022_07_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2022_10_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2022_10_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2022-10.rur-2022-10.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2022_10_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2023_01_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2023_01_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2023-01.rur-2023-01.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2023_01_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2023_01_R2")
+    @builtins.classmethod
     def VER_21_0_0_0_2023_01_R2(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2023-01.rur-2023-01.r2".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2023_01_R2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2023_04_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2023_04_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2023-04.rur-2023-04.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2023_04_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2023_07_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2023_07_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2023-07.rur-2023-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2023_07_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2023_10_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2023_10_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2023-10.rur-2023-10.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2023_10_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2024_01_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2024_01_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2024-01.rur-2024-01.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2024_01_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2024_04_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2024_04_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2024-04.rur-2024-04.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2024_04_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2024_07_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2024_07_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2024-07.rur-2024-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2024_07_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2024_10_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2024_10_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2024-10.rur-2024-10.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2024_10_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2025_01_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2025_01_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2025-01.rur-2025-01.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2025_01_R1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_21_0_0_0_2025_07_R1")
+    @builtins.classmethod
     def VER_21_0_0_0_2025_07_R1(cls) -> "OracleEngineVersion":
         '''Version "21.0.0.0.ru-2025-07.rur-2025-07.r1".'''
         return typing.cast("OracleEngineVersion", jsii.sget(cls, "VER_21_0_0_0_2025_07_R1"))
@@ -39776,6 +41158,7 @@ class ParameterGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -40266,6 +41649,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10")
+    @builtins.classmethod
     def VER_10(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10" (only a major version, without a specific minor version).
 
@@ -40277,6 +41661,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_1")
+    @builtins.classmethod
     def VER_10_1(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.1".
 
@@ -40288,6 +41673,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_10")
+    @builtins.classmethod
     def VER_10_10(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.10".
 
@@ -40299,6 +41685,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11")
+    @builtins.classmethod
     def VER_10_11(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.11".
 
@@ -40310,6 +41697,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_12")
+    @builtins.classmethod
     def VER_10_12(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.12".
 
@@ -40321,6 +41709,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_13")
+    @builtins.classmethod
     def VER_10_13(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.13".
 
@@ -40332,6 +41721,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_14")
+    @builtins.classmethod
     def VER_10_14(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.14".
 
@@ -40343,6 +41733,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_15")
+    @builtins.classmethod
     def VER_10_15(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.15".
 
@@ -40354,6 +41745,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_16")
+    @builtins.classmethod
     def VER_10_16(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.16".
 
@@ -40365,6 +41757,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_17")
+    @builtins.classmethod
     def VER_10_17(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.17".
 
@@ -40376,6 +41769,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_18")
+    @builtins.classmethod
     def VER_10_18(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.18".
 
@@ -40387,6 +41781,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_19")
+    @builtins.classmethod
     def VER_10_19(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.19".
 
@@ -40398,6 +41793,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_20")
+    @builtins.classmethod
     def VER_10_20(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.20".
 
@@ -40409,6 +41805,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_21")
+    @builtins.classmethod
     def VER_10_21(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.21".
 
@@ -40420,6 +41817,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_22")
+    @builtins.classmethod
     def VER_10_22(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.22".
 
@@ -40431,6 +41829,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_23")
+    @builtins.classmethod
     def VER_10_23(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.23".
 
@@ -40442,6 +41841,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_3")
+    @builtins.classmethod
     def VER_10_3(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.3".
 
@@ -40453,6 +41853,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_4")
+    @builtins.classmethod
     def VER_10_4(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.4".
 
@@ -40464,6 +41865,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5")
+    @builtins.classmethod
     def VER_10_5(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.5".
 
@@ -40475,6 +41877,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6")
+    @builtins.classmethod
     def VER_10_6(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.6".
 
@@ -40486,6 +41889,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_7")
+    @builtins.classmethod
     def VER_10_7(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.7".
 
@@ -40497,6 +41901,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_9")
+    @builtins.classmethod
     def VER_10_9(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "10.9".
 
@@ -40508,12 +41913,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11")
+    @builtins.classmethod
     def VER_11(cls) -> "PostgresEngineVersion":
         '''Version "11" (only a major version, without a specific minor version).'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_1")
+    @builtins.classmethod
     def VER_11_1(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.1".
 
@@ -40525,6 +41932,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_10")
+    @builtins.classmethod
     def VER_11_10(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.10".
 
@@ -40536,6 +41944,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_11")
+    @builtins.classmethod
     def VER_11_11(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.11".
 
@@ -40547,6 +41956,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_12")
+    @builtins.classmethod
     def VER_11_12(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.12".
 
@@ -40558,6 +41968,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_13")
+    @builtins.classmethod
     def VER_11_13(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.13".
 
@@ -40569,6 +41980,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_14")
+    @builtins.classmethod
     def VER_11_14(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.14".
 
@@ -40580,6 +41992,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_15")
+    @builtins.classmethod
     def VER_11_15(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.15".
 
@@ -40591,6 +42004,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_16")
+    @builtins.classmethod
     def VER_11_16(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.16".
 
@@ -40602,6 +42016,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_17")
+    @builtins.classmethod
     def VER_11_17(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.17".
 
@@ -40613,6 +42028,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_18")
+    @builtins.classmethod
     def VER_11_18(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.18".
 
@@ -40624,6 +42040,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_19")
+    @builtins.classmethod
     def VER_11_19(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.19".
 
@@ -40635,6 +42052,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_2")
+    @builtins.classmethod
     def VER_11_2(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.2".
 
@@ -40646,6 +42064,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_20")
+    @builtins.classmethod
     def VER_11_20(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.20".
 
@@ -40657,6 +42076,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_21")
+    @builtins.classmethod
     def VER_11_21(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.21".
 
@@ -40668,6 +42088,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22")
+    @builtins.classmethod
     def VER_11_22(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.22".
 
@@ -40679,18 +42100,21 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20240418")
+    @builtins.classmethod
     def VER_11_22_RDS_20240418(cls) -> "PostgresEngineVersion":
         '''Version "11.22-rds.20240418".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20240418"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20240509")
+    @builtins.classmethod
     def VER_11_22_RDS_20240509(cls) -> "PostgresEngineVersion":
         '''Version "11.22-rds.20240509".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20240509"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20240808")
+    @builtins.classmethod
     def VER_11_22_RDS_20240808(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.22-rds.20240808".
 
@@ -40702,6 +42126,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20241121")
+    @builtins.classmethod
     def VER_11_22_RDS_20241121(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.22-RDS.20241121".
 
@@ -40713,6 +42138,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20250220")
+    @builtins.classmethod
     def VER_11_22_RDS_20250220(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.22-rds.20250220".
 
@@ -40724,6 +42150,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20250508")
+    @builtins.classmethod
     def VER_11_22_RDS_20250508(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.22-rds.20250508".
 
@@ -40735,6 +42162,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20250814")
+    @builtins.classmethod
     def VER_11_22_RDS_20250814(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.22-rds.20250814".
 
@@ -40746,12 +42174,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20251114")
+    @builtins.classmethod
     def VER_11_22_RDS_20251114(cls) -> "PostgresEngineVersion":
         '''Version "11.22-rds.20251114".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20251114"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4")
+    @builtins.classmethod
     def VER_11_4(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.4".
 
@@ -40763,6 +42193,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_5")
+    @builtins.classmethod
     def VER_11_5(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.5".
 
@@ -40774,6 +42205,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_6")
+    @builtins.classmethod
     def VER_11_6(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.6".
 
@@ -40785,6 +42217,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_7")
+    @builtins.classmethod
     def VER_11_7(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.7".
 
@@ -40796,6 +42229,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_8")
+    @builtins.classmethod
     def VER_11_8(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.8".
 
@@ -40807,6 +42241,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_9")
+    @builtins.classmethod
     def VER_11_9(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.9".
 
@@ -40818,12 +42253,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12")
+    @builtins.classmethod
     def VER_12(cls) -> "PostgresEngineVersion":
         '''Version "12" (only a major version, without a specific minor version).'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_10")
+    @builtins.classmethod
     def VER_12_10(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.10".
 
@@ -40835,6 +42272,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_11")
+    @builtins.classmethod
     def VER_12_11(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.11".
 
@@ -40846,6 +42284,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_12")
+    @builtins.classmethod
     def VER_12_12(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.12".
 
@@ -40857,6 +42296,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_13")
+    @builtins.classmethod
     def VER_12_13(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.13".
 
@@ -40868,6 +42308,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_14")
+    @builtins.classmethod
     def VER_12_14(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.14".
 
@@ -40879,6 +42320,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_15")
+    @builtins.classmethod
     def VER_12_15(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.15".
 
@@ -40890,6 +42332,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_16")
+    @builtins.classmethod
     def VER_12_16(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.16".
 
@@ -40901,6 +42344,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_17")
+    @builtins.classmethod
     def VER_12_17(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.17".
 
@@ -40912,6 +42356,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_18")
+    @builtins.classmethod
     def VER_12_18(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.18".
 
@@ -40923,6 +42368,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_19")
+    @builtins.classmethod
     def VER_12_19(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.19".
 
@@ -40934,6 +42380,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_2")
+    @builtins.classmethod
     def VER_12_2(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.2".
 
@@ -40945,6 +42392,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_20")
+    @builtins.classmethod
     def VER_12_20(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.20".
 
@@ -40956,6 +42404,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_21")
+    @builtins.classmethod
     def VER_12_21(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.21".
 
@@ -40967,12 +42416,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_22")
+    @builtins.classmethod
     def VER_12_22(cls) -> "PostgresEngineVersion":
         '''Version "12.22".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_12_22"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_22_RDS_20250220")
+    @builtins.classmethod
     def VER_12_22_RDS_20250220(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.22-rds.20250220".
 
@@ -40984,6 +42435,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_22_RDS_20250508")
+    @builtins.classmethod
     def VER_12_22_RDS_20250508(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.22-rds.20250508".
 
@@ -40995,6 +42447,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_22_RDS_20250814")
+    @builtins.classmethod
     def VER_12_22_RDS_20250814(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.22-rds.20250814".
 
@@ -41006,12 +42459,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_22_RDS_20251114")
+    @builtins.classmethod
     def VER_12_22_RDS_20251114(cls) -> "PostgresEngineVersion":
         '''Version "12.22-rds.20251114".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_12_22_RDS_20251114"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_3")
+    @builtins.classmethod
     def VER_12_3(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.3".
 
@@ -41023,6 +42478,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_4")
+    @builtins.classmethod
     def VER_12_4(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.4".
 
@@ -41034,6 +42490,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_5")
+    @builtins.classmethod
     def VER_12_5(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.5".
 
@@ -41045,6 +42502,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_6")
+    @builtins.classmethod
     def VER_12_6(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.6".
 
@@ -41056,6 +42514,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_7")
+    @builtins.classmethod
     def VER_12_7(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.7".
 
@@ -41067,6 +42526,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_8")
+    @builtins.classmethod
     def VER_12_8(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.8".
 
@@ -41078,6 +42538,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_9")
+    @builtins.classmethod
     def VER_12_9(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "12.9".
 
@@ -41089,12 +42550,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13")
+    @builtins.classmethod
     def VER_13(cls) -> "PostgresEngineVersion":
         '''Version "13" (only a major version, without a specific minor version).'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_1")
+    @builtins.classmethod
     def VER_13_1(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.1".
 
@@ -41106,6 +42569,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_10")
+    @builtins.classmethod
     def VER_13_10(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.10".
 
@@ -41117,6 +42581,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_11")
+    @builtins.classmethod
     def VER_13_11(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.11".
 
@@ -41128,6 +42593,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_12")
+    @builtins.classmethod
     def VER_13_12(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.12".
 
@@ -41139,6 +42605,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_13")
+    @builtins.classmethod
     def VER_13_13(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.13".
 
@@ -41150,6 +42617,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_14")
+    @builtins.classmethod
     def VER_13_14(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.14".
 
@@ -41161,18 +42629,21 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_15")
+    @builtins.classmethod
     def VER_13_15(cls) -> "PostgresEngineVersion":
         '''Version "13.15".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_16")
+    @builtins.classmethod
     def VER_13_16(cls) -> "PostgresEngineVersion":
         '''Version "13.16".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_16"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_17")
+    @builtins.classmethod
     def VER_13_17(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.17".
 
@@ -41184,12 +42655,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_18")
+    @builtins.classmethod
     def VER_13_18(cls) -> "PostgresEngineVersion":
         '''Version "13.18".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_19")
+    @builtins.classmethod
     def VER_13_19(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.19".
 
@@ -41201,6 +42674,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_2")
+    @builtins.classmethod
     def VER_13_2(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.2".
 
@@ -41212,30 +42686,35 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_20")
+    @builtins.classmethod
     def VER_13_20(cls) -> "PostgresEngineVersion":
         '''Version "13.20".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_21")
+    @builtins.classmethod
     def VER_13_21(cls) -> "PostgresEngineVersion":
         '''Version "13.21".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_22")
+    @builtins.classmethod
     def VER_13_22(cls) -> "PostgresEngineVersion":
         '''Version "13.22".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_22"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_23")
+    @builtins.classmethod
     def VER_13_23(cls) -> "PostgresEngineVersion":
         '''Version "13.23".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_23"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_3")
+    @builtins.classmethod
     def VER_13_3(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.3".
 
@@ -41247,6 +42726,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_4")
+    @builtins.classmethod
     def VER_13_4(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.4".
 
@@ -41258,6 +42738,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_5")
+    @builtins.classmethod
     def VER_13_5(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.5".
 
@@ -41269,6 +42750,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_6")
+    @builtins.classmethod
     def VER_13_6(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.6".
 
@@ -41280,6 +42762,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_7")
+    @builtins.classmethod
     def VER_13_7(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.7".
 
@@ -41291,6 +42774,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_8")
+    @builtins.classmethod
     def VER_13_8(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.8".
 
@@ -41302,6 +42786,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_9")
+    @builtins.classmethod
     def VER_13_9(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "13.9".
 
@@ -41313,12 +42798,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14")
+    @builtins.classmethod
     def VER_14(cls) -> "PostgresEngineVersion":
         '''Version "14" (only a major version, without a specific minor version).'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_1")
+    @builtins.classmethod
     def VER_14_1(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.1".
 
@@ -41330,6 +42817,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_10")
+    @builtins.classmethod
     def VER_14_10(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.10".
 
@@ -41341,6 +42829,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_11")
+    @builtins.classmethod
     def VER_14_11(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.11".
 
@@ -41352,18 +42841,21 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_12")
+    @builtins.classmethod
     def VER_14_12(cls) -> "PostgresEngineVersion":
         '''Version "14.12".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_13")
+    @builtins.classmethod
     def VER_14_13(cls) -> "PostgresEngineVersion":
         '''Version "14.13".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_14")
+    @builtins.classmethod
     def VER_14_14(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.14".
 
@@ -41375,12 +42867,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_15")
+    @builtins.classmethod
     def VER_14_15(cls) -> "PostgresEngineVersion":
         '''Version "14.15".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_16")
+    @builtins.classmethod
     def VER_14_16(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.16".
 
@@ -41392,24 +42886,28 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_17")
+    @builtins.classmethod
     def VER_14_17(cls) -> "PostgresEngineVersion":
         '''Version "14.17".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_18")
+    @builtins.classmethod
     def VER_14_18(cls) -> "PostgresEngineVersion":
         '''Version "14.18".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_19")
+    @builtins.classmethod
     def VER_14_19(cls) -> "PostgresEngineVersion":
         '''Version "14.19".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_19"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_2")
+    @builtins.classmethod
     def VER_14_2(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.2".
 
@@ -41421,24 +42919,28 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_20")
+    @builtins.classmethod
     def VER_14_20(cls) -> "PostgresEngineVersion":
         '''Version "14.20".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_21")
+    @builtins.classmethod
     def VER_14_21(cls) -> "PostgresEngineVersion":
         '''Version "14.21".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_22")
+    @builtins.classmethod
     def VER_14_22(cls) -> "PostgresEngineVersion":
         '''Version "14.22".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_22"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_3")
+    @builtins.classmethod
     def VER_14_3(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.3".
 
@@ -41450,6 +42952,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_4")
+    @builtins.classmethod
     def VER_14_4(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.4".
 
@@ -41461,6 +42964,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_5")
+    @builtins.classmethod
     def VER_14_5(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.5".
 
@@ -41472,6 +42976,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_6")
+    @builtins.classmethod
     def VER_14_6(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.6".
 
@@ -41483,6 +42988,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_7")
+    @builtins.classmethod
     def VER_14_7(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.7".
 
@@ -41494,6 +43000,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_8")
+    @builtins.classmethod
     def VER_14_8(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.8".
 
@@ -41505,6 +43012,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_9")
+    @builtins.classmethod
     def VER_14_9(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.9".
 
@@ -41516,18 +43024,21 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15")
+    @builtins.classmethod
     def VER_15(cls) -> "PostgresEngineVersion":
         '''Version "15" (only a major version, without a specific minor version).'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_10")
+    @builtins.classmethod
     def VER_15_10(cls) -> "PostgresEngineVersion":
         '''Version "15.10".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_11")
+    @builtins.classmethod
     def VER_15_11(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "15.11".
 
@@ -41539,42 +43050,49 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_12")
+    @builtins.classmethod
     def VER_15_12(cls) -> "PostgresEngineVersion":
         '''Version "15.12".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_13")
+    @builtins.classmethod
     def VER_15_13(cls) -> "PostgresEngineVersion":
         '''Version "15.13".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_14")
+    @builtins.classmethod
     def VER_15_14(cls) -> "PostgresEngineVersion":
         '''Version "15.14".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_14"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_15")
+    @builtins.classmethod
     def VER_15_15(cls) -> "PostgresEngineVersion":
         '''Version "15.15".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_16")
+    @builtins.classmethod
     def VER_15_16(cls) -> "PostgresEngineVersion":
         '''Version "15.16".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_16"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_17")
+    @builtins.classmethod
     def VER_15_17(cls) -> "PostgresEngineVersion":
         '''Version "15.17".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_2")
+    @builtins.classmethod
     def VER_15_2(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "15.2".
 
@@ -41586,6 +43104,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_3")
+    @builtins.classmethod
     def VER_15_3(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "15.3".
 
@@ -41597,6 +43116,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_4")
+    @builtins.classmethod
     def VER_15_4(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "15.4".
 
@@ -41608,6 +43128,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_5")
+    @builtins.classmethod
     def VER_15_5(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "15.5".
 
@@ -41619,6 +43140,7 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_6")
+    @builtins.classmethod
     def VER_15_6(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "15.6".
 
@@ -41630,18 +43152,21 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_7")
+    @builtins.classmethod
     def VER_15_7(cls) -> "PostgresEngineVersion":
         '''Version "15.7".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_8")
+    @builtins.classmethod
     def VER_15_8(cls) -> "PostgresEngineVersion":
         '''Version "15.8".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_9")
+    @builtins.classmethod
     def VER_15_9(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "15.9".
 
@@ -41653,12 +43178,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16")
+    @builtins.classmethod
     def VER_16(cls) -> "PostgresEngineVersion":
         '''Version "16" (only a major version, without a specific minor version).'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_1")
+    @builtins.classmethod
     def VER_16_1(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "16.1".
 
@@ -41670,30 +43197,35 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_10")
+    @builtins.classmethod
     def VER_16_10(cls) -> "PostgresEngineVersion":
         '''Version "16.10".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_11")
+    @builtins.classmethod
     def VER_16_11(cls) -> "PostgresEngineVersion":
         '''Version "16.11".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_12")
+    @builtins.classmethod
     def VER_16_12(cls) -> "PostgresEngineVersion":
         '''Version "16.12".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_13")
+    @builtins.classmethod
     def VER_16_13(cls) -> "PostgresEngineVersion":
         '''Version "16.13".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_2")
+    @builtins.classmethod
     def VER_16_2(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "16.2".
 
@@ -41705,18 +43237,21 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_3")
+    @builtins.classmethod
     def VER_16_3(cls) -> "PostgresEngineVersion":
         '''Version "16.3".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_4")
+    @builtins.classmethod
     def VER_16_4(cls) -> "PostgresEngineVersion":
         '''Version "16.4".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_5")
+    @builtins.classmethod
     def VER_16_5(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "16.5".
 
@@ -41728,12 +43263,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_6")
+    @builtins.classmethod
     def VER_16_6(cls) -> "PostgresEngineVersion":
         '''Version "16.6".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_7")
+    @builtins.classmethod
     def VER_16_7(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "16.7".
 
@@ -41745,24 +43282,28 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_8")
+    @builtins.classmethod
     def VER_16_8(cls) -> "PostgresEngineVersion":
         '''Version "16.8".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_9")
+    @builtins.classmethod
     def VER_16_9(cls) -> "PostgresEngineVersion":
         '''Version "16.9".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17")
+    @builtins.classmethod
     def VER_17(cls) -> "PostgresEngineVersion":
         '''Version "17" (only a major version, without a specific minor version).'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_1")
+    @builtins.classmethod
     def VER_17_1(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "17.1".
 
@@ -41774,12 +43315,14 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_2")
+    @builtins.classmethod
     def VER_17_2(cls) -> "PostgresEngineVersion":
         '''Version "17.2".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_3")
+    @builtins.classmethod
     def VER_17_3(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "17.3".
 
@@ -41791,66 +43334,77 @@ class PostgresEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_4")
+    @builtins.classmethod
     def VER_17_4(cls) -> "PostgresEngineVersion":
         '''Version "17.4".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_5")
+    @builtins.classmethod
     def VER_17_5(cls) -> "PostgresEngineVersion":
         '''Version "17.5".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_6")
+    @builtins.classmethod
     def VER_17_6(cls) -> "PostgresEngineVersion":
         '''Version "17.6".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_7")
+    @builtins.classmethod
     def VER_17_7(cls) -> "PostgresEngineVersion":
         '''Version "17.7".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_8")
+    @builtins.classmethod
     def VER_17_8(cls) -> "PostgresEngineVersion":
         '''Version "17.8".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_9")
+    @builtins.classmethod
     def VER_17_9(cls) -> "PostgresEngineVersion":
         '''Version "17.9".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18")
+    @builtins.classmethod
     def VER_18(cls) -> "PostgresEngineVersion":
         '''Version "18" (only a major version, without a specific minor version).'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_1")
+    @builtins.classmethod
     def VER_18_1(cls) -> "PostgresEngineVersion":
         '''Version "18.1".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_18_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_2")
+    @builtins.classmethod
     def VER_18_2(cls) -> "PostgresEngineVersion":
         '''Version "18.2".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_18_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_3")
+    @builtins.classmethod
     def VER_18_3(cls) -> "PostgresEngineVersion":
         '''Version "18.3".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_18_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_24")
+    @builtins.classmethod
     def VER_9_6_24(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "9.6.24".
 
@@ -43155,6 +44709,7 @@ class ServerlessCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -43221,7 +44776,7 @@ class ServerlessCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__38ab6f274f39c27db2a82e89e04a333b1eba06e69bb8f5de0eab5c6555f73300)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableDataApi", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableDataApi", value)
 
 
 @jsii.data_type(
@@ -43482,6 +45037,7 @@ class ServerlessClusterFromSnapshot(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -43548,7 +45104,7 @@ class ServerlessClusterFromSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd33d5d88e14e8fffd24174a11a3e61a38defbc0d21acade71e832548bba49b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableDataApi", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableDataApi", value)
 
 
 @jsii.data_type(
@@ -44748,6 +46304,7 @@ class SessionPinningFilter(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EXCLUDE_VARIABLE_SETS")
+    @builtins.classmethod
     def EXCLUDE_VARIABLE_SETS(cls) -> "SessionPinningFilter":
         '''You can opt out of session pinning for the following kinds of application statements:.
 
@@ -45274,6 +46831,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11")
+    @builtins.classmethod
     def VER_11(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "11.00" (only a major version, without a specific minor version).
 
@@ -45285,6 +46843,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_00_5058_0_V1")
+    @builtins.classmethod
     def VER_11_00_5058_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "11.00.5058.0.v1".
 
@@ -45296,6 +46855,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_00_6020_0_V1")
+    @builtins.classmethod
     def VER_11_00_6020_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "11.00.6020.0.v1".
 
@@ -45307,6 +46867,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_00_6594_0_V1")
+    @builtins.classmethod
     def VER_11_00_6594_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "11.00.6594.0.v1".
 
@@ -45318,6 +46879,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_00_7462_6_V1")
+    @builtins.classmethod
     def VER_11_00_7462_6_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "11.00.7462.6.v1".
 
@@ -45329,6 +46891,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_00_7493_4_V1")
+    @builtins.classmethod
     def VER_11_00_7493_4_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "11.00.7493.4.v1".
 
@@ -45340,6 +46903,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12")
+    @builtins.classmethod
     def VER_12(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00" (only a major version, without a specific minor version).
 
@@ -45351,6 +46915,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_00_4422_0_V1")
+    @builtins.classmethod
     def VER_12_00_4422_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00.4422.0.v1".
 
@@ -45362,6 +46927,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_00_5000_0_V1")
+    @builtins.classmethod
     def VER_12_00_5000_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00.5000.0.v1".
 
@@ -45373,6 +46939,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_00_5546_0_V1")
+    @builtins.classmethod
     def VER_12_00_5546_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00.5546.0.v1".
 
@@ -45384,6 +46951,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_00_5571_0_V1")
+    @builtins.classmethod
     def VER_12_00_5571_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00.5571.0.v1".
 
@@ -45395,6 +46963,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_00_6293_0_V1")
+    @builtins.classmethod
     def VER_12_00_6293_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00.6293.0.v1".
 
@@ -45406,6 +46975,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_00_6329_1_V1")
+    @builtins.classmethod
     def VER_12_00_6329_1_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00.6329.1.v1".
 
@@ -45417,6 +46987,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_00_6433_1_V1")
+    @builtins.classmethod
     def VER_12_00_6433_1_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00.6433.1.v1".
 
@@ -45428,6 +46999,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_00_6439_10_V1")
+    @builtins.classmethod
     def VER_12_00_6439_10_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00.6439.10.v1".
 
@@ -45439,6 +47011,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_00_6444_4_V1")
+    @builtins.classmethod
     def VER_12_00_6444_4_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00.6444.4.v1".
 
@@ -45450,6 +47023,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_00_6449_1_V1")
+    @builtins.classmethod
     def VER_12_00_6449_1_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "12.00.6449.1.v1".
 
@@ -45461,12 +47035,14 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13")
+    @builtins.classmethod
     def VER_13(cls) -> "SqlServerEngineVersion":
         '''Version "13.00" (only a major version, without a specific minor version).'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_2164_0_V1")
+    @builtins.classmethod
     def VER_13_00_2164_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.2164.0.v1".
 
@@ -45478,6 +47054,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_4422_0_V1")
+    @builtins.classmethod
     def VER_13_00_4422_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.4422.0.v1".
 
@@ -45489,6 +47066,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_4451_0_V1")
+    @builtins.classmethod
     def VER_13_00_4451_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.4451.0.v1".
 
@@ -45500,6 +47078,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_4466_4_V1")
+    @builtins.classmethod
     def VER_13_00_4466_4_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.4466.4.v1".
 
@@ -45511,6 +47090,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_4522_0_V1")
+    @builtins.classmethod
     def VER_13_00_4522_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.4522.0.v1".
 
@@ -45522,6 +47102,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_5216_0_V1")
+    @builtins.classmethod
     def VER_13_00_5216_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.5216.0.v1".
 
@@ -45533,6 +47114,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_5292_0_V1")
+    @builtins.classmethod
     def VER_13_00_5292_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.5292.0.v1".
 
@@ -45544,6 +47126,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_5366_0_V1")
+    @builtins.classmethod
     def VER_13_00_5366_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.5366.0.v1".
 
@@ -45555,6 +47138,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_5426_0_V1")
+    @builtins.classmethod
     def VER_13_00_5426_0_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.5426.0.v1".
 
@@ -45566,6 +47150,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_5598_27_V1")
+    @builtins.classmethod
     def VER_13_00_5598_27_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.5598.27.v1".
 
@@ -45577,6 +47162,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_5820_21_V1")
+    @builtins.classmethod
     def VER_13_00_5820_21_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.5820.21.v1".
 
@@ -45588,6 +47174,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_5850_14_V1")
+    @builtins.classmethod
     def VER_13_00_5850_14_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.5850.14.v1".
 
@@ -45599,6 +47186,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_5882_1_V1")
+    @builtins.classmethod
     def VER_13_00_5882_1_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "13.00.5882.1.v1".
 
@@ -45610,78 +47198,91 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6300_2_V1")
+    @builtins.classmethod
     def VER_13_00_6300_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6300.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6300_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6419_1_V1")
+    @builtins.classmethod
     def VER_13_00_6419_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6419.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6419_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6430_49_V1")
+    @builtins.classmethod
     def VER_13_00_6430_49_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6430.49.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6430_49_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6435_1_V1")
+    @builtins.classmethod
     def VER_13_00_6435_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6435.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6435_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6441_1_V1")
+    @builtins.classmethod
     def VER_13_00_6441_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6441.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6441_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6445_1_V1")
+    @builtins.classmethod
     def VER_13_00_6445_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6445.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6445_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6450_1_V1")
+    @builtins.classmethod
     def VER_13_00_6450_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6450.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6450_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6455_2_V1")
+    @builtins.classmethod
     def VER_13_00_6455_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6455.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6455_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6460_7_V1")
+    @builtins.classmethod
     def VER_13_00_6460_7_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6460.7.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6460_7_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6465_1_V1")
+    @builtins.classmethod
     def VER_13_00_6465_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6465.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6465_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_00_6470_1_V1")
+    @builtins.classmethod
     def VER_13_00_6470_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "13.00.6470.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_13_00_6470_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14")
+    @builtins.classmethod
     def VER_14(cls) -> "SqlServerEngineVersion":
         '''Version "14.00" (only a major version, without a specific minor version).'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_1000_169_V1")
+    @builtins.classmethod
     def VER_14_00_1000_169_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "14.00.1000.169.v1".
 
@@ -45693,6 +47294,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3015_40_V1")
+    @builtins.classmethod
     def VER_14_00_3015_40_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "14.00.3015.40.v1".
 
@@ -45704,6 +47306,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3035_2_V1")
+    @builtins.classmethod
     def VER_14_00_3035_2_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "14.00.3035.2.v1".
 
@@ -45715,6 +47318,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3049_1_V1")
+    @builtins.classmethod
     def VER_14_00_3049_1_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "14.00.3049.1.v1".
 
@@ -45726,6 +47330,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3192_2_V1")
+    @builtins.classmethod
     def VER_14_00_3192_2_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "14.00.3192.2.v1".
 
@@ -45737,6 +47342,7 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3223_3_V1")
+    @builtins.classmethod
     def VER_14_00_3223_3_V1(cls) -> "SqlServerEngineVersion":
         '''(deprecated) Version "14.00.3223.3.v1".
 
@@ -45748,378 +47354,441 @@ class SqlServerEngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3281_6_V1")
+    @builtins.classmethod
     def VER_14_00_3281_6_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3281.6.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3281_6_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3294_2_V1")
+    @builtins.classmethod
     def VER_14_00_3294_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3294.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3294_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3356_20_V1")
+    @builtins.classmethod
     def VER_14_00_3356_20_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3356.20.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3356_20_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3381_3_V1")
+    @builtins.classmethod
     def VER_14_00_3381_3_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3381.3.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3381_3_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3401_7_V1")
+    @builtins.classmethod
     def VER_14_00_3401_7_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3401.7.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3401_7_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3421_10_V1")
+    @builtins.classmethod
     def VER_14_00_3421_10_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3421.10.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3421_10_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3451_2_V1")
+    @builtins.classmethod
     def VER_14_00_3451_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3451.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3451_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3460_9_V1")
+    @builtins.classmethod
     def VER_14_00_3460_9_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3460.9.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3460_9_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3465_1_V1")
+    @builtins.classmethod
     def VER_14_00_3465_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3465.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3465_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3471_2_V1")
+    @builtins.classmethod
     def VER_14_00_3471_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3471.2.v1 ".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3471_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3475_1_V1")
+    @builtins.classmethod
     def VER_14_00_3475_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3475.1.v1 ".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3475_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3480_1_V1")
+    @builtins.classmethod
     def VER_14_00_3480_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3480.1.v1 ".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3480_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3485_1_V1")
+    @builtins.classmethod
     def VER_14_00_3485_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3485.1.v1 ".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3485_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3495_9_V1")
+    @builtins.classmethod
     def VER_14_00_3495_9_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3495.9.v1 ".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3495_9_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3500_1_V1")
+    @builtins.classmethod
     def VER_14_00_3500_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3500.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3500_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_00_3505_1_V1")
+    @builtins.classmethod
     def VER_14_00_3505_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "14.00.3505.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_14_00_3505_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15")
+    @builtins.classmethod
     def VER_15(cls) -> "SqlServerEngineVersion":
         '''Version "15.00" (only a major version, without a specific minor version).'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4043_16_V1")
+    @builtins.classmethod
     def VER_15_00_4043_16_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4043.16.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4043_16_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4073_23_V1")
+    @builtins.classmethod
     def VER_15_00_4073_23_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4073.23.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4073_23_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4153_1_V1")
+    @builtins.classmethod
     def VER_15_00_4153_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4153.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4153_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4198_2_V1")
+    @builtins.classmethod
     def VER_15_00_4198_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4198.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4198_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4236_7_V1")
+    @builtins.classmethod
     def VER_15_00_4236_7_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4236.7.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4236_7_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4312_2_V1")
+    @builtins.classmethod
     def VER_15_00_4312_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4312.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4312_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4316_3_V1")
+    @builtins.classmethod
     def VER_15_00_4316_3_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4316.3.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4316_3_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4322_2_V1")
+    @builtins.classmethod
     def VER_15_00_4322_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4322.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4322_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4335_1_V1")
+    @builtins.classmethod
     def VER_15_00_4335_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4335.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4335_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4345_5_V1")
+    @builtins.classmethod
     def VER_15_00_4345_5_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4345.5.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4345_5_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4355_3_V1")
+    @builtins.classmethod
     def VER_15_00_4355_3_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4355.3.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4355_3_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4365_2_V1")
+    @builtins.classmethod
     def VER_15_00_4365_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4365.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4365_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4375_4_V1")
+    @builtins.classmethod
     def VER_15_00_4375_4_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4375.4.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4375_4_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4382_1_V1")
+    @builtins.classmethod
     def VER_15_00_4382_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4382.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4382_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4385_2_V1")
+    @builtins.classmethod
     def VER_15_00_4385_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4385.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4385_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4390_2_V1")
+    @builtins.classmethod
     def VER_15_00_4390_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4390.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4390_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4395_2_V1")
+    @builtins.classmethod
     def VER_15_00_4395_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4395.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4395_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4410_1_V1")
+    @builtins.classmethod
     def VER_15_00_4410_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4410.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4410_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4415_2_V1")
+    @builtins.classmethod
     def VER_15_00_4415_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4415.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4415_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4420_2_V1")
+    @builtins.classmethod
     def VER_15_00_4420_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4420.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4420_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4430_1_V1")
+    @builtins.classmethod
     def VER_15_00_4430_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4430.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4430_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4435_7_V1")
+    @builtins.classmethod
     def VER_15_00_4435_7_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4435.7.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4435_7_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4440_1_V1")
+    @builtins.classmethod
     def VER_15_00_4440_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4440.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4440_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4445_1_V1")
+    @builtins.classmethod
     def VER_15_00_4445_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4445.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4445_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_00_4455_2_V1")
+    @builtins.classmethod
     def VER_15_00_4455_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "15.00.4455.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_15_00_4455_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16")
+    @builtins.classmethod
     def VER_16(cls) -> "SqlServerEngineVersion":
         '''Version "16.00" (only a major version, without a specific minor version).'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4085_2_V1")
+    @builtins.classmethod
     def VER_16_00_4085_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4085.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4085_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4095_4_V1")
+    @builtins.classmethod
     def VER_16_00_4095_4_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4095.4.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4095_4_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4105_2_V1")
+    @builtins.classmethod
     def VER_16_00_4105_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4105.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4105_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4115_5_V1")
+    @builtins.classmethod
     def VER_16_00_4115_5_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4115.5.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4115_5_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4120_1_V1")
+    @builtins.classmethod
     def VER_16_00_4120_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4120.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4120_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4125_3_V1")
+    @builtins.classmethod
     def VER_16_00_4125_3_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4125.3.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4125_3_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4131_2_V1")
+    @builtins.classmethod
     def VER_16_00_4131_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4131.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4131_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4135_4_V1")
+    @builtins.classmethod
     def VER_16_00_4135_4_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4135.4.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4135_4_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4140_3_V1")
+    @builtins.classmethod
     def VER_16_00_4140_3_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4140.3.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4140_3_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4150_1_V1")
+    @builtins.classmethod
     def VER_16_00_4150_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4150.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4150_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4165_4_V1")
+    @builtins.classmethod
     def VER_16_00_4165_4_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4165.4.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4165_4_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4175_1_V1")
+    @builtins.classmethod
     def VER_16_00_4175_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4175.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4175_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4185_3_V1")
+    @builtins.classmethod
     def VER_16_00_4185_3_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4185.3.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4185_3_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4195_2_V1")
+    @builtins.classmethod
     def VER_16_00_4195_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4195.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4195_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4205_1_V1")
+    @builtins.classmethod
     def VER_16_00_4205_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4205.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4205_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4210_1_V1")
+    @builtins.classmethod
     def VER_16_00_4210_1_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4210.1.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4210_1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4215_2_V1")
+    @builtins.classmethod
     def VER_16_00_4215_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4215.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4215_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4225_2_V1")
+    @builtins.classmethod
     def VER_16_00_4225_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4225.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4225_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4230_2_V1")
+    @builtins.classmethod
     def VER_16_00_4230_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4230.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4230_2_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_00_4236_2_V1")
+    @builtins.classmethod
     def VER_16_00_4236_2_V1(cls) -> "SqlServerEngineVersion":
         '''Version "16.00.4236.2.v1".'''
         return typing.cast("SqlServerEngineVersion", jsii.sget(cls, "VER_16_00_4236_2_V1"))
@@ -46456,6 +48125,7 @@ class SubnetGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -47940,7 +49610,7 @@ class _DatabaseClusterBaseProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9d08b66d07bda6740308029f9f9847a946318eb4f7c400dc292bc613bf2aa981)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableDataApi", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableDataApi", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, DatabaseClusterBase).__jsii_proxy_class__ = lambda : _DatabaseClusterBaseProxy
@@ -48448,6 +50118,7 @@ class DatabaseClusterFromSnapshot(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -48632,7 +50303,7 @@ class DatabaseClusterFromSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__09168f249a61eb2955070eb4f6d8bb0e27f0b93823b959b2f8d4144b90a1de13)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableDataApi", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableDataApi", value)
 
     @builtins.property
     @jsii.member(jsii_name="hasServerlessInstance")
@@ -48644,7 +50315,7 @@ class DatabaseClusterFromSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e63eb6f34d67d73fbb22731ad6edbec3ecbfe466c66956a480d7c6261891a5ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hasServerlessInstance", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hasServerlessInstance", value)
 
     @builtins.property
     @jsii.member(jsii_name="manageMasterUserPassword")
@@ -48659,7 +50330,7 @@ class DatabaseClusterFromSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c1025675f0d49982145eff3773dee461a23e8e225ec6eea2a3d20ccec58d56de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "manageMasterUserPassword", value)
 
 
 @jsii.implements(IDatabaseInstance)
@@ -49426,7 +51097,7 @@ class _DatabaseInstanceBaseProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c4dd1452331e9244df1d03e1bfb9218a6f8a135539675439a1ca84aba6183327)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableIamAuthentication", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableIamAuthentication", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, DatabaseInstanceBase).__jsii_proxy_class__ = lambda : _DatabaseInstanceBaseProxy
@@ -49741,6 +51412,7 @@ class DatabaseInstanceFromSnapshot(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -49847,7 +51519,7 @@ class DatabaseInstanceFromSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__461242b933d96c2475c414109a3d51cfd19b6d911ac2c0e37cb8b34f344b8ff2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableIamAuthentication", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableIamAuthentication", value)
 
     @builtins.property
     @jsii.member(jsii_name="manageMasterUserPassword")
@@ -49862,7 +51534,7 @@ class DatabaseInstanceFromSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8be43cdc634d5c1560932c59a79e8cf966b3b55ad6998af59bb9984982c237a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "manageMasterUserPassword", value)
 
 
 @jsii.data_type(
@@ -52134,6 +53806,7 @@ class DatabaseInstanceReadReplica(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -52231,7 +53904,7 @@ class DatabaseInstanceReadReplica(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c12068276d8ec381a1d03be32bb38fc655789a4e773a9ef806ca3e5ffa12ff12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableIamAuthentication", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableIamAuthentication", value)
 
 
 @jsii.implements(_aws_ec2_09840e12.IConnectable, _aws_secretsmanager_64b8a1c5.ISecretAttachmentTarget, IDatabaseProxy)
@@ -52431,6 +54104,7 @@ class DatabaseProxy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -52589,6 +54263,7 @@ class DatabaseProxyEndpoint(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -53336,6 +55011,7 @@ class DatabaseCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -53520,7 +55196,7 @@ class DatabaseCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__99866d5c41074781c4a79886fe77854701d0fd6f6828cca02592648a0b355bfc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableDataApi", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableDataApi", value)
 
     @builtins.property
     @jsii.member(jsii_name="hasServerlessInstance")
@@ -53532,7 +55208,7 @@ class DatabaseCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fa163739e67c44827c5ffd010e81181ab3a57ccec6514d860c3261ddb935f3f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hasServerlessInstance", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hasServerlessInstance", value)
 
     @builtins.property
     @jsii.member(jsii_name="manageMasterUserPassword")
@@ -53547,7 +55223,7 @@ class DatabaseCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1bab167cfccee2dada461be55cf9b69c5f3389dca1fe040d61295a99c8992835)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "manageMasterUserPassword", value)
 
 
 @jsii.implements(IDatabaseInstance)
@@ -53862,6 +55538,7 @@ class DatabaseInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -53968,7 +55645,7 @@ class DatabaseInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__84d6de235f7d15c552af4bc77a663d18a20524641c0cf9a49a093c712f276687)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableIamAuthentication", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableIamAuthentication", value)
 
     @builtins.property
     @jsii.member(jsii_name="manageMasterUserPassword")
@@ -53983,7 +55660,7 @@ class DatabaseInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ccc29ecaf0a9438f8c150309927251e0c916d2da53f4a6aab74ad1d3e3c70a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "manageMasterUserPassword", value)
 
 
 __all__ = [
@@ -54027,6 +55704,8 @@ __all__ = [
     "CfnDBSnapshotProps",
     "CfnDBSubnetGroup",
     "CfnDBSubnetGroupProps",
+    "CfnDeployment",
+    "CfnDeploymentProps",
     "CfnEventSubscription",
     "CfnEventSubscriptionProps",
     "CfnGlobalCluster",
@@ -56733,6 +58412,157 @@ def _typecheckingstub__ee6eb06c99be08b951a99e2e5521e7dcf9b3c7213a342f750abfc3bb5
     subnet_ids: typing.Sequence[typing.Union[builtins.str, _aws_ec2_18162e09.ISubnetRef]],
     db_subnet_group_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5b098b62eb891f057663cc545a2e3f96fe21f34380ff966dd0908ac2f83b5a25(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    blue_green_deployment_name: builtins.str,
+    source: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_allocated_storage: typing.Optional[jsii.Number] = None,
+    target_db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
+    target_db_instance_class: typing.Optional[builtins.str] = None,
+    target_db_parameter_group_name: typing.Optional[builtins.str] = None,
+    target_engine_version: typing.Optional[builtins.str] = None,
+    target_iops: typing.Optional[jsii.Number] = None,
+    target_storage_throughput: typing.Optional[jsii.Number] = None,
+    target_storage_type: typing.Optional[builtins.str] = None,
+    upgrade_target_storage_config: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03b95865d9ef68acecf0f9718a16b2100b0e21c84ba381754b9e09072aa240bb(
+    resource: _aws_rds_26740a85.IDeploymentRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74145d013681c700c1346e251c9c9e0a2e6cb448832abe5a95dd27f7b1f88bcf(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69db4084dc445787ff5a5a489790329f490b1ad694e3f4026857cea3bfef979e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e2388220d9d03a4bddf3470ed375fca97f55e3d2782d769f8bec834e22aaf054(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ded1ad6198d86b2e231a16b8a10d9aeead44a36482beb0d1a4bff4955380e12b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__053d1737a29902c23f2c62d604f516d9dafaf85c7fe3f2f8ddc705651b3c8d20(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77bbab0902d3b4dc4f0ef36c2d300973aca76548cc3af5240f25776d2c32d042(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__562696cbff2bb20123cb2093c8c528863693a6d7652c3b0f93aff29e14a4f29c(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b8e4dbb2a107b506e27abbf11711e59d92a8303808e554bca61863f105a723d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cef3421d163dfe5375ae86d1750c9efed8a01d477eefe944ffc35316dbd10ae9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba6f49c76bca5ca7685b5131fd10e5e14886b88b963e530347ad635393e43a36(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56b19130283da7a21a099f838648c6da9ba9dbabaded4681e30f2fed739b55c3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9fc01c7d2b6af720176b52b63f9987193de29fb5304f05c01ed6feefc13afcf(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd60fade798319eaff5e1e1683e261a4d0714fe86296473ee1d599a63c391627(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__021c01859a17bcd54f71904cf56b545db9449985bc2fa582a27812b17708812a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b54bdcd39d05967749d42fe745b3990d351b0f291bcd1350f86def85828fe8fd(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6346dda064ad9b98e73400945bc530e2464745c039461aada9ba919d709e8a3b(
+    *,
+    task_name: typing.Optional[builtins.str] = None,
+    task_status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f5a10b4424722b5ffed8838511e4437aab65fa8d05352f38b37db7493430c3f8(
+    *,
+    source_member: typing.Optional[builtins.str] = None,
+    switchover_detail_status: typing.Optional[builtins.str] = None,
+    target_member: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30ad2aa4549a18d428b8d917456dc67134ee8ff97ac1ba76d333350d0edf4d5a(
+    *,
+    blue_green_deployment_name: builtins.str,
+    source: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_allocated_storage: typing.Optional[jsii.Number] = None,
+    target_db_cluster_parameter_group_name: typing.Optional[builtins.str] = None,
+    target_db_instance_class: typing.Optional[builtins.str] = None,
+    target_db_parameter_group_name: typing.Optional[builtins.str] = None,
+    target_engine_version: typing.Optional[builtins.str] = None,
+    target_iops: typing.Optional[jsii.Number] = None,
+    target_storage_throughput: typing.Optional[jsii.Number] = None,
+    target_storage_type: typing.Optional[builtins.str] = None,
+    upgrade_target_storage_config: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

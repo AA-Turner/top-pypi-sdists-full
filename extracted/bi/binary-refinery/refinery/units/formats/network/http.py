@@ -4,7 +4,10 @@ from typing import Iterable, NamedTuple, cast
 from urllib.parse import urlunparse
 
 from refinery.lib.frame import Chunk
-from refinery.units import Unit
+from refinery.lib.meta import MV
+from refinery.lib.types import Param
+from refinery.units import Arg, Unit
+from refinery.units.formats.httprequest import httprequest
 from refinery.units.formats.httpresponse import httpresponse
 
 
@@ -19,13 +22,17 @@ class _HTTPParseError(ValueError):
 
 
 def _parse_http_request(stream: Chunk):
-    dst = cast(bytes, stream['dst'])
+    dst = cast(bytes, stream[MV.DST])
     host, _, port = dst.rpartition(B':')
-    lines = stream.splitlines(False)
+    if (eoh := stream.find(B'\r\n\r\n')) < 0:
+        eoh = None
+    lines = stream[:eoh].splitlines(False)
     headers = iter(lines)
     path, _ = next(headers).rsplit(maxsplit=1)
     _, path = path.split(maxsplit=1)
     for header in headers:
+        if not header:
+            break
         name, colon, value = header.partition(B':')
         if not colon:
             continue
@@ -38,8 +45,8 @@ def _parse_http_request(stream: Chunk):
     components = (B'http', bytes(host), bytes(path), b'', b'', b'')
     return _HTTP_Request(
         urlunparse(components),
-        cast(bytes, stream['src']),
-        cast(bytes, stream['dst']),
+        cast(bytes, stream[MV.SRC]),
+        cast(bytes, stream[MV.DST]),
     )
 
 
@@ -52,10 +59,18 @@ class http(Unit):
     requests and responses. Each extracted HTTP response body is emitted with the requested URL
     attached as the `url` variable.
     """
+    def __init__(
+        self,
+        requests : Param[bool, Arg.Switch('-r', group='R', help='show only data from requests')] = False,
+        responses: Param[bool, Arg.Switch('-q', group='R', help='show only response bodies')] = False,
+    ):
+        if not requests and not responses:
+            requests = responses = True
+        super().__init__(requests=requests, responses=responses)
+
     @classmethod
     def handles(cls, data) -> bool | None:
-        from refinery.units.formats.network.pcap import pcap
-        return pcap.handles(data)
+        return httpresponse.handles(data) or httprequest.handles(data)
 
     def filter(self, chunks: Iterable[Chunk]):
         carrier: Chunk | None = None
@@ -74,42 +89,64 @@ class http(Unit):
 
     def process(self, data: Chunk):
         streams: list[Chunk] = data.temp if data.temp is not None else [data]
-        http_parser = httpresponse()
+        x_resp = self.args.responses
+        x_reqt = self.args.requests
+        p_resp = httpresponse()
+        p_reqt = httprequest()
         requests: list[_HTTP_Request] = []
         responses: list[Chunk] = []
 
         def lookup(body: Chunk) -> bool:
-            src, dst = body['src'], body['dst']
+            src, dst = body[MV.SRC], body[MV.DST]
             for k, request in enumerate(requests):
                 if request.src == dst and request.dst == src:
                     requests.pop(k)
-                    body.meta['url'] = request.url
+                    body.meta[MV.URL] = request.url
                     return True
             return False
 
         for stream in streams:
-            try:
-                body = http_parser.process(stream)
-            except Exception:
+            if x_resp and p_resp.handles(stream):
                 try:
-                    requests.append(_parse_http_request(stream))
-                except _HTTPParseError as E:
-                    self.log_info(F'error parsing http request: {E!s}')
+                    body = p_resp.process(stream)
                 except Exception:
-                    pass
-                continue
-            if not body:
-                continue
-            body = self.labelled(
-                body,
-                src=stream['src'],
-                dst=stream['dst'],
-                stream=stream['stream'],
-            )
-            if lookup(body):
-                yield body
-            else:
-                responses.append(body)
+                    body = None
+                if body is None:
+                    continue
+                body = self.labelled(
+                    body,
+                    **{
+                        MV.SRC: stream[MV.SRC],
+                        MV.DST: stream[MV.DST],
+                        MV.STREAM: stream[MV.STREAM],
+                    }
+                )
+                if lookup(body):
+                    yield body
+                else:
+                    responses.append(body)
+
+            if p_reqt.handles(stream):
+                try:
+                    rq = _parse_http_request(stream)
+                except Exception as E:
+                    self.log_info(F'error parsing http request: {E!s}')
+                    continue
+                else:
+                    requests.append(rq)
+                if not x_reqt:
+                    continue
+                try:
+                    meta: dict = {
+                        MV.SRC: rq.src,
+                        MV.DST: rq.dst,
+                        MV.URL: rq.url,
+                        MV.STREAM: stream[MV.STREAM],
+                    }
+                    for body in p_reqt.process(stream):
+                        yield self.labelled(body, **meta)
+                except Exception:
+                    continue
 
         while responses:
             body = responses.pop()

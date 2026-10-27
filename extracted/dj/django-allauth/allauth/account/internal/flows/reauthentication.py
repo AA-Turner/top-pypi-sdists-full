@@ -10,10 +10,17 @@ from django.utils.http import urlencode
 
 from allauth import app_settings as allauth_settings
 from allauth.account import app_settings
-from allauth.account.authentication import get_authentication_records
-from allauth.account.internal.flows.login import record_authentication
+from allauth.account.adapter import get_adapter
+from allauth.account.internal.flows.login import (
+    get_authentication_records,
+    record_authentication,
+)
 from allauth.core.exceptions import ReauthenticationRequired
-from allauth.core.internal.httpkit import deserialize_request, serialize_request
+from allauth.core.internal.httpkit import (
+    authenticated_user,
+    deserialize_request,
+    serialize_request,
+)
 from allauth.core.internal.urlkit import script_aware_resolve
 from allauth.utils import import_callable
 
@@ -23,7 +30,7 @@ STATE_SESSION_KEY = "account_reauthentication_state"
 
 def reauthenticate_by_password(request: HttpRequest) -> None:
     record_authentication(
-        request, request.user, method="password", reauthenticated=True
+        request, authenticated_user(request), method="password", reauthenticated=True
     )
 
 
@@ -65,8 +72,19 @@ def resume_request(request: HttpRequest) -> HttpResponseRedirect | None:
     return HttpResponseRedirect(url)
 
 
-def raise_if_reauthentication_required(request: HttpRequest) -> None:
-    if not did_recently_reauthenticate(request):
+def is_reauthentication_required(request: HttpRequest, *, app: str) -> bool:
+    if not request.user.is_authenticated:
+        return True
+    if not get_adapter().is_reauthentication_required(app=app):
+        return False
+    return not did_recently_reauthenticate(request)
+
+
+def raise_if_reauthentication_required(request: HttpRequest, *, app: str) -> None:
+    if is_reauthentication_required(
+        request,
+        app=app,
+    ):
         raise ReauthenticationRequired()
 
 
@@ -81,7 +99,7 @@ def did_recently_reauthenticate(request: HttpRequest) -> bool:
         # users that delegate the security of their account to an external
         # provider like Google typically use MFA over there anyway.
         return True
-    methods = get_authentication_records(request)
+    methods = get_authentication_records(request, request.user)
     methods = [m for m in methods if m.get("reauthenticated")]
     if not methods:
         return False

@@ -8,11 +8,22 @@ import copy
 import dataclasses
 import enum
 import io
+import types
 import typing
 
 from dataclasses import dataclass, field
 from typing import Callable, Generator, Protocol, TypeVar
 from weakref import WeakKeyDictionary
+
+from refinery.lib.tools import RecursionDepth
+
+#: The interpreter recursion limit under which a whole tree is read, printed or compared. Each
+#: entry point that descends a tree raises the limit to this depth once, for the duration of the
+#: call, so that how deep a tree may be is decided by the parser rather than by whatever ambient
+#: limit the process happens to run under. The JS parser's nesting limit is derived from it: one
+#: level of nesting costs a fixed number of interpreter frames, and the limit is the number of
+#: levels that fit below this depth.
+TREE_RECURSION_DEPTH = 10000
 
 
 class Kind(enum.IntEnum):
@@ -21,15 +32,40 @@ class Kind(enum.IntEnum):
     TupleList = 3
 
 
-_SKIP_FIELDS = frozenset(('offset', 'parent', 'leading_comments', 'errors'))
+_SKIP_FIELDS = frozenset(('offset', 'parent', 'leading_comments', 'trailing_comments', 'errors'))
+
+#: Names that may appear in a node's instance `__dict__` although no dataclass field declares them:
+#: the `Node.children` memo, and the resolution stash `refinery.lib.scripts.js.deobfuscation.stringarray`
+#: keeps on scope nodes. Whatever else joins them must hold no list:
+#: `_replace_in_parent`, `_remove_from_parent`, `owning_list` and `owning_field` read every
+#: list-valued attribute of a parent as a child container, and would mistake a list-valued extra
+#: for one.
+_INSTANCE_EXTRAS = frozenset(('_child_cache', '_stringarray_cache'))
+
+_VARS_SKIP = _SKIP_FIELDS | _INSTANCE_EXTRAS
 
 _child_fields_cache: dict[type, list[tuple[str, Kind]]] = {}
+
+_value_fields_cache: dict[type, tuple[str, ...]] = {}
 
 
 def _has_node_type(hint) -> bool:
     if isinstance(hint, type):
         return issubclass(hint, Node)
     return any(_has_node_type(a) for a in typing.get_args(hint))
+
+
+def _without_none(hint):
+    """
+    The hint with a `| None` taken off, or the hint itself when it declares none. A nullable
+    child list — a `finally` body a `try` need not have — is as much a child list as any other,
+    and is classified by what it holds, not by the optionality around it.
+    """
+    if typing.get_origin(hint) in (typing.Union, types.UnionType):
+        args = [a for a in typing.get_args(hint) if a is not type(None)]
+        if len(args) == 1:
+            return args[0]
+    return hint
 
 
 def _classify_fields(node_type: type[Node]) -> list[tuple[str, Kind]]:
@@ -46,7 +82,7 @@ def _classify_fields(node_type: type[Node]) -> list[tuple[str, Kind]]:
     for f in dataclasses.fields(node_type):
         if f.name in _SKIP_FIELDS:
             continue
-        hint = hints.get(f.name)
+        hint = _without_none(hints.get(f.name))
         if hint is None:
             continue
         origin = typing.get_origin(hint)
@@ -76,39 +112,273 @@ def _compute_children(node: Node) -> tuple[Node, ...]:
             if isinstance(field, Node):
                 result.append(field)
         elif kind == Kind.ChildList:
-            for item in field:
-                if isinstance(item, Node):
-                    result.append(item)
+            if field is not None:
+                for item in field:
+                    if isinstance(item, Node):
+                        result.append(item)
         elif kind == Kind.TupleList:
-            for item in field:
-                for elem in item:
-                    if isinstance(elem, Node):
-                        result.append(elem)
+            if field is not None:
+                for item in field:
+                    for elem in item:
+                        if isinstance(elem, Node):
+                            result.append(elem)
     return tuple(result)
+
+
+def child_fields(node_type: type[Node]) -> tuple[str, ...]:
+    """
+    The names of the fields of *node_type* that hold child nodes, alone or in a list, in the order
+    `Node.children` reads them.
+    """
+    return tuple(name for name, _ in _classify_fields(node_type))
+
+
+def child_list_fields(node: Node) -> list[tuple[str, list]]:
+    """
+    The child-list fields of `node`, as name and list pairs. A caller that wants to know where a
+    tree branches into a variable number of children — how many arguments a call has, how many
+    clauses an `if` has — asks here rather than matching on node types, so a node class added later
+    is covered without the caller changing. A child list that holds nothing yet, because its node
+    was built without one, is left out along with its `None`.
+    """
+    result = []
+    for name, kind in _classify_fields(type(node)):
+        if kind not in (Kind.ChildList, Kind.TupleList):
+            continue
+        field = getattr(node, name)
+        if field is not None:
+            result.append((name, field))
+    return result
+
+
+def _value_fields(node_type: type[Node]) -> tuple[str, ...]:
+    try:
+        return _value_fields_cache[node_type]
+    except KeyError:
+        pass
+    skip = _SKIP_FIELDS | node_type.spelling_fields
+    result = tuple(f.name for f in dataclasses.fields(node_type) if f.name not in skip)
+    _value_fields_cache[node_type] = result
+    return result
+
+
+#: How often `canonical` follows `Node.canonical_form` before it concludes that the identifications
+#: a model declares are cyclic. A parenthesis around a parenthesis is two steps, and the shapes that
+#: chain at all are wrappers around wrappers, so the bound is never approached by a real tree.
+_IDENTIFICATION_LIMIT = 64
+
+
+def _canonical_value(value):
+    if isinstance(value, Node):
+        return _canonical(value)
+    if isinstance(value, enum.Enum):
+        return (enum.Enum, type(value).__name__, value.name, value.value)
+    if isinstance(value, (list, tuple)):
+        return tuple(_canonical_value(item) for item in value)
+    return value
+
+
+def _canonical(node: Node):
+    for _ in range(_IDENTIFICATION_LIMIT):
+        form = node.canonical_form()
+        if form is None:
+            break
+        node = form
+    else:
+        raise RecursionError(F'cyclic canonical form at {type(node).__name__}')
+    return (
+        type(node).canonical_type,
+        *(_canonical_value(getattr(node, name)) for name in _value_fields(type(node))),
+    )
+
+
+def canonical(node: Node):
+    """
+    A hashable value that identifies the *program* a node spells, so that two trees compare equal
+    exactly when they mean the same thing. This is what makes "the parser and the synthesizer are
+    inverses" a checkable statement: a synthesizer is faithful when `canonical(parse(synth(T)))`
+    equals `canonical(T)` for every well-formed `T`.
+
+    Three things are deliberately compared away, each declared by the model rather than known here:
+    the bookkeeping fields in `_SKIP_FIELDS`, which record where a node came from; the fields a node
+    declares as its `spelling`, which record how a value was written; and the identifications a node
+    makes through `Node.canonical_form`. Everything else is compared, including scalars such as an
+    operator string. Enumerations compare by name as well as value, because an `IntEnum` member is
+    equal to the integer it wraps and would otherwise collide with an unrelated field holding it.
+
+    The comparison descends the whole tree, so it runs under `TREE_RECURSION_DEPTH` rather than the
+    ambient interpreter limit, which a tree the parser accepts can exhaust on its own.
+    """
+    with RecursionDepth(TREE_RECURSION_DEPTH):
+        return _canonical(node)
+
+
+def spells_its_source(root: Node) -> bool:
+    """
+    Whether the tree at `root` spells the source it was read from. Three things take a tree out of
+    it. A node that `Node.has_spelling` rejects cannot be printed at all; an `unparsed` node prints
+    source that no parser agreed to read, so re-reading it yields whatever the recovery happens to
+    make of the text; and a node that `Node.is_recovered` reports as repaired prints a program the
+    file did not hold. None of the three says anything about whether a synthesizer is faithful.
+    """
+    return all(
+        node.has_spelling() and not node.unparsed and not node.is_recovered()
+        for node in root.walk()
+    )
+
+
+def is_well_formed(root: Node) -> bool:
+    """
+    Whether the tree at `root` is a program: it spells its source, which `spells_its_source`
+    decides and which is the domain over which `canonical` states a fidelity law, and the language
+    reads that text, which `Node.early_errors` reports on under the file's own mode and goal. A
+    tree the language refuses prints, however faithfully, a text no engine loads.
+    """
+    return spells_its_source(root) and not root.early_errors()
 
 
 @dataclass(repr=False, eq=False)
 class Node:
     """
     Base class for all AST nodes.
+
+    A subclass declares how it relates to the program it spells using class keywords:
+
+        class Ps1IntegerLiteral(Expression, spelling='raw'):
+            ...
+
+    - `spelling` names the fields that record *how* a value was written rather than *what* it is.
+      `canonical` compares them away, so two nodes that spell the same value differently are the
+      same program. Declarations accumulate down the hierarchy.
+    - `unparsed` marks a node that stands for source text no parser understood. Such a node prints
+      text that reads back as arbitrary other nodes, so it is excluded from `is_well_formed`.
+    - `identity` names another node class this one is the same program as, for two classes that
+      differ only in how the source spelled them — a here-string and a quoted string hold the same
+      value. The two must carry the same value fields, since `canonical` then compares them
+      field by field. Where an identification instead needs to look at the instance, because it
+      holds only for some values, override `canonical_form` instead.
+
+    Three further facts are per-instance rather than per-class and so are methods: `has_spelling`
+    reports whether this node can be printed at all, `is_recovered` reports whether the parser had
+    to supply source in order to build it, and `canonical_form` reports the node this one is
+    identified with when comparing programs.
     """
     offset: int = -1
     parent: Node | None = field(default=None, compare=False)
     leading_comments: list[str] = field(default_factory=list, compare=False)
+    #: The comments standing behind the last item of a list this node holds — a block, a class
+    #: body, a switch, a file — which no item of the list can carry.
+    trailing_comments: list[str] = field(default_factory=list, compare=False)
+
+    spelling_fields: typing.ClassVar[frozenset[str]] = frozenset()
+    unparsed: typing.ClassVar[bool] = False
+    canonical_type: typing.ClassVar[str] = 'Node'
+    _child_cache: typing.ClassVar[tuple[int, tuple[Node, ...]] | None] = None
+
+    @classmethod
+    def __init_subclass__(
+        cls,
+        spelling: str | typing.Iterable[str] = (),
+        unparsed: bool = False,
+        identity: type[Node] | None = None,
+        **kwargs,
+    ):
+        super().__init_subclass__(**kwargs)
+        if isinstance(spelling, str):
+            spelling = (spelling,)
+        inherited = frozenset()
+        for base in cls.__bases__:
+            inherited |= getattr(base, 'spelling_fields', frozenset())
+        cls.spelling_fields = inherited | frozenset(spelling)
+        cls.canonical_type = cls.__name__ if identity is None else identity.canonical_type
+        if unparsed:
+            cls.unparsed = True
 
     def __post_init__(self):
         for c in _compute_children(self):
             self._adopt(c)
 
+    def has_spelling(self) -> bool:
+        """
+        Whether this node can be written as source at all. A node for which this is false has no
+        spelling in the language, so a synthesizer cannot print it and a parser must never build
+        it: `,` is not a PowerShell expression, and neither is a `do` loop with no condition. The
+        synthesizer refuses such a node rather than printing something else, because printing an
+        approximation of a node that cannot exist is the silent corruption this predicate exists to
+        prevent.
+        """
+        return True
+
+    def is_recovered(self) -> bool:
+        """
+        Whether reading this node needed the parser to supply source that was not written. A
+        recovery that writes the token it was waiting for answers a file nobody can run with a
+        program that runs: `f(1, 2` becomes the call `f(1, 2)`, and `try {} catch` a handler with a
+        body nobody wrote.
+
+        Such a node prints perfectly well, which is why this is a fact of its own rather than a case
+        of `has_spelling`. What is wrong with it is not that no text spells it, but that the text it
+        was read from spells something else. A parser that cannot say which node it repaired answers
+        this at the root of the file, since a token it stepped over belongs to no node at all.
+        """
+        return False
+
+    def early_errors(self) -> typing.Sequence[object]:
+        """
+        The constructs in the tree at this node that the language refuses to read although the
+        parser read them, so that a file holding one is a program no engine loads. A node kind that
+        can name none answers nothing, which is the default; the root node of a language answers
+        with what its early-error pass reports under the file's own mode and goal.
+        """
+        return ()
+
+    def canonical_form(self) -> Node | None:
+        """
+        The node this one is identified with when comparing programs, or `None` when it stands for
+        itself. Two shapes are identified: a *transparent wrapper* that spells nothing of its own,
+        such as a parenthesis around an expression, and a *deliberate normalization* between two
+        spellings of one value, such as a here-string and the quoted string holding the same text.
+
+        `canonical` applies this repeatedly, so a form may itself have a form.
+        """
+        return None
+
     def children(self) -> tuple[Node, ...]:
-        return _compute_children(self)
+        """
+        The nodes this node holds, in declaration order, memoized on the instance against
+        `mutation_epoch` so that a repeated read costs one lookup rather than a pass of reflection
+        over the node's fields. Every mutation chokepoint drops the memo by moving the epoch; a
+        pass that assigns a child field directly opts out, exactly as it opts out of
+        `tree_version`.
+
+        The memo is deliberately not populated at construction: parsers append to the child lists
+        of already-constructed nodes, and nothing bumps the epoch during parse, so a memo built
+        there would outlive those appends. `reattach` keeps a fresh compute for the same reason
+        from the other side — it repairs structure and must not trust a memo a raw write left
+        stale.
+
+        `walk` and `walk_in_order` read the memo in place under the same epoch check rather than
+        through this method: a traversal over a held tree hits the memo at nearly every node, and
+        the method call per node was the larger part of what such a traversal paid.
+        """
+        epoch = _mutation_epoch
+        cached = self._child_cache
+        if cached is not None and cached[0] == epoch:
+            return cached[1]
+        result = _compute_children(self)
+        self._child_cache = (epoch, result)
+        return result
 
     def walk(self) -> Generator[Node, None, None]:
         stack: list[Node] = [self]
         while stack:
             node = stack.pop()
             yield node
-            stack.extend(_compute_children(node))
+            cached = node._child_cache
+            if cached is not None and cached[0] == _mutation_epoch:
+                stack.extend(cached[1])
+            else:
+                stack.extend(node.children())
 
     def walk_in_order(self) -> Generator[Node, None, None]:
         """
@@ -120,7 +390,11 @@ class Node:
         while stack:
             node = stack.pop()
             yield node
-            stack.extend(reversed(_compute_children(node)))
+            cached = node._child_cache
+            if cached is not None and cached[0] == _mutation_epoch:
+                stack.extend(reversed(cached[1]))
+            else:
+                stack.extend(reversed(node.children()))
 
     def is_descendant_of(self, ancestor: Node) -> bool:
         cursor = self.parent
@@ -197,7 +471,7 @@ class AnalysisCache(Protocol):
     """
     The minimal surface the transformer base needs from a per-run analysis cache: a hook to drop its
     memoized analyses when the tree changes. A concrete cache adds the model accessors its consumers
-    use; see `refinery.lib.scripts.js.analysis.cache.ModelCache`.
+    use; see `refinery.lib.scripts.modelcache.ModelCacheBase` and its per-language subclasses.
     """
     def invalidate(self) -> None:
         ...
@@ -210,7 +484,9 @@ class Transformer(Visitor):
     via the `changed` flag.
 
     When a `models` cache is attached by the pipeline, setting `changed` truthy invalidates it, so a
-    transform that mutates the tree never leaves a stale model behind for the next consumer.
+    transform that mutates the tree never leaves a stale model behind for the next consumer. The
+    same set advances the global mutation epoch, which protects the `Node.children` memo exactly
+    as far as the model caches.
     """
 
     self_converging: bool = False
@@ -228,8 +504,10 @@ class Transformer(Visitor):
     @changed.setter
     def changed(self, value: bool):
         self._changed = value
-        if value and self.models is not None:
-            self.models.invalidate()
+        if value:
+            bump_mutation_epoch()
+            if self.models is not None:
+                self.models.invalidate()
 
     def mark_changed(self):
         self.changed = True
@@ -241,37 +519,34 @@ class Transformer(Visitor):
                 if isinstance(value, Node):
                     replacement = self.visit(value)
                     if replacement is not None:
-                        replacement.parent = node
-                        setattr(node, field_name, replacement)
+                        set_child(node, field_name, replacement)
                         self.mark_changed()
             elif kind == Kind.ChildList:
                 items = getattr(node, field_name)
                 new_list = None
-                for idx, item in enumerate(items):
+                for idx, item in enumerate(items or ()):
                     if isinstance(item, Node):
                         replacement = self.visit(item)
                         if replacement is not None:
                             if new_list is None:
                                 new_list = list(items[:idx])
-                            replacement.parent = node
                             new_list.append(replacement)
                             continue
                     if new_list is not None:
                         new_list.append(item)
                 if new_list is not None:
-                    setattr(node, field_name, new_list)
+                    set_child_list(node, field_name, new_list)
                     self.mark_changed()
             elif kind == Kind.TupleList:
                 items = getattr(node, field_name)
                 new_list = None
-                for idx, item in enumerate(items):
+                for idx, item in enumerate(items or ()):
                     new_tuple = []
                     tuple_changed = False
                     for elem in item:
                         if isinstance(elem, Node):
                             replacement = self.visit(elem)
                             if replacement is not None:
-                                replacement.parent = node
                                 new_tuple.append(replacement)
                                 tuple_changed = True
                             else:
@@ -285,7 +560,7 @@ class Transformer(Visitor):
                     elif new_list is not None:
                         new_list.append(item)
                 if new_list is not None:
-                    setattr(node, field_name, new_list)
+                    set_child_list(node, field_name, new_list)
                     self.mark_changed()
         return None
 
@@ -295,56 +570,140 @@ _tree_versions: WeakKeyDictionary[Node, int] = WeakKeyDictionary()
 
 def tree_version(root: Node) -> int:
     """
-    The AST-mutation counter for the tree rooted at *root*. Every structural mutation made through
-    `_replace_in_parent` or `_remove_from_parent` advances the counter of the one tree it mutates,
-    found by walking from the mutation site up to its topmost ancestor, and leaves every other tree
-    untouched. `ModelCache` records the value its own root stood at when its models were built and
-    rebuilds once that root's counter moves, so a transform observes models consistent with the
-    current tree even when an earlier mutation in the same pass has not yet been announced through
-    `Transformer.changed`. Mutations to unrelated trees — parsed snippets or clones probed during
-    analysis — never advance this root's counter and so never force a needless rebuild.
+    The AST-mutation counter for the tree rooted at *root*. Every mutation made through
+    `_replace_in_parent`, `_remove_from_parent`, `set_child`, `set_child_list`, `set_value` or
+    `BodyEdit` — and so through `Transformer.generic_visit`, which installs every `visit_X`
+    replacement through `set_child` and `set_child_list` — advances the counter of the one tree it
+    mutates, found by walking from the mutation site up to its topmost ancestor, and leaves every
+    other tree untouched.
+    `refinery.lib.scripts.modelcache.ModelCacheBase` records the value
+    its own root stood at when its models were built and rebuilds once that root's counter moves,
+    so a transform observes models consistent with the current tree even when an earlier mutation
+    in the same pass has not yet been announced through `Transformer.changed`. Mutations to
+    unrelated trees — parsed snippets or clones probed during analysis — never advance this root's
+    counter and so never force a needless rebuild.
     """
     return _tree_versions.get(root, 0)
 
 
+def tree_root(node: Node) -> Node:
+    """
+    The topmost ancestor of *node*, which is the tree it belongs to. Both the mutation counter and
+    the analysis caches are keyed on this rather than on whatever node a caller happens to hold: a
+    model built over a subtree answers questions about that subtree alone, and a whole-script fact
+    derived from it — whether any statement anywhere runs opaque code — would come back wrong in
+    the permissive direction for every node outside it.
+    """
+    while node.parent is not None:
+        node = node.parent
+    return node
+
+
+_mutation_epoch = 0
+
+
+def mutation_epoch() -> int:
+    """
+    How many mutations have been made to *any* tree, which is what a cache keyed on a single node
+    rather than on a root watches. Every mutation that advances a `tree_version` advances this too,
+    and so does every truthy set of `Transformer.changed`, which announces a raw write to the
+    per-node caches the same way it announces it to the model caches.
+
+    The two are not redundant and neither replaces the other; they answer for caches with opposite
+    cost profiles. A `tree_version` reader holds a root already and pays nothing to ask, so it can
+    afford the precision of being told about its own tree only — and it must have it, because what
+    it rebuilds is a whole-script model. A reader keyed on a node holds no root and would have to
+    walk `tree_root` to find one, which is itself proportional to the node's depth and so turns the
+    query it was meant to make cheap back into a walk. This is the counter such a reader can ask in
+    constant time, and it is *coarser on purpose*: a mutation to some unrelated tree drops entries
+    that were still good, and what that costs is recomputing one node's answer rather than
+    rebuilding a model. `refinery.lib.scripts.ps1.analysis.values.evaluate` and `Node.children` are
+    the readers it exists for.
+
+    A pass that assigns a field directly instead of through `set_child`, `set_child_list` or
+    `set_value` opts out of this counter exactly as it opts out of `tree_version`, and the entries
+    keyed on it go stale in the same way the models do.
+    """
+    return _mutation_epoch
+
+
+def bump_mutation_epoch() -> None:
+    """
+    Advance the global mutation epoch without crediting the mutation to any one tree: the
+    announcement a transformer makes through `Transformer.changed` has no mutation site to hand.
+    """
+    global _mutation_epoch
+    _mutation_epoch += 1
+
+
 def _bump_tree_version(site: Node) -> None:
-    root = site
-    while root.parent is not None:
-        root = root.parent
+    bump_mutation_epoch()
+    root = tree_root(site)
     _tree_versions[root] = _tree_versions.get(root, 0) + 1
 
 
-def _replace_in_parent(old: Node, new: Node):
+def _replace_in_parent(old: Node, new: Node) -> bool:
     """
     Replace `old` with `new` in `old`'s parent node. Sets `new.parent` and handles direct fields,
-    list items, and tuple-in-list items.
+    list items, and tuple-in-list items. Returns whether `old` was found and replaced, the same way
+    `_remove_from_parent` reports whether it removed anything — a caller that turns tree edits into
+    a `Transformer.changed` flag needs the answer, and reading `None` as "nothing moved" leaves the
+    pipeline calling a pass stable while its edit has already advanced the mutation counter.
+
+    `new.parent` is set only once a slot has been found, so that a failed replacement leaves `new`
+    naming no holder rather than naming one that does not hold it — a caller that abandons the
+    replacement then has nothing to undo.
+
+    A node two fields of its parent hold at once — the one identifier a parser builds for both
+    halves of a shorthand property or of an export specifier — is refused outright: writing one
+    slot would leave the other holding a node the tree no longer owns, and which slot was meant is
+    knowledge only a caller has. The callers with that knowledge take those shapes apart before
+    reaching here, so the refusal loses nothing.
     """
     parent = old.parent
     if parent is None:
-        return
-    new.parent = parent
+        return False
+    held = 0
     for attr_name in vars(parent):
-        if attr_name in _SKIP_FIELDS:
+        if attr_name in _VARS_SKIP:
             continue
         value = getattr(parent, attr_name)
         if value is old:
+            held += 1
+        elif isinstance(value, list):
+            for item in value:
+                if item is old:
+                    held += 1
+                elif isinstance(item, tuple):
+                    held += sum(1 for elem in item if elem is old)
+    if held > 1:
+        return False
+    for attr_name in vars(parent):
+        if attr_name in _VARS_SKIP:
+            continue
+        value = getattr(parent, attr_name)
+        if value is old:
+            new.parent = parent
             setattr(parent, attr_name, new)
             _bump_tree_version(parent)
-            return
+            return True
         if isinstance(value, list):
             for i, item in enumerate(value):
                 if item is old:
+                    new.parent = parent
                     value[i] = new
                     _bump_tree_version(parent)
-                    return
+                    return True
                 if isinstance(item, tuple):
                     lst = list(item)
                     for j, elem in enumerate(lst):
                         if elem is old:
+                            new.parent = parent
                             lst[j] = new
                             value[i] = tuple(lst)
                             _bump_tree_version(parent)
-                            return
+                            return True
+    return False
 
 
 def _remove_from_parent(node: Node) -> bool:
@@ -356,7 +715,7 @@ def _remove_from_parent(node: Node) -> bool:
     if parent is None:
         return False
     for attr_name in vars(parent):
-        if attr_name in _SKIP_FIELDS:
+        if attr_name in _VARS_SKIP:
             continue
         value = getattr(parent, attr_name)
         if isinstance(value, list):
@@ -368,15 +727,316 @@ def _remove_from_parent(node: Node) -> bool:
     return False
 
 
+def reattach(node: Node) -> None:
+    """
+    Restore every parent pointer inside the subtree at `node` to name its actual holder.
+
+    Building a replacement node adopts the children handed to it — `Node.__post_init__` does this,
+    and it is what keeps a freshly built subtree consistent — so a replacement built over parts of a
+    statement that is then *not* installed leaves those parts still in the tree with their parent
+    pointers aimed at a node that is not. Anything reading upward from inside such a subtree, and
+    that includes every guard that asks what encloses a statement, then walks out of the tree. A
+    pass that may abandon a replacement it has already built calls this on what it kept.
+    """
+    for parent in node.walk():
+        parent._adopt(*_compute_children(parent))
+
+
+def is_attached(node: Node) -> bool:
+    """
+    Whether *node* is still held by the tree its parent pointers name. Removal and replacement
+    never sever the link of the node they detach — `_remove_from_parent` and `_replace_in_parent`
+    leave it pointing at the holder that no longer holds — so a climb to `tree_root` cannot tell a
+    detached node from an attached one. Every parent along the chain is therefore checked for
+    still holding its child.
+    """
+    while (parent := node.parent) is not None:
+        if node not in parent.children():
+            return False
+        node = parent
+    return True
+
+
+def owning_list(node: Node) -> tuple[Node, str] | None:
+    """
+    The parent node and attribute name of the child list `node` sits in, or `None` when it sits in
+    none. Every list attribute of the parent is searched, by identity, the same way
+    `_remove_from_parent` searches for the node it removes — a caller that wants to edit the list
+    around a node it found by a whole-tree walk needs the same answer that removal would reach.
+    """
+    parent = node.parent
+    if parent is None:
+        return None
+    for name, value in vars(parent).items():
+        if name in _VARS_SKIP or not isinstance(value, list):
+            continue
+        if any(item is node for item in value):
+            return parent, name
+    return None
+
+
+def owning_field(node: Node) -> tuple[Node, str] | None:
+    """
+    The parent node and attribute name of the single-node field `node` sits in, or `None` when it
+    sits in a list, in a tuple inside one, or nowhere. This is the counterpart of `owning_list` for
+    the shape a whole-tree walk also reaches: the inner store of `($y = ($z = 1))` is a statement to
+    every pass that finds it and a direct field to the parenthesis that holds it.
+    """
+    parent = node.parent
+    if parent is None:
+        return None
+    for name, value in vars(parent).items():
+        if name not in _VARS_SKIP and value is node:
+            return parent, name
+    return None
+
+
+def set_child_list(parent: Node, attr: str, items: list) -> None:
+    """
+    Replace the contents of the child list at `parent.<attr>` with `items`, adopt every `Node` among
+    them (including nodes nested one level inside tuple items, as in a
+    `refinery.lib.scripts.ps1.model.Ps1IfStatement` `(condition, block)` clause), and advance the
+    mutation counter of the tree `parent` belongs to.
+
+    This is the in-place body/clause counterpart to `_replace_in_parent` and `_remove_from_parent`:
+    a transform that rewrites a whole statement list splices it through here rather than mutating
+    the list object directly, so an `AnalysisCache` over the tree rebuilds on next access instead of
+    serving a model built before the edit. A raw `body[:] = ...` or `body.clear(); body.extend(...)`
+    leaves the counter untouched and silently opts the tree out of that consistency check.
+
+    The existing list object is spliced rather than replaced, so a caller iterating the list it was
+    handed — as `refinery.lib.scripts.js.deobfuscation.helpers.BodyProcessingTransformer` hands one
+    to `_process_body` — keeps observing the node's current children. Where the field holds no list
+    yet, a copy of `items` is installed rather than the caller's own object: a caller retaining
+    that list has no handle on the tree.
+    """
+    for item in items:
+        if isinstance(item, Node):
+            item.parent = parent
+        elif isinstance(item, tuple):
+            for elem in item:
+                if isinstance(elem, Node):
+                    elem.parent = parent
+    existing = getattr(parent, attr, None)
+    if isinstance(existing, list):
+        existing[:] = items
+    else:
+        setattr(parent, attr, list(items))
+    _bump_tree_version(parent)
+
+
+def set_body(parent: Node, statements: list) -> None:
+    """
+    Replace `parent.body` with `statements` through `set_child_list` — the common case of splicing a
+    statement body, used by transforms that rebuild a `refinery.lib.scripts.Block` or
+    `refinery.lib.scripts.ps1.model.Ps1Code` body in place.
+    """
+    set_child_list(parent, 'body', statements)
+
+
+def set_child(parent: Node, attr: str, child: Node | None) -> None:
+    """
+    Replace the single child node at `parent.<attr>`, adopt it, and advance the mutation counter of
+    the tree `parent` belongs to. This is the direct-field counterpart to `set_child_list`; passing
+    `None` clears the field, which is how a transform drops an optional sub-node such as a loop's
+    condition or a `finally` block.
+    """
+    if child is not None:
+        child.parent = parent
+    setattr(parent, attr, child)
+    _bump_tree_version(parent)
+
+
+def set_value(parent: Node, attr: str, value: object) -> None:
+    """
+    Replace the value field at `parent.<attr>` — one holding a scalar rather than a child node, such
+    as an operator string, a name, or a flag — and advance the mutation counter of the tree `parent`
+    belongs to.
+
+    A value field is as much part of the program a node spells as its children are: `canonical`
+    compares them, the synthesizer prints them, and the analysis models read them — the block model
+    reads a `refinery.lib.scripts.ps1.model.Ps1CommandInvocation`'s invocation operator to say what
+    scope a body runs in, and the world model reads it as evidence that another script file runs. A
+    pass that assigns such a field directly therefore changes the program without moving the counter
+    every `AnalysisCache` over that tree watches, which is the same silent opt-out a raw
+    `body[:] = ...` makes and is why `set_child_list` exists.
+    """
+    setattr(parent, attr, value)
+    _bump_tree_version(parent)
+
+
+class BodyEdit:
+    """
+    A batch of splices against one child list, applied as a single mutation.
+
+    A transform that rewrites several entries of the same statement list registers each rewrite with
+    `splice` and then calls `apply` once. The alternative — one `set_child_list` per entry, or worse
+    a direct `list.remove` — advances the mutation counter once per entry, so every analysis cache
+    over the tree rebuilds mid-pass and each rebuild observes a body that is half rewritten. Here
+    the list the tree holds is untouched until `apply`, and the counter moves exactly once.
+
+    Splices are keyed by node identity, so an entry that appears twice by equality is still
+    rewritten only where it actually sits. An empty replacement list deletes the entry, which is the
+    shape a removal takes; the class itself knows nothing about why an entry is being removed and
+    enforces no policy about what may be.
+    """
+
+    def __init__(self, parent: Node, attr: str = 'body'):
+        self.parent = parent
+        self.attr = attr
+        #: The spliced-out node is kept beside its replacement, and not only its `id`, so that it
+        #: cannot be collected while the splice is pending: a recycled `id` would make the batch
+        #: rewrite whatever object next took the address.
+        self._splices: dict[int, tuple[Node, list]] = {}
+
+    def splice(self, node: Node, items: list) -> None:
+        """
+        Register that `node` is to be replaced by `items` in the target list. An empty `items`
+        deletes it. Registering the same node twice replaces the earlier splice.
+        """
+        self._splices[id(node)] = (node, items)
+
+    def result(self) -> list:
+        """
+        The list `apply` would install, without installing it. Entries with no registered splice are
+        carried over unchanged; a registered node that is not in the list at all is ignored, since a
+        splice describes an edit to this list and nothing else.
+        """
+        current = getattr(self.parent, self.attr, None) or []
+        if not self._splices:
+            return list(current)
+        result = []
+        for item in current:
+            try:
+                _, items = self._splices[id(item)]
+            except KeyError:
+                result.append(item)
+            else:
+                result.extend(items)
+        return result
+
+    def apply(self) -> bool:
+        """
+        Install the spliced list and advance the mutation counter, returning whether anything moved.
+        A batch whose splices all turn out to be no-ops leaves the tree and the counter alone.
+        """
+        if not self._splices:
+            return False
+        current = getattr(self.parent, self.attr, None) or []
+        result = self.result()
+        if len(result) == len(current) and all(a is b for a, b in zip(result, current)):
+            return False
+        set_child_list(self.parent, self.attr, result)
+        return True
+
+
+class ListRemoval:
+    """
+    A batch of removals from whichever child lists hold the removed nodes, each list that loses an
+    entry installed once.
+
+    `_remove_from_parent` finds the list holding a node by searching every list of the parent, and
+    removes the node on the spot. A pass that removes many statements from one long list therefore
+    scans that list once per removal and advances the mutation counter once per removal. Here the
+    lists of a parent are indexed by identity on the first question about one of its children, and
+    each list that lost an entry is installed through one `BodyEdit` when `apply` runs. Until then
+    the tree is untouched, so a pass keeps asking its questions about the tree it decides on.
+
+    The index describes the tree as it stood when it was built, so the batch serves one tree, and
+    any answer or `apply` after an edit that reached the tree by another route raises instead of
+    answering for lists that may have changed since.
+    """
+
+    def __init__(self):
+        self._root: Node | None = None
+        self._version = 0
+        #: Each parent is kept beside its index, and not only its `id`, for the reason `BodyEdit`
+        #: keeps its spliced-out nodes: a recycled `id` would answer for whatever took the address.
+        self._indexes: dict[int, tuple[Node, dict[int, str]]] = {}
+        self._edits: dict[tuple[int, str], BodyEdit] = {}
+
+    def _check_unmoved(self) -> None:
+        if self._root is not None and tree_version(self._root) != self._version:
+            raise RuntimeError('the tree was edited while a list removal batch was pending')
+
+    def _index(self, parent: Node) -> dict[int, str]:
+        root = tree_root(parent)
+        if self._root is None:
+            self._root = root
+            self._version = tree_version(root)
+        elif root is not self._root:
+            raise RuntimeError('a list removal batch was asked about a second tree')
+        index: dict[int, str] = {}
+        for name, value in vars(parent).items():
+            if name in _VARS_SKIP or not isinstance(value, list):
+                continue
+            for item in value:
+                index.setdefault(id(item), name)
+        self._indexes[id(parent)] = parent, index
+        return index
+
+    def owning_list(self, node: Node) -> tuple[Node, str] | None:
+        """
+        The parent and attribute name of the child list `node` sits in, which is the answer
+        `owning_list` gives for the tree as it stands.
+        """
+        parent = node.parent
+        if parent is None:
+            return None
+        self._check_unmoved()
+        try:
+            _, index = self._indexes[id(parent)]
+        except KeyError:
+            index = self._index(parent)
+        if (name := index.get(id(node))) is None:
+            return None
+        return parent, name
+
+    def remove(self, node: Node) -> bool:
+        """
+        Register `node` for removal from the child list that holds it. The answer is the one
+        `_remove_from_parent` gives: whether a list holds the node at all.
+        """
+        if (held := self.owning_list(node)) is None:
+            return False
+        parent, name = held
+        key = id(parent), name
+        if (edit := self._edits.get(key)) is None:
+            edit = self._edits[key] = BodyEdit(parent, name)
+        edit.splice(node, [])
+        return True
+
+    def apply(self) -> bool:
+        """
+        Install every list that lost an entry and return whether any did. The batch is empty
+        afterwards, also when it refuses to apply, and indexes the tree afresh on its next question.
+        """
+        try:
+            self._check_unmoved()
+            changed = False
+            for edit in self._edits.values():
+                changed = edit.apply() or changed
+            return changed
+        finally:
+            self._root = None
+            self._indexes.clear()
+            self._edits.clear()
+
+
 _N = TypeVar('_N', bound='Node')
 
 
 def _clone_node(node: _N) -> _N:
     """
-    Deep-clone a node tree downward without following parent pointers.
+    Deep-clone a node tree downward without following parent pointers. The copy carries the
+    original's instance `__dict__`, whose children memo names the original's children rather than
+    the clones, so it is dropped before the cloned child fields are installed.
     """
     clone = copy.copy(node)
     clone.parent = None
+    clone.leading_comments = list(node.leading_comments)
+    clone.trailing_comments = list(node.trailing_comments)
+    clone._child_cache = None
     for field_name, kind in _classify_fields(type(node)):
         if kind == Kind.ChildNode:
             value = getattr(node, field_name)
@@ -386,8 +1046,8 @@ def _clone_node(node: _N) -> _N:
                 setattr(clone, field_name, child)
         elif kind == Kind.ChildList:
             items = getattr(node, field_name)
-            cloned = []
-            for item in items:
+            cloned = None if items is None else []
+            for item in items or ():
                 if isinstance(item, Node):
                     child = _clone_node(item)
                     child.parent = clone
@@ -397,8 +1057,8 @@ def _clone_node(node: _N) -> _N:
             setattr(clone, field_name, cloned)
         elif kind == Kind.TupleList:
             items = getattr(node, field_name)
-            cloned = []
-            for tup in items:
+            cloned = None if items is None else []
+            for tup in items or ():
                 new_tup = []
                 for elem in tup:
                     if isinstance(elem, Node):
@@ -412,11 +1072,32 @@ def _clone_node(node: _N) -> _N:
     return clone
 
 
+class UnspellableNode(LookupError):
+    """
+    Raised when a synthesizer is handed a node the model says has no spelling. See
+    `Node.has_spelling`.
+    """
+    def __init__(self, node: Node):
+        super().__init__(F'{type(node).__name__} has no spelling')
+        self.node = node
+
+
 class Synthesizer(Visitor):
     """
     Base class for AST-to-source synthesizers. Provides indentation-aware output buffering shared
     by all language-specific synthesizers.
     """
+
+    def visit(self, node: Node) -> Node | None:
+        """
+        Refuse a node the model declares unspellable rather than printing an approximation of it.
+        A shape that cannot be written is one no parser may produce — the parsers build an error
+        node holding the source instead — so reaching one here means a transform assembled it, and
+        the alternative to failing is emitting a script that quietly means something else.
+        """
+        if not node.has_spelling():
+            raise UnspellableNode(node)
+        return super().visit(node)
 
     def __init__(self, indent: str = '  ', line_length: int = 140):
         super().__init__()
@@ -438,6 +1119,23 @@ class Synthesizer(Visitor):
         self._parts.write(text)
         nc = len(text)
         self._col = (nc - br - 1) if (br := text.rfind('\n')) >= 0 else (self._col + nc)
+
+    def _capture_output(self) -> tuple[int, int]:
+        """
+        The state of the output buffer — how much it holds and the column it ends at — for a
+        later `_rewind_output` to take every write since back.
+        """
+        return self._parts.tell(), self._col
+
+    def _rewind_output(self, captured: tuple[int, int]) -> None:
+        """
+        Take back every write since `_capture_output` returned *captured*: the caller writes a
+        candidate spelling, reads where it landed, then rewinds and writes the form it chose.
+        """
+        position, column = captured
+        self._parts.seek(position)
+        self._parts.truncate()
+        self._col = column
 
     def _newline(self):
         self._parts.write('\n')

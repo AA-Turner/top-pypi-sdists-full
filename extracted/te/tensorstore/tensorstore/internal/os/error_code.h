@@ -17,12 +17,14 @@
 
 #include <cassert>
 #include <cerrno>
+#include <optional>
 #include <string>
 #include <string_view>
 
 #include "absl/status/status.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
-#include "tensorstore/internal/source_location.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/util/status_builder.h"
 
 // Include system headers last to reduce impact of macros.
@@ -57,6 +59,17 @@ inline absl::StatusCode GetOsErrorStatusCode(OsErrorCode error) {
 }
 #endif
 
+/// Returns the OsErrorCode associated with an absl::Status if present.
+inline std::optional<OsErrorCode> GetOsErrorCode(const absl::Status& status) {
+  auto payload = status.GetPayload("os_error_code");
+  if (!payload.has_value()) return std::nullopt;
+  OsErrorCode code;
+  if (absl::SimpleAtoi(std::string(*payload), &code)) {
+    return code;
+  }
+  return std::nullopt;
+}
+
 /// Returns a literal of the os error code.
 const char* OsErrorCodeLiteral(OsErrorCode error);
 
@@ -67,10 +80,10 @@ std::string GetOsErrorMessage(OsErrorCode error);
 struct StatusFromOsError {
   absl::StatusCode status_code;
   OsErrorCode error_code;
-  SourceLocation loc;
+  absl::SourceLocation loc;
 
   StatusFromOsError(OsErrorCode error_code,
-                    SourceLocation loc = SourceLocation::current())
+                    absl::SourceLocation loc = absl::SourceLocation::current())
       : status_code(GetOsErrorStatusCode(error_code)),
         error_code(error_code),
         loc(loc) {
@@ -78,7 +91,7 @@ struct StatusFromOsError {
   }
 
   StatusFromOsError(absl::StatusCode status_code, OsErrorCode error_code,
-                    SourceLocation loc = SourceLocation::current())
+                    absl::SourceLocation loc = absl::SourceLocation::current())
       : status_code(status_code), error_code(error_code), loc(loc) {
     assert(status_code != absl::StatusCode::kOk);
   }

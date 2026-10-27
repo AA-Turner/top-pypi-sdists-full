@@ -538,6 +538,7 @@ class CfnPipe(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -620,7 +621,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__985ad2a14f580dd4275038980cbc387943f87211abf3e68fdb2f4755fdba5354)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="source")
@@ -633,7 +634,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1fe18602cacd79eabcd3ef5565eda6cf280acd9362fd60e8a8059ed4ce59822)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "source", value)
 
     @builtins.property
     @jsii.member(jsii_name="target")
@@ -646,7 +647,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__727f36b3af534d289c37e337ba67c6310e4420f9572ad6bbc62222fb26ecbb05)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "target", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "target", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -659,7 +660,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25b696da604f323ac1a92ddfcc7ef102957b3d092e8137378e91cea16ea39501)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="desiredState")
@@ -672,7 +673,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9ed87f6faacd73494b95f46c464263cf5f41d189f47daddc0b4607b7e1b5d9d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "desiredState", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "desiredState", value)
 
     @builtins.property
     @jsii.member(jsii_name="enrichment")
@@ -685,7 +686,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e73385dfe68409f0392cc314d936a945ec4656e8ef2f8c5b48def81168da23aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enrichment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enrichment", value)
 
     @builtins.property
     @jsii.member(jsii_name="enrichmentParameters")
@@ -703,7 +704,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__75aa67d8831c93b78f85f7319ad758289b207fec83baf9b92034cab4451f63d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enrichmentParameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enrichmentParameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyIdentifier")
@@ -716,7 +717,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1052edd5ce80236ce4a971335ad896a6630839b27758cef9a2858368e2da759b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="logConfiguration")
@@ -734,7 +735,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3975e792335934f36dcb66bc10ba0ab93afe079dae88c2011a2bacc35a8fe756)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -747,7 +748,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e90ad70ab6477fe6112b4879f928b790cb38e40964bc2dde8bed7a3ba8008c71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceParameters")
@@ -765,7 +766,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ef7a2d44f21af0c5ebeb25368be2b069abd76c8c64ba1cef587c3e219c88bec1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceParameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceParameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -781,7 +782,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4dba8d7cbad9d88d28d6a41b286be656a8aba98a10b5a338c7d175eab7061f25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetParameters")
@@ -799,7 +800,7 @@ class CfnPipe(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d6b5bbabe5f41fcd217d39a2fe0a41e5a7dcac510b412ddae1d12e74d71a1995)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetParameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetParameters", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_pipes.CfnPipe.AwsVpcConfigurationProperty",

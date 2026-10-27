@@ -407,26 +407,31 @@ class BounceTemplate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MAILBOX_DOES_NOT_EXIST")
+    @builtins.classmethod
     def MAILBOX_DOES_NOT_EXIST(cls) -> "BounceTemplate":
         return typing.cast("BounceTemplate", jsii.sget(cls, "MAILBOX_DOES_NOT_EXIST"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MAILBOX_FULL")
+    @builtins.classmethod
     def MAILBOX_FULL(cls) -> "BounceTemplate":
         return typing.cast("BounceTemplate", jsii.sget(cls, "MAILBOX_FULL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MESSAGE_CONTENT_REJECTED")
+    @builtins.classmethod
     def MESSAGE_CONTENT_REJECTED(cls) -> "BounceTemplate":
         return typing.cast("BounceTemplate", jsii.sget(cls, "MESSAGE_CONTENT_REJECTED"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MESSAGE_TOO_LARGE")
+    @builtins.classmethod
     def MESSAGE_TOO_LARGE(cls) -> "BounceTemplate":
         return typing.cast("BounceTemplate", jsii.sget(cls, "MESSAGE_TOO_LARGE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TEMPORARY_FAILURE")
+    @builtins.classmethod
     def TEMPORARY_FAILURE(cls) -> "BounceTemplate":
         return typing.cast("BounceTemplate", jsii.sget(cls, "TEMPORARY_FAILURE"))
 

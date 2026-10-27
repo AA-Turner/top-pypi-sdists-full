@@ -1211,7 +1211,7 @@ class Unpack30(RarUnpacker):
     def __init__(
         self,
         data: bytes | memoryview,
-        unp_size: int,
+        unp_size: int | None,
         win_size: int,
         solid: bool = False,
     ):
@@ -1239,14 +1239,6 @@ class Unpack30(RarUnpacker):
         self._old_filter_lengths: list[int] = []
         self._prgstack: list[_UnpackFilter30 | None] = []
         self._last_filter = 0
-
-    def _get_char(self) -> int:
-        inp = self._inp
-        if inp.in_addr >= len(inp.buf):
-            return 0
-        ch = inp.buf[inp.in_addr]
-        inp.in_addr += 1
-        return ch
 
     def _write_buf(self):
         written_border = self._wr_ptr
@@ -1473,7 +1465,7 @@ class Unpack30(RarUnpacker):
         if bit_field & 0x8000:
             self._block_type = BLOCK_PPM
             esc_ref = [self._ppm_esc_char]
-            result = self._ppm.decode_init(self._get_char, esc_ref)
+            result = self._ppm.decode_init(self._inp.get_char, esc_ref)
             self._ppm_esc_char = esc_ref[0]
             return result
 
@@ -1551,7 +1543,7 @@ class Unpack30(RarUnpacker):
         self._unp_old_table[:] = table
         return True
 
-    def init_solid(self, data: bytes | memoryview, dest_size: int):
+    def init_solid(self, data: bytes | memoryview, dest_size: int | None):
         """
         Reinitialize for the next file in a solid archive chain.
         """
@@ -1583,13 +1575,13 @@ class Unpack30(RarUnpacker):
             self._unp_ptr &= mask
 
             if inp.in_addr >= inp_len:
-                if self._written + ((self._unp_ptr - self._wr_ptr) & mask) < self._dest_size:
+                if self._ended_short((self._unp_ptr - self._wr_ptr) & mask):
                     self._raise_corrupt('RAR3.0 stream consumed past end of input.')
                 break
 
             if ((self._wr_ptr - self._unp_ptr) & mask) < 260 and self._wr_ptr != self._unp_ptr:
                 self._write_buf()
-                if self._written > self._dest_size:
+                if self._overran():
                     return self._output
 
             if self._block_type == BLOCK_PPM:

@@ -544,12 +544,14 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal["list_adapter_versions", "list_adapters"]
 RegionName = Literal[
+    "ap-northeast-1",
     "ap-northeast-2",
     "ap-south-1",
     "ap-southeast-1",
     "ap-southeast-2",
     "ca-central-1",
     "eu-central-1",
+    "eu-central-2",
     "eu-south-2",
     "eu-west-1",
     "eu-west-2",

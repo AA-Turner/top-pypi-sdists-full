@@ -2661,6 +2661,15 @@ class CfnAlarm(
         # sliding_window: Any
         
         cfn_alarm = cloudwatch.CfnAlarm(self, "MyCfnAlarm",
+            action_configuration=cloudwatch.CfnAlarm.ActionConfigurationProperty(
+                alarm_tags_propagation=cloudwatch.CfnAlarm.AlarmTagsPropagationProperty(
+                    enabled=False,
+        
+                    # the properties below are optional
+                    excluded_tag_keys=["excludedTagKeys"],
+                    included_tag_keys=["includedTagKeys"]
+                )
+            ),
             actions_enabled=False,
             alarm_actions=["alarmActions"],
             alarm_description="alarmDescription",
@@ -2739,6 +2748,7 @@ class CfnAlarm(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        action_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.ActionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IScalingPolicyRef", "_aws_sns_c06cc191.ITopicRef"]]] = None,
         alarm_description: typing.Optional[builtins.str] = None,
@@ -2770,6 +2780,7 @@ class CfnAlarm(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
+        :param action_configuration: 
         :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state. The default is TRUE. Default: - true
         :param alarm_actions: The list of actions to execute when this alarm transitions into an ALARM state from any other state. Specify each action as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutMetricAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
         :param alarm_description: The description of the alarm.
@@ -2802,6 +2813,7 @@ class CfnAlarm(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAlarmProps(
+            action_configuration=action_configuration,
             actions_enabled=actions_enabled,
             alarm_actions=alarm_actions,
             alarm_description=alarm_description,
@@ -2926,6 +2938,7 @@ class CfnAlarm(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2962,6 +2975,23 @@ class CfnAlarm(
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
 
     @builtins.property
+    @jsii.member(jsii_name="actionConfiguration")
+    def action_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.ActionConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.ActionConfigurationProperty"]], jsii.get(self, "actionConfiguration"))
+
+    @action_configuration.setter
+    def action_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.ActionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__974299c240293ee467dd584331fb7f90e7fee0bc9cb667fb3a0936568a9c3607)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionConfiguration", value)
+
+    @builtins.property
     @jsii.member(jsii_name="actionsEnabled")
     def actions_enabled(
         self,
@@ -2977,7 +3007,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__605b7067b394998a8071adbf9755ea958792836f86023d0ef23df99b8ee52bcb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionsEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmActions")
@@ -2990,7 +3020,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ecc41a9526c2e2c0867e81a362f65327319d216e7659dca4b3860ae75753c28a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmDescription")
@@ -3003,7 +3033,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ae70f62af2cc75616247d133c6c848bc3a0216db1566dcd494bdbf08a99c4638)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmName")
@@ -3016,7 +3046,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__23c8c04504dd76a6623e461e9b6448e0dbf5a2092e2c1aed4d8ecbff1f899de1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmName", value)
 
     @builtins.property
     @jsii.member(jsii_name="comparisonOperator")
@@ -3029,7 +3059,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b70639e8f0bfbbc34ad2338567df4a5d70d17215776eb7aa3581fbe2e40cd29)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "comparisonOperator", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "comparisonOperator", value)
 
     @builtins.property
     @jsii.member(jsii_name="datapointsToAlarm")
@@ -3042,7 +3072,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a8ecc192776c2ee14846f714a390af6c702ed6e634dd57dd26288202304a0796)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "datapointsToAlarm", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "datapointsToAlarm", value)
 
     @builtins.property
     @jsii.member(jsii_name="dimensions")
@@ -3060,7 +3090,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6076cadb3051943abe05b65350e48c7b75b471794dd9cdc8472d1758a7b8cd4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dimensions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dimensions", value)
 
     @builtins.property
     @jsii.member(jsii_name="evaluateLowSampleCountPercentile")
@@ -3076,7 +3106,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aec0314071d83d4872fc9ec8f90d1938e3aa18c267eaf43f637379b01d86c684)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluateLowSampleCountPercentile", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "evaluateLowSampleCountPercentile", value)
 
     @builtins.property
     @jsii.member(jsii_name="evaluationCriteria")
@@ -3094,7 +3124,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__71045c60addcf83ef8ad5b89a6f10e2356c40958a68edb03238ba7f3c6c32f7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluationCriteria", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "evaluationCriteria", value)
 
     @builtins.property
     @jsii.member(jsii_name="evaluationInterval")
@@ -3107,7 +3137,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9b73f7296958c694aafdc052a403054092cf3be773c45f71d031860bb42ac387)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluationInterval", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "evaluationInterval", value)
 
     @builtins.property
     @jsii.member(jsii_name="evaluationPeriods")
@@ -3120,7 +3150,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c080be98f630293bbc63f05942376d4ca0d4a15c82eb9cee4cb1c32b2740abc4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluationPeriods", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "evaluationPeriods", value)
 
     @builtins.property
     @jsii.member(jsii_name="evaluationWindow")
@@ -3138,7 +3168,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e46f1c21eb47ab9c988b7a2fb2b2123430154969a0178e09df234aeee08c4736)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluationWindow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "evaluationWindow", value)
 
     @builtins.property
     @jsii.member(jsii_name="extendedStatistic")
@@ -3154,7 +3184,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__888f8bf20de080b19a46eb68471ca6b6923449631ab8135ff7aa454a9f07b7e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "extendedStatistic", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "extendedStatistic", value)
 
     @builtins.property
     @jsii.member(jsii_name="insufficientDataActions")
@@ -3170,7 +3200,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5eda8d8bf828721d6f8004c5a122ff02b8cf461eca3fe5dc711411c966cf3f14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "insufficientDataActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="metricName")
@@ -3183,7 +3213,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__71f82ca7521ace9dd7ff6c8ef3a9d77edf1d69fcd526f9d5535ff804be3e3d3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metricName", value)
 
     @builtins.property
     @jsii.member(jsii_name="metrics")
@@ -3201,7 +3231,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13ee627a7bc97218488ea85296e024a4aa67101fe00623848363348c246cc493)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metrics", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metrics", value)
 
     @builtins.property
     @jsii.member(jsii_name="namespace")
@@ -3214,7 +3244,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4c788f613b67dd11d2bae1b2a09b80da6e70c30f1037ed4dad770b721c5a5fc9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "namespace", value)
 
     @builtins.property
     @jsii.member(jsii_name="okActions")
@@ -3227,7 +3257,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e122d784f2d44eb64ddfad9117d6763bb7f170c7d3e0dc4a96dc353d55ac374d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "okActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="period")
@@ -3240,7 +3270,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__628a5231423fe29bcf97062014bb2e10fb13ab9ea4e1008de39270a9520ab6a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "period", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "period", value)
 
     @builtins.property
     @jsii.member(jsii_name="statistic")
@@ -3256,7 +3286,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__233ab7996f3717f1bae1d0b9c6063cfa83de67875ac91777906dbd68693e81a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "statistic", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "statistic", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3272,7 +3302,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__895712e62b896ed30b8848bddfdb970fd334934c19393e2eb8ad06392ecf8af9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="threshold")
@@ -3285,7 +3315,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5fbcb41a59e8a1cba566cf0b26b3129b32d1bb58de6d5fcb5045e9d2ddf908de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "threshold", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "threshold", value)
 
     @builtins.property
     @jsii.member(jsii_name="thresholdMetricId")
@@ -3298,7 +3328,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0dea69dd6b9252440a0712cbe34f23c9bf1cc751d0b8326af6517cd05d511fc3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "thresholdMetricId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "thresholdMetricId", value)
 
     @builtins.property
     @jsii.member(jsii_name="treatMissingData")
@@ -3311,7 +3341,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__daed33fabd0003672d13ed63fe7c6c290e186f469fb0feb75842f06ec413f25a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "treatMissingData", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "treatMissingData", value)
 
     @builtins.property
     @jsii.member(jsii_name="unit")
@@ -3324,7 +3354,7 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c2311746224e8eb79c889c7ea604776c607667cdabb1ca67c2b7b269c33749d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "unit", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "unit", value)
 
     @builtins.property
     @jsii.member(jsii_name="warmUpConfiguration")
@@ -3342,7 +3372,68 @@ class CfnAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__003a9c2234f92ae718efcb7d512db766d03bdf50e56899f31a1618b747d0a3a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "warmUpConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "warmUpConfiguration", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.ActionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"alarm_tags_propagation": "alarmTagsPropagation"},
+    )
+    class ActionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            alarm_tags_propagation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.AlarmTagsPropagationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param alarm_tags_propagation: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-actionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                action_configuration_property = cloudwatch.CfnAlarm.ActionConfigurationProperty(
+                    alarm_tags_propagation=cloudwatch.CfnAlarm.AlarmTagsPropagationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        excluded_tag_keys=["excludedTagKeys"],
+                        included_tag_keys=["includedTagKeys"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__fbaff028dd26c910a2ec24673d29c1dbb813dc31d2fbff88aed53e9921329978)
+                check_type(argname="argument alarm_tags_propagation", value=alarm_tags_propagation, expected_type=type_hints["alarm_tags_propagation"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if alarm_tags_propagation is not None:
+                self._values["alarm_tags_propagation"] = alarm_tags_propagation
+
+        @builtins.property
+        def alarm_tags_propagation(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.AlarmTagsPropagationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-actionconfiguration.html#cfn-cloudwatch-alarm-actionconfiguration-alarmtagspropagation
+            '''
+            result = self._values.get("alarm_tags_propagation")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.AlarmTagsPropagationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ActionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.AlarmPromQLCriteriaProperty",
@@ -3432,6 +3523,103 @@ class CfnAlarm(
 
         def __repr__(self) -> str:
             return "AlarmPromQLCriteriaProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarm.AlarmTagsPropagationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "excluded_tag_keys": "excludedTagKeys",
+            "included_tag_keys": "includedTagKeys",
+        },
+    )
+    class AlarmTagsPropagationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            excluded_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+            included_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param enabled: Whether the alarm's tags are included in its action notifications and state-change events.
+            :param excluded_tag_keys: The tag keys to leave out. Cannot be specified together with IncludedTagKeys.
+            :param included_tag_keys: The only tag keys to include. Cannot be specified together with ExcludedTagKeys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmtagspropagation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                alarm_tags_propagation_property = cloudwatch.CfnAlarm.AlarmTagsPropagationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    excluded_tag_keys=["excludedTagKeys"],
+                    included_tag_keys=["includedTagKeys"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1d434e4cdfb194bb7ae7daa8acba9931f6e250f0b7d94a2d9584d14c8049b029)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument excluded_tag_keys", value=excluded_tag_keys, expected_type=type_hints["excluded_tag_keys"])
+                check_type(argname="argument included_tag_keys", value=included_tag_keys, expected_type=type_hints["included_tag_keys"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if excluded_tag_keys is not None:
+                self._values["excluded_tag_keys"] = excluded_tag_keys
+            if included_tag_keys is not None:
+                self._values["included_tag_keys"] = included_tag_keys
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether the alarm's tags are included in its action notifications and state-change events.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmtagspropagation.html#cfn-cloudwatch-alarm-alarmtagspropagation-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def excluded_tag_keys(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The tag keys to leave out.
+
+            Cannot be specified together with IncludedTagKeys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmtagspropagation.html#cfn-cloudwatch-alarm-alarmtagspropagation-excludedtagkeys
+            '''
+            result = self._values.get("excluded_tag_keys")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def included_tag_keys(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The only tag keys to include.
+
+            Cannot be specified together with ExcludedTagKeys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmtagspropagation.html#cfn-cloudwatch-alarm-alarmtagspropagation-includedtagkeys
+            '''
+            result = self._values.get("included_tag_keys")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AlarmTagsPropagationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4357,6 +4545,7 @@ class CfnAlarmMuteRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4435,7 +4624,7 @@ class CfnAlarmMuteRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__89476ff7adb4652e60873b596820ab5489ae2968f368be3c23d664a7375f7773)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rule", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -4448,7 +4637,7 @@ class CfnAlarmMuteRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1a5a183121f9a4e0aa6e399964f560ac2e8d54ad25a0c152763254f8cfdb2987)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="expireDate")
@@ -4461,7 +4650,7 @@ class CfnAlarmMuteRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__370ee57900efeed106a238813eff098cbd0f275c94784bdf0039352cde0d879d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "expireDate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "expireDate", value)
 
     @builtins.property
     @jsii.member(jsii_name="muteTargets")
@@ -4479,7 +4668,7 @@ class CfnAlarmMuteRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1486f895eb9dd150cbd3af3855eb0a46045d8f1a06f8bcbb26d2ed030e840089)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "muteTargets", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "muteTargets", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4492,7 +4681,7 @@ class CfnAlarmMuteRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5f5173dfeb6c5dda02ee5ca6f489b32d8c27572267115e5344e1d681c34e08b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="startDate")
@@ -4505,7 +4694,7 @@ class CfnAlarmMuteRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b4fbc0410d88e2f1299d48b36ee4b58db7f1cf30f3c94693bc036ecc3e3dea8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "startDate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "startDate", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4521,7 +4710,7 @@ class CfnAlarmMuteRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d0ae573a6e39166514ee198bfdb2f176cc010f6cdbc3b288db93aaae6fdc51e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarmMuteRule.MuteTargetsProperty",
@@ -4911,6 +5100,7 @@ class CfnAlarmMuteRuleProps:
     jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAlarmProps",
     jsii_struct_bases=[],
     name_mapping={
+        "action_configuration": "actionConfiguration",
         "actions_enabled": "actionsEnabled",
         "alarm_actions": "alarmActions",
         "alarm_description": "alarmDescription",
@@ -4943,6 +5133,7 @@ class CfnAlarmProps:
     def __init__(
         self,
         *,
+        action_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAlarm.ActionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_aws_autoscaling_66012b8a.IScalingPolicyRef", "_aws_sns_c06cc191.ITopicRef"]]] = None,
         alarm_description: typing.Optional[builtins.str] = None,
@@ -4972,6 +5163,7 @@ class CfnAlarmProps:
     ) -> None:
         '''Properties for defining a ``CfnAlarm``.
 
+        :param action_configuration: 
         :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state. The default is TRUE. Default: - true
         :param alarm_actions: The list of actions to execute when this alarm transitions into an ALARM state from any other state. Specify each action as an Amazon Resource Name (ARN). For more information about creating alarms and the actions that you can specify, see `PutMetricAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
         :param alarm_description: The description of the alarm.
@@ -5012,6 +5204,15 @@ class CfnAlarmProps:
             # sliding_window: Any
             
             cfn_alarm_props = cloudwatch.CfnAlarmProps(
+                action_configuration=cloudwatch.CfnAlarm.ActionConfigurationProperty(
+                    alarm_tags_propagation=cloudwatch.CfnAlarm.AlarmTagsPropagationProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        excluded_tag_keys=["excludedTagKeys"],
+                        included_tag_keys=["includedTagKeys"]
+                    )
+                ),
                 actions_enabled=False,
                 alarm_actions=["alarmActions"],
                 alarm_description="alarmDescription",
@@ -5086,6 +5287,7 @@ class CfnAlarmProps:
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f14782517)
+            check_type(argname="argument action_configuration", value=action_configuration, expected_type=type_hints["action_configuration"])
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
             check_type(argname="argument alarm_actions", value=alarm_actions, expected_type=type_hints["alarm_actions"])
             check_type(argname="argument alarm_description", value=alarm_description, expected_type=type_hints["alarm_description"])
@@ -5113,6 +5315,8 @@ class CfnAlarmProps:
             check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
             check_type(argname="argument warm_up_configuration", value=warm_up_configuration, expected_type=type_hints["warm_up_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if action_configuration is not None:
+            self._values["action_configuration"] = action_configuration
         if actions_enabled is not None:
             self._values["actions_enabled"] = actions_enabled
         if alarm_actions is not None:
@@ -5165,6 +5369,16 @@ class CfnAlarmProps:
             self._values["unit"] = unit
         if warm_up_configuration is not None:
             self._values["warm_up_configuration"] = warm_up_configuration
+
+    @builtins.property
+    def action_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.ActionConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-actionconfiguration
+        '''
+        result = self._values.get("action_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAlarm.ActionConfigurationProperty"]], result)
 
     @builtins.property
     def actions_enabled(
@@ -5667,6 +5881,7 @@ class CfnAnomalyDetector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5713,7 +5928,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4577cb9dfe92537d1cc8e64146892876070d141d09590038417ae6ad98c7b32a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="dimensions")
@@ -5731,7 +5946,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aa81b524032f55c8d3aa5c261568d608ed375b489e67451c339cda6dff9fdd55)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dimensions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dimensions", value)
 
     @builtins.property
     @jsii.member(jsii_name="metricCharacteristics")
@@ -5749,7 +5964,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__730fad039b3befd0235c3dce81008e3d9f65ab635fe956e8ed48f3ba7060aaba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricCharacteristics", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metricCharacteristics", value)
 
     @builtins.property
     @jsii.member(jsii_name="metricMathAnomalyDetector")
@@ -5767,7 +5982,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f8f418300bad7bba64cba09c0d26246445ca23587310af02c4b72408240a1db4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricMathAnomalyDetector", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metricMathAnomalyDetector", value)
 
     @builtins.property
     @jsii.member(jsii_name="metricName")
@@ -5780,7 +5995,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__62529ca050619ba994a39e1006e0e31850759c9d38fecaa7680c69fed8dfa964)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metricName", value)
 
     @builtins.property
     @jsii.member(jsii_name="namespace")
@@ -5793,7 +6008,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__773837afe915f1d5b355e30c8993ab753a19fdd128100f68379277738d9ce6f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "namespace", value)
 
     @builtins.property
     @jsii.member(jsii_name="singleMetricAnomalyDetector")
@@ -5811,7 +6026,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f79f6e93c8bc8ee29709af3c665820fb1e16318cf78b4220c7fd5bcb8a1148b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "singleMetricAnomalyDetector", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "singleMetricAnomalyDetector", value)
 
     @builtins.property
     @jsii.member(jsii_name="stat")
@@ -5824,7 +6039,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b7812721bb3336919f3fffca23d863b6f1d266a939ca4c3862657da872edd822)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stat", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "stat", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.ConfigurationProperty",
@@ -7113,6 +7328,15 @@ class CfnCompositeAlarm(
             alarm_rule="alarmRule",
         
             # the properties below are optional
+            action_configuration=cloudwatch.CfnCompositeAlarm.ActionConfigurationProperty(
+                alarm_tags_propagation=cloudwatch.CfnCompositeAlarm.AlarmTagsPropagationProperty(
+                    enabled=False,
+        
+                    # the properties below are optional
+                    excluded_tag_keys=["excludedTagKeys"],
+                    included_tag_keys=["includedTagKeys"]
+                )
+            ),
             actions_enabled=False,
             actions_suppressor="actionsSuppressor",
             actions_suppressor_extension_period=123,
@@ -7135,6 +7359,7 @@ class CfnCompositeAlarm(
         id: builtins.str,
         *,
         alarm_rule: builtins.str,
+        action_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCompositeAlarm.ActionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         actions_suppressor: typing.Optional[typing.Union[builtins.str, "_aws_cloudwatch_70717108.IAlarmRef", "_aws_cloudwatch_70717108.ICompositeAlarmRef"]] = None,
         actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
@@ -7151,6 +7376,7 @@ class CfnCompositeAlarm(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param alarm_rule: An expression that specifies which other alarms are to be evaluated to determine this composite alarm's state. For each alarm that you reference, you designate a function that specifies whether that alarm needs to be in ALARM state, OK state, or INSUFFICIENT_DATA state. You can use operators (AND, OR and NOT) to combine multiple functions in a single expression. You can use parenthesis to logically group the functions in your expression. You can use either alarm names or ARNs to reference the other alarms that are to be evaluated. Functions can include the following: - ALARM("alarm-name or alarm-ARN") is TRUE if the named alarm is in ALARM state. - OK("alarm-name or alarm-ARN") is TRUE if the named alarm is in OK state. - INSUFFICIENT_DATA("alarm-name or alarm-ARN") is TRUE if the named alarm is in INSUFFICIENT_DATA state. - TRUE always evaluates to TRUE. - FALSE always evaluates to FALSE. TRUE and FALSE are useful for testing a complex AlarmRule structure, and for testing your alarm actions. For more information about ``AlarmRule`` syntax, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
+        :param action_configuration: Configuration that applies to the notifications this alarm sends when it performs its actions.
         :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state of the composite alarm. The default is TRUE.
         :param actions_suppressor: Actions will be suppressed if the suppressor alarm is in the ``ALARM`` state. ``ActionsSuppressor`` can be an AlarmName or an Amazon Resource Name (ARN) from an existing alarm.
         :param actions_suppressor_extension_period: The maximum time in seconds that the composite alarm waits after suppressor alarm goes out of the ``ALARM`` state. After this time, the composite alarm performs its actions. .. epigraph:: ``ExtensionPeriod`` is required only when ``ActionsSuppressor`` is specified.
@@ -7168,6 +7394,7 @@ class CfnCompositeAlarm(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnCompositeAlarmProps(
             alarm_rule=alarm_rule,
+            action_configuration=action_configuration,
             actions_enabled=actions_enabled,
             actions_suppressor=actions_suppressor,
             actions_suppressor_extension_period=actions_suppressor_extension_period,
@@ -7276,6 +7503,7 @@ class CfnCompositeAlarm(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7322,7 +7550,25 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e343637dcbb025d59f785b38d36b2f01ca3c7a48777520e981849e0b80fefcb7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmRule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmRule", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="actionConfiguration")
+    def action_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCompositeAlarm.ActionConfigurationProperty"]]:
+        '''Configuration that applies to the notifications this alarm sends when it performs its actions.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCompositeAlarm.ActionConfigurationProperty"]], jsii.get(self, "actionConfiguration"))
+
+    @action_configuration.setter
+    def action_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCompositeAlarm.ActionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__72ba97b9bf2964c5feff34ea818570c669c452d8d901dbe63fdbe249726c5b5f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="actionsEnabled")
@@ -7340,7 +7586,7 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__43ce9ab8aaafd96e9ff146e41c5e3921be5380953cea24e5da817be9a65afdcb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionsEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="actionsSuppressor")
@@ -7353,7 +7599,7 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec17e197e4085501e80806e6a6281d3058abe5cef41136d5b9adb00c43ad208a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsSuppressor", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionsSuppressor", value)
 
     @builtins.property
     @jsii.member(jsii_name="actionsSuppressorExtensionPeriod")
@@ -7369,7 +7615,7 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f59b02bf7b3f38f8619d99d396adb8a199f811d2b0b285ea883b46dbc6c8093a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsSuppressorExtensionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionsSuppressorExtensionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="actionsSuppressorWaitPeriod")
@@ -7385,7 +7631,7 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dc105b69ef4e4fb77cafb9a01fd07d05e35906a88000902617ddd4ff60098ce4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsSuppressorWaitPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionsSuppressorWaitPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmActions")
@@ -7398,7 +7644,7 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__68f13f2cdd6512362166f971941eb93e413522e0a7f50732f11be4849a0314b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmDescription")
@@ -7411,7 +7657,7 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ba7d39bfc4a33f1e068842cf86eda6b8b89a710218c633e611c70f1c8daa97ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmName")
@@ -7424,7 +7670,7 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bae9a025d5364aad3383cb09745b81ba3d0a684c7d80304295a0b7f668d191b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmName", value)
 
     @builtins.property
     @jsii.member(jsii_name="insufficientDataActions")
@@ -7440,7 +7686,7 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3202031aa3ce5a8e5bb11c41944febb49ef69bfd275589ad920d63e8166038bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "insufficientDataActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="okActions")
@@ -7453,7 +7699,7 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f061adaf1332cbeeb6cedda66357d6a65aea2023583d23de2ed9b9c193d8e7e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "okActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7469,7 +7715,172 @@ class CfnCompositeAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__457680b612885bf2c4b88aebcb2510b437690fdf7d6235bf00d83846c1ee3452)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnCompositeAlarm.ActionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"alarm_tags_propagation": "alarmTagsPropagation"},
+    )
+    class ActionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            alarm_tags_propagation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCompositeAlarm.AlarmTagsPropagationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration that applies to the notifications this alarm sends when it performs its actions.
+
+            :param alarm_tags_propagation: Controls whether the alarm's tags are included in its action notifications and state-change events, and which tag keys are included. Specify IncludedTagKeys or ExcludedTagKeys, but not both. Omit both to include every tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-compositealarm-actionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                action_configuration_property = cloudwatch.CfnCompositeAlarm.ActionConfigurationProperty(
+                    alarm_tags_propagation=cloudwatch.CfnCompositeAlarm.AlarmTagsPropagationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        excluded_tag_keys=["excludedTagKeys"],
+                        included_tag_keys=["includedTagKeys"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__77e080528c824f04c27d075dd3cfd89e41f4372b5bc00c9c6554117e1219d5b1)
+                check_type(argname="argument alarm_tags_propagation", value=alarm_tags_propagation, expected_type=type_hints["alarm_tags_propagation"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if alarm_tags_propagation is not None:
+                self._values["alarm_tags_propagation"] = alarm_tags_propagation
+
+        @builtins.property
+        def alarm_tags_propagation(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCompositeAlarm.AlarmTagsPropagationProperty"]]:
+            '''Controls whether the alarm's tags are included in its action notifications and state-change events, and which tag keys are included.
+
+            Specify IncludedTagKeys or ExcludedTagKeys, but not both. Omit both to include every tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-compositealarm-actionconfiguration.html#cfn-cloudwatch-compositealarm-actionconfiguration-alarmtagspropagation
+            '''
+            result = self._values.get("alarm_tags_propagation")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCompositeAlarm.AlarmTagsPropagationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ActionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnCompositeAlarm.AlarmTagsPropagationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "excluded_tag_keys": "excludedTagKeys",
+            "included_tag_keys": "includedTagKeys",
+        },
+    )
+    class AlarmTagsPropagationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            excluded_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+            included_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Controls whether the alarm's tags are included in its action notifications and state-change events, and which tag keys are included.
+
+            Specify IncludedTagKeys or ExcludedTagKeys, but not both. Omit both to include every tag.
+
+            :param enabled: Whether the alarm's tags are included in its action notifications and state-change events.
+            :param excluded_tag_keys: The tag keys to leave out. Cannot be specified together with IncludedTagKeys.
+            :param included_tag_keys: The only tag keys to include. Cannot be specified together with ExcludedTagKeys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-compositealarm-alarmtagspropagation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                alarm_tags_propagation_property = cloudwatch.CfnCompositeAlarm.AlarmTagsPropagationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    excluded_tag_keys=["excludedTagKeys"],
+                    included_tag_keys=["includedTagKeys"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a9c9fe861de1f9c8d2479650a865fc3f51e28dbfdeccf36f62f92a61c6418078)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument excluded_tag_keys", value=excluded_tag_keys, expected_type=type_hints["excluded_tag_keys"])
+                check_type(argname="argument included_tag_keys", value=included_tag_keys, expected_type=type_hints["included_tag_keys"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if excluded_tag_keys is not None:
+                self._values["excluded_tag_keys"] = excluded_tag_keys
+            if included_tag_keys is not None:
+                self._values["included_tag_keys"] = included_tag_keys
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether the alarm's tags are included in its action notifications and state-change events.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-compositealarm-alarmtagspropagation.html#cfn-cloudwatch-compositealarm-alarmtagspropagation-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def excluded_tag_keys(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The tag keys to leave out.
+
+            Cannot be specified together with IncludedTagKeys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-compositealarm-alarmtagspropagation.html#cfn-cloudwatch-compositealarm-alarmtagspropagation-excludedtagkeys
+            '''
+            result = self._values.get("excluded_tag_keys")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def included_tag_keys(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The only tag keys to include.
+
+            Cannot be specified together with ExcludedTagKeys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-compositealarm-alarmtagspropagation.html#cfn-cloudwatch-compositealarm-alarmtagspropagation-includedtagkeys
+            '''
+            result = self._values.get("included_tag_keys")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AlarmTagsPropagationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -7477,6 +7888,7 @@ class CfnCompositeAlarm(
     jsii_struct_bases=[],
     name_mapping={
         "alarm_rule": "alarmRule",
+        "action_configuration": "actionConfiguration",
         "actions_enabled": "actionsEnabled",
         "actions_suppressor": "actionsSuppressor",
         "actions_suppressor_extension_period": "actionsSuppressorExtensionPeriod",
@@ -7494,6 +7906,7 @@ class CfnCompositeAlarmProps:
         self,
         *,
         alarm_rule: builtins.str,
+        action_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCompositeAlarm.ActionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         actions_suppressor: typing.Optional[typing.Union[builtins.str, "_aws_cloudwatch_70717108.IAlarmRef", "_aws_cloudwatch_70717108.ICompositeAlarmRef"]] = None,
         actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
@@ -7508,6 +7921,7 @@ class CfnCompositeAlarmProps:
         '''Properties for defining a ``CfnCompositeAlarm``.
 
         :param alarm_rule: An expression that specifies which other alarms are to be evaluated to determine this composite alarm's state. For each alarm that you reference, you designate a function that specifies whether that alarm needs to be in ALARM state, OK state, or INSUFFICIENT_DATA state. You can use operators (AND, OR and NOT) to combine multiple functions in a single expression. You can use parenthesis to logically group the functions in your expression. You can use either alarm names or ARNs to reference the other alarms that are to be evaluated. Functions can include the following: - ALARM("alarm-name or alarm-ARN") is TRUE if the named alarm is in ALARM state. - OK("alarm-name or alarm-ARN") is TRUE if the named alarm is in OK state. - INSUFFICIENT_DATA("alarm-name or alarm-ARN") is TRUE if the named alarm is in INSUFFICIENT_DATA state. - TRUE always evaluates to TRUE. - FALSE always evaluates to FALSE. TRUE and FALSE are useful for testing a complex AlarmRule structure, and for testing your alarm actions. For more information about ``AlarmRule`` syntax, see `PutCompositeAlarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutCompositeAlarm.html>`_ in the *Amazon CloudWatch API Reference* .
+        :param action_configuration: Configuration that applies to the notifications this alarm sends when it performs its actions.
         :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state of the composite alarm. The default is TRUE.
         :param actions_suppressor: Actions will be suppressed if the suppressor alarm is in the ``ALARM`` state. ``ActionsSuppressor`` can be an AlarmName or an Amazon Resource Name (ARN) from an existing alarm.
         :param actions_suppressor_extension_period: The maximum time in seconds that the composite alarm waits after suppressor alarm goes out of the ``ALARM`` state. After this time, the composite alarm performs its actions. .. epigraph:: ``ExtensionPeriod`` is required only when ``ActionsSuppressor`` is specified.
@@ -7533,6 +7947,15 @@ class CfnCompositeAlarmProps:
                 alarm_rule="alarmRule",
             
                 # the properties below are optional
+                action_configuration=cloudwatch.CfnCompositeAlarm.ActionConfigurationProperty(
+                    alarm_tags_propagation=cloudwatch.CfnCompositeAlarm.AlarmTagsPropagationProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        excluded_tag_keys=["excludedTagKeys"],
+                        included_tag_keys=["includedTagKeys"]
+                    )
+                ),
                 actions_enabled=False,
                 actions_suppressor="actionsSuppressor",
                 actions_suppressor_extension_period=123,
@@ -7551,6 +7974,7 @@ class CfnCompositeAlarmProps:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f61e2b790710dde8e1d3a57752c99da295b632afeb42e0870113583f0277be2c)
             check_type(argname="argument alarm_rule", value=alarm_rule, expected_type=type_hints["alarm_rule"])
+            check_type(argname="argument action_configuration", value=action_configuration, expected_type=type_hints["action_configuration"])
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
             check_type(argname="argument actions_suppressor", value=actions_suppressor, expected_type=type_hints["actions_suppressor"])
             check_type(argname="argument actions_suppressor_extension_period", value=actions_suppressor_extension_period, expected_type=type_hints["actions_suppressor_extension_period"])
@@ -7564,6 +7988,8 @@ class CfnCompositeAlarmProps:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "alarm_rule": alarm_rule,
         }
+        if action_configuration is not None:
+            self._values["action_configuration"] = action_configuration
         if actions_enabled is not None:
             self._values["actions_enabled"] = actions_enabled
         if actions_suppressor is not None:
@@ -7610,6 +8036,17 @@ class CfnCompositeAlarmProps:
         result = self._values.get("alarm_rule")
         assert result is not None, "Required property 'alarm_rule' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def action_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCompositeAlarm.ActionConfigurationProperty"]]:
+        '''Configuration that applies to the notifications this alarm sends when it performs its actions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-compositealarm.html#cfn-cloudwatch-compositealarm-actionconfiguration
+        '''
+        result = self._values.get("action_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCompositeAlarm.ActionConfigurationProperty"]], result)
 
     @builtins.property
     def actions_enabled(
@@ -7882,6 +8319,7 @@ class CfnDashboard(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7919,7 +8357,7 @@ class CfnDashboard(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a865365ce6c92cb381923f9ec71606f45f52c25334fd65ce166ec545a411b9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dashboardBody", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dashboardBody", value)
 
     @builtins.property
     @jsii.member(jsii_name="dashboardName")
@@ -7932,7 +8370,7 @@ class CfnDashboard(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07330e06be9439e4eb97f9c714be0b2c8c09a55b7ef93d990e58a14e431f65eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dashboardName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dashboardName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7948,7 +8386,7 @@ class CfnDashboard(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__68122b0726cb849add082dcf85b1d14fe88c8c6a2fe3c448203d6c331ecc7895)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -8178,6 +8616,7 @@ class CfnInsightRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -8233,7 +8672,7 @@ class CfnInsightRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e43a5d364bdee89deaa1521057666bc0592788c8b09eb4a4a1368a9983955ab9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleBody", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleBody", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleName")
@@ -8246,7 +8685,7 @@ class CfnInsightRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb020ce7ae390a51012545e5480226be8351f5fa9dd387e75ff1ee669883417a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleState")
@@ -8259,7 +8698,7 @@ class CfnInsightRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__45517418d6e99e8c2af45e33f2d1375212c73bac3d2c9599691ac383edef3c3b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleState", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleState", value)
 
     @builtins.property
     @jsii.member(jsii_name="applyOnTransformedLogs")
@@ -8277,7 +8716,7 @@ class CfnInsightRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9c9111e23da0920d9dadfa879557f9838793eca0312c1c2bec0dc6eb25325512)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applyOnTransformedLogs", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "applyOnTransformedLogs", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -8293,7 +8732,7 @@ class CfnInsightRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d330e494e47f68df8f1753b4e301d3df252f832725f14292abf5fa4ee104054)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -8441,6 +8880,643 @@ class CfnInsightRuleProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IIntegrationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnIntegration(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnIntegration",
+):
+    '''Resource Type definition for AWS::CloudWatch::Integration.
+
+    Manages a CloudWatch (Amazon CloudWatch Observability / Omni) account-scoped integration. V1 supports AWS_CONFIG_SLREC, AWS_INTEGRATION, and EXTERNAL_AGENT.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-integration.html
+    :cloudformationResource: AWS::CloudWatch::Integration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_integration = cloudwatch.CfnIntegration(self, "MyCfnIntegration",
+            integration_type="integrationType",
+            name="name",
+        
+            # the properties below are optional
+            credential=cloudwatch.CfnIntegration.IntegrationCredentialProperty(
+                api_key_credential=cloudwatch.CfnIntegration.ApiKeyCredentialProperty(
+                    api_key_value="apiKeyValue"
+                )
+            ),
+            integration_attributes={
+                "integration_attributes_key": "integrationAttributes"
+            },
+            role_arn="roleArn",
+            tags=[cloudwatch.CfnIntegration.TagsItemsProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        integration_type: builtins.str,
+        name: builtins.str,
+        credential: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntegration.IntegrationCredentialProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        integration_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnIntegration.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::Integration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param integration_type: The type of integration. Immutable after creation.
+        :param name: The customer-supplied name of the integration. Unique per account.
+        :param credential: Write-only API-key credential material for the integration. Stored encrypted and never returned on read.
+        :param integration_attributes: Type-specific configuration attributes (max 50 entries). EXTERNAL_AGENT requires 'catalogId'. On update, supplied attributes merge into the existing map; omitting a key does not remove it.
+        :param role_arn: IAM role ARN the integration assumes. Required for AWS_INTEGRATION (a valid, service-assumable IAM role ARN). Not used by AWS_CONFIG_SLREC or EXTERNAL_AGENT.
+        :param tags: Tags associated with the integration.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7b1219df6eb0af9d79075f19e406d185a0f5a12608dc3d5a0deac4454f484fd5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnIntegrationProps(
+            integration_type=integration_type,
+            name=name,
+            credential=credential,
+            integration_attributes=integration_attributes,
+            role_arn=role_arn,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForIntegration")
+    @builtins.classmethod
+    def arn_for_integration(
+        cls,
+        resource: "_aws_cloudwatch_70717108.IIntegrationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8cff2f32c7b673bb348d41e867d99b4c913844b182accbf3c5578ffdd97ab808)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIntegration", [resource]))
+
+    @jsii.member(jsii_name="isCfnIntegration")
+    @builtins.classmethod
+    def is_cfn_integration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnIntegration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fe8da209aaa9d229012f18b4830dfa2bb29082a7833dc691307c4d40c912f9d9)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIntegration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af8a4a2de76dba997688077532aa4df969fe17b0b4748a845f8b0da751126c8d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__22ca61bd7830b570f424a91c89cafd0fceec7d2f664a412ebd05b66aebe6e83f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time at which the integration was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIntegrationArn")
+    def attr_integration_arn(self) -> builtins.str:
+        '''The ARN of the integration.
+
+        arn:aws:cloudwatch:{region}:{account}:integration/{integrationId}.
+
+        :cloudformationAttribute: IntegrationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIntegrationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIntegrationId")
+    def attr_integration_id(self) -> builtins.str:
+        '''The service-generated unique identifier (UUID) of the integration.
+
+        :cloudformationAttribute: IntegrationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIntegrationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Lifecycle status of the integration.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The time at which the integration was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="integrationRef")
+    def integration_ref(self) -> "_aws_cloudwatch_70717108.IntegrationReference":
+        '''A reference to a Integration resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.IntegrationReference", jsii.get(self, "integrationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="integrationType")
+    def integration_type(self) -> builtins.str:
+        '''The type of integration.'''
+        return typing.cast(builtins.str, jsii.get(self, "integrationType"))
+
+    @integration_type.setter
+    def integration_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f88468bc1a10cc51c3ab035acf60c76c882a77aacb88d75cc812461abe030239)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "integrationType", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The customer-supplied name of the integration.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8ef8f5edb537b5e28b8942d0e7855c658339a55be929edd249c85cf3e3b97344)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="credential")
+    def credential(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.IntegrationCredentialProperty"]]:
+        '''Write-only API-key credential material for the integration.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.IntegrationCredentialProperty"]], jsii.get(self, "credential"))
+
+    @credential.setter
+    def credential(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.IntegrationCredentialProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a05f35deaf0ea1ba9342890384fc8cce24fa169aed4467abbdff9839f624ece0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "credential", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="integrationAttributes")
+    def integration_attributes(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''Type-specific configuration attributes (max 50 entries).'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "integrationAttributes"))
+
+    @integration_attributes.setter
+    def integration_attributes(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d6355edfe3ab3e713dc2ad4bfaf04bff37ad2b33e55ffacc427ef860a2a6ee4d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "integrationAttributes", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''IAM role ARN the integration assumes.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__99211e6d3801763222318041863c0a8b92816f4864dc968b07aa2d763993bf87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["CfnIntegration.TagsItemsProperty"]]:
+        '''Tags associated with the integration.'''
+        return typing.cast(typing.Optional[typing.List["CfnIntegration.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnIntegration.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__291da54b86e53309533f27c4543b2e3305474ce3babe9df9fbcf3dd4ee8bfc2f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnIntegration.ApiKeyCredentialProperty",
+        jsii_struct_bases=[],
+        name_mapping={"api_key_value": "apiKeyValue"},
+    )
+    class ApiKeyCredentialProperty:
+        def __init__(self, *, api_key_value: builtins.str) -> None:
+            '''API-key credential material that can be rotated in place on update.
+
+            :param api_key_value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-integration-apikeycredential.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                api_key_credential_property = cloudwatch.CfnIntegration.ApiKeyCredentialProperty(
+                    api_key_value="apiKeyValue"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ff1356557f3d7a0a7e177b9fbd97aa33f727f3026e48d6bec4cea03c277f4b56)
+                check_type(argname="argument api_key_value", value=api_key_value, expected_type=type_hints["api_key_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "api_key_value": api_key_value,
+            }
+
+        @builtins.property
+        def api_key_value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-integration-apikeycredential.html#cfn-cloudwatch-integration-apikeycredential-apikeyvalue
+            '''
+            result = self._values.get("api_key_value")
+            assert result is not None, "Required property 'api_key_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ApiKeyCredentialProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnIntegration.IntegrationCredentialProperty",
+        jsii_struct_bases=[],
+        name_mapping={"api_key_credential": "apiKeyCredential"},
+    )
+    class IntegrationCredentialProperty:
+        def __init__(
+            self,
+            *,
+            api_key_credential: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntegration.ApiKeyCredentialProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Write-only API-key credential material for the integration.
+
+            Stored encrypted and never returned on read.
+
+            :param api_key_credential: API-key credential material that can be rotated in place on update.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-integration-integrationcredential.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                integration_credential_property = cloudwatch.CfnIntegration.IntegrationCredentialProperty(
+                    api_key_credential=cloudwatch.CfnIntegration.ApiKeyCredentialProperty(
+                        api_key_value="apiKeyValue"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__856de0ba42ca4a75ac04ae1ab9206c0cdb4d4a55acb0fce67311b5489bcc7dbf)
+                check_type(argname="argument api_key_credential", value=api_key_credential, expected_type=type_hints["api_key_credential"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "api_key_credential": api_key_credential,
+            }
+
+        @builtins.property
+        def api_key_credential(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.ApiKeyCredentialProperty"]:
+            '''API-key credential material that can be rotated in place on update.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-integration-integrationcredential.html#cfn-cloudwatch-integration-integrationcredential-apikeycredential
+            '''
+            result = self._values.get("api_key_credential")
+            assert result is not None, "Required property 'api_key_credential' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.ApiKeyCredentialProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IntegrationCredentialProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnIntegration.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-integration-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                tags_items_property = cloudwatch.CfnIntegration.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__26bc5fe6893af8965f5de3b48b3bd0accc3e50d85df90a8da158edbf0aca8acc)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-integration-tagsitems.html#cfn-cloudwatch-integration-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-integration-tagsitems.html#cfn-cloudwatch-integration-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnIntegrationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "integration_type": "integrationType",
+        "name": "name",
+        "credential": "credential",
+        "integration_attributes": "integrationAttributes",
+        "role_arn": "roleArn",
+        "tags": "tags",
+    },
+)
+class CfnIntegrationProps:
+    def __init__(
+        self,
+        *,
+        integration_type: builtins.str,
+        name: builtins.str,
+        credential: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntegration.IntegrationCredentialProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        integration_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnIntegration.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIntegration``.
+
+        :param integration_type: The type of integration. Immutable after creation.
+        :param name: The customer-supplied name of the integration. Unique per account.
+        :param credential: Write-only API-key credential material for the integration. Stored encrypted and never returned on read.
+        :param integration_attributes: Type-specific configuration attributes (max 50 entries). EXTERNAL_AGENT requires 'catalogId'. On update, supplied attributes merge into the existing map; omitting a key does not remove it.
+        :param role_arn: IAM role ARN the integration assumes. Required for AWS_INTEGRATION (a valid, service-assumable IAM role ARN). Not used by AWS_CONFIG_SLREC or EXTERNAL_AGENT.
+        :param tags: Tags associated with the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-integration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_integration_props = cloudwatch.CfnIntegrationProps(
+                integration_type="integrationType",
+                name="name",
+            
+                # the properties below are optional
+                credential=cloudwatch.CfnIntegration.IntegrationCredentialProperty(
+                    api_key_credential=cloudwatch.CfnIntegration.ApiKeyCredentialProperty(
+                        api_key_value="apiKeyValue"
+                    )
+                ),
+                integration_attributes={
+                    "integration_attributes_key": "integrationAttributes"
+                },
+                role_arn="roleArn",
+                tags=[cloudwatch.CfnIntegration.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__36153301c230974a06fba1976c0364f6e11bae9d3bae075546625c2259950887)
+            check_type(argname="argument integration_type", value=integration_type, expected_type=type_hints["integration_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument credential", value=credential, expected_type=type_hints["credential"])
+            check_type(argname="argument integration_attributes", value=integration_attributes, expected_type=type_hints["integration_attributes"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "integration_type": integration_type,
+            "name": name,
+        }
+        if credential is not None:
+            self._values["credential"] = credential
+        if integration_attributes is not None:
+            self._values["integration_attributes"] = integration_attributes
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def integration_type(self) -> builtins.str:
+        '''The type of integration.
+
+        Immutable after creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-integration.html#cfn-cloudwatch-integration-integrationtype
+        '''
+        result = self._values.get("integration_type")
+        assert result is not None, "Required property 'integration_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The customer-supplied name of the integration.
+
+        Unique per account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-integration.html#cfn-cloudwatch-integration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def credential(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.IntegrationCredentialProperty"]]:
+        '''Write-only API-key credential material for the integration.
+
+        Stored encrypted and never returned on read.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-integration.html#cfn-cloudwatch-integration-credential
+        '''
+        result = self._values.get("credential")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.IntegrationCredentialProperty"]], result)
+
+    @builtins.property
+    def integration_attributes(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''Type-specific configuration attributes (max 50 entries).
+
+        EXTERNAL_AGENT requires 'catalogId'. On update, supplied attributes merge into the existing map; omitting a key does not remove it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-integration.html#cfn-cloudwatch-integration-integrationattributes
+        '''
+        result = self._values.get("integration_attributes")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+    @builtins.property
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''IAM role ARN the integration assumes.
+
+        Required for AWS_INTEGRATION (a valid, service-assumable IAM role ARN). Not used by AWS_CONFIG_SLREC or EXTERNAL_AGENT.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-integration.html#cfn-cloudwatch-integration-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["CfnIntegration.TagsItemsProperty"]]:
+        '''Tags associated with the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-integration.html#cfn-cloudwatch-integration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnIntegration.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIntegrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.ILogAlarmRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnLogAlarm(
     _aws_cdk_0cae9daa.CfnResource,
@@ -8488,6 +9564,15 @@ class CfnLogAlarm(
             threshold=123,
         
             # the properties below are optional
+            action_configuration=cloudwatch.CfnLogAlarm.ActionConfigurationProperty(
+                alarm_tags_propagation=cloudwatch.CfnLogAlarm.AlarmTagsPropagationProperty(
+                    enabled=False,
+        
+                    # the properties below are optional
+                    excluded_tag_keys=["excludedTagKeys"],
+                    included_tag_keys=["includedTagKeys"]
+                )
+            ),
             action_log_line_count=123,
             action_log_line_role_arn="actionLogLineRoleArn",
             actions_enabled=False,
@@ -8518,6 +9603,7 @@ class CfnLogAlarm(
         query_results_to_evaluate: jsii.Number,
         scheduled_query_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogAlarm.ScheduledQueryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         threshold: jsii.Number,
+        action_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogAlarm.ActionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         action_log_line_count: typing.Optional[jsii.Number] = None,
         action_log_line_role_arn: typing.Optional[builtins.str] = None,
         actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -8539,6 +9625,7 @@ class CfnLogAlarm(
         :param query_results_to_evaluate: The number of query results over which data is compared to the specified threshold.
         :param scheduled_query_configuration: The scheduled query configuration for the log alarm.
         :param threshold: The value to compare against the results of the scheduled query evaluation.
+        :param action_configuration: Configuration that applies to the notifications this alarm sends when it performs its actions.
         :param action_log_line_count: The number of log lines to include in alarm notifications. Valid values are 0 to 50.
         :param action_log_line_role_arn: The ARN of the IAM role that grants CloudWatch permissions to fetch log lines for alarm notifications. Required when ActionLogLineCount is greater than 0.
         :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state. The default is TRUE. Default: - true
@@ -8561,6 +9648,7 @@ class CfnLogAlarm(
             query_results_to_evaluate=query_results_to_evaluate,
             scheduled_query_configuration=scheduled_query_configuration,
             threshold=threshold,
+            action_configuration=action_configuration,
             action_log_line_count=action_log_line_count,
             action_log_line_role_arn=action_log_line_role_arn,
             actions_enabled=actions_enabled,
@@ -8628,6 +9716,7 @@ class CfnLogAlarm(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -8674,7 +9763,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2c4429adac9487d84439545e51a8c003a8c23309dd0e27adebe431280b092c65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "comparisonOperator", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "comparisonOperator", value)
 
     @builtins.property
     @jsii.member(jsii_name="queryResultsToAlarm")
@@ -8687,7 +9776,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a00d4632a3df5d0052f9efe64255f0d0ec03d2dd2e1c7a0b2cd688a036e327ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queryResultsToAlarm", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queryResultsToAlarm", value)
 
     @builtins.property
     @jsii.member(jsii_name="queryResultsToEvaluate")
@@ -8700,7 +9789,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a8d8c93bbd3e07385c80bd96a2d0978d09e3e3265e8161a4623e6f18cc249d09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queryResultsToEvaluate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queryResultsToEvaluate", value)
 
     @builtins.property
     @jsii.member(jsii_name="scheduledQueryConfiguration")
@@ -8718,7 +9807,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f7f51ca7734072f016f6b6cb5c3e4f640d93a0d0089a910e806ef9fb2a5e26a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scheduledQueryConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scheduledQueryConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="threshold")
@@ -8731,7 +9820,25 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f3bb33172b25e6cf8c31958a687a9a23d7bbf2dacda2f02fda012ae41bc92a4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "threshold", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "threshold", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="actionConfiguration")
+    def action_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ActionConfigurationProperty"]]:
+        '''Configuration that applies to the notifications this alarm sends when it performs its actions.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ActionConfigurationProperty"]], jsii.get(self, "actionConfiguration"))
+
+    @action_configuration.setter
+    def action_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ActionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4ce0f5270958b0bfa0d796a57a3c925acc83404858d8560e9a12e60c4208c09f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="actionLogLineCount")
@@ -8744,7 +9851,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c48f5b3e0b866349933dbee5a0837092dd1ec510160c8daa75ec9fb9ede0668)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionLogLineCount", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionLogLineCount", value)
 
     @builtins.property
     @jsii.member(jsii_name="actionLogLineRoleArn")
@@ -8757,7 +9864,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1dac53e98c25f8a94dc0def2d27ebde656e1f944f0a3d37790c60b5057b256e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionLogLineRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionLogLineRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="actionsEnabled")
@@ -8775,7 +9882,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__10225652bb1876bd4b88c21e82c803d1f077b109d18cf005dfc7612f03aa801c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionsEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmActions")
@@ -8788,7 +9895,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a07ccc15bb9aba841cec4859b59e545772527029140fee5a5bfe973c4b27f588)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmDescription")
@@ -8801,7 +9908,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__608691ef4aa71a9c9cb5f60979b313b23ba1833636e17d6f6d21e04af5f23486)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmName")
@@ -8814,7 +9921,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ad540f5ba271076fa582d5879ca7f9098ab95f4de8fbb8a5f2809390e047609d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmName", value)
 
     @builtins.property
     @jsii.member(jsii_name="insufficientDataActions")
@@ -8830,7 +9937,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a73ba3eb046f253c0b8fb17671850149e739e98335311ca54dc5e6a478ba8db5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "insufficientDataActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="okActions")
@@ -8843,7 +9950,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__052016f1c9c4eddc8b4a8dcbfa13d08695657b6f4703a580fb7a0e8bbef35ed6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "okActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -8859,7 +9966,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__802b86ac81fe37df0e75cb619d85e89933f45875eb9df1799fe69adc48e53cc8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="treatMissingData")
@@ -8872,7 +9979,7 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__67cdad3895817945c11d079d150eedd2b9f00e676c26f36803a927c2a4059095)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "treatMissingData", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "treatMissingData", value)
 
     @builtins.property
     @jsii.member(jsii_name="warmUpConfiguration")
@@ -8890,7 +9997,172 @@ class CfnLogAlarm(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6ec5e41b15f772a74735e022859920a8c97602512f8dc3337ee8c7c71698bb39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "warmUpConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "warmUpConfiguration", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarm.ActionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"alarm_tags_propagation": "alarmTagsPropagation"},
+    )
+    class ActionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            alarm_tags_propagation: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogAlarm.AlarmTagsPropagationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration that applies to the notifications this alarm sends when it performs its actions.
+
+            :param alarm_tags_propagation: Controls whether the alarm's tags are included in its action notifications and state-change events, and which tag keys are included. Specify IncludedTagKeys or ExcludedTagKeys, but not both. Omit both to include every tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-actionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                action_configuration_property = cloudwatch.CfnLogAlarm.ActionConfigurationProperty(
+                    alarm_tags_propagation=cloudwatch.CfnLogAlarm.AlarmTagsPropagationProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        excluded_tag_keys=["excludedTagKeys"],
+                        included_tag_keys=["includedTagKeys"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__12c8cf77f17e9da4f6586686db17bb1a14a818a42335354505489e81cb1a81eb)
+                check_type(argname="argument alarm_tags_propagation", value=alarm_tags_propagation, expected_type=type_hints["alarm_tags_propagation"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if alarm_tags_propagation is not None:
+                self._values["alarm_tags_propagation"] = alarm_tags_propagation
+
+        @builtins.property
+        def alarm_tags_propagation(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.AlarmTagsPropagationProperty"]]:
+            '''Controls whether the alarm's tags are included in its action notifications and state-change events, and which tag keys are included.
+
+            Specify IncludedTagKeys or ExcludedTagKeys, but not both. Omit both to include every tag.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-actionconfiguration.html#cfn-cloudwatch-logalarm-actionconfiguration-alarmtagspropagation
+            '''
+            result = self._values.get("alarm_tags_propagation")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.AlarmTagsPropagationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ActionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarm.AlarmTagsPropagationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "excluded_tag_keys": "excludedTagKeys",
+            "included_tag_keys": "includedTagKeys",
+        },
+    )
+    class AlarmTagsPropagationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            excluded_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+            included_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Controls whether the alarm's tags are included in its action notifications and state-change events, and which tag keys are included.
+
+            Specify IncludedTagKeys or ExcludedTagKeys, but not both. Omit both to include every tag.
+
+            :param enabled: Whether the alarm's tags are included in its action notifications and state-change events.
+            :param excluded_tag_keys: The tag keys to leave out. Cannot be specified together with IncludedTagKeys.
+            :param included_tag_keys: The only tag keys to include. Cannot be specified together with ExcludedTagKeys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-alarmtagspropagation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                alarm_tags_propagation_property = cloudwatch.CfnLogAlarm.AlarmTagsPropagationProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    excluded_tag_keys=["excludedTagKeys"],
+                    included_tag_keys=["includedTagKeys"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ea6487b1b498d59d48aed51ce512ddb22cd0b4b3e76fa7a37a44479c5924bea6)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument excluded_tag_keys", value=excluded_tag_keys, expected_type=type_hints["excluded_tag_keys"])
+                check_type(argname="argument included_tag_keys", value=included_tag_keys, expected_type=type_hints["included_tag_keys"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if excluded_tag_keys is not None:
+                self._values["excluded_tag_keys"] = excluded_tag_keys
+            if included_tag_keys is not None:
+                self._values["included_tag_keys"] = included_tag_keys
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether the alarm's tags are included in its action notifications and state-change events.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-alarmtagspropagation.html#cfn-cloudwatch-logalarm-alarmtagspropagation-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def excluded_tag_keys(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The tag keys to leave out.
+
+            Cannot be specified together with IncludedTagKeys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-alarmtagspropagation.html#cfn-cloudwatch-logalarm-alarmtagspropagation-excludedtagkeys
+            '''
+            result = self._values.get("excluded_tag_keys")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def included_tag_keys(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The only tag keys to include.
+
+            Cannot be specified together with ExcludedTagKeys.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-alarmtagspropagation.html#cfn-cloudwatch-logalarm-alarmtagspropagation-includedtagkeys
+            '''
+            result = self._values.get("included_tag_keys")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AlarmTagsPropagationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarm.ScheduleConfigurationProperty",
@@ -9231,6 +10503,7 @@ class CfnLogAlarm(
         "query_results_to_evaluate": "queryResultsToEvaluate",
         "scheduled_query_configuration": "scheduledQueryConfiguration",
         "threshold": "threshold",
+        "action_configuration": "actionConfiguration",
         "action_log_line_count": "actionLogLineCount",
         "action_log_line_role_arn": "actionLogLineRoleArn",
         "actions_enabled": "actionsEnabled",
@@ -9253,6 +10526,7 @@ class CfnLogAlarmProps:
         query_results_to_evaluate: jsii.Number,
         scheduled_query_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogAlarm.ScheduledQueryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         threshold: jsii.Number,
+        action_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLogAlarm.ActionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         action_log_line_count: typing.Optional[jsii.Number] = None,
         action_log_line_role_arn: typing.Optional[builtins.str] = None,
         actions_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -9272,6 +10546,7 @@ class CfnLogAlarmProps:
         :param query_results_to_evaluate: The number of query results over which data is compared to the specified threshold.
         :param scheduled_query_configuration: The scheduled query configuration for the log alarm.
         :param threshold: The value to compare against the results of the scheduled query evaluation.
+        :param action_configuration: Configuration that applies to the notifications this alarm sends when it performs its actions.
         :param action_log_line_count: The number of log lines to include in alarm notifications. Valid values are 0 to 50.
         :param action_log_line_role_arn: The ARN of the IAM role that grants CloudWatch permissions to fetch log lines for alarm notifications. Required when ActionLogLineCount is greater than 0.
         :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state. The default is TRUE. Default: - true
@@ -9320,6 +10595,15 @@ class CfnLogAlarmProps:
                 threshold=123,
             
                 # the properties below are optional
+                action_configuration=cloudwatch.CfnLogAlarm.ActionConfigurationProperty(
+                    alarm_tags_propagation=cloudwatch.CfnLogAlarm.AlarmTagsPropagationProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        excluded_tag_keys=["excludedTagKeys"],
+                        included_tag_keys=["includedTagKeys"]
+                    )
+                ),
                 action_log_line_count=123,
                 action_log_line_role_arn="actionLogLineRoleArn",
                 actions_enabled=False,
@@ -9346,6 +10630,7 @@ class CfnLogAlarmProps:
             check_type(argname="argument query_results_to_evaluate", value=query_results_to_evaluate, expected_type=type_hints["query_results_to_evaluate"])
             check_type(argname="argument scheduled_query_configuration", value=scheduled_query_configuration, expected_type=type_hints["scheduled_query_configuration"])
             check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
+            check_type(argname="argument action_configuration", value=action_configuration, expected_type=type_hints["action_configuration"])
             check_type(argname="argument action_log_line_count", value=action_log_line_count, expected_type=type_hints["action_log_line_count"])
             check_type(argname="argument action_log_line_role_arn", value=action_log_line_role_arn, expected_type=type_hints["action_log_line_role_arn"])
             check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
@@ -9364,6 +10649,8 @@ class CfnLogAlarmProps:
             "scheduled_query_configuration": scheduled_query_configuration,
             "threshold": threshold,
         }
+        if action_configuration is not None:
+            self._values["action_configuration"] = action_configuration
         if action_log_line_count is not None:
             self._values["action_log_line_count"] = action_log_line_count
         if action_log_line_role_arn is not None:
@@ -9440,6 +10727,17 @@ class CfnLogAlarmProps:
         result = self._values.get("threshold")
         assert result is not None, "Required property 'threshold' is missing"
         return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def action_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ActionConfigurationProperty"]]:
+        '''Configuration that applies to the notifications this alarm sends when it performs its actions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-actionconfiguration
+        '''
+        result = self._values.get("action_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLogAlarm.ActionConfigurationProperty"]], result)
 
     @builtins.property
     def action_log_line_count(self) -> typing.Optional[jsii.Number]:
@@ -9776,6 +11074,7 @@ class CfnMetricStream(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -9849,7 +11148,7 @@ class CfnMetricStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__303acca869f0b2f0dd33e2a704edc1c9841d282e2c5d6fefab0857984b4a7a14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firehoseArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firehoseArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="outputFormat")
@@ -9862,7 +11161,7 @@ class CfnMetricStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c7e65744c47b6274b336b0cab06cc0e6fd616351335054e76423aa5e24f60fdb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outputFormat", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "outputFormat", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -9875,7 +11174,7 @@ class CfnMetricStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__84ed2e0742cbeea084c4b032aceb0bc50b5b099cfab1446baec0d7580228eda5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="excludeFilters")
@@ -9893,7 +11192,7 @@ class CfnMetricStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f8a010b725b9721d5a0070180f728cef097b885a9247729c230c1e48162efb49)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "excludeFilters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "excludeFilters", value)
 
     @builtins.property
     @jsii.member(jsii_name="includeFilters")
@@ -9911,7 +11210,7 @@ class CfnMetricStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9fd63e599d47997efeead98c50e00925a352821609b2a35cc5d8286cc277d16d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "includeFilters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "includeFilters", value)
 
     @builtins.property
     @jsii.member(jsii_name="includeLinkedAccountsMetrics")
@@ -9929,7 +11228,7 @@ class CfnMetricStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db935a48c332f03a24316c2a8a9a44ae9aee2c31a0f66ccbca7f9645b7f6f148)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "includeLinkedAccountsMetrics", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "includeLinkedAccountsMetrics", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -9942,7 +11241,7 @@ class CfnMetricStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3ecec6f0d2b2483e898160ef393fb18ddcf4dd3fc4d302c943abaa1e538f6e3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="statisticsConfigurations")
@@ -9960,7 +11259,7 @@ class CfnMetricStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a5fccdc8e5b648171c23d1254144728db070b30ea4ff96cea910d95125b8aab0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "statisticsConfigurations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "statisticsConfigurations", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -9976,7 +11275,7 @@ class CfnMetricStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6ff12b171ab408aef715723528314a6f2877123297d21c2d3c0cf73a13965ffe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudwatch.CfnMetricStream.MetricStreamFilterProperty",
@@ -10558,6 +11857,7 @@ class CfnOTelEnrichment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -10616,7 +11916,7 @@ class CfnOTelEnrichment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e5b746f3f02214ffb25467f78ac8db019ba8f04459ad6f0c4d36d64efd12988e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "excludeFilters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "excludeFilters", value)
 
     @builtins.property
     @jsii.member(jsii_name="includeFilters")
@@ -10634,7 +11934,7 @@ class CfnOTelEnrichment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e4b55fdf5ef4980151165d4f989152581cd11d1f3161956d8135a846a5f19967)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "includeFilters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "includeFilters", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudwatch.CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty",
@@ -10899,6 +12199,7 @@ class CfnResourceMetricsConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -10950,7 +12251,7 @@ class CfnResourceMetricsConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__48b88805337cc7b18f0c677e8ed089a81003118936a08c0fc1ad4f14c66bf151)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="metricSelections")
@@ -10968,7 +12269,7 @@ class CfnResourceMetricsConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__42c92026b0bb4956b99b1496c4d4f04642adcc78477401fa0d87d9b45b725cde)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricSelections", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metricSelections", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudwatch.CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty",
@@ -11261,6 +12562,7 @@ class CfnView(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -11336,7 +12638,7 @@ class CfnView(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8a607ad5ec02826242d7ab89a206fa18751396607a507bd38ab8d2aa15c35a7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "definition", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -11349,7 +12651,7 @@ class CfnView(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d9947f29c865708b5b334472a797bddfd09d39c83d6fa3d3584fda0d674285fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -11362,7 +12664,7 @@ class CfnView(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__06642345037f91eb7098663742b09fc969d10af8e5add33f2738cb7b10ac5e65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -11378,7 +12680,7 @@ class CfnView(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b906f8894c17ed692b8ac138b422cebb92b26b40aa614a23964bfd74d355c88d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -11518,48 +12820,56 @@ class Color(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Color
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BLUE")
+    @builtins.classmethod
     def BLUE(cls) -> builtins.str:
         '''blue - hex #1f77b4.'''
         return typing.cast(builtins.str, jsii.sget(cls, "BLUE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BROWN")
+    @builtins.classmethod
     def BROWN(cls) -> builtins.str:
         '''brown - hex #8c564b.'''
         return typing.cast(builtins.str, jsii.sget(cls, "BROWN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GREEN")
+    @builtins.classmethod
     def GREEN(cls) -> builtins.str:
         '''green - hex #2ca02c.'''
         return typing.cast(builtins.str, jsii.sget(cls, "GREEN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GREY")
+    @builtins.classmethod
     def GREY(cls) -> builtins.str:
         '''grey - hex #7f7f7f.'''
         return typing.cast(builtins.str, jsii.sget(cls, "GREY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORANGE")
+    @builtins.classmethod
     def ORANGE(cls) -> builtins.str:
         '''orange - hex #ff7f0e.'''
         return typing.cast(builtins.str, jsii.sget(cls, "ORANGE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PINK")
+    @builtins.classmethod
     def PINK(cls) -> builtins.str:
         '''pink - hex #e377c2.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PINK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PURPLE")
+    @builtins.classmethod
     def PURPLE(cls) -> builtins.str:
         '''purple - hex #9467bd.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PURPLE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RED")
+    @builtins.classmethod
     def RED(cls) -> builtins.str:
         '''red - hex #d62728.'''
         return typing.cast(builtins.str, jsii.sget(cls, "RED"))
@@ -12658,6 +13968,7 @@ class Dashboard(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -13072,6 +14383,7 @@ class DefaultValue(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FIRST")
+    @builtins.classmethod
     def FIRST(cls) -> "DefaultValue":
         '''A special value for use with search expressions to have the default value be the first value returned from search.'''
         return typing.cast("DefaultValue", jsii.sget(cls, "FIRST"))
@@ -17765,12 +19077,14 @@ class Stats(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AVERAGE")
+    @builtins.classmethod
     def AVERAGE(cls) -> builtins.str:
         '''The value of Sum / SampleCount during the specified period.'''
         return typing.cast(builtins.str, jsii.sget(cls, "AVERAGE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IQM")
+    @builtins.classmethod
     def IQM(cls) -> builtins.str:
         '''Interquartile mean (IQM) is the trimmed mean of the interquartile range, or the middle 50% of values.
 
@@ -17780,6 +19094,7 @@ class Stats(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MAXIMUM")
+    @builtins.classmethod
     def MAXIMUM(cls) -> builtins.str:
         '''The highest value observed during the specified period.
 
@@ -17789,6 +19104,7 @@ class Stats(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MINIMUM")
+    @builtins.classmethod
     def MINIMUM(cls) -> builtins.str:
         '''The lowest value observed during the specified period.
 
@@ -17798,12 +19114,14 @@ class Stats(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAMPLE_COUNT")
+    @builtins.classmethod
     def SAMPLE_COUNT(cls) -> builtins.str:
         '''The count (number) of data points used for the statistical calculation.'''
         return typing.cast(builtins.str, jsii.sget(cls, "SAMPLE_COUNT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SUM")
+    @builtins.classmethod
     def SUM(cls) -> builtins.str:
         '''All values submitted for the matching metric added together.
 
@@ -19252,6 +20570,7 @@ class AlarmMuteRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -20005,7 +21324,7 @@ class ConcreteWidget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e6a944db25b0c1533973a41edef1a431615645e2f5fcbcc1e577c331d33bb0ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "x", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "x", value)
 
     @builtins.property
     @jsii.member(jsii_name="y")
@@ -20017,7 +21336,7 @@ class ConcreteWidget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__81266f4e20969db506e61dedc6af36fce6fe0f75af699f49b5c6f11f9225bef2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "y", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "y", value)
 
 
 class _ConcreteWidgetProxy(ConcreteWidget):
@@ -21636,7 +22955,7 @@ class AlarmBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f77158cf05762b87148c9ece7c4fc0f4591bc620078d7052247bf9fa5146bbe8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmActionArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmActionArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="insufficientDataActionArns")
@@ -21653,7 +22972,7 @@ class AlarmBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e28ecf3733272408c8625c4e9726b39ea586c58f4c89c08d7ba8579a99a5247)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "insufficientDataActionArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "insufficientDataActionArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="okActionArns")
@@ -21668,7 +22987,7 @@ class AlarmBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__32c054ee1bf96f6ce4073fc60bc6e30b8c1c7d0fe7f902e814f6554b6ee36a71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "okActionArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "okActionArns", value)
 
 
 class _AlarmBaseProxy(
@@ -21934,6 +23253,7 @@ class CompositeAlarm(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -22063,6 +23383,7 @@ class PromQLAlarm(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -22246,6 +23567,7 @@ class Alarm(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANOMALY_DETECTION_NO_THRESHOLD")
+    @builtins.classmethod
     def ANOMALY_DETECTION_NO_THRESHOLD(cls) -> jsii.Number:
         '''Conventional value for the threshold property when creating anomaly detection alarms.
 
@@ -22261,6 +23583,7 @@ class Alarm(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -22382,6 +23705,7 @@ class AnomalyDetectionAlarm(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -22420,6 +23744,8 @@ __all__ = [
     "CfnDashboardProps",
     "CfnInsightRule",
     "CfnInsightRuleProps",
+    "CfnIntegration",
+    "CfnIntegrationProps",
     "CfnLogAlarm",
     "CfnLogAlarmProps",
     "CfnMetricStream",
@@ -22667,6 +23993,7 @@ def _typecheckingstub__5adc477b9cef758736625389f1a51dec08eb7b348be35f42b0e37d6d4
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    action_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.ActionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_autoscaling_66012b8a.IScalingPolicyRef, _aws_sns_c06cc191.ITopicRef]]] = None,
     alarm_description: typing.Optional[builtins.str] = None,
@@ -22733,6 +24060,12 @@ def _typecheckingstub__83bef261115d965bc301e33589e4c9b4a854da5d951fb8e2186758fba
 
 def _typecheckingstub__a8443d72766166ac6ee22ecc2f730f3a6b9fd8414ecf17bbd95ef7e5baf82310(
     props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__974299c240293ee467dd584331fb7f90e7fee0bc9cb667fb3a0936568a9c3607(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAlarm.ActionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22893,11 +24226,27 @@ def _typecheckingstub__003a9c2234f92ae718efcb7d512db766d03bdf50e56899f31a1618b74
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fbaff028dd26c910a2ec24673d29c1dbb813dc31d2fbff88aed53e9921329978(
+    *,
+    alarm_tags_propagation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.AlarmTagsPropagationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__eca5b42a79ed0b85738a1d3bd7ab396cd5c081454d961525656b642417fc6716(
     *,
     pending_period: typing.Optional[jsii.Number] = None,
     query: typing.Optional[builtins.str] = None,
     recovery_period: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d434e4cdfb194bb7ae7daa8acba9931f6e250f0b7d94a2d9584d14c8049b029(
+    *,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    excluded_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+    included_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23091,6 +24440,7 @@ def _typecheckingstub__590f6431c7c9e27a95df0905aa68866874ddf2ae7968ce073c525a84d
 
 def _typecheckingstub__bc643fb1b5f1f1f0e0d9896a5988171163c1f79adc28d1e921bdf85f14782517(
     *,
+    action_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAlarm.ActionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     alarm_actions: typing.Optional[typing.Sequence[typing.Union[builtins.str, _aws_autoscaling_66012b8a.IScalingPolicyRef, _aws_sns_c06cc191.ITopicRef]]] = None,
     alarm_description: typing.Optional[builtins.str] = None,
@@ -23311,6 +24661,7 @@ def _typecheckingstub__5c24d10326e3cd470724ecbde5d50ff23fdf44dc88f809d9a181a5cd8
     id: builtins.str,
     *,
     alarm_rule: builtins.str,
+    action_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCompositeAlarm.ActionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     actions_suppressor: typing.Optional[typing.Union[builtins.str, _aws_cloudwatch_70717108.IAlarmRef, _aws_cloudwatch_70717108.ICompositeAlarmRef]] = None,
     actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
@@ -23367,6 +24718,12 @@ def _typecheckingstub__c792f92e772e604ae78dfb7743ace896d51e15317ab3c7188cb3c3f01
 
 def _typecheckingstub__e343637dcbb025d59f785b38d36b2f01ca3c7a48777520e981849e0b80fefcb7(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72ba97b9bf2964c5feff34ea818570c669c452d8d901dbe63fdbe249726c5b5f(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCompositeAlarm.ActionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23431,9 +24788,26 @@ def _typecheckingstub__457680b612885bf2c4b88aebcb2510b437690fdf7d6235bf00d83846c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__77e080528c824f04c27d075dd3cfd89e41f4372b5bc00c9c6554117e1219d5b1(
+    *,
+    alarm_tags_propagation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCompositeAlarm.AlarmTagsPropagationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9c9fe861de1f9c8d2479650a865fc3f51e28dbfdeccf36f62f92a61c6418078(
+    *,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    excluded_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+    included_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f61e2b790710dde8e1d3a57752c99da295b632afeb42e0870113583f0277be2c(
     *,
     alarm_rule: builtins.str,
+    action_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCompositeAlarm.ActionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     actions_suppressor: typing.Optional[typing.Union[builtins.str, _aws_cloudwatch_70717108.IAlarmRef, _aws_cloudwatch_70717108.ICompositeAlarmRef]] = None,
     actions_suppressor_extension_period: typing.Optional[jsii.Number] = None,
@@ -23596,6 +24970,114 @@ def _typecheckingstub__ea720192b6c423ff900f4b69425db7a31e90fed21a852500910edce45
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7b1219df6eb0af9d79075f19e406d185a0f5a12608dc3d5a0deac4454f484fd5(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    integration_type: builtins.str,
+    name: builtins.str,
+    credential: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntegration.IntegrationCredentialProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    integration_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnIntegration.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cff2f32c7b673bb348d41e867d99b4c913844b182accbf3c5578ffdd97ab808(
+    resource: _aws_cloudwatch_70717108.IIntegrationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe8da209aaa9d229012f18b4830dfa2bb29082a7833dc691307c4d40c912f9d9(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af8a4a2de76dba997688077532aa4df969fe17b0b4748a845f8b0da751126c8d(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22ca61bd7830b570f424a91c89cafd0fceec7d2f664a412ebd05b66aebe6e83f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f88468bc1a10cc51c3ab035acf60c76c882a77aacb88d75cc812461abe030239(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ef8f5edb537b5e28b8942d0e7855c658339a55be929edd249c85cf3e3b97344(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a05f35deaf0ea1ba9342890384fc8cce24fa169aed4467abbdff9839f624ece0(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIntegration.IntegrationCredentialProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6355edfe3ab3e713dc2ad4bfaf04bff37ad2b33e55ffacc427ef860a2a6ee4d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__99211e6d3801763222318041863c0a8b92816f4864dc968b07aa2d763993bf87(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__291da54b86e53309533f27c4543b2e3305474ce3babe9df9fbcf3dd4ee8bfc2f(
+    value: typing.Optional[typing.List[CfnIntegration.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff1356557f3d7a0a7e177b9fbd97aa33f727f3026e48d6bec4cea03c277f4b56(
+    *,
+    api_key_value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__856de0ba42ca4a75ac04ae1ab9206c0cdb4d4a55acb0fce67311b5489bcc7dbf(
+    *,
+    api_key_credential: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntegration.ApiKeyCredentialProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26bc5fe6893af8965f5de3b48b3bd0accc3e50d85df90a8da158edbf0aca8acc(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__36153301c230974a06fba1976c0364f6e11bae9d3bae075546625c2259950887(
+    *,
+    integration_type: builtins.str,
+    name: builtins.str,
+    credential: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntegration.IntegrationCredentialProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    integration_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnIntegration.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__66ae5639341bc4e888439b14358c6e84e1de3f7e4ddb559673ce44c54cfe154f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -23605,6 +25087,7 @@ def _typecheckingstub__66ae5639341bc4e888439b14358c6e84e1de3f7e4ddb559673ce44c54
     query_results_to_evaluate: jsii.Number,
     scheduled_query_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.ScheduledQueryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     threshold: jsii.Number,
+    action_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.ActionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     action_log_line_count: typing.Optional[jsii.Number] = None,
     action_log_line_role_arn: typing.Optional[builtins.str] = None,
     actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
@@ -23670,6 +25153,12 @@ def _typecheckingstub__2f7f51ca7734072f016f6b6cb5c3e4f640d93a0d0089a910e806ef9fb
 
 def _typecheckingstub__f3bb33172b25e6cf8c31958a687a9a23d7bbf2dacda2f02fda012ae41bc92a4f(
     value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ce0f5270958b0bfa0d796a57a3c925acc83404858d8560e9a12e60c4208c09f(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLogAlarm.ActionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23740,6 +25229,22 @@ def _typecheckingstub__6ec5e41b15f772a74735e022859920a8c97602512f8dc3337ee8c7c71
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__12c8cf77f17e9da4f6586686db17bb1a14a818a42335354505489e81cb1a81eb(
+    *,
+    alarm_tags_propagation: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.AlarmTagsPropagationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea6487b1b498d59d48aed51ce512ddb22cd0b4b3e76fa7a37a44479c5924bea6(
+    *,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    excluded_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+    included_tag_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__667c1019a9984b84c525857c349836c0dc54f901df7ce89cbaf01d9dd1a69ef0(
     *,
     schedule_expression: builtins.str,
@@ -23776,6 +25281,7 @@ def _typecheckingstub__e3dd0c09c40300084ab958ab27e45b173c7de0c8e06e81fd1f5726ba5
     query_results_to_evaluate: jsii.Number,
     scheduled_query_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.ScheduledQueryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     threshold: jsii.Number,
+    action_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLogAlarm.ActionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     action_log_line_count: typing.Optional[jsii.Number] = None,
     action_log_line_role_arn: typing.Optional[builtins.str] = None,
     actions_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,

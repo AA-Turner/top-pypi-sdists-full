@@ -13,8 +13,9 @@ use tracing::Level;
 use crate::Input;
 use crate::context::Context;
 use crate::error::ParseError;
+use crate::lossless::TokenKind;
 use crate::range::delim;
-use crate::span::TraceOk;
+use crate::span::{Span, Syntax, TraceOk};
 
 use super::emoji;
 
@@ -22,7 +23,8 @@ use super::emoji;
 const SHRUG: &str = "_(ツ)_/¯";
 
 struct NormalParser<E> {
-	outer: TextParser<E>,
+	context: Context,
+	error: PhantomData<E>,
 }
 
 impl<'data, E> Parser<Input<'data>> for NormalParser<E>
@@ -36,14 +38,13 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		let allowed = self.outer.context.syntaxes;
-		self.outer
-			.context
+		let allowed = self.context.syntaxes;
+		self.context
 			.guard_terminal_sequence(|| {
 				preceded(
 					(
 						not(emoji::unicode::emoji()),
-						not(self.outer.context.allowed_start_sequences()),
+						not(self.context.allowed_start_sequences()),
 						// a modifier delimiter, which the inline parser records instead
 						not(verify(rest, move |rest: &Input| {
 							delim::starts_delimiter(rest, allowed)
@@ -57,15 +58,24 @@ where
 }
 
 /// A resolved escape sequence.
-struct Escape<'data> {
+pub struct Escape<'data> {
 	/// The text the sequence expands to.
-	expansion: &'data str,
+	pub expansion: &'data str,
 	/// How many bytes of the input the sequence covers, counting the backslash itself.
-	consumed: usize,
+	pub consumed: usize,
+}
+
+impl Escape<'_> {
+	/// Whether the backslash is dropped, rather than kept as text.
+	#[must_use]
+	pub fn drops_backslash(&self) -> bool {
+		self.consumed > self.expansion.len()
+	}
 }
 
 /// Resolve the escape sequence at the start of `rest`, which begins with a backslash.
-fn escape(rest: &str) -> Escape<'_> {
+#[must_use]
+pub fn escape(rest: &str) -> Escape<'_> {
 	let tail = &rest[1..];
 
 	if tail.starts_with(SHRUG) {
@@ -99,21 +109,13 @@ fn escape(rest: &str) -> Escape<'_> {
 	}
 }
 
-struct TextParser<E> {
+struct TextParser<S, E> {
 	context: Context,
+	span: PhantomData<S>,
 	error: PhantomData<E>,
 }
 
-impl<E> Clone for TextParser<E> {
-	fn clone(&self) -> Self {
-		Self {
-			context: self.context.clone(),
-			error: PhantomData,
-		}
-	}
-}
-
-impl<E> Debug for TextParser<E> {
+impl<S, E> Debug for TextParser<S, E> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("TextParser")
 			.field("context", &self.context)
@@ -122,11 +124,13 @@ impl<E> Debug for TextParser<E> {
 	}
 }
 
-impl<'data, E> Parser<Input<'data>> for TextParser<E>
+impl<'data, S, E> Parser<Input<'data>> for TextParser<S, E>
 where
+	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = String;
+	/// The unescaped text, with the runs of it and the backslashes the escapes dropped.
+	type Output = (String, S::Syntax);
 	type Error = E;
 
 	#[tracing::instrument(
@@ -147,9 +151,14 @@ where
 		// try again, rescanning to the same backslash every time: quadratic in the run's length,
 		// and silently dropping every escape before the offending one. See the tests below.
 		let mut normal = NormalParser {
-			outer: self.clone(),
+			context: self.context.clone(),
+			error: PhantomData::<E>,
 		};
 		let mut captured = OM::Output::bind(String::new);
+		let mut syntax = OM::Output::bind(S::Syntax::default);
+		let start = input.start;
+		// where the run of text since the last dropped backslash begins
+		let mut run = 0;
 		let mut index = 0;
 
 		while index < input.input_len() {
@@ -180,6 +189,15 @@ where
 						captured.push_str(escape.expansion);
 						captured
 					});
+					if escape.drops_backslash() {
+						let (text_start, backslash) = (start + run, start + index);
+						syntax = OM::Output::map(syntax, |syntax| {
+							syntax.join(text_token::<S>(text_start, backslash)).join(
+								S::Syntax::token(TokenKind::Escape, backslash, backslash + 1),
+							)
+						});
+						run = index + 1;
+					}
 					index += escape.consumed;
 				}
 				Err(err) => return Err(err),
@@ -192,11 +210,24 @@ where
 			})));
 		}
 
-		let captured = OM::Output::map(captured, |captured| {
-			tracing::Span::current().record("output", tracing::field::debug(&captured));
-			captured
+		let (text_start, end) = (start + run, start + index);
+		let syntax = OM::Output::map(syntax, |syntax| {
+			syntax.join(text_token::<S>(text_start, end))
 		});
-		Ok((input.take_from(index), captured)).trace_ok()
+		let output = OM::Output::combine(captured, syntax, |captured, syntax| {
+			tracing::Span::current().record("output", tracing::field::debug(&captured));
+			(captured, syntax)
+		});
+		Ok((input.take_from(index), output)).trace_ok()
+	}
+}
+
+/// A text token from `start` to `end`, if they differ.
+fn text_token<S: Span>(start: usize, end: usize) -> S::Syntax {
+	if end > start {
+		S::Syntax::token(TokenKind::Text, start, end)
+	} else {
+		S::Syntax::default()
 	}
 }
 
@@ -206,12 +237,16 @@ where
 /// context's terminal sequence, an emoji, or any of [`Context::allowed_start_sequences`].
 // \\([^0-9A-Za-z\s])
 #[must_use]
-pub fn text<'data, E>(context: Context) -> impl Parser<Input<'data>, Output = String, Error = E>
+pub fn text<'data, S, E>(
+	context: Context,
+) -> impl Parser<Input<'data>, Output = (String, S::Syntax), Error = E>
 where
+	S: Span,
 	E: ParseError<'data>,
 {
 	TextParser {
 		context,
+		span: PhantomData::<S>,
 		error: PhantomData,
 	}
 }
@@ -226,7 +261,7 @@ mod test {
 	#[test]
 	fn simple_text() {
 		let s = r"foo bar";
-		let (rem, res) = text(Context::default())
+		let (rem, (res, ())) = text::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -238,7 +273,7 @@ mod test {
 	#[test]
 	fn escaped_text() {
 		let s = r"foo\_1bar";
-		let (rem, res) = text(Context::default())
+		let (rem, (res, ())) = text::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -250,7 +285,7 @@ mod test {
 	#[test]
 	fn escaped_backslash() {
 		let s = r"foo\\1bar";
-		let (rem, res) = text(Context::default())
+		let (rem, (res, ())) = text::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -262,7 +297,7 @@ mod test {
 	#[test]
 	fn shrug() {
 		let s = r"¯\_(ツ)_/¯";
-		let (rem, res) = text(Context::default())
+		let (rem, (res, ())) = text::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -280,7 +315,7 @@ mod test {
 			(r"foo\ bar", r"foo\ bar"),
 			(r"foo\9bar", r"foo\9bar"),
 		] {
-			let (rem, res) = text(Context::default())
+			let (rem, (res, ())) = text::<(), _>(Context::default())
 				.parse_complete(s.into())
 				.finish()
 				.map_err(handle_nom_err(s))
@@ -295,7 +330,7 @@ mod test {
 	#[test]
 	fn trailing_backslash_is_literal() {
 		let s = r"foo\";
-		let (rem, res) = text(Context::default())
+		let (rem, (res, ())) = text::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -309,7 +344,7 @@ mod test {
 	#[test]
 	fn unrecognised_escape_does_not_disable_earlier_escapes() {
 		for (s, expected) in [(r"a\_b\_c \z", r"a_b_c \z"), ("a\\_b\\_c \\", "a_b_c \\")] {
-			let (rem, res) = text(Context::default())
+			let (rem, (res, ())) = text::<(), _>(Context::default())
 				.parse_complete(s.into())
 				.finish()
 				.map_err(handle_nom_err(s))
@@ -325,7 +360,7 @@ mod test {
 	fn unrecognised_escape_does_not_consume_terminal_sequence() {
 		let s = "foo\\\nbar";
 		// a paragraph's line, which ends at the newline
-		let (rem, res) = text(Context::default().with_scope(Scope::InlineBlock))
+		let (rem, (res, ())) = text::<(), _>(Context::default().with_scope(Scope::InlineBlock))
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))

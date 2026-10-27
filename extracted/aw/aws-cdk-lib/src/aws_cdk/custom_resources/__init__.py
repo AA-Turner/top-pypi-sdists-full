@@ -1240,12 +1240,14 @@ class AwsCustomResource(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROVIDER_FUNCTION_UUID")
+    @builtins.classmethod
     def PROVIDER_FUNCTION_UUID(cls) -> builtins.str:
         '''The uuid of the custom resource provider singleton lambda function.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROVIDER_FUNCTION_UUID"))
@@ -1328,6 +1330,7 @@ class AwsCustomResourcePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANY_RESOURCE")
+    @builtins.classmethod
     def ANY_RESOURCE(cls) -> typing.List[builtins.str]:
         '''Use this constant to configure access to any resource.'''
         return typing.cast(typing.List[builtins.str], jsii.sget(cls, "ANY_RESOURCE"))
@@ -2640,6 +2643,7 @@ class Provider(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -3216,6 +3220,7 @@ class WaiterStateMachine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

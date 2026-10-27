@@ -37,11 +37,12 @@ from __future__ import annotations
 
 import contextlib
 import threading
-from concurrent.futures import Future
+from concurrent.futures import FIRST_COMPLETED, Future
 from concurrent.futures import wait as wait_for_futures
 import contextvars
 from contextvars import ContextVar
 import json
+import re
 import os
 import sys
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -275,7 +276,7 @@ def agent_label(sources: tuple[str, ...] | list[str] | str) -> str:
         return "coding agent"
     if len(labels) == 1:
         return labels[0]
-    return " and ".join(labels)
+    return f"{', '.join(labels[:-1])} and {labels[-1]}"
 
 
 def instruction_files(sources: tuple[str, ...] | list[str] | str) -> str:
@@ -295,7 +296,8 @@ def instruction_files(sources: tuple[str, ...] | list[str] | str) -> str:
 # -- the install flow, as steps ---------------------------------------------
 #
 # Before installation, choose the coding agents (only when the machine offers
-# a choice), then review everything that will be set up and confirm. The import
+# a choice), then this device's defaults (who records, and what new sessions
+# do), then review everything that will be set up and confirm. The import
 # offer follows the completed installation. There is no capability picker — see
 # the module docstring for why it is gone and what carries the disclosure now.
 # The `‹ Back` / `Next ›` band and the shared key rule (`_wire_picker`) remain
@@ -305,7 +307,7 @@ def instruction_files(sources: tuple[str, ...] | list[str] | str) -> str:
 #: The install flow, including the work after confirmation. The header counts
 #: from this, so adding a step renumbers every screen without another edit.
 INSTALL_STEPS: tuple[str, ...] = (
-    "Coding agents", "Review & install", "Installing", "Import existing work"
+    "Coding agents", "Defaults", "Review & install", "Installing", "Import existing work"
 )
 
 #: The step values by name, so a screen names its own position rather than
@@ -318,6 +320,7 @@ INSTALL_STEPS: tuple[str, ...] = (
 #: on and nothing would raise. Now a reorder moves both together, and a rename
 #: raises here at import rather than mislabelling a screen at runtime.
 STEP_AGENTS = INSTALL_STEPS.index("Coding agents") + 1
+STEP_DEFAULTS = INSTALL_STEPS.index("Defaults") + 1
 STEP_IMPORTS = INSTALL_STEPS.index("Import existing work") + 1
 STEP_CONFIRM = INSTALL_STEPS.index("Review & install") + 1
 STEP_INSTALL = INSTALL_STEPS.index("Installing") + 1
@@ -364,7 +367,9 @@ def install_header(
 def install_apply_header(
     *, agent_screen_shown: bool, agent_index: int, agent_count: int, agent_source: str
 ) -> Callable[[float], list[str]]:
-    """Keep one install bar advancing across sequential coding-agent applies."""
+    """Keep one install bar advancing across sequential coding-agent applies.
+    Which agent is installing, and how far the whole run is, is the
+    `InstallRun`'s heading and bar under it."""
 
     def header(fraction: float) -> list[str]:
         return [
@@ -374,11 +379,373 @@ def install_apply_header(
                 agent_screen_shown=agent_screen_shown,
                 fraction=(agent_index + fraction) / agent_count,
             ),
-            "",
-            f"Installing for {agent_label(agent_source)}",
         ]
 
     return header
+
+
+#: A marketplace refresh or a plugin install (a git fetch, an agent CLI's own
+#: install: seconds each) against one step on an agent's screen after it (a
+#: file written, an answer taken: milliseconds), for `InstallRun`'s bar.
+BATCH_UNIT_WEIGHT = 4
+
+
+def spoken_list(items: Sequence[str]) -> str:
+    """`a`, `a and b`, `a, b and c`."""
+    items = list(items)
+    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
+
+
+class InstallRun:
+    """One bar, with its percentage, for an install of every coding agent in
+    the run, instead of each agent's screen starting its own from empty.
+
+    Each agent's share is its batch units (its marketplace refresh and plugin
+    installs, done for every agent inside the first agent's refresh step:
+    `marketplace_refreshes`), weighted `BATCH_UNIT_WEIGHT`, plus the steps on
+    its own screen; a screen not open yet counts the steps it is expected to
+    have. An agent whose screen finished counts whole. Main thread only: the
+    batch reports from the thread that waits on it (`_refresh_together`)."""
+
+    def __init__(
+        self,
+        sources: Sequence[str],
+        installs: Mapping[str, Sequence[tuple[Capability, str]]] | None = None,
+        *,
+        expected: Mapping[str, int] | None = None,
+    ) -> None:
+        installs = installs or {}
+        self._sources = list(sources)
+        self._batch = {s: 1 + len(installs[s]) if installs.get(s) else 0 for s in self._sources}
+        self._batch_done = dict.fromkeys(self._sources, 0)
+        self._batch_started: set[str] = set()
+        # The steps a screen not open yet is expected to list: its plan (from
+        # `expected`) and its refresh, else the batch's units and two more.
+        self._expected = {
+            s: (expected[s] + bool(self._batch[s])) if expected is not None and s in expected
+            else self._batch[s] + 2 if self._batch[s] else 4
+            for s in self._sources
+        }
+        #: Each opened screen's (fraction done, steps).
+        self._screens: dict[str, tuple[float, int]] = {}
+        self._render: Callable[[], None] | None = None
+        #: The run's fraction as last shown: a screen listing more steps than
+        #: expected must not move the bar back.
+        self._shown = 0.0
+
+    def watch(self, render: Callable[[], None]) -> None:
+        """Redraw with `render` when the batch moves (the open screen's)."""
+        self._render = render
+
+    def batch_started(self, sources: Iterable[str]) -> None:
+        """The batch's report: these agents' refreshes began, all at once."""
+        self._batch_started.update(source for source in sources if source in self._batch)
+        self._redraw()
+
+    def batch_progress(self, source: str, units: int) -> None:
+        """The batch's report: `units` more of `source`'s refresh and installs
+        finished."""
+        if source not in self._batch:
+            return
+        self._batch_done[source] = min(self._batch[source], self._batch_done[source] + units)
+        self._redraw()
+
+    def _redraw(self) -> None:
+        if self._render is not None:
+            self._render()
+
+    def for_agent(self, source: str) -> Callable[[float, int], tuple[str, float]]:
+        """`tui.Progress`'s `run` for `source`'s screen."""
+
+        def run(fraction: float, steps: int) -> tuple[str, float]:
+            self._screens[source] = (fraction, steps)
+            return self._heading(source), self.fraction()
+
+        return run
+
+    def finished(self, source: str) -> None:
+        """`source`'s turn is over, whether or not it opened a screen (one
+        already set up opens none)."""
+        if source in self._batch:
+            self._screens[source] = (1.0, self._screens.get(source, (0.0, self._expected[source]))[1])
+
+    def fraction(self) -> float:
+        done = total = 0.0
+        for source in self._sources:
+            batch = self._batch[source] * BATCH_UNIT_WEIGHT
+            fraction, steps = self._screens.get(source, (0.0, self._expected[source]))
+            whole = fraction >= 1
+            done += (batch if whole else self._batch_done[source] * BATCH_UNIT_WEIGHT) + fraction * steps
+            total += batch + steps
+        self._shown = max(self._shown, done / total if total else 1.0)
+        return self._shown
+
+    def _heading(self, source: str) -> str:
+        installing = [
+            s for s in self._sources if s in self._batch_started and self._batch_done[s] < self._batch[s]
+        ]
+        if installing:
+            # The first agent's refresh step is every marketplace agent's work.
+            return f"Installing plugins for {spoken_list([agent_label(s) for s in installing])}"
+        if len(self._sources) == 1:
+            return f"Installing for {agent_label(source)}"
+        index = self._sources.index(source) + 1 if source in self._sources else 1
+        return f"Installing for {agent_label(source)} ({index} of {len(self._sources)})"
+
+
+_install_run: ContextVar[InstallRun | None] = ContextVar("probe_install_run", default=None)
+
+
+@contextlib.contextmanager
+def install_run(
+    sources: Sequence[str],
+    installs: Mapping[str, Sequence[tuple[Capability, str]]] | None = None,
+    *,
+    expected: Mapping[str, int] | None = None,
+):
+    """In this block, every agent's install screen shares one `InstallRun`."""
+    token = _install_run.set(InstallRun(sources, installs, expected=expected))
+    try:
+        yield _install_run.get()
+    finally:
+        _install_run.reset(token)
+
+
+def current_install_run() -> InstallRun | None:
+    return _install_run.get()
+
+
+class SummaryAction(StrEnum):
+    """What a `RunSummary` counts."""
+
+    INSTALL = "install"
+    UPDATE = "update"
+    UNINSTALL = "uninstall"
+
+
+@dataclass
+class AgentResult:
+    """One coding agent's part of a run, for `RunSummary`: whether it worked,
+    a few words on where it ended (versions), its errors, whether it needs a
+    restart (or /reload) to load or apply Probe, and anything else it needs
+    done that is not routine."""
+
+    source: str
+    ok: bool
+    summary: str = ""
+    notes: Sequence[str] = ()
+    restart: bool = False
+    must: Sequence[str] = ()
+
+
+#: Words that make a noted line worth a person's attention: an error said in
+#: prose rather than with a failure marker (`reports_failure`), or what to do
+#: about one ("browser approval failed: ...", "revoke the key at ...").
+_ATTENTION = re.compile(
+    r"\b(fail(ed|ure|s)?|errors?|denied|refused|rejected|expired|timed out|revoke|re-run|retry|invalid"
+    r"|not (fully|finished|installed|updated|confirmed|paired|saved|configured|valid|looked at)|unverified|unreadable)\b"
+    # A command the person has to run, as its own sentence ("... website code.
+    # Run `unset PROBE_TOKEN` in your shell before future Probe commands.").
+    r"|(?:^|[.:;!]\s+)run `"
+    # An exception named in passing ("W&B history pending (ConnectError).").
+    r"|\(\w*(?:Error|Exception)\b|\bincomplete\b",
+    re.IGNORECASE,
+)
+
+
+def needs_attention(line: str) -> bool:
+    """Whether a line from an install or an Update is an error or what to do
+    about one, not the routine report ("Status line: on", "Auto-update on.")."""
+    return reports_failure(line.strip()) or bool(_ATTENTION.search(line))
+
+
+def attention_lines(lines: Iterable[str]) -> list[str]:
+    """The errors among an action's `lines` (`needs_attention`), each with the
+    indented lines right under it (its reason, the command to run), the
+    failure marker dropped; nothing routine."""
+    out: list[str] = []
+    following = False
+    for line in lines:
+        if not line.strip():
+            following = False
+        elif line.startswith("  "):
+            if following:
+                out.append(f"  {line.strip()}")
+        else:
+            following = needs_attention(line)
+            if following:
+                out.append(line.strip().removeprefix("! ").strip())
+    return out
+
+
+def result_page(headline: str | Sequence[str], *, next_steps: Iterable[str] = (), details: Iterable[str] = ()) -> list[str]:
+    """A wizard action's final page: the answer to what was asked, then Next
+    (what the person must still do) and Details (errors), each only when there
+    is something to say. Every routine line an action's helpers report stays
+    off it: those lines remain what a scripted or `--json` run prints."""
+    lines = [headline] if isinstance(headline, str) else list(headline)
+    next_steps = list(dict.fromkeys(line for line in next_steps if line.strip()))
+    details = list(dict.fromkeys(line for line in details if line.strip()))
+    if next_steps:
+        lines += ["", "Next:", *(f"  {line}" for line in next_steps)]
+    if details:
+        lines += ["", "Details:", *(f"  {line}" for line in details)]
+    return lines
+
+
+def agents_counted(sources: Sequence[str], done: Sequence[str]) -> str:
+    """"Claude Code", "all 4 coding agents", "3 of 4 coding agents"."""
+    if len(sources) == 1:
+        return agent_label(sources[0])
+    if len(done) == len(sources):
+        return "both coding agents" if len(sources) == 2 else f"all {len(sources)} coding agents"
+    return f"{len(done)} of {len(sources)} coding agents"
+
+
+class RunSummary:
+    """The final screen of an install or an Update: how many coding agents
+    worked, which, one Next line for the restarts and any other step that
+    matters, then Details with the errors and nothing else. The full
+    per-agent report it replaces spent a screen on lines like "already at the
+    latest" and "Status line: on" around the one that mattered."""
+
+    def __init__(self, action: SummaryAction, sources: Sequence[str]) -> None:
+        self.action = action
+        self._sources = list(sources)
+        self._results: dict[str, AgentResult] = {}
+        self._notes: list[str] = []
+        self._must: list[str] = []
+        #: The line under the headline: the CLI's version for an Update.
+        self.subtitle = ""
+
+    def record(
+        self,
+        source: str,
+        *,
+        ok: bool,
+        summary: str = "",
+        notes: Iterable[str] = (),
+        restart: bool = False,
+        must: Iterable[str] = (),
+    ) -> None:
+        self._results[source] = AgentResult(
+            source, ok, summary, [n for n in notes if n.strip()], restart, [m for m in must if m.strip()]
+        )
+
+    def note(self, *lines: str) -> None:
+        """Run-wide errors (the CLI, pi's package, the server): each once."""
+        for line in lines:
+            if line.strip() and line not in self._notes:
+                self._notes.append(line)
+
+    def must_do(self, *lines: str) -> None:
+        """Run-wide steps that matter (pi's /reload when pi was not selected)."""
+        for line in lines:
+            if line.strip() and line not in self._must:
+                self._must.append(line)
+
+    def __bool__(self) -> bool:
+        return bool(self._results)
+
+    def lines(self) -> list[str]:
+        results = [self._results[s] for s in self._sources if s in self._results]
+        worked = [r for r in results if r.ok]
+        lines = [self._headline(len(worked), len(self._sources))]
+        if self.subtitle:
+            lines.append(self.subtitle)
+        if worked:
+            width = max(len(agent_label(r.source)) for r in worked)
+            lines.append("")
+            lines += [
+                f"  ✔ {agent_label(r.source):<{width}}   {r.summary}".rstrip() for r in worked
+            ]
+        next_lines = self._next(results)
+        if next_lines:
+            lines += ["", "Next:", *next_lines]
+        details: list[str] = []
+        for result in results:
+            if not result.notes and result.ok:
+                continue
+            head, *rest = list(result.notes) or [
+                {
+                    SummaryAction.INSTALL: "did not finish",
+                    SummaryAction.UPDATE: "not updated",
+                    SummaryAction.UNINSTALL: "not fully removed",
+                }[self.action]
+            ]
+            details.append(f"  {agent_label(result.source)}: {head.strip()}")
+            details += [f"    {line}" for line in rest]
+        not_reached = [s for s in self._sources if s not in self._results]
+        if not_reached:
+            stopped = next((r.source for r in results if not r.ok), None)
+            where = f" (the run stopped at {agent_label(stopped)})" if stopped else ""
+            details.append(f"  {spoken_list([agent_label(s) for s in not_reached])}: not started{where}")
+        carried = {note.strip() for result in results for note in result.notes}
+        details += [f"  {line}" for line in self._notes if line.strip() not in carried]
+        if details:
+            lines += ["", "Details:", *details]
+        return lines
+
+    def _next(self, results: list[AgentResult]) -> list[str]:
+        """One sentence for every restart, then each other step that matters."""
+        from probe.cli import upgrading
+
+        out: list[str] = []
+        restart = [r.source for r in results if r.restart]
+        if restart:
+            if self.action is SummaryAction.INSTALL:
+                # A new install's plugins load at session start: a restart.
+                verbs = [f"restart {spoken_list([agent_label(s) for s in restart])}"]
+            else:
+                # An update Kimi Code and pi take in place with /reload.
+                reload = [s for s in restart if upgrading.reloads_plugins(s)]
+                plain = [s for s in restart if s not in reload]
+                verbs = [
+                    *([f"restart {spoken_list([agent_label(s) for s in plain])}"] if plain else []),
+                    *([f"/reload (or restart) {spoken_list([agent_label(s) for s in reload])}"] if reload else []),
+                ]
+            what = "load Probe" if self.action is SummaryAction.INSTALL else "apply the update"
+            sentence = " and ".join(verbs)
+            out.append(f"  {sentence[0].upper()}{sentence[1:]} to {what}.")
+        carried = {line.strip() for r in results for line in r.must}
+        for result in results:
+            out += [f"  {agent_label(result.source)}: {line}" for line in result.must]
+        out += [f"  {line}" for line in self._must if line.strip() not in carried]
+        return out
+
+    def _headline(self, worked: int, total: int) -> str:
+        if total == 1:
+            label = agent_label(self._sources[0])
+            done = {
+                SummaryAction.INSTALL: (f"Installed Probe in {label}", f"Probe was not fully installed in {label}"),
+                SummaryAction.UPDATE: (f"Updated {label}", f"{label} was not fully updated"),
+                SummaryAction.UNINSTALL: (f"Removed Probe from {label}", f"Probe was not fully removed from {label}"),
+            }[self.action]
+            return done[0] if worked else done[1]
+        counted = agents_counted(self._sources, ["done"] * worked)
+        return {
+            SummaryAction.INSTALL: f"Installed Probe in {counted}",
+            SummaryAction.UPDATE: f"Updated {counted}",
+            SummaryAction.UNINSTALL: f"Removed Probe from {counted}",
+        }[self.action]
+
+
+_run_summary: ContextVar[RunSummary | None] = ContextVar("probe_run_summary", default=None)
+
+
+@contextlib.contextmanager
+def run_summary(action: SummaryAction, sources: Sequence[str]):
+    """In this block, each agent's install or Update records its result in
+    one `RunSummary` (`current_run_summary`)."""
+    token = _run_summary.set(RunSummary(action, sources))
+    try:
+        yield _run_summary.get()
+    finally:
+        _run_summary.reset(token)
+
+
+def current_run_summary() -> RunSummary | None:
+    return _run_summary.get()
 
 
 def step_name(step: int) -> str:
@@ -434,7 +801,7 @@ AGENT_SCREEN_COPY: dict[str, tuple[str, str, str]] = {
     ),
     "diagnose": (
         "Diagnose a problem",
-        "One report per agent you pick.",
+        "Checks each agent you pick.",
         "Which coding agents?",
     ),
     "manual": (
@@ -1466,6 +1833,7 @@ def run_confirm_install(
     step: int | None = None,
     plugins_available: bool = True,
     unavailable: tuple[str, ...] = (),
+    defaults: "DefaultsPick | None" = None,
 ):
     """The confirm screen: features followed by the shared Back / Install band.
 
@@ -1489,6 +1857,20 @@ def run_confirm_install(
     rows = confirm_rows(
         agent_sources, plugins_available=plugins_available, unavailable=unavailable
     )
+    if defaults is not None:
+        # The Defaults step's picks, which this keystroke applies. The daemon's
+        # full consent was on that step; one line here says what it does.
+        from probe.sdk import session_marker
+
+        rows.extend([
+            "",
+            f"  {RECORDER_ROW_TITLE}: {defaults.recorder}  ·  "
+            f"New sessions: {session_marker.state_label(setting_state(defaults.session_state))}",
+        ])
+        if defaults.recorder == session_marker.RECORDER_DAEMON:
+            rows.extend(
+                f"  {line}" for line in tui.wrap("The daemon records as you and sends session parts to an AI model.")
+            )
     rows.append("")
     rows.extend(
         f"  {line}"
@@ -1660,6 +2042,16 @@ class Selection:
     capture: bool
     auto_update: bool
     agent_rules: bool
+    #: Capabilities this run leaves exactly as it finds them: no install, no
+    #: removal, no re-enable, whatever their boolean above says. For a caller
+    #: changing ONE thing (Settings, Update's capture question) whose booleans
+    #: for the rest are only a read. A read is lossy: `capture_on` is False for
+    #: a deliberate off AND for a sign-in's pending lock, and applying that
+    #: False tore down a credential nobody had turned off (Anthrogen,
+    #: 2026-10-26). Honoured for tracking and capture, the two that hold a
+    #: credential or a plugin; automatic updates and the rules block are files
+    #: their boolean already reads back unchanged.
+    preserve: frozenset[Capability] = frozenset()
 
     def as_map(self) -> dict[Capability, bool]:
         return {
@@ -1668,6 +2060,14 @@ class Selection:
             Capability.AUTO_UPDATE: self.auto_update,
             Capability.AGENT_RULES: self.agent_rules,
         }
+
+    def keeps(self, capability: Capability) -> bool:
+        """This run must leave `capability` as it found it."""
+        return capability in self.preserve and capability in PRESERVABLE
+
+
+#: The capabilities `Selection.preserve` applies to (see there).
+PRESERVABLE: frozenset[Capability] = frozenset({Capability.TRACKING, Capability.CAPTURE})
 
 
 def resolve_selection(
@@ -1712,11 +2112,16 @@ def resolve_selection(
         capability: (value if value is not None else fallback[capability])
         for capability, value in explicit.items()
     }
+    # PRESERVE reads capture as `capture_on`, which is False behind a sign-in's
+    # pending lock, and applying that False tears the parked credential down
+    # (`Selection.preserve`). An omitted flag means "leave it": leave it pending.
+    pending = capture is None and configured and caps.capture_awaiting_confirmation
     return Selection(
         tracking=resolved[Capability.TRACKING],
         capture=resolved[Capability.CAPTURE],
         auto_update=resolved[Capability.AUTO_UPDATE],
         agent_rules=resolved[Capability.AGENT_RULES],
+        preserve=frozenset({Capability.CAPTURE}) if pending else frozenset(),
     )
 
 
@@ -1884,6 +2289,8 @@ def _refresh_together(batch: dict) -> None:
     source whose thread cannot start (a process limit) refreshes on its own, at
     its own step, as it did before the batch."""
     answers: dict[str, Future] = batch["answers"]
+    #: Each future's source and how many of its units it finishes.
+    units: dict[Future, tuple[str, int]] = {}
     for each in sorted(batch["pending"]):
         refreshed: Future = Future()
         installed: Future = Future()
@@ -1916,8 +2323,20 @@ def _refresh_together(batch: dict) -> None:
             break
         answers[each] = refreshed
         batch["installed"][each] = installed
+        units[refreshed] = (each, 1)
+        units[installed] = (each, len(plan))
     batch["pending"].intersection_update(answers)
-    wait_for_futures([*answers.values(), *batch["installed"].values()])
+    run = _install_run.get()
+    # Waited for HERE, the thread that draws the screen: the run's bar moves
+    # as each agent's refresh and installs finish.
+    if run is not None:
+        run.batch_started(answers)
+    waiting = set(units)
+    while waiting:
+        finished, waiting = wait_for_futures(waiting, return_when=FIRST_COMPLETED)
+        for future in finished:
+            if run is not None:
+                run.batch_progress(*units[future])
 
 
 def refresh_marketplace(*, source: str | None = None) -> claude_cli.Result:
@@ -2304,6 +2723,57 @@ def headless_needs(needs: list[str]) -> list[str]:
     return [] if needs == ["mcp"] else needs
 
 
+def write_paired_capture_token(source: str, token: str, base_url: str) -> None:
+    """One agent's capture credential where its tap reads it: `.token` in its
+    own tap folder, beside a `.config` pinning the API origin. Every source but
+    claude_code, whose credential is the CLI config's `ingest_token`
+    (`write_capture_credential`). Shared by the sign-in (`authorize`) and a
+    staff capture repair (`probe.cli.main._capture_repair_notice`), so the two
+    cannot disagree about where a token lives. Raises OSError."""
+    state_dir = tap_plugin_dir(source)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    token_path = state_dir / ".token"
+    token_tmp = state_dir / ".token.tmp"
+    # Created 0600 with the secret's first byte, never written then narrowed:
+    # under a 022 umask the old write-then-chmod left the plaintext readable by
+    # every local user for that moment. A stale temp file from an interrupted
+    # write would keep its old mode under O_CREAT, so it goes first and O_EXCL
+    # makes the new one ours.
+    token_tmp.unlink(missing_ok=True)
+    fd = os.open(token_tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(token)
+    os.replace(token_tmp, token_path)
+
+    # The source-bound device grant is an opaque ros_ing token, not the
+    # pairing JWT whose `iss` the standalone tap can inspect. Pin the same
+    # API origin used for authorization so the unified tap never falls back
+    # to a guessed production host (and self-hosted Codex/pi keep working).
+    config_path = state_dir / ".config"
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        config = {}
+    if not isinstance(config, dict):
+        config = {}
+    config["api_base_url"] = base_url.rstrip("/")
+    config_tmp = state_dir / ".config.tmp"
+    config_tmp.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(config_tmp, config_path)
+
+
+def write_capture_credential(source: str, token: str, base_url: str) -> None:
+    """Where `authorize` would put one agent's capture credential. claude_code:
+    the CLI config's `ingest_token` (its hooks read that); every other agent:
+    its tap folder's `.token` (`write_paired_capture_token`). Raises OSError."""
+    if source == "claude_code":
+        from probe.sdk.config import save_context
+
+        save_context({"ingest_token": token})
+        return
+    write_paired_capture_token(source, token, base_url)
+
+
 def authorize(
     grants: list[str],
     *,
@@ -2314,9 +2784,13 @@ def authorize(
     on_prompt=None,
     open_browser: bool = True,
     install_code: str | None = None,
+    minted: dict | None = None,
 ) -> tuple[dict[str, dict], list[str]]:
     """Run ONE browser approval covering everything the user ticked, and persist
     every credential it mints.
+
+    `minted` is an answer already in hand, in the approval exchange's shape
+    (`mint_from_sign_in`): no browser, the same persistence.
 
     This is the step that makes the whole feature true. Computing the grant set
     and then telling the user to go run `probe login` would leave them with a
@@ -2354,15 +2828,16 @@ def authorize(
                 if len(requested_sources) == 1
                 else {"capture_sources": requested_sources}
             )
-        minted = device_authorize(
-            base_url,
-            grants=grants,
-            **source_args,
-            client_context=client_context,
-            on_prompt=on_prompt,
-            open_browser=open_browser,
-            **({"install_code": install_code} if install_code is not None else {}),
-        )
+        if minted is None:
+            minted = device_authorize(
+                base_url,
+                grants=grants,
+                **source_args,
+                client_context=client_context,
+                on_prompt=on_prompt,
+                open_browser=open_browser,
+                **({"install_code": install_code} if install_code is not None else {}),
+            )
     except OnboardingRequired:
         raise
     except DeviceLoginError as exc:
@@ -2479,29 +2954,7 @@ def authorize(
     for paired_source, credential in captures.items():
         if paired_source == "claude_code":
             continue
-        state_dir = tap_plugin_dir(paired_source)
-        state_dir.mkdir(parents=True, exist_ok=True)
-        token_path = state_dir / ".token"
-        token_tmp = state_dir / ".token.tmp"
-        token_tmp.write_text(credential["token"], encoding="utf-8")
-        token_tmp.chmod(0o600)
-        os.replace(token_tmp, token_path)
-
-        # The source-bound device grant is an opaque ros_ing token, not the
-        # pairing JWT whose `iss` the standalone tap can inspect. Pin the same
-        # API origin used for authorization so the unified tap never falls back
-        # to a guessed production host (and self-hosted Codex/pi keep working).
-        config_path = state_dir / ".config"
-        try:
-            config = json.loads(config_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            config = {}
-        if not isinstance(config, dict):
-            config = {}
-        config["api_base_url"] = base_url.rstrip("/")
-        config_tmp = state_dir / ".config.tmp"
-        config_tmp.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
-        os.replace(config_tmp, config_path)
+        write_paired_capture_token(paired_source, credential["token"], base_url)
 
     for grant in grants:
         if grant not in by_grant:
@@ -2543,6 +2996,8 @@ def plan(caps: Capabilities, selection: Selection) -> list[str]:
     current = caps.enabled()
     wanted = selection.as_map()
     for capability, want in wanted.items():
+        if selection.keeps(capability):
+            continue
         have = current[capability]
         if want == have:
             # Capture's runtime switch intentionally describes credential +
@@ -2939,10 +3394,69 @@ def needs_capture_pairing(source: str) -> bool:
     return harness.lean_profile == LEAN_SETTINGS_FILTER and not capture_token_sources(source)
 
 
-def pair_capture(source: str, *, base_url: str, open_browser: bool = True) -> list[str]:
-    """One browser approval for this agent's capture grant alone (nothing else
-    is re-minted). The person chose the daemon, which records from capture, so
-    a leftover sign-in marker in the agent's folder goes too."""
+def mint_from_sign_in(grant: str, *, base_url: str, source: str | None = None) -> dict | None:
+    """The daemon's key (`COMPANION_GRANT`) or one agent's capture key
+    (`"capture"`, with `source`), minted with this device's sign-in -- its
+    installation `api` credential -- and no browser (Richard 2026-10-26: "just
+    reuse the auth token already signed into").
+
+    Callers mint this way only once a person saw the daemon's consent on this
+    run; a run nobody watches keeps the browser approval, which shows it.
+
+    Answers in the approval exchange's shape (`{"grants": [entry]}`), for
+    `authorize(..., minted=)` to persist exactly as a browser approval's. None
+    when this device cannot: no saved sign-in, a `PROBE_TOKEN` in the
+    environment naming another credential (the key would be saved beside the
+    wrong account), a sign-in the server will not mint from (not this
+    installation's, another machine's, an older server without the route), or
+    an answer that is not one. The caller then opens the browser approval as
+    before. A send that fails is retried ONCE: each mint frees the slot of the
+    key before it, so a key whose answer was lost dies with the retry rather
+    than staying live and unheld.
+    """
+    from probe.sdk import errors
+    from probe.sdk.client import Client
+    from probe.sdk.config import load_context, resolve
+    from probe.sdk.surface import Surface
+
+    settings = resolve(base_url=base_url)
+    try:
+        saved = str((load_context() or {}).get("token") or "")
+    except Exception:  # noqa: BLE001 - an unreadable config holds no sign-in
+        return None
+    inherited = os.environ.get("PROBE_TOKEN")
+    if not saved or (inherited and inherited != saved):
+        return None
+    for _attempt in range(2):
+        try:
+            with Client(
+                base_url=settings.base_url,
+                token=saved,
+                fail_open=False,
+                async_writes=False,
+                surface=Surface.CLI.value,
+            ) as client:
+                entry = (
+                    client.mint_capture_credential(source or agent_source())
+                    if grant == "capture"
+                    else client.mint_companion_credential()
+                )
+        except (errors.TransportError, errors.ServerError):
+            continue
+        except (errors.RosError, ValueError):  # a refusal, or a 2xx that is not JSON (a proxy)
+            return None
+        if isinstance(entry, dict) and entry.get("grant") == grant and entry.get("token"):
+            return {"grants": [entry]}
+        return None
+    return None
+
+
+def pair_capture(source: str, *, base_url: str, open_browser: bool = True, sign_in: bool = False) -> list[str]:
+    """This agent's capture key alone (nothing else is re-minted): from this
+    device's sign-in when `sign_in` (the caller showed the daemon's consent;
+    `mint_from_sign_in`), else one browser approval. The person chose the
+    daemon, which records from capture, so a leftover sign-in marker in the
+    agent's folder goes too."""
     from probe.cli.capabilities import agent_target
     from probe.cli.capture import clear_stray_pi_killswitch
 
@@ -2950,7 +3464,11 @@ def pair_capture(source: str, *, base_url: str, open_browser: bool = True) -> li
     lines = [f"Pairing {label}'s session capture (the daemon records from it)."]
     try:
         _grants, messages = authorize(
-            ["capture"], base_url=base_url, capture_sources=[source], open_browser=open_browser
+            ["capture"],
+            base_url=base_url,
+            capture_sources=[source],
+            open_browser=open_browser,
+            minted=mint_from_sign_in("capture", base_url=base_url, source=source) if sign_in else None,
         )
         lines.extend(messages)
     except Exception as exc:  # noqa: BLE001 - every failure reads as "not paired" in apply_recorder
@@ -3181,11 +3699,13 @@ def apply_recorder(caps: Capabilities, value: str, *, base_url: str, rules: bool
             lines.append(f"! could not remove {drop} for {label}: {removal.detail}")
             lines.append(f"  Both plugins are installed; remove {drop} from {label} by hand.")
     lines.append(f"Takes effect in new {label} sessions.")
-    if daemon and source == "codex":
+    if source == "codex":
         # Codex will not run a hook nobody trusted, and says nothing when it
         # declines: the daemon's messages and answers would never arrive
-        # (live Codex test, 2026-09-29). The same step the capture install gives.
-        lines.append("In the new Codex session: `/hooks` › approve the Probe hooks.")
+        # (live Codex test, 2026-09-29). The plugin just swapped in has hook
+        # keys of its own, so Probe approves them, and names `/hooks` when that
+        # did not take.
+        lines.extend(approve_codex_hooks()[0])
     return lines
 
 
@@ -3508,8 +4028,70 @@ def apply_codex_mcp_auth() -> list[str]:
     return [*notes, f"Codex MCP logged in ({CODEX_MCP_NAME})."]
 
 
+def codex_hooks_waiting() -> bool:
+    """Probe's plugins are in Codex and some of their hooks wait for an approval
+    Probe may give (`codex_hooks.waiting`, `approve`'s own rule). Asks Codex
+    (one app-server start, ~0.2s, at most STATUS_TIMEOUT_S) only where a Probe
+    plugin copy is in Codex's cache."""
+    from probe.cli import codex_hooks
+
+    try:
+        if not codex_hooks.installed_copies():
+            return False
+        return codex_hooks.waiting(timeout=codex_hooks.STATUS_TIMEOUT_S)
+    except Exception:  # noqa: BLE001 - a question asked before the plan never fails it
+        return False
+
+
+def approve_codex_hooks(only: frozenset[str] | None = None) -> tuple[list[str], bool]:
+    """Approve Probe's own hooks in Codex, so they run without a trip to `/hooks`:
+    (lines to show, whether none of Probe's hooks waits for approval now).
+
+    Codex skips a plugin's hook until it is approved and says nothing in the
+    session, so a fresh install recorded nothing until the person found `/hooks`
+    (and T3 Code, which drives Codex, has no `/hooks` at all). Only Probe's own
+    plugins' hooks are approved (`codex_hooks.approvable`). Never a failure line:
+    a hook left waiting is what `/hooks` already fixes, so the line names it
+    instead of failing the install."""
+    from probe.cli import codex_hooks
+
+    try:
+        outcome = codex_hooks.approve(only=only)
+    except Exception:  # noqa: BLE001 - approve never raises; an install never fails on it either way
+        outcome = None
+    lines: list[str] = []
+    if outcome is not None and outcome.approved:
+        count = len(outcome.approved)
+        lines.append(f"Approved Probe's {count} hook{'s' if count != 1 else ''} in Codex.")
+    if outcome is not None and outcome.done:
+        return lines, True
+    why = "Codex could not be asked" if outcome is None else (outcome.error or "a Probe hook still waits")
+    lines.append(f"Probe's hooks in Codex still need approval ({why}): {CODEX_HOOKS_INSTRUCTION}")
+    return lines, False
+
+
+def codex_plugins_kept_on(selection: Selection) -> frozenset[str]:
+    """The Probe plugins whose hooks a wizard run may approve: those of the
+    capabilities this selection keeps on. Capture turned off leaves the tap
+    installed (DISABLE), and its hooks must not be approved in that same run."""
+    plugins: set[str] = set()
+    if selection.tracking:
+        plugins |= {TRACKING_PLUGIN_NAME, DAEMON_PLUGIN_NAME}
+    if selection.capture:
+        plugins.add(TAP_PLUGIN_NAME)
+    return frozenset(plugins)
+
+
+#: The person's own way to approve Probe's hooks, for when Probe could not.
+CODEX_HOOKS_INSTRUCTION = "in a new Codex session, type /hooks and approve the Probe hooks."
+
+
 def apply_auto_update(want: bool) -> list[str]:
-    autoupdate.save(enabled=want)
+    try:
+        autoupdate.save(enabled=want)
+    except OSError as exc:
+        # Said, never swallowed: the Probe service may read the other answer.
+        return [f"! {exc}: automatic updates may still be {'on' if not want else 'off'} (check the folder's permissions)"]
     if not want:
         return ["Auto-update off. You'll still get a nudge when a release lands."]
     return ["Auto-update on."]
@@ -3931,6 +4513,27 @@ def confirm_removal(agent_sources: tuple[str, ...] | list[str] | str = ("claude_
     )
 
 
+def confirm_pending_capture(sources: tuple[str, ...] | list[str] | str):
+    """Update's question for capture a sign-in left waiting (`AWAITING_CONFIRMATION`).
+    Returns None, tui.BACK, or a bool.
+
+    Turning it on is the first choice: the browser approval that left the lock
+    is where session capture was granted and disclosed in full, and the
+    person is in this wizard to set Probe up here. Saying no changes nothing.
+    """
+    from probe.cli import tui
+
+    return tui.review(
+        "Turn on session capture?",
+        tui.wrap(
+            f"You signed in on this device, but Install never confirmed session "
+            f"capture, so {agent_label(sources)} sessions are not being sent to "
+            "your team."
+        ),
+        [("Turn on session capture", True), ("Not now", False)],
+    )
+
+
 def confirm_sign_out(account: "str | None" = None):
     """The sign-out gate (Richard 2026-09-29: "add a confirmation page to make
     sure a user doesnt accidentally sign themselves out"). Returns None,
@@ -4167,8 +4770,16 @@ class _DefaultSwitch:
         )
 
     def step(self, delta: int) -> None:
+        from probe.cli import wizard_lock
+
         wanted = self.order[(self.order.index(self.shown) + delta) % len(self.order)]
-        lines = apply_settings({Setting.TRACKING_DEFAULT: wanted})
+        # The menu holds no run lock while it waits on a person (plan C1), so
+        # this write takes it, as every write of the wizard's does.
+        try:
+            with wizard_lock.held():
+                lines = apply_settings({Setting.TRACKING_DEFAULT: wanted})
+        except wizard_lock.Busy:
+            lines = [f"! {wizard_lock.BUSY_MESSAGE}: not switched"]
         failed = next((line for line in lines if reports_failure(line)), None)
         if failed is None:
             self.saved = self.shown = wanted
@@ -4247,6 +4858,17 @@ def _state_row(label: str, value: str, style: str = "") -> str:
     return tui.StyledLine(f"  {label:<{_STATE_LABEL_WIDTH}} {value}", style=style, clip=True)
 
 
+def _capture_word(snapshot: Capabilities) -> str:
+    """The menu's capture state. A sign-in's pending lock says what lifts it:
+    it read "killswitch set", the words for a deliberate off, and a person who
+    picked Update instead of Install was never told why nothing recorded."""
+    if snapshot.capture_awaiting_confirmation:
+        return "off (finish Install)"
+    if snapshot.capture_killswitched:
+        return "off (killswitch set)"
+    return "on" if snapshot.capture_on else "off"
+
+
 def _agent_rows(caps_by_source: dict[str, Capabilities], images=None) -> list[str]:
     """One row per agent: its logo (or its name), then MCP and capture in
     aligned columns.
@@ -4269,9 +4891,7 @@ def _agent_rows(caps_by_source: dict[str, Capabilities], images=None) -> list[st
     mcp_width = max(map(len, mcp.values()), default=0)
     rows: list[str] = []
     for index, (source, snapshot) in enumerate(caps_by_source.items()):
-        capture = "on" if snapshot.capture_on else "off"
-        if snapshot.capture_killswitched:
-            capture = "off (killswitch set)"
+        capture = _capture_word(snapshot)
         label = "" if drawn else names[source]
         text = f"  {label:<{lead}}  {mcp[source]:<{mcp_width}}   capture {capture}"
         if drawn:
@@ -4445,10 +5065,7 @@ def describe_state(
             caps.mcp_status() + (f"  ({caps.logged_in_as})" if caps.logged_in_as else ""),
         )
     ]
-    capture = "on" if caps.capture_on else "off"
-    if caps.capture_killswitched:
-        capture = "off (killswitch set)"
-    lines.append(_state_row("Session capture", capture))
+    lines.append(_state_row("Session capture", _capture_word(caps)))
     lines.extend(describe_versions(caps))
     lines.append(_state_row("Automatic updates", "on" if caps.auto_update_enabled else "off"))
     if caps.last_update_attempt_summary:
@@ -4906,9 +5523,10 @@ def capability_state_for(snapshot) -> dict[Capability, bool]:
 
     Every capability, not only the ones with a row: the Automatic updates box
     is drawn from this read, and `_apply_capability_settings` builds each
-    agent's target from it with only the toggled row overridden -- so the
-    capabilities WITHOUT a row are preserved from this same read, never from a
-    different predicate. The first ship of the settings screen preserved from
+    agent's target from it with only the toggled row overridden. The rows it
+    does not change ride along marked `Selection.preserve`, because a read
+    cannot say "leave it" (a pending capture lock reads as off); this read
+    still decides the booleans the screen and the apply compare. The first ship of the settings screen preserved from
     `Capabilities.enabled()` instead, whose TRACKING member also requires a
     login, so on a signed-out machine an unrelated commit uninstalled the
     tracking plugin.
@@ -5465,6 +6083,13 @@ RECORDER_ROW_COPY: dict[str, tuple[str, ...]] = {
 }
 
 
+#: The install's Defaults pick for Who records, while the install runs and only
+#: when the person CHANGED the row (`main`): a newly set-up agent does not
+#: follow the device's old recorder first (`follow_machine_recorder`) when the
+#: pick moves every agent the other way right after.
+INSTALL_RECORDER_PICK: ContextVar["str | None"] = ContextVar("install_recorder_pick", default=None)
+
+
 def follow_machine_recorder(
     source: str,
     caps: "Capabilities | Callable[[], Capabilities]",
@@ -5488,6 +6113,8 @@ def follow_machine_recorder(
     daemon = session_marker.RECORDER_DAEMON
     if source not in RECORDER_SOURCES or session_marker.recorder(source) == daemon:
         return []
+    if INSTALL_RECORDER_PICK.get() == session_marker.RECORDER_AGENT:
+        return []  # the install's Defaults step moves every agent off the daemon next
     if not any(session_marker.recorder(other) == daemon for other in RECORDER_SOURCES if other != source):
         return []
     if not companion_token_held() or ai_libraries() is None:
@@ -5559,6 +6186,261 @@ class DefaultChoice:
     still takes one through `chosen=`."""
 
     state: str
+
+
+class DefaultsRow(StrEnum):
+    """The install's Defaults step, row by row: the main menu's Defaults group
+    (who records, and what new sessions do) on a page of its own."""
+
+    RECORDER = "recorder"
+    SESSIONS = "sessions"
+
+
+@dataclass(frozen=True)
+class DefaultsPick:
+    """What the install's Defaults step answered. HELD, never written by the
+    step: the session default is saved at the Install keypress and Who records
+    once the agents are installed (`main._apply_recorder_pick`), so backing
+    out of the install leaves the device as it was."""
+
+    recorder: str
+    session_state: str
+
+
+class ConsentView(StrEnum):
+    """Which half of the daemon's consent a screen shows."""
+
+    SUMMARY = "summary"
+    DETAILS = "details"
+
+
+#: The Probe daemon's consent, in the wizard. A daemon key minted from this
+#: device's sign-in (`main._authorize_companion`) never opens the browser
+#: approval, so these are the SAME words that page shows a daemon-only request:
+#: `CONSENT_SUMMARY` and `GRANT_COPY[ApiGrant.Companion]` in
+#: dashboard/src/lib/scopes.ts. `agent/tests/test_consent_copy_sync.py` holds
+#: the two copies equal; change them together.
+DAEMON_CONSENT_LEAD = "It will be able to:"
+DAEMON_CONSENT_SUMMARY: tuple[str, ...] = (
+    "Run the Probe daemon, which records as you",
+    "Upload this device's coding-session transcripts",
+    "Send session parts to an AI model, through Probe",
+    "Upload project files it judges part of your work",
+    "Trash research; remove papers, views, links for good",
+)
+DAEMON_CONSENT_DETAILS: tuple[str, ...] = (
+    "Run the Probe daemon, which uploads this device's coding sessions and records your work in Probe as you",
+    "Reads this device's coding sessions and uploads their transcripts to your team's knowledgebase.",
+    "Transcripts carry your prompts and the images you paste into them, the assistant's replies and your shell commands — not file contents, not tool output.",
+    "Images you paste are uploaded unscanned: a screenshot that shows a credential is uploaded with it. Turn that off in the Probe wizard's Settings.",
+    "Uploads project files it judges part of your work's record, such as results and configs.",
+    "Each file it uploads is scanned for secrets first: its first 16 MB, or 64 MB of a file that is not text.",
+    "Files named like credentials are not uploaded unless you approve them; with your coding agent's permission prompts off, that approval is automatic.",
+    "Sends parts of the session — command output and the files it reads included — to the AI model it runs on, through Probe, to decide what to record.",
+    "Can read and write, and move runs, groups, experiments and projects to the trash.",
+    "Never deletes a run, group, experiment or project permanently: Probe can restore trashed ones for 21 days.",
+    "Can permanently remove recorded papers, views, lineage edges, and links between projects or to repositories. It asks you first, unless your coding agent's permission prompts are off.",
+    "Credential-shaped values are replaced before upload — a filter, not a guarantee. Keep live credentials out of captured sessions.",
+    "This device only. Turn it off any time from Integrations.",
+)
+
+
+def daemon_consent_lines(view: ConsentView, width: int) -> list[str]:
+    """The daemon's consent as display lines `width` wide: the five-line summary,
+    or every line. A bullet's wrapped lines hang under its text, not its mark."""
+    from probe.cli import tui
+
+    mark, items = (
+        ("✓", DAEMON_CONSENT_SUMMARY) if view is ConsentView.SUMMARY else ("•", DAEMON_CONSENT_DETAILS)
+    )
+    lines = [DAEMON_CONSENT_LEAD]
+    for item in items:
+        first, *rest = tui.wrap(item, max(10, width - 2))
+        lines.extend([f"{mark} {first}", *(f"  {line}" for line in rest)])
+    return lines
+
+
+def run_defaults_step(pick: DefaultsPick, *, agent_screen_shown: bool) -> "tuple[object, DefaultsPick]":
+    """Install step 2: the main menu's Defaults group on a page of its own.
+
+    Returns `(answer, pick)`: the answer is True (Next), tui.BACK or None
+    (Ctrl-C), and `pick` is what the rows read when the page closed, kept by
+    the caller so Back and forward again shows the same picks.
+
+    The rows switch with `←`/`→` like the menu's (Enter switches too), but
+    NOTHING is written here: the menu's rows save on each press, this page only
+    answers (`DefaultsPick`). While Who records reads `daemon`, its row carries
+    the daemon's consent (`DAEMON_CONSENT_SUMMARY`), and `d` swaps in every
+    line (Tab is the page's own key for reading the text above the rows): the
+    disclosure sits where the choice is made. An environment variable
+    holding the session default down keeps that row still, as on the menu.
+    """
+    import questionary
+
+    from probe.cli import tui
+    from probe.sdk import session_marker
+
+    daemon = session_marker.RECORDER_DAEMON
+    cycles: dict = {DefaultsRow.RECORDER: (session_marker.RECORDER_AGENT, daemon)}
+    if session_marker.state_env_override() is None:
+        cycles[DefaultsRow.SESSIONS] = cycling_settings()[Setting.TRACKING_DEFAULT]
+    start = {
+        DefaultsRow.RECORDER: pick.recorder,
+        DefaultsRow.SESSIONS: setting_state(pick.session_state),
+    }
+    view = {"consent": ConsentView.SUMMARY}
+    indent = tui.body_indent()
+    room = max(20, tui.box_width() - (2 + tui.BOX_GUTTER) - 2)
+
+    def row_text(row: DefaultsRow, value: str) -> str:
+        if row is DefaultsRow.RECORDER:
+            title, detail = recorder_row(value)
+            body = (
+                daemon_consent_lines(view["consent"], room)
+                if value == daemon
+                else [line for item in detail for line in tui.wrap(item, room)]
+            )
+        else:
+            title, detail = tracking_default_row(value)
+            body = [line for item in detail for line in tui.wrap(item, room)]
+        return f"\n{indent}  ".join([title, *body])
+
+    rows = {row: questionary.Choice(title=row_text(row, start[row]), value=row) for row in DefaultsRow}
+    choices: list = []
+    for row in rows.values():
+        choices.extend([questionary.Separator(" "), row])
+    choices.extend(nav_footer())
+    message = tui.framed(
+        "Defaults",
+        tui.wrap("Who records, and what new sessions do on this device. The menu's Defaults changes either later."),
+        "How should Probe run here?",
+    )
+    instruction = "← → switch · d daemon details · enter · esc back · nothing is saved until Install"
+    question = tui.checkbox(
+        message,
+        choices=choices,
+        instruction=instruction,
+        style=tui.style(),
+        qmark=tui.qmark(),
+        pointer=tui.pointer(),
+    )
+    content = getattr(question, "_probe_content", None)
+    if isinstance(content, dict):
+        content["instruction"] = instruction  # the page's key line: these rows switch, they do not tick
+    tui.draw_own_boxes(question)  # these rows switch; a ticked box would say otherwise
+
+    def values(control) -> DefaultsPick:
+        cycle = getattr(control, "probe_cycle", None) or {}
+        return DefaultsPick(
+            recorder=cycle.get(DefaultsRow.RECORDER, start[DefaultsRow.RECORDER]),
+            session_state=cycle.get(DefaultsRow.SESSIONS, start[DefaultsRow.SESSIONS]),
+        )
+
+    def redraw(control) -> None:
+        for row, choice in rows.items():
+            choice.title = row_text(row, values(control).recorder if row is DefaultsRow.RECORDER
+                                    else values(control).session_state)
+
+    left: dict = {}
+    control = _wire_picker(
+        question,
+        redraw=redraw,
+        on_leave=lambda ctrl: True,
+        on_back=lambda ctrl: left.update(pick=values(ctrl)),
+        cycles=cycles,
+        cycle_state=start,
+    )
+    if control is None:
+        # questionary's internals moved and nothing here can switch: skip the
+        # page with the device's values. The menu's Defaults still sets both.
+        return True, pick
+    tui.point_at(control, lambda value: value == NAV_BAND)
+    dress_band(question, control)
+    try:
+        from prompt_toolkit.filters import Condition
+
+        bindings = question.application.key_bindings
+        pointed = lambda: getattr(control.get_pointed_at(), "value", None)  # noqa: E731
+
+        def shift(delta: int):
+            def _shift(event) -> None:  # pragma: no cover - requires a live terminal
+                row = pointed()
+                order = cycles[row]
+                here = control.probe_cycle.get(row, order[0])
+                control.probe_cycle[row] = order[(order.index(here) + delta) % len(order)]
+                redraw(control)
+
+            return _shift
+
+        # Registered after `_wire_picker`'s `←`/`→` (Back/Next), so on a row
+        # that switches these win; on the band those still go back and on.
+        on_row = Condition(lambda: pointed() in cycles)
+        bindings.add("left", eager=True, filter=on_row)(shift(-1))
+        bindings.add("right", eager=True, filter=on_row)(shift(1))
+
+        @bindings.add(
+            "d",
+            eager=True,
+            filter=Condition(lambda: pointed() == DefaultsRow.RECORDER and values(control).recorder == daemon),
+        )
+        def _(event) -> None:  # pragma: no cover - requires a live terminal
+            view["consent"] = (
+                ConsentView.DETAILS if view["consent"] is ConsentView.SUMMARY else ConsentView.SUMMARY
+            )
+            redraw(control)
+
+    except Exception:  # noqa: BLE001 - Enter still switches a row; the band still works
+        pass
+    answer = tui.ask(
+        question,
+        height=tui.content_height(message, choices, instruction=instruction),
+        margin=0,
+        progress=install_header(STEP_DEFAULTS, agent_screen_shown=agent_screen_shown),
+    )
+    if answer is True:
+        return True, values(control)
+    return answer, left.get("pick", pick)
+
+
+def run_daemon_consent(agent_sources: "tuple[str, ...] | list[str] | str"):
+    """The daemon's consent before its key is minted from this device's sign-in
+    (the main menu's Who records → daemon). Returns True (turn it on), False
+    (keep the agents recording), tui.BACK or None.
+
+    That key used to come from a browser approval, and the approval page was
+    where the daemon was disclosed; minting it from the sign-in skips the page,
+    so the same words show here (`DAEMON_CONSENT_SUMMARY`, every line one
+    choice away). Turning it on is the first choice: the person just switched
+    the row to the daemon.
+    """
+    from probe.cli import tui
+
+    view = ConsentView.SUMMARY
+    while True:
+        lines = [
+            *tui.wrap(
+                f"It records for {agent_label(agent_sources)} on this device. No browser needed: "
+                "this device's sign-in gives it its own key."
+            ),
+            "",
+            *daemon_consent_lines(view, tui.CONTENT_WIDTH),
+            "",
+            "Turn it off any time: Who records ‹ agent ›.",
+        ]
+        toggle = (
+            ("Show every detail", ConsentView.DETAILS)
+            if view is ConsentView.SUMMARY
+            else ("Show the summary", ConsentView.SUMMARY)
+        )
+        picked = tui.review(
+            "Turn on the Probe daemon?",
+            lines,
+            [("Turn on the daemon", True), toggle, ("Keep my agents recording", False)],
+        )
+        if picked in (ConsentView.SUMMARY, ConsentView.DETAILS):
+            view = picked
+            continue
+        return picked
 
 
 #: The Defaults picker's forward label: the way forward IS the save.
@@ -5967,6 +6849,13 @@ def sign_in(
     )
     requested_capture = list(dict.fromkeys([*repair, *new_capture]))
     grants = ["api", "mcp"] + (["capture"] if requested_capture else [])
+    from . import identity_check, install_pipeline
+
+    # A sign-in starts: the OS keeper may come back (R1), and what is queued
+    # under the credential this replaces goes BEFORE the exchange, which
+    # releases it on the server (plan clean-uninstall-reinstall R-T4, R8).
+    install_pipeline.clear_keeper_off()
+    drained = identity_check.drain_before_switch() if previous.get("token") else []
 
     granted, messages = authorize(
         grants,
@@ -5977,6 +6866,7 @@ def sign_in(
         open_browser=open_browser,
         **({"install_code": install_code} if install_code is not None else {}),
     )
+    messages = [*drained, *messages]
     if "api" not in granted:
         return SignInResult(
             ok=False,
@@ -6013,7 +6903,18 @@ def sign_in(
                 what="the token this device was using before",
             )
         )
+    if previous.get("companion_token"):
+        # The daemon key an earlier sign-in left: it must be this account's
+        # (R5: it stayed, and the daemon wrote to the old team).
+        held = identity_check.reconcile(base_url=base_url)
+        lines.extend(held.lines)
+        lines.extend(f"! {problem}" for problem in held.problems)
     return SignInResult(ok=True, lines=lines)
+
+
+#: `release_credentials`' words when the saved credentials stayed on disk:
+#: the sign-out and Uninstall pages must not say "signed out" then.
+CREDENTIALS_NOT_CLEARED = "could not clear the saved credentials"
 
 
 def release_credentials() -> list[str]:
@@ -6085,7 +6986,7 @@ def release_credentials() -> list[str]:
         clear_context(context)
     except Exception as exc:  # noqa: BLE001 - an unwritable config is a message, not a crash
         lines.append(
-            f"! could not clear the saved credentials ({exc}). "
+            f"! {CREDENTIALS_NOT_CLEARED} ({exc}). "
             "Delete them by hand, or move the config aside to start fresh."
         )
     else:
@@ -6163,30 +7064,34 @@ def switch_account(
     need a browser round trip to move between credentials this machine already
     holds.
     """
-    from probe.sdk.config import load_context, resolve, use_context
+    from probe.sdk.config import DEFAULT_BASE_URL, load_context, resolve, use_context
 
     use_context(name)
     stored = load_context(name)
     endpoint = str(stored.get("base_url") or resolve().base_url)
-    lines = [f"Now using the account saved as “{name}” ({endpoint})."]
     if not stored.get("token"):
-        lines.append(f"It holds no credential yet — `probe wizard --action login --context {name}` signs in to it.")
+        lines = [
+            f"Now using the account saved as “{name}” ({endpoint}).",
+            f"It holds no credential yet — `probe wizard --action login --context {name}` signs in to it.",
+        ]
     else:
+        # Who it is, in one line: the server only when it is not Probe's own.
         email = account_email(endpoint)
-        if email:
-            lines.append(f"Signed in as {email}.")
+        who = [part for part in (email, endpoint if endpoint.rstrip("/") != DEFAULT_BASE_URL else None) if part]
+        lines = [f"Now using “{name}”" + (f" ({' at '.join(who)})." if who else ".")]
 
     # `ingest_token` lives INSIDE the context, so it follows the switch. A
     # paired device token does not: it is one file per agent, minted by whoever
     # approved it, and it keeps uploading there. Switching accounts silently
     # would send this device's transcripts to the team just switched away from.
+    # One line naming them all, not the same sentence per agent.
     normalized = (sources,) if isinstance(sources, str) else tuple(sources)
-    for source in normalized:
-        if TokenSource.PAIRED_FILE in capture_token_sources(source):
-            lines.append(
-                f"! {agent_label(source)} Session capture still uploads to the account that "
-                "paired it. `probe wizard --action login` re-pairs it to this one."
-            )
+    paired = [source for source in normalized if TokenSource.PAIRED_FILE in capture_token_sources(source)]
+    if paired:
+        lines.append(
+            f"! Session capture for {spoken_list([agent_label(source) for source in paired])} still "
+            "uploads to the account that paired it. `probe wizard --action login` re-pairs it to this one."
+        )
     return lines
 
 
@@ -6304,7 +7209,33 @@ def finish_removal() -> list[str]:
     ]
 
 
-def restart_notice(caps: Capabilities, selection: Selection) -> list[str]:
+#: What a Codex that just got the capture plugin still needs from a person.
+CODEX_HOOK_STEPS = (
+    "In the new session: `/hooks` › approve Probe Session Capture.",
+    "Until you do, capture is installed but sends nothing.",
+)
+
+
+def install_next(
+    caps: Capabilities, selection: Selection, *, codex_hooks_approved: bool = False
+) -> tuple[bool, list[str]]:
+    """`restart_notice` for the final summary (`RunSummary`): whether the
+    agent needs a restart to load Probe, and the one step besides it that
+    matters (Codex's hook approval). "Nothing to restart" and the like are the
+    routine report, left off."""
+    steps = restart_notice(caps, selection, codex_hooks_approved=codex_hooks_approved)
+    restart = bool(steps) and steps[0].startswith("Restart ")
+    must = []
+    if CODEX_HOOK_STEPS[0] in steps:
+        must.append("approve Probe Session Capture under `/hooks` in its new session; until then capture sends nothing.")
+    # Tracking turned off: open sessions still carry Probe until they restart.
+    must += [step for step in steps if step.startswith("Open ")]
+    return restart, must
+
+
+def restart_notice(
+    caps: Capabilities, selection: Selection, *, codex_hooks_approved: bool = False
+) -> list[str]:
     """What the user still has to do, one short line each.
 
     Returned as separate lines rather than a paragraph because this is rendered
@@ -6378,11 +7309,11 @@ def restart_notice(caps: Capabilities, selection: Selection) -> list[str]:
     )
     if installed_now:
         steps = [f"Restart {agent} to load Probe."]
-        if caps.agent_source == "codex" and selection.capture:
+        if caps.agent_source == "codex" and selection.capture and not codex_hooks_approved:
             # Codex will not run a hook nobody trusted, and it says nothing when it
             # declines. Without this line capture looks installed and sends nothing.
-            steps.append("In the new session: `/hooks` › approve Probe Session Capture.")
-            steps.append("Until you do, capture is installed but sends nothing.")
+            # Not when this run approved Probe's hooks itself (`approve_codex_hooks`).
+            steps.extend(CODEX_HOOK_STEPS)
         return steps
     steps = []
     if selection.capture and not current[Capability.CAPTURE]:

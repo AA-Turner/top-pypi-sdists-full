@@ -1,12 +1,12 @@
 //! Integration between Rust collection and pytest execution.
 
-use crate::cli::CannotExpandReport;
-use crate::collection::error::{CollectionError, CollectionOutcome, CollectionWarning};
-use crate::collection::nodes::{collect_one_node, Session};
-use crate::collection::types::Collector;
-use crate::python_discovery::{cannot_expand_nodeid_from_message, format_cannot_expand_marker};
+use crate::collection::error::{CollectionError, CollectionWarning};
+use crate::collection::nodes::Session;
+use crate::collection::types::CollectionNode;
+use crate::python_discovery::{DiscoveryCache, DuplicateIds};
+#[cfg(feature = "extension-module")]
+use std::io::{self, Write};
 use std::path::PathBuf;
-use std::rc::Rc;
 
 /// Holds errors and warnings encountered during collection
 #[derive(Debug)]
@@ -15,74 +15,77 @@ pub struct CollectionErrors {
     pub warnings: Vec<CollectionWarning>,
 }
 
+#[cfg(feature = "extension-module")]
+impl CollectionErrors {
+    pub(crate) fn write_cannot_expand_report(&self, writer: &mut dyn Write) -> io::Result<()> {
+        self.warnings
+            .iter()
+            .filter_map(|warning| warning.cannot_expand_nodeid.as_deref())
+            .try_for_each(|nodeid| writeln!(writer, "rtest-cannot-expand: {nodeid}"))?;
+        writer.flush()
+    }
+}
+
 /// Run the Rust-based collection and return test node IDs
 pub fn collect_tests_rust(
     rootpath: PathBuf,
     args: &[String],
+    duplicate_ids: DuplicateIds,
 ) -> Result<(Vec<String>, CollectionErrors), CollectionError> {
-    let session = Rc::new(Session::new(rootpath));
+    let mut session = Session::new(rootpath);
+    session.config.duplicate_ids = duplicate_ids;
     let mut collection_errors = CollectionErrors {
         errors: Vec::new(),
         warnings: Vec::new(),
     };
 
-    match session.perform_collect(args) {
-        Ok((collectors, path_errors)) => {
-            for (path, error) in path_errors {
-                collection_errors.errors.push((path, error));
-            }
-
-            let mut test_nodes = Vec::new();
-
-            for collector in collectors {
-                collect_items_recursive(
-                    collector.as_ref(),
-                    &mut test_nodes,
-                    &mut collection_errors,
-                );
-            }
-
-            Ok((test_nodes, collection_errors))
-        }
-        Err(e) => Err(e),
+    let collectors = session.perform_collect(args)?;
+    let mut test_nodes = Vec::new();
+    let mut discovery = DiscoveryCache::default();
+    for collector in collectors {
+        collect_items_recursive(
+            &session,
+            collector,
+            &mut test_nodes,
+            &mut collection_errors,
+            &mut discovery,
+        );
     }
+    Ok((test_nodes, collection_errors))
 }
 
 /// Recursively collect all test items
 fn collect_items_recursive(
-    collector: &dyn Collector,
+    session: &Session,
+    node: CollectionNode,
     test_nodes: &mut Vec<String>,
     collection_errors: &mut CollectionErrors,
+    discovery: &mut DiscoveryCache,
 ) {
-    if collector.is_item() {
-        test_nodes.push(collector.nodeid().into());
-    } else {
-        let report = collect_one_node(collector);
-        collection_errors.warnings.extend(report.warnings);
-        match report.outcome {
-            CollectionOutcome::Passed => {
-                for child in report.result {
-                    collect_items_recursive(child.as_ref(), test_nodes, collection_errors);
+    match node {
+        CollectionNode::Test(nodeid) => test_nodes.push(nodeid),
+        CollectionNode::Branch(collector) => match collector.collect(session, discovery) {
+            Ok((children, warnings)) => {
+                collection_errors.warnings.extend(warnings);
+                for child in children {
+                    collect_items_recursive(
+                        session,
+                        child,
+                        test_nodes,
+                        collection_errors,
+                        discovery,
+                    );
                 }
             }
-            CollectionOutcome::Failed => {
-                if let Some(error) = report.error_type {
-                    collection_errors
-                        .errors
-                        .push((report.nodeid.clone(), error));
-                }
-            }
-            _ => {}
-        }
+            Err(error) => collection_errors
+                .errors
+                .push((collector.nodeid(session), error)),
+        },
     }
 }
 
 /// Display collection results in a format similar to pytest
-pub fn display_collection_results(
-    test_nodes: &[String],
-    errors: &CollectionErrors,
-    cannot_expand: &CannotExpandReport,
-) {
+pub fn display_collection_results(test_nodes: &[String], errors: &CollectionErrors) {
     // ANSI color codes
     const RED: &str = "\x1b[31m";
     const BOLD_RED: &str = "\x1b[1;31m";
@@ -105,9 +108,6 @@ pub fn display_collection_results(
                 CollectionError::IoError(e) => {
                     println!("{RED}E   IO Error: {e}{RESET}");
                 }
-                CollectionError::SkipError(msg) => {
-                    println!("{RED}E   Skipped: {msg}{RESET}");
-                }
                 CollectionError::FileNotFound(path) => {
                     println!(
                         "{RED}E   file or directory not found: {}{RESET}",
@@ -129,35 +129,22 @@ pub fn display_collection_results(
     if item_count == 0 && error_count == 0 {
         println!("No tests collected.");
     } else {
-        let mut summary_parts = Vec::new();
+        let summary_parts: Vec<String> = [
+            (item_count, "collected ", "item"),
+            (error_count, "", "error"),
+            (warning_count, "", "warning"),
+        ]
+        .into_iter()
+        .filter(|(count, _, _)| *count > 0)
+        .map(|(count, prefix, label)| {
+            format!(
+                "{prefix}{count} {label}{}",
+                if count == 1 { "" } else { "s" }
+            )
+        })
+        .collect();
 
-        if item_count > 0 {
-            summary_parts.push(format!(
-                "collected {} item{}",
-                item_count,
-                if item_count == 1 { "" } else { "s" }
-            ));
-        }
-
-        if error_count > 0 {
-            summary_parts.push(format!(
-                "{} error{}",
-                error_count,
-                if error_count == 1 { "" } else { "s" }
-            ));
-        }
-
-        if warning_count > 0 {
-            summary_parts.push(format!(
-                "{} warning{}",
-                warning_count,
-                if warning_count == 1 { "" } else { "s" }
-            ));
-        }
-
-        if !summary_parts.is_empty() {
-            println!("{}", summary_parts.join(" / "));
-        }
+        println!("{}", summary_parts.join(" / "));
 
         if !test_nodes.is_empty() {
             println!();
@@ -177,41 +164,5 @@ pub fn display_collection_results(
             println!("{YELLOW}{warning}{RESET}");
         }
         println!("-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html");
-    }
-
-    emit_cannot_expand_records(errors, cannot_expand);
-}
-
-fn emit_cannot_expand_records(errors: &CollectionErrors, dest: &CannotExpandReport) {
-    let lines: Vec<String> = errors
-        .warnings
-        .iter()
-        .filter_map(|warning| cannot_expand_nodeid_from_message(&warning.message))
-        .map(format_cannot_expand_marker)
-        .collect();
-    match dest {
-        CannotExpandReport::None => {}
-        CannotExpandReport::Stdout => {
-            for line in &lines {
-                println!("{line}");
-            }
-        }
-        CannotExpandReport::Stderr => {
-            for line in &lines {
-                eprintln!("{line}");
-            }
-        }
-        CannotExpandReport::File(path) => {
-            let mut body = lines.join("\n");
-            if !body.is_empty() {
-                body.push('\n');
-            }
-            if let Err(e) = std::fs::write(path, body) {
-                eprintln!(
-                    "Failed to write cannot-expand report to {}: {e}",
-                    path.display()
-                );
-            }
-        }
     }
 }

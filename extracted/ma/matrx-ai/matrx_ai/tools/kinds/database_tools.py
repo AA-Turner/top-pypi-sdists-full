@@ -167,4 +167,6 @@ DATABASE_TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     "db_admin": DbScopedResult,
     "db_user": DbScopedResult,
     "sql": SqlToolResult,
+    # The read-only, non-admin sibling of `sql` (its query + schema answers, nothing else).
+    "db_read": SqlToolResult,
 }

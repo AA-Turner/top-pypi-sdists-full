@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import abc
 
+from typing import Iterator
+
 from refinery.lib.structures import StructReader
 from refinery.lib.types import buf
 from refinery.lib.vhd.crc import crc32c
@@ -39,13 +41,25 @@ class DiskBackend(abc.ABC):
     """
     Common interface for the virtual disk produced by a container parser. The `size` property is
     the size of the reconstructed virtual disk in bytes; the `read` method provides random access
-    to its contents, returning zero bytes for sparse and unallocated regions.
+    to its contents, returning zero bytes for sparse and unallocated regions. Its result can be a
+    view of the input and must not be modified. The `stored` method yields the parts of a byte
+    range for which the container stores data, one for each allocation block of the container, and
+    the `allocated` method reports whether there are any. Problems that do not prevent reading the
+    disk are collected in `warnings`.
     """
     size: int
+    warnings: list[str]
 
     @abc.abstractmethod
-    def read(self, offset: int, length: int) -> bytearray:
+    def read(self, offset: int, length: int) -> buf:
         ...
+
+    @abc.abstractmethod
+    def stored(self, offset: int, length: int) -> Iterator[tuple[int, int]]:
+        ...
+
+    def allocated(self, offset: int, length: int) -> bool:
+        return any(self.stored(offset, length))
 
 
 class VirtualDisk(DiskBackend):
@@ -61,24 +75,23 @@ class VirtualDisk(DiskBackend):
             self._backend = VhdImage(view)
         else:
             raise VirtualDiskError('input is not a VHD or VHDX image')
+        self.size = self._backend.size
+        self.warnings = self._backend.warnings
 
-    @property
-    def size(self) -> int:
-        return self._backend.size
-
-    @property
-    def warnings(self) -> list[str]:
-        return self._backend.warnings
-
-    def read(self, offset: int, length: int) -> bytearray:
+    def read(self, offset: int, length: int) -> buf:
         return self._backend.read(offset, length)
 
+    def stored(self, offset: int, length: int) -> Iterator[tuple[int, int]]:
+        return self._backend.stored(offset, length)
 
-def _phys(view: memoryview, offset: int, length: int) -> bytearray:
-    chunk = bytearray(view[offset:offset + length])
-    if len(chunk) < length:
-        chunk.extend(bytes(length - len(chunk)))
-    return chunk
+
+def _phys(view: memoryview, offset: int, length: int) -> buf:
+    chunk = view[offset:offset + length]
+    if len(chunk) == length:
+        return chunk
+    padded = bytearray(chunk)
+    padded.extend(bytes(length - len(chunk)))
+    return padded
 
 
 class VhdImage(DiskBackend):
@@ -131,7 +144,7 @@ class VhdImage(DiskBackend):
         bat = StructReader(view[table_offset:table_offset + max_entries * 4], bigendian=True)
         self._bat = [bat.u32() for _ in range(max_entries)]
 
-    def read(self, offset: int, length: int) -> bytearray:
+    def read(self, offset: int, length: int) -> buf:
         out = bytearray()
         end = min(offset + length, self.size)
         view = self._view
@@ -142,28 +155,78 @@ class VhdImage(DiskBackend):
             block = offset >> (block_size.bit_length() - 1)
             off_in_block = offset & (block_size - 1)
             count = min(block_size - off_in_block, end - offset)
-            sector = self._bat[block] if block < len(self._bat) else _VHD_UNUSED_BLOCK
-            if sector == _VHD_UNUSED_BLOCK:
+            base = self._block_offset(block)
+            if base is None:
                 out.extend(bytes(count))
             else:
-                base = sector * _SECTOR
                 bitmap = view[base:base + self._bitmap_size]
                 data_pos = base + self._bitmap_size + off_in_block
-                chunk = _phys(view, data_pos, count)
-                self._apply_bitmap(bitmap, chunk, off_in_block)
-                out.extend(chunk)
+                start = len(out)
+                out.extend(_phys(view, data_pos, count))
+                self._apply_bitmap(bitmap, out, start, off_in_block)
             offset += count
         return out
 
-    def _apply_bitmap(self, bitmap: memoryview, chunk: bytearray, off_in_block: int) -> None:
-        position = 0
-        while position < len(chunk):
-            sector_index = (off_in_block + position) >> 9
-            rem = _SECTOR - ((off_in_block + position) & (_SECTOR - 1))
-            rem = min(rem, len(chunk) - position)
+    def stored(self, offset: int, length: int) -> Iterator[tuple[int, int]]:
+        end = min(offset + length, self.size)
+        view = self._view
+        if self._type == _VHD_TYPE_FIXED:
+            end = min(end, len(view) - _SECTOR)
+            if offset < end:
+                yield offset, end
+            return
+        block_size = self._block_size
+        shift = block_size.bit_length() - 1
+        while offset < end:
+            block = offset >> shift
+            if block >= len(self._bat):
+                return
+            off_in_block = offset & (block_size - 1)
+            count = min(block_size - off_in_block, end - offset)
+            base = self._block_offset(block)
+            if base is not None:
+                bitmap = view[base:base + self._bitmap_size]
+                if self._any_sector_present(bitmap, off_in_block, count):
+                    yield offset, offset + count
+            offset += count
+
+    @staticmethod
+    def _any_sector_present(bitmap: memoryview, off_in_block: int, length: int) -> bool:
+        first = off_in_block >> 9
+        last = (off_in_block + length - 1) >> 9
+        head = first >> 3
+        bits = bitmap[head:(last >> 3) + 1]
+        total = len(bits) * 8
+        lo = first - head * 8
+        hi = min(last - head * 8, total - 1)
+        if lo > hi:
+            return False
+        mask = ((1 << (hi - lo + 1)) - 1) << (total - 1 - hi)
+        return int.from_bytes(bits, 'big') & mask != 0
+
+    def _block_offset(self, block: int) -> int | None:
+        if block >= len(self._bat):
+            return None
+        sector = self._bat[block]
+        if sector == _VHD_UNUSED_BLOCK:
+            return None
+        return sector * _SECTOR
+
+    def _apply_bitmap(
+        self,
+        bitmap: memoryview,
+        out: bytearray,
+        start: int,
+        off_in_block: int,
+    ) -> None:
+        position = start
+        while position < len(out):
+            offset = off_in_block + position - start
+            sector_index = offset >> 9
+            rem = min(_SECTOR - (offset & (_SECTOR - 1)), len(out) - position)
             present = (bitmap[sector_index >> 3] >> (7 - (sector_index & 7))) & 1
             if not present:
-                chunk[position:position + rem] = bytes(rem)
+                out[position:position + rem] = bytes(rem)
             position += rem
 
 
@@ -299,30 +362,44 @@ class VhdxImage(DiskBackend):
                 self._sector_size_log = sector_size.bit_length() - 1
         if self._block_size_log <= 0 or self._sector_size_log <= 0 or size is None:
             raise VirtualDiskError('VHDX metadata is missing required entries')
-            raise VirtualDiskError('VHDX metadata is missing required entries')
         self.size = size
 
-    def read(self, offset: int, length: int) -> bytearray:
+    def read(self, offset: int, length: int) -> buf:
         out = bytearray()
         end = min(offset + length, self.size)
         view = self._view
         block_size = 1 << self._block_size_log
-        chunk_ratio = 1 << self._chunk_ratio_log
         while offset < end:
-            block = offset >> self._block_size_log
-            chunk_index = block >> self._chunk_ratio_log
-            entry_index = chunk_index * (chunk_ratio + 1) + (block & (chunk_ratio - 1))
-            entry = int.from_bytes(self._bat[entry_index * 8:entry_index * 8 + 8], 'little')
-            state = entry & 7
-            block_offset = entry & ~0xFFFFF
+            block_offset = self._block_offset(offset >> self._block_size_log)
             off_in_block = offset & (block_size - 1)
             count = min(block_size - off_in_block, end - offset)
-            if state == _VHDX_PAYLOAD_BLOCK_FULLY_PRESENT:
+            if block_offset is not None:
                 out.extend(_phys(view, block_offset + off_in_block, count))
             else:
                 out.extend(bytes(count))
             offset += count
         return out
+
+    def stored(self, offset: int, length: int) -> Iterator[tuple[int, int]]:
+        end = min(offset + length, self.size)
+        chunk_ratio = 1 << self._chunk_ratio_log
+        chunks, rest = divmod(len(self._bat) // 8, chunk_ratio + 1)
+        blocks = chunks * chunk_ratio + min(rest, chunk_ratio)
+        shift = self._block_size_log
+        first = offset >> shift
+        last = min((end - 1) >> shift, blocks - 1)
+        for block in range(first, last + 1):
+            if self._block_offset(block) is not None:
+                yield max(offset, block << shift), min(end, (block + 1) << shift)
+
+    def _block_offset(self, block: int) -> int | None:
+        chunk_ratio = 1 << self._chunk_ratio_log
+        chunk_index = block >> self._chunk_ratio_log
+        entry_index = chunk_index * (chunk_ratio + 1) + (block & (chunk_ratio - 1))
+        entry = int.from_bytes(self._bat[entry_index * 8:entry_index * 8 + 8], 'little')
+        if entry & 7 != _VHDX_PAYLOAD_BLOCK_FULLY_PRESENT:
+            return None
+        return entry & ~0xFFFFF
 
 
 def is_vhd(data: buf) -> bool:

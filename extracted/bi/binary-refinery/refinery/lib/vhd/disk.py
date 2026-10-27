@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterator, Protocol
 
+from refinery.lib.types import buf
+
 _SECTOR = 512
 
 _MBR_SIGNATURE = 0xAA55
@@ -26,7 +28,10 @@ class DiskSource(Protocol):
     def size(self) -> int:
         ...
 
-    def read(self, offset: int, length: int) -> bytearray:
+    def read(self, offset: int, length: int) -> buf:
+        ...
+
+    def stored(self, offset: int, length: int) -> Iterator[tuple[int, int]]:
         ...
 
 
@@ -47,7 +52,8 @@ class Partition:
 class VolumeView:
     """
     A view into one partition of a disk that exposes the partition contents as a volume with a
-    `read(offset, length)` method. Offsets are relative to the start of the partition. This adapts
+    `read(offset, length)` method and a `stored(offset, length)` method that yields the ranges
+    for which the disk stores data. Offsets are relative to the start of the partition. This adapts
     a `refinery.lib.vhd.disk.DiskSource` for consumption by a file system parser.
     """
     def __init__(self, disk: DiskSource, partition: Partition):
@@ -55,8 +61,13 @@ class VolumeView:
         self._offset = partition.offset
         self.size = partition.size
 
-    def read(self, offset: int, length: int) -> bytearray:
+    def read(self, offset: int, length: int) -> buf:
         return self._disk.read(self._offset + offset, length)
+
+    def stored(self, offset: int, length: int) -> Iterator[tuple[int, int]]:
+        base = self._offset
+        for lower, upper in self._disk.stored(base + offset, length):
+            yield lower - base, upper - base
 
 
 def partitions(disk: DiskSource) -> Iterator[Partition]:

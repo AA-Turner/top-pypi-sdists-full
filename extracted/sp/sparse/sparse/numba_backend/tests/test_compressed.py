@@ -255,6 +255,13 @@ def test_complex_methods(complex):
         (1, Ellipsis, None),
         (1, 1, 1, Ellipsis),
         (Ellipsis, 1, None),
+        # New axes after integer indices
+        (0, None),
+        (1, None, slice(1, 3)),
+        (1, None, 2),
+        (1, 2, None),
+        (None, 1, None, slice(None), 0),
+        (1, None, 1, 1),
         # Pathological - Slices larger than array
         (slice(None, 1000)),
         (slice(None), slice(None, 1000)),
@@ -272,6 +279,14 @@ def test_slicing(index, compressed_axes):
     assert_eq(x[index], s[index])
 
 
+@pytest.mark.parametrize("index", [(None, 0), (0, None), (1, None, 2), (None, slice(1, 3), 2), (None, 2, [0, 3])])
+@pytest.mark.parametrize("compressed_axes", [(0,), (1,)])
+def test_slicing_new_axes_2d(index, compressed_axes):
+    s = sparse.random((4, 5), density=0.5, format="gcxs", compressed_axes=compressed_axes)
+    x = s.todense()
+    assert_eq(x[index], s[index])
+
+
 @pytest.mark.parametrize(
     "index",
     [
@@ -285,6 +300,12 @@ def test_slicing(index, compressed_axes):
         (Ellipsis, [2, 1, 3]),
         (slice(None), [2, 1, 2]),
         (1, [2, 0, 1]),
+        # Several index arrays select elements pointwise
+        ([1, 0], [2, 0]),
+        ([1, 0], [2, 0], [3, 1]),
+        (slice(None), [2, 0], [1, 3]),
+        ([1, 1, 0], [0, 2, 2], 1),
+        (0, [0, 2], [1, 3]),
     ],
 )
 @pytest.mark.parametrize("compressed_axes", [(0,), (1,), (2,), (0, 1), (0, 2), (1, 2)])
@@ -418,6 +439,86 @@ def test_from_coo_valerr():
 
 
 @pytest.mark.parametrize(
+    "shape, n_rows, expected",
+    [
+        ((2, 3), 2, (0,)),
+        ((2, 3), 3, (1,)),
+        ((2, 3, 4), 6, (0, 1)),
+        ((2, 3, 4), 4, (2,)),
+        ((3, 3), 3, (0,)),
+    ],
+)
+def test_infer_compressed_axes(shape, n_rows, expected):
+    x = GCXS((np.array([]), np.array([], dtype=np.intp), np.zeros(n_rows + 1, dtype=np.intp)), shape=shape)
+    assert x.compressed_axes == expected
+    np.testing.assert_array_equal(x.todense(), np.zeros(shape))
+
+
+def test_infer_compressed_axes_fails():
+    with pytest.raises(ValueError):
+        GCXS((np.array([]), np.array([], dtype=np.intp), np.zeros(6, dtype=np.intp)), shape=(2, 3))
+
+
+@pytest.mark.parametrize("a", [np.array(5), np.array([0, 1, 0, 2])])
+def test_low_ndim_compressed_axes(a):
+    x = GCXS.from_numpy(a)
+    assert x.compressed_axes == ()
+    assert x.indptr.tolist() == [0, x.nnz]
+    assert_eq(x, a)
+
+
+def test_low_ndim_indptr_none():
+    x = GCXS((np.array([1.0]), np.array([2]), None), shape=(4,))
+    np.testing.assert_array_equal(x.todense(), [0, 0, 1, 0])
+
+
+def test_low_ndim_rejects_axes():
+    with pytest.raises(ValueError):
+        GCXS(np.arange(4), compressed_axes=(0,))
+
+
+@pytest.mark.parametrize(
+    "indices, indptr",
+    [
+        ([0, 5], [0, 1, 2]),
+        ([0], [0, 1, 2]),
+        ([0, 1], [0, 3, 2]),
+        ([0, 1], [0, 2]),
+        ([0, 1], [0, 1, 3]),
+    ],
+)
+def test_validate_gcxs_arrays(indices, indptr):
+    with pytest.raises(ValueError):
+        GCXS((np.ones(2), np.array(indices), np.array(indptr)), shape=(2, 3), compressed_axes=(0,))
+
+
+@pytest.mark.parametrize(
+    "data, indices, indptr",
+    [
+        ([], [], [0, 0, 0]),
+        ([1.0, 2.0], [0, 2], [0, 2, 2]),
+    ],
+)
+def test_validate_gcxs_arrays_valid_edge_cases(data, indices, indptr):
+    x = GCXS(
+        (np.array(data), np.array(indices, dtype=np.intp), np.array(indptr)),
+        shape=(2, 3),
+        compressed_axes=(0,),
+    )
+    expected = np.zeros((2, 3))
+    expected[0, indices] = data
+    np.testing.assert_array_equal(x.todense(), expected)
+
+
+def test_get_nodes_low_ndim():
+    x = GCXS.from_numpy(np.arange(4))
+    nodes = x.get_nodes()
+    assert nodes["compressed_axes"].dtype == np.intp
+    assert nodes["compressed_axes"].size == 0
+    assert_eq(GCXS.from_nodes(nodes), x)
+
+
+@pytest.mark.parametrize(
     "pad_width",
     [
         2,
@@ -446,3 +547,14 @@ def test_pad_invalid(pad_width, constant_values, fill_value=0):
     y = sparse.random((50, 50, 3), density=0.15, format="gcxs")
     with pytest.raises(ValueError):
         np.pad(y, pad_width, constant_values=constant_values)
+
+
+@pytest.mark.parametrize("compressed_axes", [(0,), (1,)])
+@pytest.mark.parametrize("k", [-1, 0, 1])
+def test_triu_tril_diagonal(compressed_axes, k):
+    x = np.arange(1, 13).reshape(3, 4)
+    s = GCXS.from_numpy(x, compressed_axes=compressed_axes)
+
+    assert_eq(sparse.triu(s, k=k), np.triu(x, k=k))
+    assert_eq(sparse.tril(s, k=k), np.tril(x, k=k))
+    assert_eq(sparse.diagonal(s, offset=k), np.diagonal(x, offset=k))

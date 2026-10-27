@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: textual-universal-directorytree
-Version: 1.7.0
+Version: 1.8.0
 Summary: A Textual Directory Tree for all File Systems
 Project-URL: Documentation, https://github.com/juftin/textual-universal-directorytree#readme
 Project-URL: Issues, https://github.com/juftin/textual-universal-directorytree/issues
@@ -12,14 +12,14 @@ Keywords: fsspec,plugin,textual,tui
 Classifier: Development Status :: 4 - Beta
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: <4,>=3.9
+Requires-Python: <4,>=3.11
 Requires-Dist: textual>=3.0.0
 Requires-Dist: universal-pathlib>=0.2.6
 Provides-Extra: remote
@@ -46,8 +46,6 @@ Description-Content-Type: text/markdown
 <p align="center">
   <a href="https://github.com/juftin/textual-universal-directorytree"><img src="https://img.shields.io/pypi/v/textual-universal-directorytree?color=blue&label=textual-universal-directorytree" alt="PyPI"></a>
   <a href="https://pypi.python.org/pypi/textual-universal-directorytree/"><img src="https://img.shields.io/pypi/pyversions/textual-universal-directorytree" alt="PyPI - Python Version"></a>
-  <a href="https://hub.docker.com/r/juftin/textual-universal-directorytree"><img src="https://img.shields.io/docker/v/juftin/textual-universal-directorytree?color=blue&label=docker&logo=docker" alt="Docker Image Version"></a>
-  <a href="https://github.com/conda-forge/textual-universal-directorytree-feedstock"><img src="https://img.shields.io/conda/v/conda-forge/textual-universal-directorytree?label=conda-forge" alt="Conda Version"></a>
   <a href="https://github.com/juftin/textual-universal-directorytree/blob/main/LICENSE"><img src="https://img.shields.io/github/license/juftin/textual-universal-directorytree?color=blue&label=License" alt="GitHub License"></a>
   <a href="https://github.com/juftin/textual-universal-directorytree/actions/workflows/test.yaml?query=branch%3Amain"><img src="https://github.com/juftin/textual-universal-directorytree/actions/workflows/test.yaml/badge.svg?branch=main" alt="Testing Status"></a>
   <a href="https://github.com/go-task/task"><img src="https://img.shields.io/badge/task---?message=task&logo=task&color=teal&labelColor=grey" alt="task"></a>

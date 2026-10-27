@@ -27,6 +27,7 @@ def on_submit_mapping_event(
     form_data: Var[FORM_SUBMIT_MAPPING],
 ) -> tuple[Var[FORM_SUBMIT_MAPPING]]: ...
 
+_VALUELESS_INPUT_TYPES = frozenset({"button", "image", "reset", "submit"})
 ButtonType = Literal["submit", "reset", "button"]
 
 class Button(BaseHTML):

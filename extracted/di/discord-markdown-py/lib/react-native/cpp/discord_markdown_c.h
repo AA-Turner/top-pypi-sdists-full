@@ -9,10 +9,12 @@
 extern "C" {
 #endif
 
-// Result of `dmd_parse` or `dmd_unparse`. Must be freed with `dmd_parse_result_free`.
+// Result of `dmd_parse`, `dmd_parse_lossless` or `dmd_unparse`. Must be freed with
+// `dmd_parse_result_free`.
 typedef struct DmdParseResult {
-	// UTF-8 bytes of the call's output when `ok` -- the JSON AST for `dmd_parse`, the markdown
-	// for `dmd_unparse` -- or of an error message otherwise. Not NUL-terminated, and never null.
+	// UTF-8 bytes of the call's output when `ok` -- the JSON AST for `dmd_parse`, the JSON tree for
+	// `dmd_parse_lossless`, the markdown for `dmd_unparse` -- or of an error message otherwise. Not
+	// NUL-terminated, and never null.
 	uint8_t *data;
 	// Length of `data` in bytes.
 	size_t len;
@@ -88,6 +90,15 @@ typedef struct DmdParseResult {
 DmdParseResult dmd_parse(const uint8_t *content, size_t content_len, uint32_t flags, uint32_t fuel,
 	bool js_bigints);
 
+// Parses `content` (UTF-8, `content_len` bytes) into a JSON lossless tree: nodes for what the
+// markdown means, and tokens that hold every byte of `content`, in order, so their text writes
+// back into it exactly. `flags`, `fuel` and `js_bigints` are as for `dmd_parse`.
+//
+// Every node and token has a `span`. Set `utf16` to count spans in UTF-16 code units, as
+// `NSString`, Java and JavaScript index text; unset, they are UTF-8 byte offsets into `content`.
+DmdParseResult dmd_parse_lossless(const uint8_t *content, size_t content_len, uint32_t flags,
+	uint32_t fuel, bool js_bigints, bool utf16);
+
 // Turns a JSON AST (UTF-8, `ast_len` bytes) back into the markdown it came from. Takes what
 // `dmd_parse` produced, with the same `js_bigints`: set, `{"$bigint": "<value>"}` wrappers are
 // read (as are plain numbers); unset, 64-bit integers must be plain numbers and a wrapper fails.
@@ -97,7 +108,7 @@ DmdParseResult dmd_parse(const uint8_t *content, size_t content_len, uint32_t fl
 // unordered lists always as `* `. A malformed AST is an ordinary failed result, not a crash.
 DmdParseResult dmd_unparse(const uint8_t *ast, size_t ast_len, bool js_bigints);
 
-// Frees a result returned by `dmd_parse` or `dmd_unparse`.
+// Frees a result returned by `dmd_parse`, `dmd_parse_lossless` or `dmd_unparse`.
 void dmd_parse_result_free(DmdParseResult result);
 
 #ifdef __cplusplus

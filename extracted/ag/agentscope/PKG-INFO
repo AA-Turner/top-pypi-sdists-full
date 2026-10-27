@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentscope
-Version: 2.0.10
+Version: 2.0.11
 Summary: AgentScope: A Flexible yet Robust Multi-Agent Platform.
 Author-email: SysML team of Alibaba Tongyi Lab <gaodawei.gdw@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -20,13 +20,15 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aioitertools
 Requires-Dist: anthropic
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: dashscope
 Requires-Dist: docstring_parser
 Requires-Dist: filetype
 Requires-Dist: json5
 Requires-Dist: json_repair[schema]>=0.63.4
-Requires-Dist: mcp<2.0.0
+Requires-Dist: mcp>=2.0.0
 Requires-Dist: httpx
+Requires-Dist: httpx2>=2.5.0
 Requires-Dist: numpy
 Requires-Dist: openai
 Requires-Dist: python-datauri

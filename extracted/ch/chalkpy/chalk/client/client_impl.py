@@ -177,6 +177,7 @@ from chalk.client.models import (
     StreamResolverTestMessagePayload,
     StreamResolverTestRequest,
     StreamResolverTestResponse,
+    TeamMember,
     TriggerResolverRunRequest,
     UnloadResolvers,
     UploadedParquetShardedOfflineQueryInput,
@@ -7352,6 +7353,9 @@ https://docs.chalk.ai/cli/apply
             environment_id=environment_id,
             workflow_id=workflow_id,
         )
+
+    def list_team_members(self, include_deactivated: bool = False) -> "list[TeamMember]":
+        return self._grpc_client.list_team_members(include_deactivated=include_deactivated)
 
 
 def _check_exclusive_options(options: dict[str, Any | None]):

@@ -18,8 +18,8 @@ description = "Quadratic Programming Solver for Robotics and beyond."
 license = "BSD-2-Clause"
 name = "proxsuite"
 readme = "README.md"
-requires-python = ">= 3.9"
-version = "0.7.3"
+requires-python = ">= 3.10"
+version = "0.8.0"
 
 [project.urls]
 homepage = "https://github.com/cmake-wheel/proxsuite"
@@ -27,9 +27,10 @@ repository = "https://github.com/cmake-wheel/proxsuite.git"
 upstream = "https://github.com/Simple-Robotics/proxsuite"
 
 [tool.cmeel]
+build-number = 1
 configure-args = [
   "-DBUILD_PYTHON_INTERFACE=ON",
-  "-DBUILD_TESTING=OFF",
+  "-DBUILD_TESTING=ON",
   "-DBUILD_WITH_OPENMP_SUPPORT=OFF",
   "-DBUILD_WITH_VECTORIZATION_SUPPORT=ON",
   "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.13",
@@ -39,4 +40,3 @@ configure-args = [
 [tool.ruff.lint]
 ignore = ["E741"]
 extend-select = ["W605"]
-exclude = ["cmake-module/*", "bindings/python/external/nanobind/*"]

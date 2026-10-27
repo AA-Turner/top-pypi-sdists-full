@@ -36,6 +36,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/source_location.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context.h"
 #include "tensorstore/internal/concurrency_resource.h"
@@ -59,7 +60,6 @@
 #include "tensorstore/internal/path.h"
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
 #include "tensorstore/internal/retries_context_resource.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/internal/uri/percent_coder.h"
@@ -367,18 +367,22 @@ class GcsKeyValueStore
 
   // Returns the Auth header for a GCS request.
   Result<std::optional<std::string>> GetAuthHeader() {
-    absl::MutexLock lock(auth_provider_mutex_);
-    if (!auth_provider_) {
-      auto result = GetSharedGoogleAuthProvider(transport_);
-      if (!result.ok() && absl::IsNotFound(result.status())) {
-        auth_provider_ = nullptr;
-      } else {
-        TENSORSTORE_RETURN_IF_ERROR(result);
-        auth_provider_ = *std::move(result);
+    std::shared_ptr<internal_oauth2::AuthProvider> auth_provider;
+    {
+      absl::MutexLock lock(auth_provider_mutex_);
+      if (!auth_provider_) {
+        auto result = GetSharedGoogleAuthProvider(transport_);
+        if (!result.ok() && absl::IsNotFound(result.status())) {
+          auth_provider_ = nullptr;
+        } else {
+          TENSORSTORE_RETURN_IF_ERROR(result);
+          auth_provider_ = *std::move(result);
+        }
       }
+      auth_provider = *auth_provider_;
     }
-    if (!*auth_provider_) return std::nullopt;
-    auto auth_header_result = (*auth_provider_)->GetAuthHeader();
+    if (!auth_provider) return std::nullopt;
+    auto auth_header_result = auth_provider->GetAuthHeader();
     if (!auth_header_result.ok() &&
         absl::IsNotFound(auth_header_result.status())) {
       return std::nullopt;
@@ -427,7 +431,7 @@ class GcsKeyValueStore
   template <typename Task>
   absl::Status BackoffForAttemptAsync(
       absl::Status status, int attempt, Task* task,
-      SourceLocation loc = SourceLocation::current()) {
+      absl::SourceLocation loc = absl::SourceLocation::current()) {
     assert(task != nullptr);
     auto delay = spec_.retries->BackoffForAttempt(attempt);
     if (!delay) {
@@ -455,7 +459,8 @@ class GcsKeyValueStore
   absl::Mutex auth_provider_mutex_;
   // Optional state indicates whether the provider has been obtained.  A
   // nullptr provider is valid and indicates to use anonymous access.
-  std::optional<std::shared_ptr<internal_oauth2::AuthProvider>> auth_provider_;
+  std::optional<std::shared_ptr<internal_oauth2::AuthProvider>> auth_provider_
+      ABSL_GUARDED_BY(auth_provider_mutex_);
 };
 
 Future<kvstore::DriverPtr> GcsKeyValueStoreSpec::DoOpen() const {
@@ -563,7 +568,13 @@ struct ReadTask : public RateLimiterNode,
     // TODO: Configure timeouts.
     auto maybe_auth_header = owner->GetAuthHeader();
     if (!maybe_auth_header.ok()) {
-      promise.SetResult(maybe_auth_header.status());
+      absl::Status status = maybe_auth_header.status();
+      if (IsRetriable(status)) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) return;
+      }
+      promise.SetResult(std::move(status));
       return;
     }
 
@@ -583,11 +594,11 @@ struct ReadTask : public RateLimiterNode,
         request, IssueRequestOptions().SetHttpVersion(GetHttpVersion()));
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
-      self->OnResponse(response.result());
+      self->OnResponse(std::move(response.result()));
     });
   }
 
-  void OnResponse(const Result<HttpResponse>& response) {
+  void OnResponse(Result<HttpResponse> response) {
     if (!promise.result_needed()) {
       return;
     }
@@ -617,11 +628,11 @@ struct ReadTask : public RateLimiterNode,
     if (!status.ok()) {
       promise.SetResult(status);
     } else {
-      promise.SetResult(FinishResponse(response.value()));
+      promise.SetResult(FinishResponse(std::move(response.value())));
     }
   }
 
-  Result<kvstore::ReadResult> FinishResponse(const HttpResponse& httpresponse) {
+  Result<kvstore::ReadResult> FinishResponse(HttpResponse httpresponse) {
     gcs_metrics.bytes_read.IncrementBy(httpresponse.payload.size());
     auto latency = absl::Now() - start_time_;
     gcs_metrics.read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
@@ -654,16 +665,16 @@ struct ReadTask : public RateLimiterNode,
       int64_t total_size;
 
       TENSORSTORE_RETURN_IF_ERROR(internal_http::ValidateResponseByteRange(
-          httpresponse, options.byte_range, value, byte_range, total_size));
+          std::move(httpresponse), options.byte_range, value, byte_range,
+          total_size));
       // TODO: Avoid parsing the entire metadata & only extract the
       // generation field.
       SetObjectMetadataFromHeaders(httpresponse.headers, &metadata);
     } else {
       // 0-range reads issue metadata requests; parse the metadata for
       // the storage generation.
-      absl::Cord cord = httpresponse.payload;
       TENSORSTORE_ASSIGN_OR_RETURN(metadata,
-                                   ParseObjectMetadata(cord.Flatten()));
+                                   ParseObjectMetadata(httpresponse.payload));
     }
 
     auto generation = StorageGeneration::FromUint64(metadata.generation);
@@ -763,7 +774,13 @@ struct WriteTask : public RateLimiterNode,
 
     auto maybe_auth_header = owner->GetAuthHeader();
     if (!maybe_auth_header.ok()) {
-      promise.SetResult(maybe_auth_header.status());
+      absl::Status status = maybe_auth_header.status();
+      if (IsRetriable(status)) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) return;
+      }
+      promise.SetResult(std::move(status));
       return;
     }
     HttpRequestBuilder request_builder("POST", upload_url);
@@ -855,8 +872,7 @@ struct WriteTask : public RateLimiterNode,
 
     // TODO: Avoid parsing the entire metadata & only extract the
     // generation field.
-    auto payload = httpresponse.payload;
-    auto parsed_object_metadata = ParseObjectMetadata(payload.Flatten());
+    auto parsed_object_metadata = ParseObjectMetadata(httpresponse.payload);
     TENSORSTORE_RETURN_IF_ERROR(parsed_object_metadata);
 
     r.generation =
@@ -918,7 +934,13 @@ struct DeleteTask : public RateLimiterNode,
 
     auto maybe_auth_header = owner->GetAuthHeader();
     if (!maybe_auth_header.ok()) {
-      promise.SetResult(maybe_auth_header.status());
+      absl::Status status = maybe_auth_header.status();
+      if (IsRetriable(status)) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) return;
+      }
+      promise.SetResult(std::move(status));
       return;
     }
     HttpRequestBuilder request_builder("DELETE", delete_url);
@@ -1126,7 +1148,13 @@ struct ListTask : public RateLimiterNode,
 
     auto auth_header = owner_->GetAuthHeader();
     if (!auth_header.ok()) {
-      execution::set_error(receiver_, std::move(auth_header).status());
+      absl::Status status = std::move(auth_header).status();
+      if (IsRetriable(status)) {
+        status =
+            owner_->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) return;
+      }
+      execution::set_error(receiver_, std::move(status));
       execution::set_stopping(receiver_);
       return;
     }
@@ -1179,11 +1207,11 @@ struct ListTask : public RateLimiterNode,
       return owner_->BackoffForAttemptAsync(std::move(status), attempt_++,
                                             this);
     }
-    auto payload = response->payload;
-    auto j = internal::ParseJson(payload.Flatten());
+    const auto& payload = response->payload;
+    auto j = internal::ParseJson(payload);
     if (j.is_discarded()) {
-      return absl::InternalError(absl::StrFormat(
-          "Failed to parse response metadata: %s", payload.Flatten()));
+      return absl::InternalError(
+          absl::StrFormat("Failed to parse response metadata: %v", payload));
     }
     TENSORSTORE_ASSIGN_OR_RETURN(
         auto parsed_payload,

@@ -56,7 +56,7 @@ class FeatrixSphere(HTTPClientMixin):
         featrix = FeatrixSphere()
 
         # Option 2: Explicit API key
-        featrix = FeatrixSphere(api_key="sk_live_your_api_key")
+        featrix = FeatrixSphere(api_key="fx_your_api_key")
 
         # Create foundational model
         fm = featrix.create_foundational_model(
@@ -80,15 +80,15 @@ class FeatrixSphere(HTTPClientMixin):
     Configuration:
         Create ~/.featrix with your API key:
 
-            echo 'api_key=sk_live_your_api_key' > ~/.featrix
+            echo 'api_key=fx_your_api_key' > ~/.featrix
 
         Or use JSON format:
 
-            {"api_key": "sk_live_...", "base_url": "https://..."}
+            {"api_key": "fx_...", "base_url": "https://..."}
 
         Or set environment variable:
 
-            export FEATRIX_API_KEY=sk_live_your_api_key
+            export FEATRIX_API_KEY=fx_your_api_key
 
     On-Premises Deployment:
         Featrix offers on-premises data processing with qualified NVIDIA
@@ -653,7 +653,8 @@ class FeatrixSphere(HTTPClientMixin):
                 "catch_everything_aggressive", "minimize_cost", "rank",
                 "predict_probabilities").
             auto_collapse_synonyms: Auto-detect and merge near-duplicate class
-                labels (default: True via config).
+                labels. Default (None) uses the server config
+                ``sp_auto_collapse_synonyms``, which is False.
             synonym_collapse_threshold: Cosine similarity threshold for
                 synonym detection (default: 0.90 via config).
             label_mapping: Explicit old→new class name mapping.
@@ -1256,7 +1257,7 @@ class FeatrixSphere(HTTPClientMixin):
                     f"predictor_id={predictor_id!r} not found in session {session_id} "
                     f"(available: {available})"
                 )
-            _, job_entry, spec, target_column = selected[0]
+            matched_pred_id, job_entry, spec, target_column = selected[0]
         elif matches:
             if len(matches) > 1:
                 available = [m[0] for m in matches]
@@ -1264,9 +1265,9 @@ class FeatrixSphere(HTTPClientMixin):
                     f"Session {session_id} has {len(matches)} predictors — "
                     f"predictor_id is required (available: {available})"
                 )
-            _, job_entry, spec, target_column = matches[0]
+            matched_pred_id, job_entry, spec, target_column = matches[0]
         else:
-            job_entry, spec, target_column = {}, {}, None
+            matched_pred_id, job_entry, spec, target_column = None, {}, {}, None
 
         target_type = spec.get('target_column_type', job_entry.get('target_column_type', 'set'))
         job_id = job_entry.get('job_id')
@@ -1285,8 +1286,10 @@ class FeatrixSphere(HTTPClientMixin):
             f1 = live_job.get('f1') or live_job.get('f1_score')
             created_at = _parse_datetime(live_job.get('created_at'))
 
+        # The matched job_plan entry's id (never the session id: predict
+        # routes 404 on a session id used as a predictor id).
         return Predictor(
-            id=predictor_id or session_id,
+            id=matched_pred_id,
             session_id=session_id,
             target_column=target_column,
             target_type=target_type,
@@ -1393,8 +1396,8 @@ class FeatrixSphere(HTTPClientMixin):
         Load a published predictor for making predictions.
 
         Published predictors are served via the Sphere API, which routes
-        predictions to production-ai and handles UUID tracking, logging,
-        and feedback.
+        predictions to Featrix's model-serving tier and handles UUID
+        tracking, logging, and feedback.
 
         Args:
             org: Organization ID
@@ -1408,9 +1411,9 @@ class FeatrixSphere(HTTPClientMixin):
         Example:
             # Load a published predictor
             predictor = client.published_predictor(
-                org="alph",
+                org="acme",
                 name="my-model",
-                api_key="sk_alph_xxx"
+                api_key="fx_your_api_key"
             )
 
             # Make single prediction
@@ -1457,9 +1460,9 @@ class FeatrixSphere(HTTPClientMixin):
 
         Example:
             network = client.published_prediction_network(
-                org="alph",
+                org="acme",
                 name="carrier-qualification",
-                api_key="sk_alph_xxx",
+                api_key="fx_your_api_key",
             )
             network.register({
                 "nodes": [{"id": "is_company", "model": "is-company"}],
@@ -1487,7 +1490,7 @@ class FeatrixSphere(HTTPClientMixin):
             List of {"name", "version", "created_at", "updated_at"} dicts.
 
         Example:
-            for net in client.list_prediction_networks("alph"):
+            for net in client.list_prediction_networks("acme"):
                 print(net["name"], "v" + str(net["version"]))
         """
         response = self._get_json(f"/prediction-network/{org}")
@@ -1525,14 +1528,26 @@ class FeatrixSphere(HTTPClientMixin):
             prediction_uuid: UUID from PredictionResult.prediction_uuid
             ground_truth: The correct label/value
             session_id: Session that served the prediction
-                (PredictionResult.session_id). Pass it for session-served
-                predictions — their prediction_uuid lives on sphere-api's audit
-                row, not in the compute node's label store. For a published
-                model's prediction use PublishedPredictor.send_feedback().
+                (PredictionResult.session_id). Required: a session-served
+                prediction's prediction_uuid lives on sphere-api's audit row
+                for that session, and the session-less node label route cannot
+                find it (the feedback would be lost). For a published model's
+                prediction use PublishedPredictor.send_feedback().
 
         Returns:
             Server response
+
+        Raises:
+            ValueError: If session_id is not given.
         """
+        if not session_id:
+            raise ValueError(
+                "prediction_feedback() requires session_id (the session that served "
+                "the prediction, PredictionResult.session_id): without it the feedback "
+                "cannot be matched to its prediction. Use "
+                "featrix.prediction_feedback(result.prediction_uuid, ground_truth, "
+                "session_id=result.session_id), or result.send_feedback(ground_truth).send()."
+            )
         return PredictionFeedback.create_and_send(
             ctx=self._ctx,
             prediction_uuid=prediction_uuid,

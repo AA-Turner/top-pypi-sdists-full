@@ -31,6 +31,15 @@ plugin reads the same files with the same rules):
     claimed/<sid>/<ns>-<id>.json   where a claim moves it; claimed/<sid>/log.jsonl
                                  records who delivered it, when, and its `origin`
                                  (when it has one: "writer", "hint")
+    claimed/<sid>/shown.jsonl    one `{"id", "by", "at"}` line per message a
+                                 deliverer HANDED the agent (written after its
+                                 output went out: the hook's stdout, pi's
+                                 `sendMessage`), so a claim whose handoff failed
+                                 is told apart from one that reached the agent
+    alive/<sid>.json             `{"by", "at"}`: touched by a deliverer whenever
+                                 it runs for the session (a hook, pi's poller),
+                                 at most every ALIVE_EVERY_S: the Probe service's
+                                 hint lane reads it as "a deliverer is there"
     claimed/<sid>/<ns>-<id>.<token>.json  a claim the Probe service made for one
                                  request (`mailbox.claim`): the token names it, so
                                  the one rename is the claim and who it is for. Its
@@ -102,6 +111,8 @@ ALERT_TTL_S = 12 * 3600
 INBOX_TTL_S = 12 * 3600
 #: Claimed messages and taken asks are kept this long, then swept.
 KEEP_CLAIMED_S = 7 * 24 * 3600
+#: A deliverer touches its `alive/<sid>.json` at most this often.
+ALIVE_EVERY_S = 30.0
 #: One unasked message per researcher turn -- and one more per this long of a
 #: long turn (Richard 2026-09-28): a one-prompt autonomous session otherwise got
 #: the reader's first message and none after it, corrections included.
@@ -124,7 +135,8 @@ WAIT_MAX_S = 2 * 3600
 #: The most a request to the writer may carry (`probe ask --writer`).
 REQUEST_MAX_CHARS = 4000
 #: `Message.origin` of what the daemon's WRITER sends: its reply to a request,
-#: a request that failed, and a receipt for structural writes nobody asked for.
+#: a request that failed, a receipt for structural writes nobody asked for, and
+#: a receipt for the researcher (WRITER_RELAY_PREFIX).
 #: Every other message is the reader's (no origin).
 ORIGIN_WRITER = "writer"
 #: `Message.origin` of a hint the Probe service posts (plan probe-hints: the
@@ -188,6 +200,14 @@ TEXT_ALERT = "[Probe] Run alert\n{message}"
 TEXT_WRITER_REPLY = "[Probe] The writer's reply:\n{message}"
 TEXT_WRITER_RECEIPT = "[Probe] The writer recorded: {message}"
 TEXT_WRITER_FAILED = "[Probe] The writer did not run your request: {reason}"
+#: A writer receipt for the RESEARCHER: the writer set a project's headline
+#: metric or a best pick on its own (track-work: "tell the researcher in one
+#: line"), and the main agent passes it on (`requests.relay`). A receipt in
+#: every way but its label: its text begins with WRITER_RELAY_PREFIX and is
+#: shown under TEXT_WRITER_RELAY; a deliverer from before it shows the same text
+#: under the receipt's label.
+WRITER_RELAY_PREFIX = "Tell the researcher: "
+TEXT_WRITER_RELAY = "[Probe] {message}"
 #: A message Probe held for this session (G7), as the worker renders it into
 #: the message's text. Richard's approved text (2026-10-25)
 #: (`~/plans/swarm-visibility-gaps/PROPOSED-track-work.md`, "G7 message delivery
@@ -501,6 +521,78 @@ def heartbeat_path(session_id: str, ask_id: str) -> Path:
     return asks_dir(session_id) / f"{ask_id}.alive"
 
 
+def hints_delivery_path(session_id: str) -> Path:
+    """The Probe service's hint lane's last word on whether its hints reach the
+    session's agent (`service.hints.delivery_receipt`), for `probe doctor`."""
+    return root() / "hints" / f"{_safe(session_id)}.delivery"
+
+
+def write_hints_delivery(session_id: str, receipt: dict) -> None:
+    try:
+        _write_json(hints_delivery_path(session_id), receipt)
+    except (OSError, Late):
+        pass
+
+
+def read_hints_deliveries() -> "dict[str, dict]":
+    """Every session's `hints_delivery_path` under this root: session id -> receipt."""
+    out: dict[str, dict] = {}
+    folder = root() / "hints"
+    for path in folder.glob("*.delivery") if folder.is_dir() else ():
+        data = _read_json(path)
+        if isinstance(data, dict):
+            out[path.stem] = data
+    return out
+
+
+def alive_path(session_id: str) -> Path:
+    """A deliverer's heartbeat for the session (`touch_alive`)."""
+    return root() / "alive" / f"{_safe(session_id)}.json"
+
+
+def shown_log_path(session_id: str) -> Path:
+    """The messages a deliverer handed the agent (`mark_shown`)."""
+    return claimed_dir(session_id) / "shown.jsonl"
+
+
+def touch_alive(session_id: str, *, by: str, now: "float | None" = None) -> None:
+    """A deliverer runs for the session: its heartbeat, at most every
+    ALIVE_EVERY_S. Never raises (a deliverer that cannot write still delivers)."""
+    now = time.time() if now is None else now
+    path = alive_path(session_id)
+    try:
+        if now - path.stat().st_mtime < ALIVE_EVERY_S:
+            return
+    except OSError:
+        pass
+    try:
+        _write_json(path, {"by": by, "at": now})
+    except (OSError, Late):
+        pass
+
+
+def read_alive(session_id: str) -> "dict | None":
+    """The session's deliverer heartbeat, or None (no deliverer has written one:
+    none ran, or one from before heartbeats)."""
+    data = _read_json(alive_path(session_id))
+    return data if isinstance(data, dict) and isinstance(data.get("at"), (int, float)) else None
+
+
+def mark_shown(session_id: str, message_ids: "list[str]", *, by: str, now: "float | None" = None) -> None:
+    """The deliverer's output carrying `message_ids` went out: one line each.
+    Never raises (the handoff happened either way)."""
+    if not message_ids:
+        return
+    at = time.time() if now is None else now
+    path = shown_log_path(session_id)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as log:
+            log.write("".join(json.dumps({"id": mid, "by": by, "at": at}) + "\n" for mid in message_ids))
+    except OSError:
+        pass
+
+
 def _write_json(path: Path, data: dict, *, exclusive: bool = False) -> None:
     """Write `data` to `path` whole: a temp file, then `os.replace` (or, when
     `exclusive`, `os.link`, which fails if the name is taken)."""
@@ -805,6 +897,13 @@ class Message:
     #: (never a wake), a reply as an answer, and a hint as the reader's unasked
     #: message (framed twice, sharing its one slot a turn) until their plugin updates.
     origin: "str | None" = None
+    #: An inbox message's (ORIGIN_INBOX) server lease holder: the daemon whose
+    #: poll handed it over (`session_messages.daemon_instance`). The hook that
+    #: shows it reports `delivered_to_agent` to Probe under this name
+    #: (`reads_hook.report_delivered`), so a daemon that dies before its own
+    #: report never lets another machine show it again. None for every other
+    #: message, and for one an older worker published (its hook reports nothing).
+    daemon_instance: "str | None" = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "Message | None":
@@ -814,7 +913,7 @@ class Message:
                        reason=data.get("reason"), made_at=float(data.get("made_at") or 0.0),
                        expires_at=float(data.get("expires_at") or 0.0), origin_turn=data.get("origin_turn"),
                        keep=bool(data.get("keep")), alerts=_alert_ids(data.get("alerts")),
-                       origin=data.get("origin"))
+                       origin=data.get("origin"), daemon_instance=_instance_of(data.get("daemon_instance")))
         except (KeyError, TypeError, ValueError):
             return None
 
@@ -848,6 +947,8 @@ class Message:
         if self.from_writer:
             if self.kind == Kind.FAILED:
                 return TEXT_WRITER_FAILED.format(reason=self.reason or "unknown")
+            if self.kind == Kind.MESSAGE and self.text.startswith(WRITER_RELAY_PREFIX):
+                return TEXT_WRITER_RELAY.format(message=self.text)
             if self.kind == Kind.MESSAGE:
                 return TEXT_WRITER_RECEIPT.format(message=self.text)
             return TEXT_WRITER_REPLY.format(message=self.text)
@@ -870,6 +971,16 @@ def _alert_ids(value: object) -> "list[int] | None":
     if not isinstance(value, list) or not all(isinstance(v, int) and not isinstance(v, bool) for v in value):
         return None
     return list(value)
+
+
+#: A daemon instance as the server takes one (`X-Probe-Daemon-Instance`, a
+#: device id's shape: `app/client_installations/devices.py`).
+DAEMON_INSTANCE_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
+
+
+def _instance_of(value: object) -> "str | None":
+    """A message file's `daemon_instance`, when it is one the server would take."""
+    return value if isinstance(value, str) and DAEMON_INSTANCE_RE.fullmatch(value) else None
 
 
 def new_message_id() -> str:
@@ -960,6 +1071,157 @@ def waiting_inbox_ids(session_id: str) -> "list[str]":
             except ValueError:
                 continue
     return sorted(out)
+
+
+def inbox_server_id(message_id: str) -> "str | None":
+    """The server id (a uuid) of inbox message `message_id` (`inbox_message_id`), or None."""
+    import uuid
+
+    if not message_id.startswith(INBOX_ID_PREFIX):
+        return None
+    try:
+        return str(uuid.UUID(hex=message_id[len(INBOX_ID_PREFIX):]))
+    except ValueError:
+        return None
+
+
+#: An inbox message a deliverer that writes `shown` lines claimed, and never
+#: marked shown this long after its claim, goes back to waiting: its hook died,
+#: or its output never went out, between the claim and the handoff (review of
+#: #3530). A live hook marks it within milliseconds of the claim.
+UNSHOWN_RETURN_S = 60.0
+#: How much of the claim log and the shown log the inbox rule reads (their tails).
+INBOX_LOG_TAIL_BYTES = 256 * 1024
+
+
+def _log_tail(path: Path) -> "list[dict]":
+    """The JSON lines of `path`'s last INBOX_LOG_TAIL_BYTES (a partial first line skipped)."""
+    try:
+        with path.open("rb") as handle:
+            size = os.fstat(handle.fileno()).st_size
+            handle.seek(max(0, size - INBOX_LOG_TAIL_BYTES))
+            tail = handle.read().decode("utf-8", "replace")
+    except OSError:
+        return []
+    out = []
+    for line in tail.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict) and isinstance(entry.get("id"), str):
+            out.append(entry)
+    return out
+
+
+class InboxClaims:
+    """What the logs say about the inbox messages claimed in one session: the
+    `shown` lines (written by a deliverer only once its output went out) and
+    the claim lines. Decided PER CLAIM (review of #3530): a current hook or pi
+    marks every claim it makes of an inbox message (`shows: 1` on its own claim
+    line, and on a receipt line after a Probe service claimed it for it); an
+    older deliverer (before `shown` lines, #3467) marks none."""
+
+    def __init__(self, session_id: str) -> None:
+        self.shown = {e["id"] for e in _log_tail(shown_log_path(session_id))}
+        self.claims: dict[str, list[dict]] = {}
+        for entry in _log_tail(claim_log_path(session_id)):
+            self.claims.setdefault(entry["id"], []).append(entry)
+
+    def shown_here(self, message_id: str) -> bool:
+        """Was inbox message `message_id`, claimed here, handed to the agent?
+        Its latest claim line decides: one with the marker (`shows: 1`, a
+        deliverer that writes `shown` lines) only when a `shown` line names the
+        message; one without it (a deliverer from before them, or a service
+        claim no current hook received) at its claim, as before."""
+        if message_id in self.shown:
+            return True
+        lines = self.claims.get(message_id)
+        return not (lines and lines[-1].get("shows") == 1)
+
+    def claimed_at(self, message_id: str, path: Path) -> float:
+        """When it was claimed: its latest claim line, else the file's change time."""
+        stamps = [float(e["at"]) for e in self.claims.get(message_id, [])
+                  if isinstance(e.get("at"), (int, float))]
+        if stamps:
+            return max(stamps)
+        try:
+            return path.stat().st_ctime
+        except OSError:
+            return time.time()
+
+
+def _claimed_inbox(session_id: str, now: float) -> "list[tuple[str, str, Path]]":
+    """(server id, message id, file) of each inbox message claimed here under
+    the plain name (its receipt done) that Probe still serves (not past its
+    INBOX_TTL_S)."""
+    out = []
+    folder = claimed_dir(session_id)
+    if folder.is_dir():
+        for path in sorted(folder.glob(f"*-{INBOX_ID_PREFIX}*.json")):
+            if path.name.count(".") != 1:
+                continue  # a service claim its deliverer has not received: not shown yet
+            message_id = message_id_of(path)
+            server_id = inbox_server_id(message_id)
+            msg = read_message(path) if server_id else None
+            if msg is None or not msg.from_inbox or (msg.expires_at and msg.expires_at < now):
+                continue
+            out.append((server_id, message_id, path))
+    return out
+
+
+def shown_inbox_ids(session_id: str, *, now: "float | None" = None) -> "list[str]":
+    """The server ids of the inbox messages handed to the agent here
+    (`InboxClaims.shown_here`) that Probe still serves: the ones the daemon
+    reports `delivered_to_agent`, a restarted one before it polls again."""
+    now = time.time() if now is None else now
+    claims = InboxClaims(session_id)
+    return sorted({server_id for server_id, message_id, _path in _claimed_inbox(session_id, now)
+                   if claims.shown_here(message_id)})
+
+
+def inbox_shown(session_id: str, message_id: str) -> bool:
+    """Was inbox message `message_id` handed to the agent here (claimed and
+    shown, `InboxClaims.shown_here`)? False while it waits or is gone."""
+    return where(session_id, message_id) is Where.CLAIMED and InboxClaims(session_id).shown_here(message_id)
+
+
+def return_unshown_inbox(session_id: str, *, now: "float | None" = None,
+                         after: "float | None" = None) -> "list[str]":
+    """Put back to waiting every inbox message claimed here more than `after`
+    (UNSHOWN_RETURN_S) ago that was never shown (`InboxClaims.shown_here`), so
+    the next prompt or tool call shows it. Their mailbox ids."""
+    now = time.time() if now is None else now
+    after = UNSHOWN_RETURN_S if after is None else after
+    claims = InboxClaims(session_id)
+    out = []
+    for _server_id, message_id, path in _claimed_inbox(session_id, now):
+        if claims.shown_here(message_id) or now - claims.claimed_at(message_id, path) < after:
+            continue
+        if unclaim(session_id, message_id):
+            out.append(message_id)
+    return out
+
+
+def unclaim(session_id: str, message_id: str) -> bool:
+    """Move inbox message `message_id` from claimed/ (its plain name) back to
+    waiting: a deliverer took it and never handed it over. True when it moved.
+    Only an inbox message: every other kind keeps its claim."""
+    folder = claimed_dir(session_id)
+    for path in folder.glob(f"*-{message_id}.json") if folder.is_dir() else ():
+        if path.name.count(".") != 1 or message_id_of(path) != message_id:
+            continue
+        msg = read_message(path)
+        if msg is None or not msg.from_inbox:
+            return False
+        target = messages_dir(session_id) / path.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.rename(path, target)
+        except OSError:
+            return False
+        return True
+    return False
 
 
 def drop_waiting(session_id: str, message_id: str) -> bool:
@@ -1213,7 +1475,8 @@ def _log_claim(session_id: str, message_id: str, by: str, now: "float | None", t
 #: after any other hook's context.
 _DELIVERY_START = re.compile("(?:^|\n\n)(?:" + "|".join(
     re.escape(t.split("{", 1)[0]) for t in (TEXT_MESSAGE, TEXT_ANSWER, TEXT_FAILED, TEXT_ALERT, TEXT_WRITER_REPLY,
-                                            TEXT_WRITER_RECEIPT, TEXT_WRITER_FAILED, TEXT_INBOX_PERSON)) + ")")
+                                            TEXT_WRITER_RECEIPT, TEXT_WRITER_FAILED, TEXT_INBOX_PERSON,
+                                            TEXT_WRITER_RELAY.format(message=WRITER_RELAY_PREFIX))) + ")")
 
 
 def before_deliveries(text: str) -> str:
@@ -1318,8 +1581,8 @@ def sweep(session_id: str, *, now: "float | None" = None) -> int:
 
 def sweep_stale_sessions(keep: str, *, now: "float | None" = None, max_age: float = KEEP_CLAIMED_S) -> int:
     """Remove every file of sessions whose mailbox has not changed in `max_age`
-    (the worker's start-up sweep; `keep` is its own session). One listing per
-    folder kind; best effort."""
+    (the worker's start-up sweep; `keep` is its own session), except a live
+    worker's. One listing per folder kind; best effort."""
     import shutil
 
     now = time.time() if now is None else now
@@ -1341,13 +1604,13 @@ def sweep_stale_sessions(keep: str, *, now: "float | None" = None, max_age: floa
             if now - newest > max_age:
                 shutil.rmtree(sub, ignore_errors=True)
                 removed += 1
-    for kind in ("turns", "status", "alerts"):
+    for kind in ("turns", "status", "alerts", "alive", "hints"):
         folder = base / kind
         if not folder.is_dir():
             continue
         for path in folder.iterdir():
-            if path.name.startswith(_safe(keep)):
-                continue
+            if path.name.startswith(_safe(keep)) or accepts_requests(path.name.split(".", 1)[0]):
+                continue  # a live worker's status says what it is doing, however old
             try:
                 if now - path.stat().st_mtime > max_age:
                     path.unlink(missing_ok=True)

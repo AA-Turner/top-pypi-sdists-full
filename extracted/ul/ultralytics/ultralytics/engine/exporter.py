@@ -766,8 +766,8 @@ class Exporter:
                 self.args.quantize = 8
             elif self.args.quantize is None:
                 self.args.quantize = 16
-            if self.args.quantize == 8 and model.task != "detect":
-                raise ValueError("Rockchip RKNN INT8 export is only supported for detection models.")
+            if self.args.quantize == 8 and model.task not in {"detect", "depth"}:
+                raise ValueError("Rockchip RKNN INT8 export is only supported for detection and depth models.")
         if fmt == "ascend":
             # No SoC allowlist: valid --soc_version values depend on which Ascend-cann-kernels-* packages are
             # installed, so a hardcoded list would reject valid targets. ATC reports an unknown SoC itself.
@@ -2016,7 +2016,7 @@ class NMSModel(torch.nn.Module):
             elif self.args.format in {"coreml", "mlmodel"}:  # CoreML aborts on an empty gather: keep the top anchor
                 mask, score = torch.logical_or(mask, score == score.max()), score * mask
             box, score, cls, extra = box[mask], score[mask], cls[mask], extra[mask]
-            nmsbox = box.clone()
+            nmsbox = box.float() if self.obb else box.clone()
             # `8` is the minimum value experimented to get correct NMS results for obb
             multiplier = 8 if self.obb else 1 / max(len(self.model.names), 1)
             # Normalize boxes for NMS since large values for class offset causes issue with int8 quantization

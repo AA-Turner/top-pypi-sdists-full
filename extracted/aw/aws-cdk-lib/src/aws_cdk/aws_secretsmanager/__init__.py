@@ -527,6 +527,7 @@ class CfnResourcePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -569,7 +570,7 @@ class CfnResourcePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce3c59e15d6b08154ca4710d3c490a5cccdfb2d793ec068436df4ee5d2176350)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="secretId")
@@ -582,7 +583,7 @@ class CfnResourcePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dbb504f82aa4610bcca5b0c0a02e91643784718436ecee3cb0d061f98be07ebd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "secretId", value)
 
     @builtins.property
     @jsii.member(jsii_name="blockPublicPolicy")
@@ -600,7 +601,7 @@ class CfnResourcePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__97e910a4dd0fff31572a19f4856d29ae4c7e5bc35ca2bec8ff207bb2656b95af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "blockPublicPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "blockPublicPolicy", value)
 
 
 @jsii.data_type(
@@ -856,6 +857,7 @@ class CfnRotationSchedule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -901,7 +903,7 @@ class CfnRotationSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e4179c1d837fdef45167ceaccb9df9077d60370390a4a3f9894ffabc6faf705e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "secretId", value)
 
     @builtins.property
     @jsii.member(jsii_name="externalSecretRotationMetadata")
@@ -919,7 +921,7 @@ class CfnRotationSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a137dbdb2b8bf5b81e3be66ca1a95e203ab984fc427ebe6079f0ed9df6c8ebf4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "externalSecretRotationMetadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "externalSecretRotationMetadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="externalSecretRotationRoleArn")
@@ -935,7 +937,7 @@ class CfnRotationSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__826ff8ecec050649dbf462747d667aaa66aac5516b3c8556c860b61ae994491c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "externalSecretRotationRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "externalSecretRotationRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="hostedRotationLambda")
@@ -953,7 +955,7 @@ class CfnRotationSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d6ac8fdda0fa8c417961c6fd7e6417f93af36b5af165e9b05ab8fcc0d73d0a1e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedRotationLambda", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedRotationLambda", value)
 
     @builtins.property
     @jsii.member(jsii_name="rotateImmediatelyOnUpdate")
@@ -971,7 +973,7 @@ class CfnRotationSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__18363d4cc6e349ad4777136b0b08d5b6531c2367523a5c2aff46a38a3b42d9ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotateImmediatelyOnUpdate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rotateImmediatelyOnUpdate", value)
 
     @builtins.property
     @jsii.member(jsii_name="rotationLambdaArn")
@@ -984,7 +986,7 @@ class CfnRotationSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__219376bf04bb8ca9821c0927769a2f84c8feb1f3df1024e9d69fa2ddc805b51a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotationLambdaArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rotationLambdaArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="rotationRules")
@@ -1002,7 +1004,7 @@ class CfnRotationSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ae1bb268119d43a6dbbcc451761eef4982447d7465d9e1cb05714ac78eeae51)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotationRules", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rotationRules", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_secretsmanager.CfnRotationSchedule.ExternalSecretRotationMetadataItemProperty",
@@ -1859,6 +1861,7 @@ class CfnSecret(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1905,7 +1908,7 @@ class CfnSecret(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c925a69ff23308f4a886274e59cd4b516983df54a27f4deabbd3987f64fbc47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="generateSecretString")
@@ -1923,7 +1926,7 @@ class CfnSecret(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b749a9285682dedc5e74b552ab46e9bf3d0adc46fe9b38129cc919c4f81a4aec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "generateSecretString", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "generateSecretString", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -1936,7 +1939,7 @@ class CfnSecret(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5de516e7214d42fda17a416eebeeac6489ee4b743c5311c8d8dd23f5a029d633)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1949,7 +1952,7 @@ class CfnSecret(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9ec71ba6bfa52c1bf0316299fc20e12017b70f2db7009cddb63e85e2e5c61fdd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="replicaRegions")
@@ -1967,7 +1970,7 @@ class CfnSecret(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec39c5af61a0a49805320163d8adbaa0f7e050ef32906034a3e7e910b33dfac9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicaRegions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replicaRegions", value)
 
     @builtins.property
     @jsii.member(jsii_name="secretString")
@@ -1980,7 +1983,7 @@ class CfnSecret(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d7ae3b94fb3c9f6652f5df1948ef3707240c91a11d607595dcd6948fda136bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secretString", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "secretString", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1996,7 +1999,7 @@ class CfnSecret(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6527b124c6c9c6b9e2adcab3d3441c54cfa7c9d19a5dd471a056cab26b59cd2b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -2009,7 +2012,7 @@ class CfnSecret(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ac9a6ca47cf74b6a1326cfbcee97733e8514cd3a987237230dc6695b14451b74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_secretsmanager.CfnSecret.GenerateSecretStringProperty",
@@ -2660,6 +2663,7 @@ class CfnSecretTargetAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2701,7 +2705,7 @@ class CfnSecretTargetAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__24d6d3882eea91361991020f9014f7cab62638432fe918e948e46efad678f43a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secretId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "secretId", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetId")
@@ -2714,7 +2718,7 @@ class CfnSecretTargetAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f78fe80a6d08af5cd686d5db5875f771530f37ddf3b579a735b281009889ec1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetId", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetType")
@@ -2727,7 +2731,7 @@ class CfnSecretTargetAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a359b828a9507627c1ab6f630cae56f7dc91ab55d9bac31c70bf92c427aad14c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetType", value)
 
 
 @jsii.data_type(
@@ -3321,84 +3325,98 @@ class HostedRotationType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MARIADB_MULTI_USER")
+    @builtins.classmethod
     def MARIADB_MULTI_USER(cls) -> "HostedRotationType":
         '''MariaDB Multi User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "MARIADB_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MARIADB_SINGLE_USER")
+    @builtins.classmethod
     def MARIADB_SINGLE_USER(cls) -> "HostedRotationType":
         '''MariaDB Single User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "MARIADB_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MONGODB_MULTI_USER")
+    @builtins.classmethod
     def MONGODB_MULTI_USER(cls) -> "HostedRotationType":
         '''MongoDB Multi User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "MONGODB_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MONGODB_SINGLE_USER")
+    @builtins.classmethod
     def MONGODB_SINGLE_USER(cls) -> "HostedRotationType":
         '''MongoDB Single User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "MONGODB_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MYSQL_MULTI_USER")
+    @builtins.classmethod
     def MYSQL_MULTI_USER(cls) -> "HostedRotationType":
         '''MySQL Multi User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "MYSQL_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MYSQL_SINGLE_USER")
+    @builtins.classmethod
     def MYSQL_SINGLE_USER(cls) -> "HostedRotationType":
         '''MySQL Single User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "MYSQL_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORACLE_MULTI_USER")
+    @builtins.classmethod
     def ORACLE_MULTI_USER(cls) -> "HostedRotationType":
         '''Oracle Multi User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "ORACLE_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORACLE_SINGLE_USER")
+    @builtins.classmethod
     def ORACLE_SINGLE_USER(cls) -> "HostedRotationType":
         '''Oracle Single User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "ORACLE_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="POSTGRESQL_MULTI_USER")
+    @builtins.classmethod
     def POSTGRESQL_MULTI_USER(cls) -> "HostedRotationType":
         '''PostgreSQL Multi User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "POSTGRESQL_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="POSTGRESQL_SINGLE_USER")
+    @builtins.classmethod
     def POSTGRESQL_SINGLE_USER(cls) -> "HostedRotationType":
         '''PostgreSQL Single User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "POSTGRESQL_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_MULTI_USER")
+    @builtins.classmethod
     def REDSHIFT_MULTI_USER(cls) -> "HostedRotationType":
         '''Redshift Multi User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "REDSHIFT_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_SINGLE_USER")
+    @builtins.classmethod
     def REDSHIFT_SINGLE_USER(cls) -> "HostedRotationType":
         '''Redshift Single User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "REDSHIFT_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQLSERVER_MULTI_USER")
+    @builtins.classmethod
     def SQLSERVER_MULTI_USER(cls) -> "HostedRotationType":
         '''SQL Server Multi User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "SQLSERVER_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQLSERVER_SINGLE_USER")
+    @builtins.classmethod
     def SQLSERVER_SINGLE_USER(cls) -> "HostedRotationType":
         '''SQL Server Single User.'''
         return typing.cast("HostedRotationType", jsii.sget(cls, "SQLSERVER_SINGLE_USER"))
@@ -3960,6 +3978,7 @@ class ResourcePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -4090,6 +4109,7 @@ class RotationSchedule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -4695,6 +4715,7 @@ class Secret(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -5330,96 +5351,112 @@ class SecretRotationApplication(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DB2_ROTATION_MULTI_USER")
+    @builtins.classmethod
     def DB2_ROTATION_MULTI_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS Db2 using the multi user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "DB2_ROTATION_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DB2_ROTATION_SINGLE_USER")
+    @builtins.classmethod
     def DB2_ROTATION_SINGLE_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS Db2 using the single user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "DB2_ROTATION_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MARIADB_ROTATION_MULTI_USER")
+    @builtins.classmethod
     def MARIADB_ROTATION_MULTI_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS MariaDB using the multi user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "MARIADB_ROTATION_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MARIADB_ROTATION_SINGLE_USER")
+    @builtins.classmethod
     def MARIADB_ROTATION_SINGLE_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS MariaDB using the single user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "MARIADB_ROTATION_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MONGODB_ROTATION_MULTI_USER")
+    @builtins.classmethod
     def MONGODB_ROTATION_MULTI_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for MongoDB using the multi user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "MONGODB_ROTATION_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MONGODB_ROTATION_SINGLE_USER")
+    @builtins.classmethod
     def MONGODB_ROTATION_SINGLE_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for MongoDB using the single user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "MONGODB_ROTATION_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MYSQL_ROTATION_MULTI_USER")
+    @builtins.classmethod
     def MYSQL_ROTATION_MULTI_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS MySQL using the multi user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "MYSQL_ROTATION_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MYSQL_ROTATION_SINGLE_USER")
+    @builtins.classmethod
     def MYSQL_ROTATION_SINGLE_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS MySQL using the single user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "MYSQL_ROTATION_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORACLE_ROTATION_MULTI_USER")
+    @builtins.classmethod
     def ORACLE_ROTATION_MULTI_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS Oracle using the multi user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "ORACLE_ROTATION_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORACLE_ROTATION_SINGLE_USER")
+    @builtins.classmethod
     def ORACLE_ROTATION_SINGLE_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS Oracle using the single user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "ORACLE_ROTATION_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="POSTGRES_ROTATION_MULTI_USER")
+    @builtins.classmethod
     def POSTGRES_ROTATION_MULTI_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS PostgreSQL using the multi user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "POSTGRES_ROTATION_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="POSTGRES_ROTATION_SINGLE_USER")
+    @builtins.classmethod
     def POSTGRES_ROTATION_SINGLE_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS PostgreSQL using the single user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "POSTGRES_ROTATION_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_ROTATION_MULTI_USER")
+    @builtins.classmethod
     def REDSHIFT_ROTATION_MULTI_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for Amazon Redshift using the multi user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "REDSHIFT_ROTATION_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_ROTATION_SINGLE_USER")
+    @builtins.classmethod
     def REDSHIFT_ROTATION_SINGLE_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for Amazon Redshift using the single user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "REDSHIFT_ROTATION_SINGLE_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQLSERVER_ROTATION_MULTI_USER")
+    @builtins.classmethod
     def SQLSERVER_ROTATION_MULTI_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS SQL Server using the multi user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "SQLSERVER_ROTATION_MULTI_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQLSERVER_ROTATION_SINGLE_USER")
+    @builtins.classmethod
     def SQLSERVER_ROTATION_SINGLE_USER(cls) -> "SecretRotationApplication":
         '''Conducts an AWS SecretsManager secret rotation for RDS SQL Server using the single user rotation scheme.'''
         return typing.cast("SecretRotationApplication", jsii.sget(cls, "SQLSERVER_ROTATION_SINGLE_USER"))
@@ -6256,6 +6293,7 @@ class SecretTargetAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

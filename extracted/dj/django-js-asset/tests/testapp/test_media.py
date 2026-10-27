@@ -1,12 +1,21 @@
 from unittest import skipIf
 
+from django import forms
 from django.forms import Media as DjangoMedia
 from django.test import TestCase
 from django.utils.functional import SimpleLazyObject, empty
 from django.utils.html import html_safe
 from django.utils.safestring import mark_safe
 
-from js_asset import CSS, JS, JSON, ImportMap, Media, Script, Stylesheet
+from js_asset import (
+    JSON,
+    ImportMap,
+    InlineStyle,
+    Media,
+    RemovedInDjangoJsAsset60Warning,
+    Script,
+    Stylesheet,
+)
 
 
 try:  # Django >= 6.1
@@ -19,7 +28,7 @@ except ImportError:
 class HTMLOnlyAsset:
     """
     A media asset using Django's plain ``__html__`` contract -- not a
-    ``MediaAsset`` and not one of our ``ImportMap``/``JSON`` types. Stock
+    ``MediaAsset``. Stock
     ``forms.Media`` renders such assets via ``__html__()``.
     """
 
@@ -48,7 +57,7 @@ HTML_SAFE_CSS = mark_safe(
 #
 # One row per kind of asset a ``Media`` can carry. Add a row whenever a new
 # asset kind appears -- this is the guard against a rendering branch (such as
-# the "is it a bare path?" test in ``Media._render_js``/``._render_css``)
+# the "is it a bare path?" test in ``Media.render_js``/``.render_css``)
 # quietly mishandling one of them.
 JS_ASSETS = [
     (
@@ -58,14 +67,8 @@ JS_ASSETS = [
         '<script src="/static/app.js" nonce="n0nce"></script>',
     ),
     (
-        "JS factory",
-        JS("app.js"),
-        '<script src="/static/app.js"></script>',
-        '<script src="/static/app.js" nonce="n0nce"></script>',
-    ),
-    (
-        "JS factory with attributes",
-        JS("app.js", {"type": "module"}),
+        "Script object with attributes",
+        Script("app.js", type="module"),
         '<script src="/static/app.js" type="module"></script>',
         '<script src="/static/app.js" nonce="n0nce" type="module"></script>',
     ),
@@ -78,18 +81,8 @@ JS_ASSETS = [
     (
         "JSON block",
         JSON({"a": 1}, id="cfg"),
-        # Data, not executed script: no nonce either way.
         '<script id="cfg" type="application/json">{"a": 1}</script>',
-        '<script id="cfg" type="application/json">{"a": 1}</script>',
-    ),
-    (
-        "ImportMap",
-        ImportMap({"imports": {"a": "/static/a.js"}}),
-        '<script type="importmap">{"imports": {"a": "/static/a.js"}}</script>',
-        (
-            '<script type="importmap" nonce="n0nce">'
-            '{"imports": {"a": "/static/a.js"}}</script>'
-        ),
+        '<script id="cfg" nonce="n0nce" type="application/json">{"a": 1}</script>',
     ),
     (
         "object with only __html__",
@@ -117,15 +110,15 @@ CSS_ASSETS = [
         '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">',
     ),
     (
-        "CSS factory",
-        CSS("app.css"),
+        "Stylesheet object with media",
+        Stylesheet("app.css", media="all"),
         '<link href="/static/app.css" media="all" rel="stylesheet">',
         '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">',
     ),
     (
-        # Django's ``Stylesheet`` has no implicit ``media``; unlike the ``CSS``
-        # factory it only emits the attribute when one is passed. The dict key
-        # it is filed under does not add one.
+        # Django's ``Stylesheet`` has no implicit ``media``, it only emits the
+        # attribute when one is passed. The dict key it is filed under does not
+        # add one.
         "Stylesheet object",
         Stylesheet("app.css"),
         '<link href="/static/app.css" rel="stylesheet">',
@@ -133,18 +126,18 @@ CSS_ASSETS = [
     ),
     (
         "inline CSS",
-        CSS("body{color:red}", inline=True),
-        '<style media="all">body{color:red}</style>',
-        '<style media="all" nonce="n0nce">body{color:red}</style>',
+        InlineStyle("body{color:red}"),
+        "<style>body{color:red}</style>",
+        '<style nonce="n0nce">body{color:red}</style>',
     ),
     (
         # ``<style>`` is a raw text element: HTML escapes are not decoded inside
         # it, so the CSS has to be rendered exactly as given -- an escaped
         # ``&gt;`` would break the selector instead of standing for ``>``.
         "inline CSS with characters HTML would escape",
-        CSS('nav > a{content:"&"}', inline=True),
-        '<style media="all">nav > a{content:"&"}</style>',
-        '<style media="all" nonce="n0nce">nav > a{content:"&"}</style>',
+        InlineStyle('nav > a{content:"&"}'),
+        '<style>nav > a{content:"&"}</style>',
+        '<style nonce="n0nce">nav > a{content:"&"}</style>',
     ),
     (
         "object with only __html__",
@@ -185,153 +178,110 @@ class AssetRenderingTest(TestCase):
         # kinds Django itself understands -- this is what catches a future
         # change to Django's normalization or tag format that our overridden
         # ``_normalize_{js,css}`` would otherwise silently skip. (Excludes
-        # ``ImportMap``, which we deliberately merge and hoist, and html-safe
-        # strings, which Django 6.1 itself gets wrong.)
+        # html-safe strings, which Django 6.1 itself gets wrong.)
         kwargs = {
-            "css": {"all": ["a.css", CSS("b.css"), Stylesheet("c.css")]},
-            "js": ["a.js", JS("b.js"), Script("c.js"), JS("d.js", {"defer": True})],
+            "css": {
+                "all": ["a.css", Stylesheet("b.css", media="all"), Stylesheet("c.css")]
+            },
+            "js": ["a.js", Script("b.js"), Script("c.js"), Script("d.js", defer=True)],
         }
         self.assertEqual(str(Media(**kwargs)), str(DjangoMedia(**kwargs)))
 
 
+APP_JS = '<script src="/static/app.js"{}></script>'
+IMPORTMAP = '<script type="importmap"{}>{{"imports": {{"a": "/static/a.js"}}}}</script>'
+
+
+def nonce(value):
+    return f' nonce="{value}"'
+
+
 class MediaTest(TestCase):
-    def test_nonce_applied_to_assets(self):
-        media = Media(
-            nonce="r@nd0m",
-            css={"all": [CSS("app.css")]},
-            js=[JS("app.js")],
-        )
-        html = media.render()
-        self.assertInHTML(
-            '<link href="/static/app.css" media="all" nonce="r@nd0m" rel="stylesheet">',
-            html,
-        )
-        self.assertInHTML(
-            '<script src="/static/app.js" nonce="r@nd0m"></script>',
-            html,
-        )
+    def test_nonce_conflicts_with_asset_nonce(self):
+        for kwargs in [
+            {"js": [Script("app.js", nonce="own")]},
+            {"importmap": ImportMap({"a": "/static/a.js"}, nonce="own")},
+        ]:
+            with self.subTest(kwargs=kwargs):
+                media = Media(nonce="r@nd0m", **kwargs)
+                with self.assertRaisesMessage(
+                    ValueError, "has conflicting attributes: nonce"
+                ):
+                    media.render()
+                # Without a nonce to apply, the asset's own nonce is rendered.
+                self.assertIn('nonce="own"', Media(**kwargs).render())
 
-    def test_no_nonce_keeps_plain_output(self):
-        media = Media(js=[JS("app.js")])
-        self.assertEqual(media.render(), '<script src="/static/app.js"></script>')
+    @skipIf(nonce_attr is None, "Django < 6.1 has no built-in CSP support")
+    def test_nonce_conflict_matches_django(self):
+        asset = Script("app.js", nonce="own")
+        with self.assertRaisesMessage(ValueError, "has conflicting attributes: nonce"):
+            DjangoMedia(js=[asset]).render(attrs={"nonce": "r@nd0m"})
+        with self.assertRaisesMessage(ValueError, "has conflicting attributes: nonce"):
+            Media(js=[asset]).render(attrs={"nonce": "r@nd0m"})
 
-    def test_importmaps_are_merged_and_rendered_first(self):
+    def test_none_nonce(self):
+        media = Media(nonce=None, js=[Script("app.js")])
+        self.assertEqual(media.render(), APP_JS.format(""))
+
+    def test_render_nonce(self):
+        media = Media(nonce="stored", js=[Script("app.js")])
+        # A passed nonce overrides the stored one.
+        self.assertEqual(
+            media.render(attrs={"nonce": "passed"}), APP_JS.format(nonce("passed"))
+        )
+        with self.assertWarns(RemovedInDjangoJsAsset60Warning) as cm:
+            html = media.render(nonce="n")
+        self.assertEqual(html, APP_JS.format(nonce("n")))
+        self.assertEqual(cm.filename, __file__)
+
+    def test_render_applies_all_attrs(self):
+        # Like Django >= 6.1's ``Media.render(attrs=)``, all attributes are
+        # added to every tag, not just the nonce.
         media = Media(
-            nonce="r@nd0m",
-            js=[
-                ImportMap({"imports": {"a": "/static/a.js"}}),
-                JS("app.js", {"type": "module"}),
-                ImportMap({"imports": {"b": "/static/b.js"}}),
-            ],
+            nonce="stored",
+            importmap=ImportMap({"a": "/static/a.js"}),
+            css={"all": [Stylesheet("app.css", media="all")]},
+            js=[Script("app.js")],
         )
         self.assertEqual(
-            media.render(),
-            '<script type="importmap" nonce="r@nd0m">'
-            '{"imports": {"a": "/static/a.js", "b": "/static/b.js"}}</script>\n'
-            '<script src="/static/app.js" nonce="r@nd0m" type="module"></script>',
+            media.render(attrs={"data-x": "1"}),
+            '<script type="importmap" data-x="1" nonce="stored">'
+            '{"imports": {"a": "/static/a.js"}}</script>\n'
+            '<link href="/static/app.css" data-x="1" media="all" nonce="stored"'
+            ' rel="stylesheet">\n'
+            '<script src="/static/app.js" data-x="1" nonce="stored"></script>',
         )
+        with self.assertRaisesMessage(ValueError, "has conflicting attributes: media"):
+            media.render(attrs={"media": "print"})
 
-    def test_later_importmaps_listed_first_override_earlier_ones(self):
-        # What the README recommends: import maps first in their ``js`` lists.
-        app = Media(js=[ImportMap({"imports": {"lib": "/app.js"}}), JS("shared.js")])
-        project = Media(
-            js=[
-                ImportMap({"imports": {"lib": "/project.js"}}),
-                JS("shared.js"),
-                JS("project.js"),
-            ]
-        )
-        expected = (
-            '<script type="importmap">{"imports": {"lib": "/project.js"}}</script>'
-        )
-        media = app + project
-        self.assertEqual(media.render().splitlines()[0], expected)
-        self.assertEqual(media["js"].render().splitlines()[0], expected)
-
-    def test_type_and_nonce_preserved_when_merging(self):
-        ours = Media(nonce="abc", js=[ImportMap({"imports": {"a": "/static/a.js"}})])
-        plain = DjangoMedia(js=["app.js"])
-
-        # Our Media on the right-hand side (the case plain forms.Media drops).
-        merged = plain + ours
-        self.assertIsInstance(merged, Media)
-        self.assertEqual(merged.nonce, "abc")
-
-        # ... and on the left-hand side.
-        merged = ours + plain
-        self.assertIsInstance(merged, Media)
-        self.assertEqual(merged.nonce, "abc")
-
-    def test_bare_string_assets_get_nonce(self):
-        # Bare paths stay strings on Django < 6.2 and are wrapped into
-        # MediaAsset objects on >= 6.2; both paths must receive the nonce.
-        media = Media(nonce="n0nce", css={"all": ["plain.css"]}, js=["plain.js"])
-        html = media.render()
-        self.assertInHTML(
-            '<link href="/static/plain.css" media="all" nonce="n0nce"'
-            ' rel="stylesheet">',
-            html,
-        )
-        self.assertInHTML(
-            '<script src="/static/plain.js" nonce="n0nce"></script>',
-            html,
-        )
-
-    def test_merging_combines_css_and_js(self):
-        ours = Media(nonce="n", css={"all": [CSS("a.css")]}, js=[JS("a.js")])
+    def test_adding_keeps_type_nonce_and_assets(self):
+        ours = Media(nonce="n", css={"all": ["a.css"]}, js=[Script("a.js")])
         plain = DjangoMedia(css={"all": ["b.css"]}, js=["b.js"])
+        # Plain ``forms.Media`` would drop our media on the right-hand side.
+        for merged in (plain + ours, ours + plain):
+            with self.subTest(merged=merged):
+                self.assertIsInstance(merged, Media)
+                html = merged.render()
+                for path in ("a.css", "b.css"):
+                    self.assertInHTML(
+                        f'<link href="/static/{path}" media="all" nonce="n"'
+                        ' rel="stylesheet">',
+                        html,
+                    )
+                for path in ("a.js", "b.js"):
+                    self.assertInHTML(
+                        f'<script src="/static/{path}" nonce="n"></script>', html
+                    )
 
-        merged = plain + ours  # via __radd__
-        self.assertIsInstance(merged, Media)
-        html = merged.render()
-        for snippet in (
-            '<link href="/static/b.css" media="all" nonce="n" rel="stylesheet">',
-            '<link href="/static/a.css" media="all" nonce="n" rel="stylesheet">',
-            '<script src="/static/b.js" nonce="n"></script>',
-            '<script src="/static/a.js" nonce="n"></script>',
-        ):
-            self.assertInHTML(snippet, html)
+    def test_subclass_preserved(self):
+        class MyMedia(Media):
+            pass
 
-    def test_render_accepts_attrs_nonce(self):
-        # Django >= 6.2's CSP integration calls media.render(attrs={"nonce": ...}).
-        media = Media(js=[JS("app.js")])
-        self.assertInHTML(
-            '<script src="/static/app.js" nonce="from-attrs"></script>',
-            media.render(attrs={"nonce": "from-attrs"}),
-        )
-        # A passed nonce overrides the stored one.
-        media = Media(nonce="stored", js=[JS("app.js")])
-        self.assertInHTML(
-            '<script src="/static/app.js" nonce="from-attrs"></script>',
-            media.render(attrs={"nonce": "from-attrs"}),
-        )
-
-    def test_html_only_asset_renders_via_html(self):
-        # A plain ``__html__``-only asset (e.g. a build-tool helper) is neither
-        # a MediaAsset nor one of our types; it must fall back to ``__html__()``
-        # the way stock ``forms.Media`` does, instead of crashing on a missing
-        # ``render`` method.
-        media = Media(js=[HTMLOnlyAsset('<script src="/bundle.js"></script>')])
-        self.assertEqual(media.render(), '<script src="/bundle.js"></script>')
-
-    def test_html_only_asset_renders_with_nonce_set(self):
-        # The nonce cannot be threaded into an opaque ``__html__`` asset (same
-        # as stock Django), but its presence must not break rendering.
-        media = Media(
-            nonce="n0nce",
-            js=[HTMLOnlyAsset('<script src="/bundle.js"></script>')],
-        )
-        self.assertEqual(media.render(), '<script src="/bundle.js"></script>')
-
-    def test_json_asset_rendered_through_media(self):
-        # A JSON block carried as a JS asset renders via its own ``render``.
-        # It is data, not executed script, so it stays nonce-free even when a
-        # nonce is set on the media.
-        media = Media(nonce="n0nce", js=[JSON({"a": 1}, id="cfg")])
-        self.assertInHTML(
-            '<script id="cfg" type="application/json">{"a": 1}</script>',
-            media.render(),
-        )
+        media = MyMedia(js=[Script("app.js")])
+        self.assertIs(type(media + DjangoMedia()), MyMedia)
+        self.assertIs(type(DjangoMedia() + media), MyMedia)
+        for name in ("css", "js", "importmap"):
+            self.assertIs(type(media[name]), MyMedia)
 
     def test_adding_non_media_is_not_supported(self):
         with self.assertRaises(TypeError):
@@ -341,37 +291,23 @@ class MediaTest(TestCase):
         with self.assertRaises(TypeError):
             3 + Media()
 
-    def test_from_media_wraps_existing_instance(self):
-        plain = DjangoMedia(
-            js=[ImportMap({"imports": {"a": "/static/a.js"}}), JS("app.js")]
-        )
-        wrapped = Media.from_media(plain, nonce="w")
-
+    def test_from_media(self):
+        wrapped = Media.from_media(DjangoMedia(js=[Script("app.js")]), nonce="w")
         self.assertIsInstance(wrapped, Media)
-        self.assertEqual(wrapped.nonce, "w")
-        html = wrapped.render()
-        self.assertInHTML(
-            '<script type="importmap" nonce="w">'
-            '{"imports": {"a": "/static/a.js"}}</script>',
-            html,
-        )
-        self.assertInHTML(
-            '<script src="/static/app.js" nonce="w"></script>',
-            html,
-        )
+        self.assertEqual(wrapped.render(), APP_JS.format(nonce("w")))
+
+        media = Media(nonce="n", js=[Script("app.js")])
+        self.assertEqual(Media.from_media(media).nonce, "n")
+        self.assertEqual(Media.from_media(media, nonce="").nonce, "")
+        self.assertEqual(Media.from_media(DjangoMedia()).nonce, "")
 
     def test_with_nonce_returns_a_copy(self):
-        media = Media(js=[JS("app.js")])
+        media = Media(js=[Script("app.js")])
         request_media = media.with_nonce("xyz")
-
         self.assertIsInstance(request_media, Media)
-        self.assertEqual(request_media.nonce, "xyz")
+        self.assertEqual(request_media.render(), APP_JS.format(nonce("xyz")))
         # The shared (e.g. cached widget) media is left untouched.
         self.assertEqual(media.nonce, "")
-        self.assertInHTML(
-            '<script src="/static/app.js" nonce="xyz"></script>',
-            request_media.render(),
-        )
 
     def test_html_safe_strings_dedupe_and_merge(self):
         # Mirrors Django's own #37262 tests: html-safe strings survive
@@ -383,13 +319,10 @@ class MediaTest(TestCase):
         second = Media(
             nonce="n0nce",
             css={"all": [HTML_SAFE_CSS]},
-            js=[HTML_SAFE_JS, JS("b.js")],
+            js=[HTML_SAFE_JS, Script("b.js")],
         )
-        merged = first + second
-
-        self.assertEqual(merged.nonce, "n0nce")
         self.assertEqual(
-            merged.render(),
+            (first + second).render(),
             f"{HTML_SAFE_CSS}\n"
             '<link href="/static/a.css" media="all" nonce="n0nce" rel="stylesheet">\n'
             '<script src="/static/a.js" nonce="n0nce"></script>\n'
@@ -397,10 +330,9 @@ class MediaTest(TestCase):
             '<script src="/static/b.js" nonce="n0nce"></script>',
         )
 
-    def test_html_safe_strings_normalized_through_our_class(self):
-        # We override ``_normalize_{js,css}`` so html-safe strings survive
-        # construction even on Django 6.1, whose own normalizers mangle them.
-        self.assertEqual(Media(js=[HTML_SAFE_JS]).render(), HTML_SAFE_JS)
+    def test_html_safe_strings_in_media_definitions(self):
+        # Django 6.1.0 normalizes media definitions with ``isinstance(path,
+        # str)`` too, our ``_normalize_{js,css}`` keep them verbatim.
         self.assertEqual(
             Media(media=type("Def", (), {"js": [HTML_SAFE_JS]})).render(),
             HTML_SAFE_JS,
@@ -420,7 +352,7 @@ class MediaTest(TestCase):
 
 class LazyNonce(SimpleLazyObject):
     """
-    A stand-in for ``django.utils.csp.LazyNonce`` (Django >= 6.2), which is
+    A stand-in for ``django.utils.csp.LazyNonce`` (Django >= 6.0), which is
     *falsy* until the nonce has been generated so that a nonce is only added to
     the CSP header if the template actually used it.
     """
@@ -434,162 +366,196 @@ class LazyNonce(SimpleLazyObject):
 
 class LazyNonceTest(TestCase):
     def test_lazy_nonce_from_attrs(self):
-        # Django >= 6.2 renders media as ``media.render(attrs={"nonce": nonce})``
+        # Django >= 6.1 renders media as ``media.render(attrs={"nonce": nonce})``
         # with the lazy nonce straight from the template context. Truth-testing
         # it says "no nonce" as long as it has not been read yet, so the nonce
         # must be resolved instead of checked for truthiness.
-        media = Media(js=[JS("app.js")])
-        self.assertEqual(
-            media.render(attrs={"nonce": LazyNonce("l@zy")}),
-            '<script src="/static/app.js" nonce="l@zy"></script>',
-        )
+        for media, html in [
+            (Media(js=[Script("app.js")]), APP_JS),
+            (Media(importmap=ImportMap({"a": "/static/a.js"})), IMPORTMAP),
+        ]:
+            with self.subTest(html=html):
+                self.assertEqual(
+                    media.render(attrs={"nonce": LazyNonce("l@zy")}),
+                    html.format(nonce("l@zy")),
+                )
 
     def test_lazy_nonce_stored_on_the_media(self):
-        media = Media(nonce=LazyNonce("l@zy"), js=[JS("app.js")])
-        self.assertEqual(
-            media.render(),
-            '<script src="/static/app.js" nonce="l@zy"></script>',
-        )
-        self.assertEqual(
-            media.with_nonce(LazyNonce("l@zy")).render(),
-            '<script src="/static/app.js" nonce="l@zy"></script>',
-        )
-
-    def test_lazy_nonce_applied_to_importmaps(self):
-        media = Media(js=[ImportMap({"imports": {"a": "/static/a.js"}})])
-        self.assertEqual(
-            media.render(nonce=LazyNonce("l@zy")),
-            '<script type="importmap" nonce="l@zy">'
-            '{"imports": {"a": "/static/a.js"}}</script>',
-        )
+        html = APP_JS.format(nonce("l@zy"))
+        media = Media(nonce=LazyNonce("l@zy"), js=[Script("app.js")])
+        self.assertEqual(media.render(), html)
+        # An unread lazy nonce is falsy, which must not make adding media
+        # prefer the other side's nonce -- or drop it altogether.
+        for combined in (
+            media + DjangoMedia(),
+            DjangoMedia() + media,
+            media + Media(nonce="other"),
+        ):
+            with self.subTest(media=combined):
+                self.assertEqual(combined.render(), html)
 
     def test_lazy_nonce_untouched_for_empty_media(self):
         # Nothing to render, so the nonce must not be generated: on Django the
         # CSP header only carries a nonce if one was actually used.
-        nonce = LazyNonce("l@zy")
-        self.assertEqual(Media().render(attrs={"nonce": nonce}), "")
-        self.assertFalse(nonce)
+        lazy = LazyNonce("l@zy")
+        self.assertEqual(Media().render(attrs={"nonce": lazy}), "")
+        self.assertFalse(lazy)
 
     @skipIf(nonce_attr is None, "Django < 6.1 has no built-in CSP support")
     def test_csp_nonce_attr_template_tag(self):
         # The real thing, on the Django versions which have it.
-        nonce = DjangoLazyNonce()
+        lazy = DjangoLazyNonce()
         html = nonce_attr(
-            {"csp_nonce": nonce},
-            Media(js=[ImportMap({"imports": {"a": "/static/a.js"}}), JS("app.js")]),
+            {"csp_nonce": lazy},
+            Media(importmap=ImportMap({"a": "/static/a.js"}), js=[Script("app.js")]),
         )
-        self.assertTrue(nonce)
+        self.assertTrue(lazy)
         self.assertEqual(
-            html,
-            f'<script type="importmap" nonce="{nonce}">'
-            '{"imports": {"a": "/static/a.js"}}</script>\n'
-            f'<script src="/static/app.js" nonce="{nonce}"></script>',
+            html, f"{IMPORTMAP.format(nonce(lazy))}\n{APP_JS.format(nonce(lazy))}"
         )
 
 
 class RenderPartsTest(TestCase):
     """
     ``render_css()``/``render_js()`` are ``forms.Media`` API in their own right;
-    they must behave like ``render()`` regarding the nonce and import maps.
+    they must behave like ``render()`` regarding the nonce, and so must
+    ``render_importmap()``.
     """
 
-    def setUp(self):
-        self.media = Media(
-            nonce="n0nce",
-            css={"all": [CSS("app.css")]},
-            js=[
-                ImportMap({"imports": {"a": "/static/a.js"}}),
-                JS("app.js"),
-                ImportMap({"imports": {"b": "/static/b.js"}}),
-            ],
+    def test_render_parts_apply_the_nonce(self):
+        media = Media(
+            nonce="stored",
+            importmap=ImportMap({"a": "/static/a.js"}),
+            css={"all": [Stylesheet("app.css", media="all")]},
+            js=[Script("app.js")],
         )
-
-    def test_render_css_applies_the_nonce(self):
-        self.assertEqual(
-            list(self.media.render_css()),
-            [
-                '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">'
-            ],
-        )
-
-    def test_render_js_applies_the_nonce_and_merges_importmaps(self):
-        self.assertEqual(
-            list(self.media.render_js()),
-            [
-                (
-                    '<script type="importmap" nonce="n0nce">'
-                    '{"imports": {"a": "/static/a.js", "b": "/static/b.js"}}</script>'
-                ),
-                '<script src="/static/app.js" nonce="n0nce"></script>',
-            ],
-        )
-
-    def test_render_parts_accept_attrs(self):
-        media = Media(css={"all": [CSS("app.css")]}, js=[JS("app.js")])
-        attrs = {"nonce": "from-attrs"}
-        self.assertEqual(
-            list(media.render_css(attrs=attrs)),
-            [
-                (
-                    '<link href="/static/app.css" media="all" nonce="from-attrs"'
-                    ' rel="stylesheet">'
+        for value, attrs in [("stored", None), ("passed", {"nonce": "passed"})]:
+            with self.subTest(attrs=attrs):
+                self.assertEqual(
+                    list(media.render_css(attrs=attrs)),
+                    [
+                        (
+                            f'<link href="/static/app.css" media="all"{nonce(value)}'
+                            ' rel="stylesheet">'
+                        )
+                    ],
                 )
-            ],
-        )
-        self.assertEqual(
-            list(media.render_js(attrs=attrs)),
-            ['<script src="/static/app.js" nonce="from-attrs"></script>'],
-        )
+                self.assertEqual(
+                    media.render_js(attrs=attrs), [APP_JS.format(nonce(value))]
+                )
+                self.assertEqual(
+                    media.render_importmap(attrs=attrs),
+                    [IMPORTMAP.format(nonce(value))],
+                )
 
 
 class GetItemTest(TestCase):
     """
-    ``media["css"]`` / ``media["js"]`` -- reached as ``{{ media.css }}`` and
-    ``{{ media.js }}`` from templates -- must keep our type and its nonce.
+    ``media["importmap"]`` / ``media["css"]`` / ``media["js"]`` -- reached as
+    ``{{ media.importmap }}`` etc. from templates -- must keep our type and its
+    nonce.
     """
 
-    def setUp(self):
-        self.media = Media(
+    def test_subsets(self):
+        media = Media(
             nonce="n0nce",
-            css={"all": [CSS("app.css")]},
-            js=[
-                ImportMap({"imports": {"a": "/static/a.js"}}),
-                JS("app.js"),
-                ImportMap({"imports": {"b": "/static/b.js"}}),
-            ],
+            importmap=ImportMap({"a": "/static/a.js"}),
+            css={"all": [Stylesheet("app.css", media="all")]},
+            js=[Script("app.js")],
         )
-
-    def test_css_subset(self):
-        subset = self.media["css"]
-        self.assertIsInstance(subset, Media)
-        self.assertEqual(subset.nonce, "n0nce")
-        self.assertEqual(
-            subset.render(),
-            '<link href="/static/app.css" media="all" nonce="n0nce" rel="stylesheet">',
-        )
-
-    def test_js_subset(self):
-        subset = self.media["js"]
-        self.assertIsInstance(subset, Media)
-        self.assertEqual(
-            subset.render(),
-            '<script type="importmap" nonce="n0nce">'
-            '{"imports": {"a": "/static/a.js", "b": "/static/b.js"}}</script>\n'
-            '<script src="/static/app.js" nonce="n0nce"></script>',
-        )
-
-    def test_unknown_media_type(self):
+        for name, html in [
+            (
+                "css",
+                (
+                    '<link href="/static/app.css" media="all" nonce="n0nce"'
+                    ' rel="stylesheet">'
+                ),
+            ),
+            ("js", APP_JS.format(nonce("n0nce"))),
+            ("importmap", IMPORTMAP.format(nonce("n0nce"))),
+        ]:
+            with self.subTest(name=name):
+                self.assertIsInstance(media[name], Media)
+                self.assertEqual(media[name].render(), html)
         with self.assertRaises(KeyError):
-            self.media["json"]
+            media["json"]
+
+    def test_html_safe_strings_in_subsets(self):
+        # Django 6.1.0 and main mangle html-safe strings when normalizing, and
+        # ``forms.Media.__getitem__`` normalizes the subset again.
+        media = Media(js=[HTML_SAFE_JS])
+        self.assertEqual(media["js"].render(), HTML_SAFE_JS)
 
     @skipIf(nonce_attr is None, "Django < 6.1 has no built-in CSP support")
     def test_csp_nonce_attr_on_a_subset(self):
         # What Django's own admin templates do: {% csp_nonce_attr media.js %}.
-        nonce = DjangoLazyNonce()
-        media = Media(js=[ImportMap({"imports": {"a": "/static/a.js"}}), JS("app.js")])
+        lazy = DjangoLazyNonce()
+        media = Media(importmap=ImportMap({"a": "/static/a.js"}), js=[Script("app.js")])
         self.assertEqual(
-            nonce_attr({"csp_nonce": nonce}, media["js"]),
-            f'<script type="importmap" nonce="{nonce}">'
-            '{"imports": {"a": "/static/a.js"}}</script>\n'
-            f'<script src="/static/app.js" nonce="{nonce}"></script>',
+            nonce_attr({"csp_nonce": lazy}, media["js"]), APP_JS.format(nonce(lazy))
+        )
+        self.assertEqual(
+            nonce_attr({"csp_nonce": lazy}, media["importmap"]),
+            IMPORTMAP.format(nonce(lazy)),
+        )
+
+
+class ImportMapArgumentTest(TestCase):
+    def test_rendered_first(self):
+        media = Media(
+            importmap=ImportMap({"a": "/static/a.js"}),
+            css={"all": [Stylesheet("app.css", media="all")]},
+            js=[Script("app.js", type="module")],
+        )
+        self.assertEqual(
+            media.render(attrs={"nonce": "n"}),
+            f"{IMPORTMAP.format(nonce('n'))}\n"
+            '<link href="/static/app.css" media="all" nonce="n" rel="stylesheet">\n'
+            '<script src="/static/app.js" nonce="n" type="module"></script>',
+        )
+
+    def test_merged_when_adding(self):
+        app = Media(importmap=ImportMap({"lib": "/app.js", "app": "/app/app.js"}))
+        project = Media(importmap=ImportMap({"lib": "/project.js"}))
+        self.assertEqual(
+            str(app + project),
+            '<script type="importmap">{"imports": {"lib": "/project.js",'
+            ' "app": "/app/app.js"}}</script>',
+        )
+        # Also with a plain forms.Media on either side.
+        self.assertEqual(str(DjangoMedia() + project), str(project))
+        self.assertEqual(str(project + DjangoMedia()), str(project))
+
+    def test_media_definition(self):
+        class Definition:
+            importmap = ImportMap({"a": "/static/a.js"})
+            js = ("app.js",)
+
+        self.assertEqual(
+            str(Media(Definition)), f"{IMPORTMAP.format('')}\n{APP_JS.format('')}"
+        )
+
+    def test_kept_when_copying(self):
+        media = Media(importmap=ImportMap({"a": "/static/a.js"}))
+        self.assertEqual(str(media.with_nonce("n")), IMPORTMAP.format(nonce("n")))
+        self.assertEqual(str(Media.from_media(media)), IMPORTMAP.format(""))
+
+    def test_widget_media_attribute(self):
+        # What the README recommends for widgets instead of ``class Media``.
+        class EditorWidget(forms.Textarea):
+            media = Media(
+                importmap=ImportMap({"editor": "editor/index.js"}),
+                js=[Script("editor/init.js", type="module")],
+            )
+
+        class ArticleForm(forms.Form):
+            title = forms.CharField()
+            body = forms.CharField(widget=EditorWidget)
+
+        project = Media(importmap=ImportMap({"editor": "/project/editor.js"}))
+        self.assertEqual(
+            str(ArticleForm().media + project),
+            '<script type="importmap">{"imports": {"editor": "/project/editor.js"}}'
+            "</script>\n"
+            '<script src="/static/editor/init.js" type="module"></script>',
         )

@@ -18,7 +18,7 @@ it is enforced HERE, in the tool executor, for every server-side surface writer:
   ``updates_value`` naming a surface value that carries a record reference
   (``resource_ref`` / a bare ``*_file_id``-style id). Notes:
   ``note_content.updates_value = "current_note"`` and ``current_note`` is
-  ``{__kind: resource_ref, resource_type: "note", resource_id}``. Any surface
+  ``{envelope: resource_ref, resource_type: "note", resource_id}``. Any surface
   that declares the same pair is guarded with no code here
   (``aidream.services.conversation_context.surface_context``).
 * WHICH tools — every server tool/action the write census classifies as a

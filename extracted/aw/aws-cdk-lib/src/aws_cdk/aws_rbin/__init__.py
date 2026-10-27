@@ -223,6 +223,7 @@ class CfnRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -292,7 +293,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5c74a6102cda767f81d08a2ce4a9f380c01bef76688ed3f2426a6abc2f6878bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceType", value)
 
     @builtins.property
     @jsii.member(jsii_name="retentionPeriod")
@@ -310,7 +311,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d0d27934aff5d763d4a0cff90f748b18d817167613cec2de784a19e0980a2fe4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "retentionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "retentionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -323,7 +324,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d3d64ebf98762cb6f5e840690eeebd382523d8cea931da2c8618a90f770698c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="excludeResourceTags")
@@ -341,7 +342,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__20704aef7f8bc3c60046956bdcd1dc4e858b35b183e74b90587dae29d670872b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "excludeResourceTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "excludeResourceTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="lockConfiguration")
@@ -359,7 +360,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9f565c87c44cc6deeef0351aeb8e4b8ead6860f0e90c735ebf7826cdbc04ae0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lockConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lockConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceTags")
@@ -377,7 +378,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5e0b94a905f0a4a1448048e0ead85a45b5b5aa837fc74feedc20218875209250)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -390,7 +391,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb14fdab3dd71774cb9bab4038b816ff578268a68dda7042fda45b88adf4a647)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -406,7 +407,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce724038f2c5f6b081624628cfc2e8ecba465376fcb9fc6a115d81b322693c72)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rbin.CfnRule.ResourceTagProperty",

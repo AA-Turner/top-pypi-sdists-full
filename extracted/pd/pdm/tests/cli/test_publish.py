@@ -1,5 +1,6 @@
 import base64
 import os
+import zipfile
 from argparse import Namespace
 
 import pytest
@@ -42,6 +43,32 @@ def test_parse_metadata_with_non_ascii_chars():
     assert meta["summary"] == "caj2pdf 重新组织，方便打包与安装"  # noqa: RUF001
     assert meta["author_email"] == "张三 <san@zhang.me>"
     assert meta["description"].strip() == "# caj2pdf\n\n测试中文项目"
+
+
+def test_package_metadata_license_expression(tmp_path):
+    wheel = tmp_path / "demo-0.0.1-py3-none-any.whl"
+    with zipfile.ZipFile(wheel, "w") as zf:
+        zf.writestr(
+            "demo-0.0.1.dist-info/METADATA",
+            "Metadata-Version: 2.4\n"
+            "Name: demo\n"
+            "Version: 0.0.1\n"
+            "License-Expression: MIT\n"
+            "License-File: LICENSE\n"
+            "License-File: NOTICE\n",
+        )
+    meta = PackageFile.from_filename(str(wheel), None).metadata_dict
+    assert meta["metadata_version"] == "2.4"
+    assert meta["license_expression"] == "MIT"
+    assert meta["license_file"] == ["LICENSE", "NOTICE"]
+    assert meta["license"] is None
+
+
+def test_package_metadata_skips_license_file_before_2_4():
+    fullpath = FIXTURES / "artifacts" / "setuptools-68.0.0-py3-none-any.whl"
+    meta = PackageFile.from_filename(str(fullpath), None).metadata_dict
+    assert meta["metadata_version"] == "2.1"
+    assert "license_file" not in meta
 
 
 def test_package_add_signature(tmp_path):
@@ -222,20 +249,20 @@ def test_publish_parse_no_verify_ssl_option(core):
 def test_repository_get_credentials_from_keyring(project, keyring, mocker):
     keyring.save_auth_info("https://test.org/upload", "foo", "barbaz")
     config = RepositoryConfig(config_prefix="repository", name="test", url="https://test.org/upload")
-    basic_auth = mocker.patch("httpx.BasicAuth.__init__", return_value=None)
+    basic_auth = mocker.patch("httpx2.BasicAuth.__init__", return_value=None)
     Repository(project, config)
     basic_auth.assert_called_with(username="foo", password="barbaz")
 
 
-def test_repository_get_token_from_oidc(project, mocker, httpx_mock):
+def test_repository_get_token_from_oidc(project, mocker, httpx2_mock):
     minted_token = "minted_oidc_token"
     test_pypi_url = "https://test.org/upload"
-    httpx_mock.add_response(
+    httpx2_mock.add_response(
         url="https://test.org/_/oidc/audience",
         method="GET",
         json={"audience": "testpypi"},
     )
-    httpx_mock.add_response(
+    httpx2_mock.add_response(
         url="https://test.org/_/oidc/mint-token",
         method="POST",
         json={"token": minted_token},
@@ -250,9 +277,9 @@ def test_repository_get_token_from_oidc(project, mocker, httpx_mock):
     assert base64.b64decode(repository.session.auth._auth_header[6:]).decode("utf-8") == f"__token__:{minted_token}"
 
 
-def test_repository_get_token_from_oidc_request_error(project, mocker, httpx_mock, capsys):
+def test_repository_get_token_from_oidc_request_error(project, mocker, httpx2_mock, capsys):
     test_pypi_url = "https://test.org/upload"
-    httpx_mock.add_response(
+    httpx2_mock.add_response(
         url="https://test.org/_/oidc/audience",
         method="GET",
         status_code=502,
@@ -265,9 +292,9 @@ def test_repository_get_token_from_oidc_request_error(project, mocker, httpx_moc
     assert "Failed to get PyPI token via OIDC" in captured.err
 
 
-def test_repository_get_token_from_oidc_unsupported_platform(project, mocker, httpx_mock, capsys):
+def test_repository_get_token_from_oidc_unsupported_platform(project, mocker, httpx2_mock, capsys):
     test_pypi_url = "https://test.org/upload"
-    httpx_mock.add_response(
+    httpx2_mock.add_response(
         url="https://test.org/_/oidc/audience",
         method="GET",
         json={"audience": "testpypi"},
@@ -285,9 +312,9 @@ def test_repository_get_token_from_oidc_unsupported_platform(project, mocker, ht
     detect_credential_mock.assert_called_once()
 
 
-def test_repository_get_token_misconfigured_github(project, monkeypatch, capsys, httpx_mock):
+def test_repository_get_token_misconfigured_github(project, monkeypatch, capsys, httpx2_mock):
     test_pypi_url = "https://test.org/upload"
-    httpx_mock.add_response(
+    httpx2_mock.add_response(
         url="https://test.org/_/oidc/audience",
         method="GET",
         json={"audience": "testpypi"},

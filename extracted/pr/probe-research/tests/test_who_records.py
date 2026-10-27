@@ -431,7 +431,7 @@ class _Tel:
 
 def _recorder(monkeypatch, *, chosen, offered=True, page=None, key=True, spins=None, tel=None, stuck=(),
               yes=False, libraries="test", signed_in=True, refused=False, caps=None, agent_rules=None,
-              rules_seen=None):
+              rules_seen=None, consent=True, consents=None, disclosed=False):
     import contextlib
 
     from probe.cli import daemon_cli, tui
@@ -479,10 +479,15 @@ def _recorder(monkeypatch, *, chosen, offered=True, page=None, key=True, spins=N
     monkeypatch.setattr(wizard, "pair_capture", lambda source, **kw: [])
     monkeypatch.setattr(cli_main, "_run_daemon_page", lambda **kw: pages.append(1) or page)
     monkeypatch.setattr(cli_main, "_daemon_key_refused", lambda base: refused)
+    # The daemon's consent page, answered `consent`; `consents` records each showing.
+    monkeypatch.setattr(
+        wizard, "run_daemon_consent",
+        lambda sources: (consents.append(tuple(sources)) if consents is not None else None) or consent,
+    )
     caps = caps or {"claude_code": Capabilities(), "codex": Capabilities(agent_source="codex")}
     lines = cli_main._run_recorder_action(
         yes=yes, caps_by_source=caps, base_now="https://api.test", chosen=chosen, telemetry=tel,
-        agent_rules=agent_rules,
+        agent_rules=agent_rules, disclosed=disclosed,
     )
     return applied, pages, lines
 
@@ -553,7 +558,10 @@ def test_switching_to_the_daemon_moves_every_agent_then_asks_what_it_sees(isolat
     applied, pages, lines = _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, page=["reasoning → on"])
     assert applied == [("claude_code", "daemon"), ("codex", "daemon")], "no codex/claude split"
     assert pages == [1], "the daemon's page, straight after the switch"
-    assert lines == ["moved claude_code", "moved codex", "reasoning → on"]
+    # The page: who records now, the daemon page's answer, what to do next;
+    # not each agent's own report (2026-10-26).
+    assert lines == ["The Probe daemon now records for both coding agents", "reasoning → on", "",
+                     "Next:", "  Start new sessions to use it: open ones keep recording as before."]
 
 
 def test_the_check_and_the_move_show_the_spinner_never_a_blank_screen(isolate, monkeypatch):
@@ -584,10 +592,12 @@ def test_the_daemons_sign_in_runs_before_the_spinner(isolate, monkeypatch):
         monkeypatch, chosen=session_marker.RECORDER_DAEMON, spins=spins, key=lambda: held["key"]
     )
     order = [kind for kind, _ in spins]
-    assert order[:4] == ["spin", "ask", "done", "sign-in"], "checked, THEN signed in, outside any spinner"
-    assert order[4] == "spin", "the plugin moves come after, under the spinner"
+    at = order.index("sign-in")
+    assert order[:3] == ["spin", "ask", "done"], "the server is asked first, under the spinner"
+    assert order[:at].count("spin") == order[:at].count("done"), "signed in outside any spinner"
+    assert order[at + 1] == "spin", "the plugin moves come after, under the spinner"
     assert applied == [("claude_code", "daemon"), ("codex", "daemon")]
-    assert lines[0] == "The Probe daemon has its own key."
+    assert lines[0] == "The Probe daemon now records for both coding agents"
 
 
 def test_a_held_key_with_missing_libraries_installs_them_without_an_approval(isolate, monkeypatch):
@@ -621,7 +631,7 @@ def test_libraries_that_do_not_install_move_nothing(isolate, monkeypatch):
     tel = _Tel()
     applied, pages, lines = _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, tel=tel, libraries=False)
     assert applied == [] and pages == []
-    assert lines[-1] == "! The daemon's AI libraries are missing, so nothing changed."
+    assert lines[0] == "The daemon's AI libraries are missing, so nothing changed."
     assert _changed(tel)[-1]["outcome"] == tm.RecorderOutcome.NO_LIBRARIES
 
 
@@ -683,7 +693,7 @@ def test_a_failed_install_into_the_installed_probe_moves_nothing(isolate, monkey
                                        libraries=None)
     assert daemon_cli.ai_libraries() is None, "the installed copy answers, never uv's cache"
     assert applied == []
-    assert lines[-1] == "! The daemon's AI libraries are missing, so nothing changed."
+    assert lines[0] == "The daemon's AI libraries are missing, so nothing changed."
     assert _changed(tel)[-1]["outcome"] == tm.RecorderOutcome.NO_LIBRARIES
 
 
@@ -760,7 +770,7 @@ def test_a_declined_re_approval_leaves_no_key_and_moves_nothing(isolate, monkeyp
         key=lambda: bool(load_context().get("companion_token")),
     )
     assert applied == [] and _changed(tel)[-1]["outcome"] == tm.RecorderOutcome.NO_KEY
-    assert lines[-1] == "! The daemon has no key, so nothing changed."
+    assert lines[0] == "The daemon has no key, so nothing changed."
 
 
 def test_a_signed_out_machine_can_still_leave_the_daemon(isolate, monkeypatch):
@@ -963,10 +973,27 @@ def test_codex_on_the_daemon_loses_the_mcp_and_a_rerun_does_not_bring_it_back(is
     lines = wizard.apply_recorder(caps, session_marker.RECORDER_DAEMON, base_url="https://api.test")
     assert removed == ["probe-research"]
     assert wizard.sync_codex_mcp_token() == [], "the token sync leaves a daemon-profile Codex alone"
-    assert lines[-1] == "In the new Codex session: `/hooks` › approve the Probe hooks.", (
+    assert "type /hooks and approve the Probe hooks" in lines[-1], (
         "Codex skips an untrusted hook silently: the daemon's messages would never arrive")
+    from probe.cli import codex_hooks
+
+    monkeypatch.setattr(codex_hooks, "approve", lambda *a, **k: codex_hooks.Approval(done=True))
     back = wizard.apply_recorder(caps, session_marker.RECORDER_AGENT, base_url="https://api.test")
     assert not any("/hooks" in line for line in back)
+
+
+def test_codex_on_the_daemon_approves_its_hooks_and_skips_the_hooks_step(isolate, monkeypatch):
+    """The daemon plugin swapped in has hook keys of its own: Probe approves them,
+    and `/hooks` is named only when that did not take."""
+    from probe.cli import codex_config, codex_hooks
+
+    Calls(monkeypatch)
+    monkeypatch.setattr(codex_config, "remove_mcp_server", lambda name, **kw: None)
+    monkeypatch.setattr(codex_hooks, "approve", lambda *a, **k: codex_hooks.Approval(approved=("a", "b"), done=True))
+    caps = Capabilities(agent_source="codex", tracking_plugin_installed=True, capture_plugin_installed=True)
+    lines = wizard.apply_recorder(caps, session_marker.RECORDER_DAEMON, base_url="https://api.test")
+    assert lines[-1] == "Approved Probe's 2 hooks in Codex."
+    assert not any("/hooks" in line for line in lines)
 
 
 def test_session_track_from_a_terminal_honours_the_sessions_profile(isolate, monkeypatch):
@@ -1016,3 +1043,96 @@ def test_the_main_menu_hands_its_agents_to_the_who_records_row(monkeypatch):
     with pytest.raises(RuntimeError):
         wizard.run_action_menu(caps)
     assert seen == [caps]
+
+
+def test_a_scripted_switch_with_missing_libraries_still_marks_the_error(isolate, monkeypatch):
+    """`--yes` prints the raw report, `!` and all: only the wizard's page drops
+    the marker into its headline."""
+    from probe.cli import daemon_cli
+
+    def fails():
+        raise typer.Exit(1)
+
+    monkeypatch.setattr(daemon_cli, "daemon_install", fails)
+    _applied, _pages, lines = _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, libraries=False, yes=True)
+    assert lines[-1] == "! The daemon's AI libraries are missing, so nothing changed."
+
+
+def test_an_agent_already_on_the_daemon_is_not_a_switch(isolate, monkeypatch):
+    """Codex was there before; Claude Code's move failed: nothing changed, so
+    no "start new sessions"."""
+    session_marker.write_recorder("codex", session_marker.RECORDER_DAEMON)
+    applied, _pages, lines = _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, stuck=("claude_code",))
+    assert applied == [("claude_code", "daemon")]
+    assert lines[0] == "Who records did not change"
+    assert "Next:" not in lines and "  could not install for claude_code" in lines
+
+
+def test_a_new_daemon_key_shows_the_daemons_consent_first(isolate, monkeypatch):
+    """The key comes from this device's sign-in now, so the browser page that
+    disclosed the daemon never opens: the wizard shows the same words first."""
+    consents: list = []
+    minted: list = []
+    held = {"key": False}
+
+    def provision(base_url, **kw):
+        minted.append(kw.get("sign_in"))
+        held["key"] = True
+        return []
+
+    monkeypatch.setattr("probe.cli.companion.provision_daemon", provision)
+    applied, _pages, _lines = _recorder(
+        monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=lambda: held["key"], consents=consents,
+    )
+    assert consents == [("claude_code", "codex")], "shown once, naming the agents it records for"
+    assert minted == [True], "after the consent, the key comes from the sign-in"
+    assert applied == [("claude_code", "daemon"), ("codex", "daemon")]
+
+
+def test_a_run_nobody_watches_keeps_the_browser_approval(isolate, monkeypatch):
+    """`--who-records daemon --yes`, `--json`, no terminal: no consent screen can
+    run, so the key is never minted from the sign-in (the browser page shows
+    the consent)."""
+    consents: list = []
+    minted: list = []
+    held = {"key": False}
+
+    def provision(base_url, **kw):
+        minted.append(kw.get("sign_in"))
+        held["key"] = True
+        return []
+
+    monkeypatch.setattr("probe.cli.companion.provision_daemon", provision)
+    _recorder(
+        monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=lambda: held["key"], consents=consents, yes=True,
+    )
+    assert consents == [] and minted == [False]
+
+
+def test_declining_the_daemons_consent_mints_and_moves_nothing(isolate, monkeypatch):
+    minted: list = []
+    monkeypatch.setattr("probe.cli.companion.provision_daemon", lambda base, **_kw: minted.append(base) or [])
+    tel = _Tel()
+    applied, _pages, _lines = _recorder(
+        monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=False, consent=False, tel=tel,
+    )
+    assert (minted, applied) == ([], []), "no key, no plugin moved"
+    assert wizard.machine_recorder() == session_marker.RECORDER_AGENT
+
+
+def test_no_consent_page_when_the_key_is_held_or_already_disclosed(isolate, monkeypatch):
+    """A held key mints nothing new (a refused one is a repair), and the
+    install's Defaults step already showed the consent."""
+    consents: list = []
+    _recorder(monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=True, consents=consents)
+    session_marker.write_recorder("claude_code", session_marker.RECORDER_AGENT)
+    session_marker.write_recorder("codex", session_marker.RECORDER_AGENT)
+    held = {"key": False}
+    monkeypatch.setattr(
+        "probe.cli.companion.provision_daemon", lambda base, **_kw: held.update(key=True) or [],
+    )
+    applied, _pages, _lines = _recorder(
+        monkeypatch, chosen=session_marker.RECORDER_DAEMON, key=lambda: held["key"], consents=consents,
+        disclosed=True,
+    )
+    assert consents == [] and applied == [("claude_code", "daemon"), ("codex", "daemon")]

@@ -184,6 +184,7 @@ class CfnProfilePermission(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -217,7 +218,7 @@ class CfnProfilePermission(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9b8c32d87b73fa4fb5094ae3e46175df93629f45d64c0d2b3130d5471eca086e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "action", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "action", value)
 
     @builtins.property
     @jsii.member(jsii_name="principal")
@@ -230,7 +231,7 @@ class CfnProfilePermission(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__37b3db8c74061df8a65eeda431f6a41091db1cf687f78d71f79a9441f95b0644)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "principal", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "principal", value)
 
     @builtins.property
     @jsii.member(jsii_name="profileName")
@@ -243,7 +244,7 @@ class CfnProfilePermission(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0284177166884a4428819ca021ca73daecd877943a7bf90e79aec6e00f5ad07a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "profileName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "profileName", value)
 
     @builtins.property
     @jsii.member(jsii_name="statementId")
@@ -256,7 +257,7 @@ class CfnProfilePermission(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e8ca5148f26e102d75c04bb95550132d3a29824e2932a98f9f87725df3962fc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "statementId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "statementId", value)
 
     @builtins.property
     @jsii.member(jsii_name="profileVersion")
@@ -269,7 +270,7 @@ class CfnProfilePermission(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__80bd95afa9c654fc5d026db2cad497a96dc240f466154896c0c5c3cc15b54bdd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "profileVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "profileVersion", value)
 
 
 @jsii.data_type(
@@ -520,6 +521,7 @@ class CfnSigningProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -593,7 +595,7 @@ class CfnSigningProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fe4af9baf88789da4f861a18d37152a49a2947c30e555d2e1fff8d9d3f3d5f1a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "platformId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "platformId", value)
 
     @builtins.property
     @jsii.member(jsii_name="profileName")
@@ -606,7 +608,7 @@ class CfnSigningProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2972dbaf65147ccdb4e647ac0428126af6fbc8681dd95b936d84537b98769a3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "profileName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "profileName", value)
 
     @builtins.property
     @jsii.member(jsii_name="signatureValidityPeriod")
@@ -624,7 +626,7 @@ class CfnSigningProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d3142352951a0c8c38151f31fb1da21f644b00a82a7383e211cfa3feb49aaea8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "signatureValidityPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "signatureValidityPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -640,7 +642,7 @@ class CfnSigningProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__580ec6652b4c39cad7404de2ec2116ee0ba26fab741371a13d0201ad7c60ad0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_signer.CfnSigningProfile.SignatureValidityPeriodProperty",
@@ -969,6 +971,7 @@ class Platform(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_signer.Platfo
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_FREE_RTOS_DEFAULT")
+    @builtins.classmethod
     def AMAZON_FREE_RTOS_DEFAULT(cls) -> "Platform":
         '''(deprecated) Specification of signature format and signing algorithms with SHA256 hash and ECDSA encryption for Amazon FreeRTOS.
 
@@ -980,6 +983,7 @@ class Platform(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_signer.Platfo
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_FREE_RTOS_TI_CC3220SF")
+    @builtins.classmethod
     def AMAZON_FREE_RTOS_TI_CC3220_SF(cls) -> "Platform":
         '''(deprecated) Specification of signature format and signing algorithms with SHA1 hash and RSA encryption for Amazon FreeRTOS.
 
@@ -991,18 +995,21 @@ class Platform(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_signer.Platfo
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AWS_IOT_DEVICE_MANAGEMENT_SHA256_ECDSA")
+    @builtins.classmethod
     def AWS_IOT_DEVICE_MANAGEMENT_SHA256_ECDSA(cls) -> "Platform":
         '''Specification of signature format and signing algorithms for AWS IoT Device.'''
         return typing.cast("Platform", jsii.sget(cls, "AWS_IOT_DEVICE_MANAGEMENT_SHA256_ECDSA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AWS_LAMBDA_SHA384_ECDSA")
+    @builtins.classmethod
     def AWS_LAMBDA_SHA384_ECDSA(cls) -> "Platform":
         '''Specification of signature format and signing algorithms for AWS Lambda.'''
         return typing.cast("Platform", jsii.sget(cls, "AWS_LAMBDA_SHA384_ECDSA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NOTATION_OCI_SHA384_ECDSA")
+    @builtins.classmethod
     def NOTATION_OCI_SHA384_ECDSA(cls) -> "Platform":
         '''Specification of signature format and signing algorithms with SHA256 hash and ECDSA encryption for container registries with notation.'''
         return typing.cast("Platform", jsii.sget(cls, "NOTATION_OCI_SHA384_ECDSA"))
@@ -1104,6 +1111,7 @@ class SigningProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

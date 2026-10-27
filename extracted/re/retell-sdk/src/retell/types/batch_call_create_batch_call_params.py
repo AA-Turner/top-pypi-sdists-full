@@ -77,6 +77,8 @@ __all__ = [
     "TaskAgentOverrideAgentVoicemailOptionActionVoicemailActionHangup",
     "TaskAgentOverrideAgentVoicemailOptionActionVoicemailActionBridgeTransfer",
     "TaskAgentOverrideConversationFlow",
+    "TaskAgentOverrideConversationFlowBackupModel",
+    "TaskAgentOverrideConversationFlowBackupModelBackupModelChoice",
     "TaskAgentOverrideConversationFlowKBConfig",
     "TaskAgentOverrideConversationFlowModelChoice",
     "TaskAgentOverrideConversationFlowModelChoiceModelChoiceCascading",
@@ -89,6 +91,8 @@ __all__ = [
     "TaskAgentOverrideConversationFlowModelConfigS2SModelConfig",
     "TaskAgentOverrideConversationFlowModelConfigS2SModelConfigPrimary",
     "TaskAgentOverrideRetellLlm",
+    "TaskAgentOverrideRetellLlmBackupModel",
+    "TaskAgentOverrideRetellLlmBackupModelBackupModelChoice",
     "TaskAgentOverrideRetellLlmKBConfig",
     "TaskAgentOverrideRetellLlmModelConfig",
     "TaskAgentOverrideRetellLlmModelConfigCascadingModelConfig",
@@ -2277,6 +2281,76 @@ class TaskAgentOverrideAgent(TypedDict, total=False):
     """
 
 
+class TaskAgentOverrideConversationFlowBackupModelBackupModelChoice(TypedDict, total=False):
+    """Backup models are supported only for call agents.
+
+    Response engines with a backup model cannot be used by chat agents.
+    """
+
+    model: Required[
+        Literal[
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-5.1",
+            "gpt-5.2",
+            "gpt-5.4",
+            "gpt-5.4-mini",
+            "gpt-5.4-nano",
+            "gpt-5.5",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6-luna",
+            "claude-4.6-sonnet",
+            "claude-5-opus",
+            "claude-5.5-opus",
+            "claude-5-sonnet",
+            "claude-5.5-sonnet",
+            "claude-5.5-haiku",
+            "claude-4.5-haiku",
+            "gemini-3.0-flash",
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-4-argon",
+        ]
+    ]
+    """The LLM model to use"""
+
+    type: Required[Literal["cascading"]]
+    """Type of model choice"""
+
+    backup_kick_in_timeout: int
+    """
+    Duration in milliseconds to prefer primary model output while both models run
+    concurrently. Must be between 300 and 60000 milliseconds, inclusive. Defaults to
+    1500 when omitted.
+    """
+
+    high_priority: bool
+    """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: bool
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
+
+
+TaskAgentOverrideConversationFlowBackupModel: TypeAlias = Union[
+    TaskAgentOverrideConversationFlowBackupModelBackupModelChoice, Optional[object]
+]
+
+
 class TaskAgentOverrideConversationFlowKBConfig(TypedDict, total=False):
     """Knowledge base configuration for RAG retrieval."""
 
@@ -2365,6 +2439,11 @@ TaskAgentOverrideConversationFlowModelChoice: TypeAlias = Union[
 
 
 class TaskAgentOverrideConversationFlowModelConfigCascadingModelConfigBackupBackupModelRef(TypedDict, total=False):
+    """Backup models are supported only for call agents.
+
+    Response engines with a backup model cannot be used by chat agents.
+    """
+
     model: Required[
         Literal[
             "gpt-4.1",
@@ -2529,7 +2608,15 @@ TaskAgentOverrideConversationFlowModelConfig: TypeAlias = Union[
 class TaskAgentOverrideConversationFlow(TypedDict, total=False):
     """Override conversation flow configuration settings.
 
-    Only applicable when using conversation flow as the response engine. Supported attributes - model_config, tool_call_strict_mode, knowledge_base_ids, kb_config, start_speaker, begin_after_user_silence_ms. A model_config override cannot remove the backup model.
+    Only applicable when using conversation flow as the response engine. Supported attributes - model_config, tool_call_strict_mode, knowledge_base_ids, kb_config, start_speaker, begin_after_user_silence_ms. A model_config override can set backup to null to remove it for this call.
+    """
+
+    backup_model: TaskAgentOverrideConversationFlowBackupModel
+    """Replace backup model configuration for this call only.
+
+    Omit to inherit the saved configuration, or set null to disable backup. An
+    omitted backup_kick_in_timeout in a supplied configuration defaults to 1500
+    milliseconds.
     """
 
     begin_after_user_silence_ms: Optional[int]
@@ -2555,8 +2642,8 @@ class TaskAgentOverrideConversationFlow(TypedDict, total=False):
     type decides which models primary and backup accept. On update, each top-level
     key replaces the current one and omitted keys are kept; set backup to null to
     remove it. Changing type requires primary and clears backup, while temperature
-    carries over. In agent_override, type is required whenever primary is set, and
-    backup cannot be removed.
+    carries over. In agent_override, type is required whenever primary is set;
+    setting backup to null disables it for that call only.
     """
 
     model_temperature: Optional[float]
@@ -2572,6 +2659,76 @@ class TaskAgentOverrideConversationFlow(TypedDict, total=False):
     """
 
 
+class TaskAgentOverrideRetellLlmBackupModelBackupModelChoice(TypedDict, total=False):
+    """Backup models are supported only for call agents.
+
+    Response engines with a backup model cannot be used by chat agents.
+    """
+
+    model: Required[
+        Literal[
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-5",
+            "gpt-5-mini",
+            "gpt-5-nano",
+            "gpt-5.1",
+            "gpt-5.2",
+            "gpt-5.4",
+            "gpt-5.4-mini",
+            "gpt-5.4-nano",
+            "gpt-5.5",
+            "gpt-5.6-terra",
+            "gpt-5.6-luna",
+            "gpt-6-astra",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6-luna",
+            "claude-4.6-sonnet",
+            "claude-5-opus",
+            "claude-5.5-opus",
+            "claude-5-sonnet",
+            "claude-5.5-sonnet",
+            "claude-5.5-haiku",
+            "claude-4.5-haiku",
+            "gemini-3.0-flash",
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-4-argon",
+        ]
+    ]
+    """The LLM model to use"""
+
+    type: Required[Literal["cascading"]]
+    """Type of model choice"""
+
+    backup_kick_in_timeout: int
+    """
+    Duration in milliseconds to prefer primary model output while both models run
+    concurrently. Must be between 300 and 60000 milliseconds, inclusive. Defaults to
+    1500 when omitted.
+    """
+
+    high_priority: bool
+    """Whether to use high priority pool with more dedicated resource, default false"""
+
+    ultrafast: bool
+    """
+    Whether to use the ultrafast tier for much faster response generation, default
+    false. Only supported by gpt-6.1-sol on voice agents; ignored otherwise. Takes
+    precedence over high_priority.
+    """
+
+
+TaskAgentOverrideRetellLlmBackupModel: TypeAlias = Union[
+    TaskAgentOverrideRetellLlmBackupModelBackupModelChoice, Optional[object]
+]
+
+
 class TaskAgentOverrideRetellLlmKBConfig(TypedDict, total=False):
     """Knowledge base configuration for RAG retrieval."""
 
@@ -2583,6 +2740,11 @@ class TaskAgentOverrideRetellLlmKBConfig(TypedDict, total=False):
 
 
 class TaskAgentOverrideRetellLlmModelConfigCascadingModelConfigBackupBackupModelRef(TypedDict, total=False):
+    """Backup models are supported only for call agents.
+
+    Response engines with a backup model cannot be used by chat agents.
+    """
+
     model: Required[
         Literal[
             "gpt-4.1",
@@ -2746,7 +2908,15 @@ TaskAgentOverrideRetellLlmModelConfig: TypeAlias = Union[
 class TaskAgentOverrideRetellLlm(TypedDict, total=False):
     """Override Retell LLM configuration settings.
 
-    Only applicable when using Retell LLM as the response engine. Supported attributes - model_config, tool_call_strict_mode, knowledge_base_ids, kb_config, start_speaker, begin_after_user_silence_ms, begin_message. A model_config override cannot remove the backup model or switch a speech-to-speech LLM to a cascading model.
+    Only applicable when using Retell LLM as the response engine. Supported attributes - model_config, tool_call_strict_mode, knowledge_base_ids, kb_config, start_speaker, begin_after_user_silence_ms, begin_message. A model_config override can set backup to null to remove it for this call, but cannot switch a speech-to-speech LLM to a cascading model.
+    """
+
+    backup_model: TaskAgentOverrideRetellLlmBackupModel
+    """Replace backup model configuration for this call only.
+
+    Omit to inherit the saved configuration, or set null to disable backup. An
+    omitted backup_kick_in_timeout in a supplied configuration defaults to 1500
+    milliseconds.
     """
 
     begin_after_user_silence_ms: Optional[int]
@@ -2814,8 +2984,8 @@ class TaskAgentOverrideRetellLlm(TypedDict, total=False):
     type decides which models primary and backup accept. On update, each top-level
     key replaces the current one and omitted keys are kept; set backup to null to
     remove it. Changing type requires primary and clears backup, while temperature
-    carries over. In agent_override, type is required whenever primary is set, and
-    backup cannot be removed.
+    carries over. In agent_override, type is required whenever primary is set;
+    setting backup to null disables it for that call only.
     """
 
     model_high_priority: Optional[bool]
@@ -2878,8 +3048,8 @@ class TaskAgentOverride(TypedDict, total=False):
 
     Only applicable when using conversation flow as the response engine. Supported
     attributes - model_config, tool_call_strict_mode, knowledge_base_ids, kb_config,
-    start_speaker, begin_after_user_silence_ms. A model_config override cannot
-    remove the backup model.
+    start_speaker, begin_after_user_silence_ms. A model_config override can set
+    backup to null to remove it for this call.
     """
 
     retell_llm: TaskAgentOverrideRetellLlm
@@ -2888,8 +3058,8 @@ class TaskAgentOverride(TypedDict, total=False):
     Only applicable when using Retell LLM as the response engine. Supported
     attributes - model_config, tool_call_strict_mode, knowledge_base_ids, kb_config,
     start_speaker, begin_after_user_silence_ms, begin_message. A model_config
-    override cannot remove the backup model or switch a speech-to-speech LLM to a
-    cascading model.
+    override can set backup to null to remove it for this call, but cannot switch a
+    speech-to-speech LLM to a cascading model.
     """
 
 

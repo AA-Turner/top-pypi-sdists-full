@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: complexipy
-Version: 8.2.0
+Version: 8.3.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -92,6 +92,10 @@ uv add complexipy
 # or
 uv tool install complexipy
 ```
+
+The `--diff`, `--diff-only`, and `--staged` options require Git 2.30 or newer
+on your `PATH`. Check your version with `git --version`. Git is not required
+for analysis without these options.
 
 ## Quick Start
 

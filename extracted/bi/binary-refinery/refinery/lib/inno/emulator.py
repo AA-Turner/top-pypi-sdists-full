@@ -12,10 +12,7 @@ import bisect
 import fnmatch
 import hashlib
 import inspect
-import io
-import math
 import ntpath
-import operator
 import random
 import re
 import shlex
@@ -23,10 +20,8 @@ import struct
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum, IntFlag, auto
-from functools import cached_property, partial, wraps
-from pathlib import Path
-from string import Formatter
+from enum import Enum, auto
+from functools import wraps
 from time import process_time
 from typing import (
     TYPE_CHECKING,
@@ -35,19 +30,56 @@ from typing import (
     ClassVar,
     Generator,
     Generic,
+    Iterable,
+    Iterator,
+    Mapping,
     NamedTuple,
     Sequence,
     TypeVar,
     get_origin,
 )
-from urllib.parse import unquote
 
-from refinery.lib.inno import CaseInsensitiveDict
-from refinery.lib.inno.archive import Flags, InnoArchive
+from refinery.lib import json
+from refinery.lib.inno import CaseInsensitiveDict, constants, expressions, pascal
+from refinery.lib.inno.archive import InnoArchive, TextDirective
+from refinery.lib.inno.delphi import formatting, numbers, strings, variants, x87
+from refinery.lib.inno.delphi.errors import DelphiException, EIntOverflow, SysConst, Undefined
+from refinery.lib.inno.delphi.formatting import VarRec, VType
+from refinery.lib.inno.delphi.runtime import Platform
+from refinery.lib.inno.delphi.variants import Variant, VarType
+from refinery.lib.inno.emulation import (
+    AbortEmulation,
+    EmulatorException,
+    EmulatorExecutionLimit,
+    EmulatorMaxArray,
+    EmulatorMaxCalls,
+    EmulatorMaxStack,
+    EmulatorMaxString,
+    EmulatorMemoryError,
+    EmulatorTimeout,
+    EmulatorUndefined,
+    EntryField,
+    InternalError,
+    NeedSymbol,
+    NewEmulationError,
+    NewFunctionCall,
+    NewInstruction,
+    NewMutex,
+    NewPassword,
+    OpCodeNotImplemented,
+)
+from refinery.lib.inno.host import (
+    HostSetup,
+    SetupConstants,
+    architecture,
+    machine_folders,
+    processor,
+)
 from refinery.lib.inno.ifps import (
     TC,
     AOp,
     COp,
+    Dialect,
     EHType,
     Function,
     IFPSFile,
@@ -55,7 +87,6 @@ from refinery.lib.inno.ifps import (
     Instruction,
     Op,
     Operand,
-    OperandType,
     TArray,
     TPrimitive,
     TRecord,
@@ -65,8 +96,39 @@ from refinery.lib.inno.ifps import (
     VariableSpec,
     VariableType,
 )
+from refinery.lib.inno.installation import (
+    CODE_CONSTANT,
+    ArgumentKind,
+    CurrentFile,
+    CurrentFolder,
+    Installation,
+    InstalledPaths,
+    SetupCall,
+    SetupEntries,
+    user_info_edit_change,
+)
+from refinery.lib.inno.pascal import IFPSException, PSError, signed32, type_mismatch
+from refinery.lib.inno.pathfunc import PathFuncError, expand_file_name
+from refinery.lib.inno.symbols import parse_function
+from refinery.lib.inno.wizard import (
+    CheckList,
+    CheckOperation,
+    Expander,
+    PageEvent,
+    PageStyle,
+    SetupHandler,
+    StandIns,
+    TEditCharCase,
+    TextBox,
+    WizardForm,
+    WizardPage,
+    comma_strings,
+    comma_text,
+    list_contains,
+)
 from refinery.lib.patterns import formats
-from refinery.lib.types import AST, INF
+from refinery.lib.resources import datapath
+from refinery.lib.tools import copy_exception, exception_to_string
 
 if TYPE_CHECKING:
     from typing import ParamSpec
@@ -77,6 +139,23 @@ _Y = TypeVar('_Y')
 
 
 ERROR_NO_MORE_FILES = 0x100123
+
+_OUT_OF_STRING_RANGE = 'Out of string range'
+_INVALID_FLOAT = 'Invalid float'
+_NIL_INVOKE = 'Variant is null, cannot invoke'
+_LONGEST_WIDE_STRING = (0x7FFFFFFF - 14) // 2
+
+
+def _index_error(array: Variable, index: int, dialect: Dialect) -> IFPSException:
+    """
+    The error of an index outside of an array: Pascal Script names the index and the length from
+    Inno Setup 7 on.
+    """
+    if dialect is Dialect.Inno6:
+        return IFPSException(kind=PSError.OutOfRange)
+    kind = 'Static array' if array.type.code is TC.StaticArray else 'Array'
+    message = F'{kind} index out of bounds ({signed32(index)}). Length is {len(array)}.'
+    return IFPSException(message, PSError.CustomError)
 
 
 class OleObject:
@@ -95,6 +174,19 @@ class OleObject:
 
 
 _VariantType = TPrimitive(TC.Variant)
+_StringType = TPrimitive(TC.UnicodeString)
+
+
+class _DynamicArray(list['Variable']):
+    """
+    The elements of a dynamic array of Pascal Script. Assignment shares the elements, and the
+    number of variables that hold them decides whether a change of the length is made in place.
+    """
+    __slots__ = 'holders',
+
+    def __init__(self, elements=()):
+        super().__init__(elements)
+        self.holders = 1
 
 
 class Variable(VariableBase, Generic[_T]):
@@ -115,10 +207,6 @@ class Variable(VariableBase, Generic[_T]):
     __slots__ = (
         'data',
         'path',
-        '_int_size',
-        '_int_mask',
-        '_int_bits',
-        '_int_good',
     )
 
     @property
@@ -153,7 +241,7 @@ class Variable(VariableBase, Generic[_T]):
         if var.container:
             var.at(key).set(v)
         else:
-            var.data[key] = var._wrap(v)
+            var.data[key] = v
 
     def at(self, k: int):
         """
@@ -176,40 +264,14 @@ class Variable(VariableBase, Generic[_T]):
     def __init__(
         self,
         type: IFPSType,
-        spec: VariableSpec | None = None,
+        spec: VariableSpec | str | None = None,
         path: tuple[int, ...] = (),
         data: _T | list | None = None
     ):
         super().__init__(type, spec)
         self.path = path
-
-        self._int_size = _size = {
-            TC.U08: +1,
-            TC.U16: +1,
-            TC.U32: +1,
-            TC.U64: +1,
-            TC.S08: -1,
-            TC.S16: -1,
-            TC.S32: -1,
-            TC.S64: -1,
-        }.get((code := type.code), 0) * code.width
-        if _size:
-            bits = abs(_size) * 8
-            umax = (1 << bits)
-            self._int_bits = bits
-            self._int_mask = umax - 1
-            if _size < 0:
-                self._int_good = range(-(umax >> 1), (umax >> 1))
-            else:
-                self._int_good = range(umax)
-        else:
-            self._int_mask = -1
-            self._int_bits = INF()
-            self._int_good = AST()
-
-        if data is None:
-            self.setdefault()
-        else:
+        self.setdefault()
+        if data is not None:
             self.set(data)
 
     def setdefault(self):
@@ -227,88 +289,130 @@ class Variable(VariableBase, Generic[_T]):
                 t = type.type
                 return [Variable(t, spec, (*path, *sub_path, k)) for k in range(type.size)]
             if isinstance(type, TArray):
-                return []
+                return _DynamicArray()
             if sub_path:
                 return Variable(type, spec, (*path, *sub_path))
             elif type.code == TC.Pointer:
                 return Variable(_VariantType)
             else:
-                return type.default()
+                return pascal.default(type)
 
         self.data = default(self.type)
-
-    def _wrap(self, value: Value | _T, key: int | None = None) -> _T:
-        if (t := self.type.py_type(key)) and not isinstance(value, t):
-            if issubclass(t, int):
-                if isinstance(value, str) and len(value) == 1:
-                    return ord(value[0])
-                if isinstance(value, float):
-                    return int(value)
-            elif isinstance(value, int):
-                if issubclass(t, str):
-                    return chr(value)
-                if issubclass(t, float):
-                    return float(value)
-            raise TypeError(F'Assigning value {value!r} to variable of type {self.type}.')
-        if s := self._int_size and value not in self._int_good:
-            mask = self._int_mask
-            value &= mask
-            if s < 0 and (value >> (self._int_bits - 1)):
-                value = -(-value & mask)
-        return value
 
     def resize(self, n: int):
         """
         This function is only valid for container type variables. It re-sizes the data list to
-        ensure that the container stores exactly `n` sub-variables.
+        ensure that the container stores exactly `n` sub-variables, or none if `n` is negative. A
+        dynamic array that another variable holds too is copied before its length changes.
         """
         t = self.type
-        m = n - len(self.data)
         if t.code != TC.Array:
             if t.code not in (TC.StaticArray, TC.Record):
                 raise TypeError
             if n == t.size:
                 return
             raise ValueError(F'Attempt to resize {t} of size {t.size} to {n}.')
-        if m <= 0:
-            del self.data[n:]
+        if not isinstance(t, TArray) or not isinstance(data := self.data, _DynamicArray):
+            raise TypeError
+        n = max(n, 0)
+        if len(data) == n:
             return
-        for k in range(m):
-            self.data.append(Variable(t.type, self.spec, (*self.path, k)))
+        if data.holders > 1:
+            data.holders -= 1
+            kept = data[:n]
+            self.data = data = _DynamicArray()
+            for k, element in enumerate(kept):
+                copy = Variable(t.type, self.spec, (*self.path, k))
+                copy._copy_from(element)
+                data.append(copy)
+        del data[n:]
+        for k in range(len(data), n):
+            data.append(Variable(t.type, self.spec, (*self.path, k)))
+
+    def _share(self, elements: _DynamicArray):
+        if not isinstance(data := self.data, _DynamicArray):
+            raise TypeError
+        if data is elements:
+            return
+        data.holders -= 1
+        elements.holders += 1
+        self.data = elements
 
     def setptr(self, var: Variable, copy: bool = False):
         """
         This method is used to point a pointer variable to a target. This is different from calling
         the `refinery.lib.inno.emulator.Variable.set` method as the latter would try to dereference
-        the pointer and assign to its target; this method sets the value of the pointer itself.
+        the pointer and assign to its target; this method sets the value of the pointer itself. As
+        in Pascal Script, a pointer never points to a pointer: Set to a pointer, it receives the
+        target of that pointer, or a copy of that target with its type.
         """
         if not self.pointer:
             raise TypeError
         if not isinstance(var, Variable):
             raise TypeError
+        var = var.deref()
         if copy:
-            var = Variable(var.type, data=var.get())
+            var = Variable(var.type, data=var)
         self.data = var
 
     def set(self, value: _T | Sequence | Variable):
         """
         Assign a new value to the variable. This can either be an immediate value or a variable.
-        For container types, it can also be a sequence of those.
+        For container types, it can also be a sequence of those. A container variable is copied
+        element by element, and a pointer element as Pascal Script copies it: A pointer to a
+        variable of the script points to the same variable, and a pointer that owns its target
+        points to a copy of that target. A dynamic array shares the elements of the dynamic array
+        that it is assigned. A value of Python code is converted as
+        `refinery.lib.inno.pascal.representation` converts it; the interpreter converts between the
+        types of the script.
         """
-        if isinstance(value, Variable):
-            value = value.get()
-        elif isinstance(value, (Enum, Value)):
-            value = value.value
         if self.pointer:
             return self.deref().set(value)
-        elif self.container:
-            if not isinstance(value, (list, tuple)):
+        assigned = value
+        if isinstance(value, Variable):
+            source = value.deref()
+            if self.container and source.container:
+                return self._copy_elements(source)
+            if source.type == self.type and not source.container:
+                self.data = source.data
+                return
+            assigned = source.get()
+        elif isinstance(value, Value):
+            assigned = value.value
+        elif isinstance(value, Enum):
+            assigned = value.value
+        if self.container:
+            if not isinstance(assigned, (list, tuple)):
                 raise TypeError
-            self.resize(len(value))
-            for k, v in enumerate(value):
+            if self.type.code is TC.Array:
+                self._share(_DynamicArray())
+            self.resize(len(assigned))
+            for k, v in enumerate(assigned):
                 self.data[k].set(v)
         else:
-            self.data = self._wrap(value)
+            self.data = pascal.representation(self.type, assigned)
+
+    def _copy_elements(self, source: Variable):
+        if (
+            not isinstance(elements := source.data, list)
+            or not isinstance(self.data, list)
+        ):
+            raise TypeError
+        if self.type.code is TC.Array:
+            if isinstance(elements, _DynamicArray):
+                return self._share(elements)
+            self._share(_DynamicArray())
+        self.resize(len(elements))
+        for element, copied in zip(self.data, elements):
+            element._copy_from(copied)
+
+    def _copy_from(self, copied: Variable):
+        if not self.pointer:
+            self.set(copied)
+        elif isinstance(target := copied.data, Variable):
+            self.setptr(target, copy=target.spec is None)
+        else:
+            raise type_mismatch()
 
     def get(self) -> _T:
         """
@@ -351,92 +455,315 @@ class Variable(VariableBase, Generic[_T]):
         return F'{rep} = {val}'
 
 
-class NeedSymbol(NotImplementedError):
+def _variables_held(type: IFPSType) -> int:
     """
-    An exception raised by `refinery.lib.inno.emulator.IFPSEmulator` if the runtime calls out to
-    an external symbol that is not implemented.
+    The number of variables that a variable of the given type holds, itself included: a record or
+    a static array holds its elements, and a dynamic array holds none until it gets a length.
     """
+    if isinstance(type, TStaticArray):
+        return 1 + type.size * _variables_held(type.type)
+    if isinstance(type, TRecord):
+        return 1 + sum(_variables_held(member) for member in type.members)
+    return 1
 
 
-class OpCodeNotImplemented(NotImplementedError):
-    """
-    An exception raised by `refinery.lib.inno.emulator.IFPSEmulator` if an unsupported opcode is
-    encountered during emulation.
-    """
-
-
-class EmulatorException(RuntimeError):
-    """
-    A generic exception representing any error that occurs during emulation.
-    """
-
-
-class AbortEmulation(Exception):
-    """
-    This exception can be raised by an external function handler to signal the emulator that script
-    execution should be aborted.
-    """
-
-
-class IFPSException(RuntimeError):
-    """
-    This class represents an exception within the IFPS runtime, i.e. an exception that is subject
-    to IFPS exception handling.
-    """
-    def __init__(self, msg: str, parent: BaseException | None = None):
-        super().__init__(msg)
-        self.parent = parent
-
-
-class EmulatorTimeout(TimeoutError):
-    """
-    The emulation timed out based on the given time limit in the configuration.
-    """
-
-
-class EmulatorExecutionLimit(TimeoutError):
-    """
-    The emulation timed out based on the given execution limit in the configuration.
-    """
-
-
-class EmulatorMaxStack(MemoryError):
-    """
-    The emulation was aborted because the stack limit given in the configuration was exceeded.
-    """
-
-
-class EmulatorMaxCalls(MemoryError):
-    """
-    The emulation was aborted because the call stack limit given in the configuration was exceeded.
-    """
+class _CallState(NamedTuple):
+    fn: Function
+    ip: int
+    sp: int
 
 
 @dataclass
 class ExceptionHandler:
     """
-    This class represents an exception handler within the IFPS runtime.
+    An exception handler of the IFPS runtime: one try statement whose try block runs or whose
+    blocks have not all ended. A block that an error enters can no longer be entered by an error.
+    The second finally block that the end of the try block enters can still be entered once by an
+    error, as in Pascal Script.
     """
     finally_one: int | None
     """
-    Code offset of the first finally handler.
+    Code offset of the first finally block, while it can be entered.
     """
     catch_error: int | None
     """
-    Code offset of the catch handler.
+    Code offset of the except block, while it can be entered.
     """
     finally_two: int | None
     """
-    Code offset of the second finally handler.
+    Code offset of the second finally block, while it can be entered.
     """
     handler_end: int
     """
-    Code offset of the first instruction that is no longer covered.
+    Code offset of the first instruction after the try statement.
     """
-    current: EHType = EHType.Try
+    function: Function
     """
-    Represents the current state of this exception handler.
+    The function that contains the try statement.
     """
+    frame: int
+    """
+    The number of call frames below the function that contains the try statement.
+    """
+    sp: int
+    """
+    The stack base of the function that contains the try statement.
+    """
+    depth: int
+    """
+    The size of the data stack when the handler was installed. The stack is cut back to this size
+    when an error enters one of the blocks of the handler.
+    """
+    exception: IFPSException | None = None
+    """
+    The error that entered the except block.
+    """
+    exit_point: int | None = None
+    """
+    From Inno Setup 7 on, the offset of the return that entered a finally block of this handler.
+    """
+
+    def resume(self, ip: int) -> _CallState:
+        """
+        The position at the given offset of the function that contains the try statement.
+        """
+        return _CallState(self.function, ip, self.sp)
+
+
+class _ErrorInFlight:
+    """
+    The error that passes through a finally block, raised again when that block ends. A run of
+    the script and all runs nested in it have one error in flight.
+    """
+    __slots__ = 'error',
+
+    def __init__(self):
+        self.error: IFPSException | None = None
+
+
+class _ScriptRun:
+    """
+    One run of the script from the call of one of its functions until that function returns, as
+    Pascal Script runs it: the data stack, the frames of the functions that called the running one,
+    the try statements that have not ended, and the return that waits for finally blocks. A run
+    that starts while an emulated function runs for another run, as one that expands a code
+    constant, is nested in that run: it shares the error in flight and the script sees the
+    handlers of both, but an error that no handler of the nested run takes ends the nested run.
+    """
+    def __init__(self, dialect: Dialect, caller: _ScriptRun | None = None):
+        self.dialect = dialect
+        self.stack: list[Variable] = []
+        self.frames: list[_CallState] = []
+        self.handlers: list[ExceptionHandler] = []
+        self.exit_point: int | None = None
+        self.caller = caller
+        if caller is None:
+            self.in_flight = _ErrorInFlight()
+            self.depth = 0
+        else:
+            self.in_flight = caller.in_flight
+            self.in_flight.error = None
+            self.depth = caller.depth + len(caller.frames) + 1
+
+    @property
+    def current_exception(self) -> IFPSException | None:
+        """
+        The error that `GetExceptionMessage` reads: the one that entered the except block of the
+        innermost try statement if an error did, else the error in flight when no try statement
+        is left.
+        """
+        run = self
+        while run is not None:
+            if handlers := run.handlers:
+                return handlers[-1].exception
+            run = run.caller
+        return self.in_flight.error
+
+    def install(self, operands: Sequence, function: Function, sp: int):
+        """
+        Installs the handler of a try statement that begins in the given function.
+        """
+        finally_one, catch_error, finally_two, handler_end = operands
+        if handler_end is None:
+            raise RuntimeError('The try statement has no end.')
+        self.handlers.append(ExceptionHandler(
+            finally_one,
+            catch_error,
+            finally_two,
+            handler_end,
+            function,
+            len(self.frames),
+            sp,
+            len(self.stack),
+        ))
+
+    def throw(self, error: IFPSException):
+        """
+        Puts the given error in flight. The run keeps a copy without traceback.
+        """
+        self.in_flight.error = copy_exception(error)
+
+    def unwind(self) -> _CallState:
+        """
+        Moves the error in flight to the innermost handler of this run that can take it, which is
+        the first of its finally block, its except block or its second finally block that can
+        still be entered. Handlers with none left are removed. An error that enters the except
+        block is no longer in flight. When no handler of this run is left, the error ends the run.
+        """
+        in_flight = self.in_flight
+        handlers = self.handlers
+        while handlers:
+            eh = handlers[-1]
+            del self.stack[eh.depth:]
+            del self.frames[eh.frame:]
+            if (ip := eh.finally_one) is not None:
+                eh.finally_one = None
+            elif (ip := eh.catch_error) is not None:
+                eh.catch_error = None
+                eh.exception, in_flight.error = in_flight.error, None
+            elif (ip := eh.finally_two) is not None:
+                eh.finally_two = None
+            else:
+                handlers.pop()
+                continue
+            return eh.resume(ip)
+        error, in_flight.error = in_flight.error, None
+        if error is None:
+            raise RuntimeError('No error is in flight.')
+        try:
+            raise error
+        finally:
+            del error
+
+    def end_block(self, block: EHType) -> _CallState | None:
+        """
+        Ends a block of the innermost try statement, which must belong to the running function.
+        The result is where the run goes on, or `None` when the error in flight unwinds.
+        """
+        handlers = self.handlers
+        if not handlers or (eh := handlers[-1]).frame != len(self.frames):
+            raise RuntimeError(F'The end of a {block.name} block has no try statement in this function.')
+        in_flight = self.in_flight
+        if block is EHType.Try:
+            if (ip := eh.finally_one) is not None:
+                eh.finally_one = None
+                return eh.resume(ip)
+            if (ip := eh.finally_two) is not None:
+                eh.catch_error = None
+                return eh.resume(ip)
+        elif block is EHType.Finally:
+            if in_flight.error is not None and (ip := eh.catch_error) is not None:
+                eh.catch_error = None
+                eh.exception, in_flight.error = in_flight.error, None
+                return eh.resume(ip)
+            if (ip := eh.finally_two) is not None:
+                eh.finally_two = None
+                return eh.resume(ip)
+        elif block is EHType.Catch:
+            eh.catch_error = None
+            if (ip := eh.finally_two) is not None:
+                eh.finally_two = None
+                return eh.resume(ip)
+            handlers.pop()
+            return eh.resume(self._after(eh))
+        handlers.pop()
+        if in_flight.error is not None:
+            return None
+        return eh.resume(self._after(eh))
+
+    def exit(self, function: Function, offset: int, sp: int) -> _CallState | None:
+        """
+        Begins the return of the running function at the given offset: it first runs each finally
+        block of its try statements, and the end of each comes back to the return. The result is
+        the next finally block, or `None` when the function returns. Before Inno Setup 7, Pascal
+        Script keeps one return for the run, which any return of a function that a finally block
+        calls clears; the end of that block then goes on after its try statement. From Inno Setup 7
+        on, each try statement keeps the return that entered its finally block.
+        """
+        per_handler = self.dialect is Dialect.Inno7
+        if not per_handler:
+            self.exit_point = offset
+        handlers = self.handlers
+        frame = len(self.frames)
+        while handlers and (eh := handlers[-1]).frame >= frame:
+            del self.stack[eh.depth:]
+            if (ip := eh.finally_one) is not None:
+                eh.finally_one = None
+            elif (ip := eh.finally_two) is not None:
+                eh.finally_two = None
+            else:
+                handlers.pop()
+                continue
+            if per_handler:
+                eh.exit_point = offset
+            return _CallState(function, ip, sp)
+        self.exit_point = None
+        return None
+
+    def _after(self, eh: ExceptionHandler) -> int:
+        exit_point = eh.exit_point if self.dialect is Dialect.Inno7 else self.exit_point
+        if exit_point is not None:
+            return exit_point
+        return eh.handler_end
+
+
+def _outside_file_entry(name: str, condition: str = '') -> InternalError:
+    """
+    Setup's error for a function of the current file called outside a function of a file entry
+    that meets the given condition.
+    """
+    return InternalError(
+        F'An attempt was made to call the "{name}" function from outside a "Check", '
+        F'"BeforeInstall" or "AfterInstall" event function belonging to a "[Files]" entry{condition}'
+    )
+
+
+def _selected(names: list[str] | None, expression: str) -> bool:
+    """
+    Setup's test of the selected components or tasks in `WizardIsComponentSelected` and
+    `WizardIsTaskSelected`: as `ShouldProcessEntry`, it tests no names without a list of them or
+    for an empty expression.
+    """
+    expression = expression.replace('/', '\\')
+    if names is None or not expression:
+        return True
+    return expressions.decide(expression, lambda name: list_contains(names, name))
+
+
+def _wizard_page(page: object) -> WizardPage:
+    """
+    The page that the script passes, which the form gave it.
+    """
+    if not isinstance(page, WizardPage):
+        raise TypeError(F'The emulator does not model the wizard page {page!r}.')
+    return page
+
+
+def _incompatible_call(handler: IFPSEmulatedFunction, argc: int, void: bool) -> str:
+    def shape(argc: int, void: bool):
+        arguments = 'argument' if argc == 1 else 'arguments'
+        result = 'no result' if void else 'a result'
+        return F'{argc} {arguments} and {result}'
+    return F'the emulation takes {shape(handler.argc, handler.void)}, the call passes {shape(argc, void)}'
+
+
+def _check_agreement(setup: HostSetup, ifps: IFPSFile, config: IFPSEmulatorConfig, source: str):
+    """
+    Refuses a script that its Setup cannot run: a script of a 64-bit Setup on 32-bit Windows, a
+    release that contradicts the Pascal Script that compiled the script, and an installer whose
+    platform is not the script's.
+    """
+    platform = ifps.platform
+    if platform is Platform.Win64 and not config.x64:
+        raise ValueError('The script runs in a 64-bit Setup, which 32-bit Windows does not run.')
+    release = setup.release
+    dialect = ifps.dialect
+    if not release.is_current and release.since((7, 0, 0)) != (dialect is Dialect.Inno7):
+        compiler = 'Inno Setup 7 or later' if dialect is Dialect.Inno7 else 'a version of Inno Setup before 7'
+        raise ValueError(F'{source} names Inno Setup {release}, but the script was compiled by {compiler}.')
+    if setup.platform is not platform:
+        kind = '64-bit' if setup.platform is Platform.Win64 else '32-bit'
+        raise ValueError(F'The installer is a {kind} Setup, but its script was compiled for {platform.name}.')
 
 
 class IFPSEmulatedFunction(NamedTuple):
@@ -457,6 +784,11 @@ class IFPSEmulatedFunction(NamedTuple):
     Indicates whether the handler implements a procedure rather than a function in the IFPS
     runtime.
     """
+    caller: bool = False
+    """
+    Indicates whether the handler receives the run of the script that calls it as its keyword
+    argument `caller`. Inno Setup passes its functions the runtime that calls them.
+    """
 
     @property
     def argc(self):
@@ -464,6 +796,105 @@ class IFPSEmulatedFunction(NamedTuple):
         The argument count for this handler.
         """
         return len(self.spec)
+
+
+_OPEN_ARRAY_KINDS = {
+    TC.U08           : VType.Integer,
+    TC.S08           : VType.Integer,
+    TC.U16           : VType.Integer,
+    TC.S16           : VType.Integer,
+    TC.U32           : VType.Integer,
+    TC.S32           : VType.Integer,
+    TC.S64           : VType.Int64,
+    TC.U64           : VType.Int64,
+    TC.Single        : VType.Extended,
+    TC.Double        : VType.Extended,
+    TC.Extended      : VType.Extended,
+    TC.Char          : VType.Char,
+    TC.WideChar      : VType.WideChar,
+    TC.AnsiString    : VType.AnsiString,
+    TC.PChar         : VType.PChar,
+    TC.WideString    : VType.WideString,
+    TC.UnicodeString : VType.UnicodeString,
+    TC.Variant       : VType.Variant,
+    TC.Class         : VType.Object,
+    TC.Interface     : VType.Interface,
+}
+
+
+def _holds_integer(type: IFPSType) -> bool:
+    """
+    Whether a variable of the type holds an integer: an integer type, an enumeration, or a set.
+    """
+    code = type.code
+    return code.integer or code is TC.Enum or code is TC.Set
+
+
+def _split_spans(string: str, separators: list[str], quote: str) -> Iterator[tuple[int, int]]:
+    """
+    The start and end of each part of a string that Delphi's `string.Split` finds: it splits at the
+    first of the separators that starts at the earliest position outside of quotes, and a quote
+    character opens a quote that the next one closes.
+    """
+    alternatives = [re.escape(s) for s in separators if s]
+    if len(quote) == 1:
+        q = re.escape(quote)
+        alternatives.insert(0, F'(?P<quoted>{q}[^{q}]*(?:{q}|\\Z))')
+    start = 0
+    if alternatives:
+        for match in re.finditer('|'.join(alternatives), string):
+            if match.lastgroup == 'quoted':
+                continue
+            yield start, match.start()
+            start = match.end()
+    yield start, len(string)
+
+
+def _without_empty_last(spans: Iterable[tuple[int, int]]) -> Iterator[tuple[int, int]]:
+    previous = None
+    for span in spans:
+        if previous is not None:
+            yield previous
+        previous = span
+    if previous is not None and previous[0] < previous[1]:
+        yield previous
+
+
+def _failed_instruction(error: Exception, function: Function, insn: Instruction, clock: int) -> EmulatorException:
+    """
+    The error that ends an emulation whose instruction failed; a result of Delphi that the model
+    does not have ends it as undefined.
+    """
+    position = F'In {function.symbol} at 0x{insn.offset:X} (cycle {clock})'
+    if isinstance(error, Undefined):
+        return EmulatorUndefined(F'{position}: {error!s}')
+    return EmulatorException(F'{position}, emulation of {insn!r} failed: {error!s}')
+
+
+def _open_array_element(element: Variable) -> VarRec:
+    """
+    Converts an element of an `array of const` into the argument that Pascal Script passes for it
+    to a function of Delphi. Pascal Script passes a UInt64 as the Int64 of its bits, and an element
+    of any other type as the Integer 0.
+    """
+    target = element.deref()
+    if (kind := _OPEN_ARRAY_KINDS.get(target.type.code)) is None:
+        return VarRec(VType.Integer, 0)
+    value = target.get()
+    if kind is VType.Integer:
+        value = signed32(value)
+    elif kind is VType.Int64:
+        value = ((value + 0x8000000000000000) & 0xFFFFFFFFFFFFFFFF) - 0x8000000000000000
+    return VarRec(kind, value)
+
+
+def _now_in_whole_seconds() -> datetime:
+    """
+    The current time without its fraction of a second. The emulated clock starts there, so that what
+    a script computes from the clock does not depend on the fraction of the second in which the
+    emulation starts.
+    """
+    return datetime.now().replace(microsecond=0)
 
 
 @dataclass
@@ -483,10 +914,12 @@ class IFPSEmulatorConfig:
     wizard_silent: bool = True
     max_opcodes: int = 0
     max_seconds: int = 10
-    start_time: datetime = field(default_factory=datetime.now)
+    start_time: datetime = field(default_factory=_now_in_whole_seconds)
     milliseconds_per_instruction: float = 0.0001
     sleep_scale: float = 0.0
     max_data_stack: int = 1_000_000
+    max_array_length: int = 0x100000
+    max_string_length: int = 0x1000000
     max_call_stack: int = 4096
     environment: dict[str, str] = field(default_factory=dict)
     user_name: str = 'Frank'
@@ -512,20 +945,7 @@ class IFPSEmulatorConfig:
         5305: 'chrome.exe',
     }
     lcid: int = 0x0409
-
-    @property
-    def cwd(self):
-        return Path(self.executable).parent
-
-
-class TSetupStep(int, Enum):
-    """
-    An IFPS enumeration that classifies different setup steps.
-    """
-    ssPreInstall = 0
-    ssInstall = auto()
-    ssPostInstall = auto()
-    ssDone = auto()
+    setup_version: tuple[int, int, int] | None = None
 
 
 class TSplitType(int, Enum):
@@ -545,70 +965,6 @@ class TUninstallStep(int, Enum):
     usUninstall = auto()
     usPostUninstall = auto()
     usDone = auto()
-
-
-class TSetupProcessorArchitecture(int, Enum):
-    """
-    An IFPS enumeration that classifies different processor architectures.
-    """
-    paUnknown = 0
-    paX86 = auto()
-    paX64 = auto()
-    paArm32 = auto()
-    paArm64 = auto()
-
-
-class PageID(int, Enum):
-    """
-    An IFPS enumeration that classifies the different installer pages.
-    """
-    wpWelcome = 1
-    wpLicense = auto()
-    wpPassword = auto()
-    wpInfoBefore = auto()
-    wpUserInfo = auto()
-    wpSelectDir = auto()
-    wpSelectComponents = auto()
-    wpSelectProgramGroup = auto()
-    wpSelectTasks = auto()
-    wpReady = auto()
-    wpPreparing = auto()
-    wpInstalling = auto()
-    wpInfoAfter = auto()
-    wpFinished = auto()
-
-
-class NewFunctionCall(NamedTuple):
-    """
-    An event generated by `refinery.lib.inno.emulator.IFPSEmulator.emulate_function` which
-    represents a call to the function with the given name and arguments.
-    """
-    name: str
-    args: tuple
-
-
-class NewPassword(str):
-    """
-    An event generated by `refinery.lib.inno.emulator.IFPSEmulator.emulate_function` for each
-    password that is entered by the emulated setup script to a password edit control.
-    """
-
-
-class NewMutex(str):
-    """
-    An event generated by `refinery.lib.inno.emulator.IFPSEmulator.emulate_function` for each
-    mutex registered by the script.
-    """
-
-
-class NewInstruction(NamedTuple):
-    """
-    An event generated by `refinery.lib.inno.emulator.IFPSEmulator.emulate_function` for each
-    executed instruction.
-    """
-    function: Function
-    instruction: Instruction
-    offset: int
 
 
 class EventCall(Generic[_Y, _T]):
@@ -652,52 +1008,70 @@ class EventCall(Generic[_Y, _T]):
         return self._value
 
 
-class FPUControl(IntFlag):
+class _Stopwatch:
     """
-    An integer flag representing FPU control words.
+    The processor time that one emulation spends. It runs only while the emulator works, not while
+    the caller handles the events that the emulation yields.
     """
-    InvalidOperation    = 0b0_00_0_00_00_00_000001 # noqa
-    DenormalizedOperand = 0b0_00_0_00_00_00_000010 # noqa
-    ZeroDivide          = 0b0_00_0_00_00_00_000100 # noqa
-    Overflow            = 0b0_00_0_00_00_00_001000 # noqa
-    Underflow           = 0b0_00_0_00_00_00_010000 # noqa
-    PrecisionError      = 0b0_00_0_00_00_00_100000 # noqa
-    Reserved1           = 0b0_00_0_00_00_01_000000 # noqa
-    Reserved2           = 0b0_00_0_00_00_10_000000 # noqa
-    ExtendPrecision     = 0b0_00_0_00_01_00_000000 # noqa
-    DoublePrecision     = 0b0_00_0_00_10_00_000000 # noqa
-    MaxPrecision        = 0b0_00_0_00_11_00_000000 # noqa
-    RoundDown           = 0b0_00_0_01_00_00_000000 # noqa
-    RoundUp             = 0b0_00_0_10_00_00_000000 # noqa
-    RoundTowardZero     = 0b0_00_0_11_00_00_000000 # noqa
-    AffineInfinity      = 0b0_00_1_00_00_00_000000 # noqa
-    Reserved3           = 0b0_01_0_00_00_00_000000 # noqa
-    Reserved4           = 0b0_10_0_00_00_00_000000 # noqa
-    ReservedBits        = 0b0_11_0_00_00_11_000000 # noqa
+    def __init__(self, limit: float):
+        self.limit = limit
+        self.spent = 0.0
+        self.started = process_time()
+
+    def resume(self):
+        self.started = process_time()
+
+    def pause(self):
+        self.spent += process_time() - self.started
+
+    def expired(self) -> bool:
+        return 0 < self.limit < self.spent + process_time() - self.started
 
 
 class IFPSEmulator:
     """
     The core IFPS emulator.
     """
-
     def __init__(
         self,
         archive: InnoArchive | IFPSFile,
         options: IFPSEmulatorConfig | None = None,
         **more
     ):
+        with datapath('winapi.json').open('rb') as stream:
+            self.winapi: dict[str, list[str]] = json.loads(stream.read())
+            base = 0x70000000
+            self.winapi_module_to_addr = _ml = {name: base + k * 0x100000 for k, name in enumerate(self.winapi)}
+            self.winapi_addr_to_module = {addr: module for module, addr in _ml.items()}
+            self.winapi_symbol_to_addr = _sl = {
+                symbol: _ml[module] + k * 0x1000 for module, symbols in self.winapi.items() for k, symbol in enumerate(symbols)}
+            self.winapi_addr_to_symbol = {addr: module for module, addr in _sl.items()}
+
+        self.config = config = options or IFPSEmulatorConfig(**more)
         if isinstance(archive, InnoArchive):
-            self.inno = archive
-            self.ifps = ifps = archive.ifps
+            self.setup_info = archive.setup_info
+            ifps = archive.ifps
             if ifps is None:
                 raise ValueError('The input archive does not contain a script.')
+            self.setup = HostSetup.of_installer(archive, config)
+            source = 'The installer'
         else:
-            self.inno = None
-            self.ifps = ifps = archive
-        self.config = options or IFPSEmulatorConfig(**more)
-        self.globals = [Variable(v.type, v.spec) for v in ifps.globals]
-        self.stack: list[Variable] = []
+            self.setup_info = None
+            ifps = archive
+            self.setup = HostSetup.of_bare_script(ifps.platform, config)
+            source = 'The configured Setup version'
+        _check_agreement(self.setup, ifps, config, source)
+        self.machine_folders = machine_folders(self.setup, config)
+        self.launch_folder = self.setup.path_func.extract_dir(config.executable)
+        self.dialect = ifps.dialect
+        self.ifps = ifps
+        self._form_variables = [
+            (index, name) for index, variable in enumerate(ifps.globals)
+            if isinstance(variable.spec, str) and (name := variable.spec.upper()) in _FORM_VARIABLES
+        ]
+        self._stopwatch: _Stopwatch | None = None
+        self._variables_held: dict[int, int] = {}
+        self._globals: list[Variable] | None = None
         self.mutexes: set[str] = set()
         self.symbols: dict[str, Function] = CaseInsensitiveDict()
         self.reset()
@@ -707,28 +1081,110 @@ class IFPSEmulator:
     def __repr__(self):
         return self.__class__.__name__
 
-    def reset(self):
+    def reset(self, walked: bool = False):
         """
-        Reset the emulator timing, FPU word, mutexes, trace, and stack. All global variables are
-        set to their default values.
+        Reset the emulator timing, the state of the Delphi run-time library, and mutexes. The
+        script starts over with new global variables that hold their default values, in a new Setup
+        process with a new wizard form, which Setup walks through when `walked` is set.
         """
         self.seconds_slept = 0.0
         self.clock = 0
-        self.fpucw = FPUControl.MaxPrecision | FPUControl.RoundTowardZero
-        self.jumpflag = False
+        self.runtime = self.setup.runtime(numbers.FormatSettings.of_locale(self.config.lcid))
+        self.machine = pascal.Machine(self.dialect, self.runtime)
         self.mutexes.clear()
-        self.stack.clear()
-        for v in self.globals:
-            v.setdefault()
+        self.wizard_form = wizard = WizardForm(
+            StandIns.of(self.config),
+            walked=walked,
+            entries_known=self.setup_info is not None,
+            uninstallable=self.setup.uninstallable.answer is not False,
+        )
+        self.constants = SetupConstants(self.setup, self.config, wizard, self.machine_folders)
+        self.current_folder = CurrentFolder(self.launch_folder)
+        self.installed = InstalledPaths(self.current_folder)
+        self.current_file: CurrentFile | None = None
+        self._globals = None
         self._win32api_last_error = 0
         self._win32api_sorted_process_ids = sorted(self.config.processes)
         return self
 
-    def unimplemented(self, function: Function):
+    @property
+    def globals(self) -> list[Variable]:
+        """
+        The global variables of the script.
+        """
+        if (script_globals := self._globals) is None:
+            for v in self.ifps.globals:
+                self._reserve_variables(v.type)
+            script_globals = self._globals = [Variable(v.type, v.spec) for v in self.ifps.globals]
+        return script_globals
+
+    def _refresh_form_variables(self):
+        """
+        Sets the variables in which a script of Inno Setup 6 or later finds Setup's forms, as Setup
+        does before each call into the script: each is empty until Setup created its form, and
+        Setup never shows the form of the uninstaller.
+        """
+        if not (slots := self._form_variables):
+            return
+        form = self.wizard_form
+        values = {
+            'WIZARDFORM': form if form.created else None,
+            'MAINFORM': form.main,
+            'UNINSTALLPROGRESSFORM': None,
+        }
+        script_globals = self.globals
+        for index, name in slots:
+            script_globals[index].set(values[name])
+
+    def _reserve_variables(self, type: IFPSType, count: int = 1):
+        """
+        Checks before they are built that the given number of variables of the given type, and the
+        variables that they hold, stay within the array length limit.
+        """
+        if (limit := self.config.max_array_length) <= 0:
+            return
+        if not type.code.container:
+            held = 1
+        elif (held := self._variables_held.get(id(type))) is None:
+            held = self._variables_held[id(type)] = _variables_held(type)
+        if limit < (n := count * held):
+            raise EmulatorMaxArray(F'Requested {n} variables of type {type}, beyond the limit {limit}.')
+
+    def _reserve_text(self, length: int, wide: bool = True):
+        """
+        Checks a string of the given length before it is built: Delphi cannot compute the size of
+        a UTF-16 string of more than `_LONGEST_WIDE_STRING` characters and raises an integer
+        overflow, and a string beyond the configured limit ends the emulation.
+        """
+        if wide and length > _LONGEST_WIDE_STRING:
+            raise pascal.delphi_error(EIntOverflow())
+        if 0 < (limit := self.config.max_string_length) < length:
+            raise EmulatorMaxString(F'Requested string length {length} exceeds the limit {limit}.')
+
+    def _reserve_results(self, value: Any, arguments: list, result: Variable | None):
+        """
+        Checks what an emulated function returned before the script receives it: the text of its
+        result and of the strings that it wrote into its arguments, and the elements of a list that
+        becomes an array.
+        """
+        if isinstance(value, str):
+            self._reserve_text(len(value))
+        for var in arguments:
+            if isinstance(var, Variable) and isinstance(text := var.deref().data, str):
+                self._reserve_text(len(text))
+        if (
+            result is not None
+            and isinstance(value, (list, tuple))
+            and isinstance(array := result.deref().type, TArray)
+        ):
+            self._reserve_variables(array.type, len(value))
+
+    def unimplemented(self, function: Function, arguments: list[Variable], result: Variable | None):
         """
         The base IFPS emulator raises `refinery.lib.inno.emulator.NeedSymbol` when an external
         symbol is unimplemented. Child classes can override this function to handle the missing
-        symbol differently.
+        symbol differently; it receives the arguments of the call and the variable for its result,
+        if the symbol is a function.
         """
         raise NeedSymbol(function.name)
 
@@ -738,120 +1194,162 @@ class IFPSEmulator:
         Emulate a function call to the given function, passing the given arguments. The method
         returns the return value of the emulated function call if it is not a procedure.
         """
-        self.stack.clear()
+        return (yield from self._timed(self._execute(_ScriptRun(self.dialect), function, args)))
+
+    def _timed(self, emulation: Generator[Any, Any, _T], max_seconds: float | None = None) -> Generator[Any, Any, _T]:
+        """
+        Runs one emulation under a time limit: the given number of seconds or else the number in
+        the configuration, no limit when it is not positive. Only the time that the emulator works
+        counts, and the runs that the emulation nests share the limit. An emulation that starts while
+        another one works and is given no limit of its own runs under the limit of that one.
+        """
+        if max_seconds is None and self._stopwatch is not None:
+            return (yield from emulation)
+        watch = _Stopwatch(self.config.max_seconds if max_seconds is None else max_seconds)
+        try:
+            while True:
+                outer, self._stopwatch = self._stopwatch, watch
+                watch.resume()
+                try:
+                    event = next(emulation)
+                except StopIteration as stop:
+                    return stop.value
+                finally:
+                    watch.pause()
+                    self._stopwatch = outer
+                yield event
+        finally:
+            emulation.close()
+
+    def _execute(
+        self,
+        run: _ScriptRun,
+        function: Function,
+        args: Sequence,
+        types: Sequence[IFPSType] | None = None,
+        result_type: IFPSType | None = None,
+    ):
+        """
+        Runs the function with the given values. The caller that creates the variables it passes,
+        as Setup does, gives their types and the type of the result for a declaration that does
+        not record them.
+        """
         decl = function.decl
         if decl is None:
             raise NotImplementedError(F'Do not know how to call {function!s}.')
+        self._refresh_form_variables()
         if (n := len(decl.parameters)) != (m := len(args)):
             raise ValueError(
                 F'Function {function!s} expects {n} arguments, only {m} were given.')
+        stack = run.stack
         for index, (argument, parameter) in enumerate(zip(args, decl.parameters), 1):
-            variable = Variable(parameter.type, VariableSpec(index, VariableType.Local))
+            kind = parameter.type
+            if kind is None and types is not None:
+                kind = types[index - 1]
+            variable = Variable(kind, VariableSpec(index, VariableType.Local))
             variable.set(argument)
-            self.stack.append(variable)
-        self.stack.reverse()
+            stack.append(variable)
+        stack.reverse()
         if not decl.void:
-            result = Variable(decl.return_type, VariableSpec(0, VariableType.Argument))
-            self.stack.append(result)
-        yield from self.call(function)
-        self.stack.clear()
+            result = Variable(decl.return_type or result_type, VariableSpec(0, VariableType.Argument))
+            stack.append(result)
+        yield from self._interpret(run, function)
         if not decl.void:
             return result.get()
 
-    def call(self, function: Function):
+    def _interpret(self, run: _ScriptRun, function: Function):
         """
-        Begin emulating at the start of the given function.
+        Emulates the given run of the script from the start of the given function.
         """
 
-        def operator_div(a, b):
-            return a // b if isinstance(a, int) and isinstance(b, int) else a / b
-
-        def operator_in(a, b):
-            return a in b
-
-        def getvar(op: VariableSpec | Operand) -> Variable:
-            if not isinstance(op, Operand):
-                v = op
-                k = None
-            elif op.type is OperandType.Value:
-                raise TypeError('Attempting to retrieve variable for an immediate operand.')
-            else:
-                v = op.variable
-                k = op.index
-                if op.type is OperandType.IndexedByVar:
-                    k = getvar(k).get()
-            t, i = v.type, v.index
+        def resolve(spec: VariableSpec) -> Variable:
+            t, i = spec.type, spec.index
             if t is VariableType.Argument:
                 if function.decl.void:
                     i -= 1
-                var = self.stack[sp - i]
-            elif t is VariableType.Global:
-                var = self.globals[i]
-            elif t is VariableType.Local:
-                var = self.stack[sp + i]
-            else:
-                raise TypeError
-            if k is not None:
-                var = var.at(k)
-            return var
+                return stack[sp - i]
+            if t is VariableType.Global:
+                return script_globals[i]
+            if t is VariableType.Local:
+                return stack[sp + i]
+            raise TypeError
+
+        def getvar(op: VariableSpec | Operand) -> Variable:
+            if not isinstance(op, Operand):
+                return resolve(op)
+            if (spec := op.variable) is None:
+                raise TypeError('Attempting to retrieve variable for an immediate operand.')
+            var = resolve(spec)
+            if isinstance(k := op.index, VariableSpec):
+                k = resolve(k).get()
+            if k is None:
+                return var
+            if not 0 <= k < len(var := var.deref()):
+                raise _index_error(var, k, dialect)
+            return var.at(k)
 
         def getval(op: Operand):
             if op.immediate:
                 return op.value.value
             return getvar(op).get()
 
-        def setval(op: Operand, new):
-            if op.immediate:
-                raise RuntimeError('attempt to assign to an immediate')
-            getvar(op).set(new)
+        def gettyped(op: Operand) -> tuple[IFPSType, Any]:
+            if op.immediate and (constant := op.value) is not None:
+                return constant.type, constant.value
+            var = getvar(op).deref()
+            return var.type, var.get()
 
-        class CallState(NamedTuple):
-            fn: Function
-            ip: int
-            sp: int
-            eh: list[ExceptionHandler]
-
-        callstack: list[CallState] = []
-        exec_start = process_time()
-        stack = self.stack
+        frames = run.frames
+        depth = run.depth
+        machine = self.machine
+        dialect = machine.dialect
+        script_globals = self.globals
+        watch = self._stopwatch
+        stack = run.stack
         _cfg_max_call_stack = self.config.max_call_stack
         _cfg_max_data_stack = self.config.max_data_stack
-        _cfg_max_seconds = self.config.max_seconds
         _cfg_max_opcodes = self.config.max_opcodes
         _cfg_log_opcodes = self.config.log_opcodes
 
         ip: int = 0
         sp: int = len(stack) - 1
-        pending_exception = None
-        exceptions = []
+        raised: IFPSException | None = None
+        failed_call = False
+        unwind = False
+        jump = False
 
         while True:
-            if 0 < _cfg_max_call_stack < len(callstack):
+            if raised is not None:
+                run.throw(raised)
+                failed_call = raised.failed_call
+                raised = None
+                unwind = True
+            if unwind:
+                unwind = False
+                function, ip, sp = run.unwind()
+                if failed_call and run.in_flight.error is None:
+                    raised = IFPSException(kind=PSError.CouldNotCallProc)
+                    continue
+                failed_call = False
+            if 0 < _cfg_max_call_stack < depth + len(frames):
                 raise EmulatorMaxCalls
 
             if function.body is None:
                 namespace = ''
 
                 if decl := function.decl:
-                    if decl.is_property:
-                        if stack[-1].type.code == TC.Class:
-                            function = function.setter
-                        else:
-                            function = function.getter
-                        decl = function.decl
-                    namespace = (
-                        decl.classname or decl.module or '')
+                    namespace = decl.classname or decl.module or ''
 
                 name = function.name
                 registry: dict[str, IFPSEmulatedFunction] = self.external_symbols.get(namespace, {})
                 handler = registry.get(name)
 
-                if handler:
+                if decl:
+                    void = decl.void
+                    argc = decl.argc + decl.method
+                elif handler:
                     void = handler.void
                     argc = handler.argc
-                elif decl:
-                    void = decl.void
-                    argc = decl.argc
                 else:
                     void = True
                     argc = 0
@@ -867,42 +1365,56 @@ class IFPSEmulator:
                 if self.config.log_calls:
                     yield NewFunctionCall(str(function), tuple(a.get() for a in args))
 
-                if handler is None:
-                    self.unimplemented(function)
+                if namespace in _FORM_CLASSES and decl is not None and args and args[0].get() is None:
+                    kind = PSError.NullPointerException if decl.method else PSError.CouldNotCallProc
+                    raised = IFPSException(kind=kind, called=name, failed_call=True)
+                elif handler is None:
+                    self.unimplemented(function, args, None if void else stack[-1])
+                elif handler.argc != argc or handler.void and not void:
+                    failure = _incompatible_call(handler, argc, void)
+                    raised = IFPSException(failure, called=name)
+                    yield NewEmulationError(name, failure)
                 else:
-                    if decl and (decl.void != handler.void or decl.argc != handler.argc):
-                        ok = False
-                        if 1 + decl.argc - decl.void == 1 + handler.argc - handler.void:
-                            if decl.void and not decl.parameters[0].const:
-                                ok = True
-                            elif handler.void and handler.spec[0]:
-                                ok = True
-                        if not ok:
-                            raise RuntimeError(F'Handler for {function!s} is incompatible with declaration.')
                     for k, (var, byref) in enumerate(zip(args, handler.spec)):
                         if not byref:
                             args[k] = var.get()
                     args.insert(0, self)
+                    keywords = {'caller': run} if handler.caller else {}
+                    failure = None
                     try:
-                        return_value = handler.call(*args)
+                        return_value = handler.call(*args, **keywords)
                         if inspect.isgenerator(return_value):
                             return_value = yield from return_value
-                    except GeneratorExit:
-                        pass
-                    except BaseException as b:
-                        pending_exception = IFPSException(F'Error calling {function.name}: {b!s}', b)
+                        self._reserve_results(return_value, args, None if void else stack[-1])
+                    except EmulatorException:
+                        raise
+                    except RecursionError as RE:
+                        raise EmulatorMaxCalls(F'Calling {name} exceeded the recursion limit of Python.') from RE
+                    except MemoryError as ME:
+                        raise EmulatorMemoryError(F'Calling {name} exhausted the memory of Python.') from ME
+                    except Undefined as UE:
+                        raise EmulatorUndefined(F'Calling {name}: {UE}') from UE
+                    except IFPSException as error:
+                        raised = IFPSException(error.message, error.kind, name, error.failed_call)
+                    except DelphiException as error:
+                        raised = IFPSException(self.setup.error_text(error), called=name)
+                    except Exception as error:
+                        failure = exception_to_string(error)
+                        raised = IFPSException(failure, called=name)
                     else:
-                        if not handler.void:
+                        if not void:
                             stack[-1].set(return_value)
-                if not callstack:
-                    if pending_exception is None:
+                    if failure is not None:
+                        yield NewEmulationError(name, failure)
+                if not frames:
+                    if raised is None:
                         return
-                    raise pending_exception
-                function, ip, sp, exceptions = callstack.pop()
+                    continue
+                function, ip, sp = frames.pop()
                 continue
 
             while insn := function.code.get(ip, None):
-                if 0 < _cfg_max_seconds < process_time() - exec_start:
+                if watch is not None and watch.expired():
                     raise EmulatorTimeout
                 if 0 < _cfg_max_opcodes < self.clock:
                     raise EmulatorExecutionLimit
@@ -911,10 +1423,6 @@ class IFPSEmulator:
                 if _cfg_log_opcodes:
                     yield NewInstruction(function, insn, ip)
                 try:
-                    if pe := pending_exception:
-                        pending_exception = None
-                        raise pe
-
                     opc = insn.opcode
                     ip += insn.size
                     self.clock += 1
@@ -922,83 +1430,70 @@ class IFPSEmulator:
                     if opc == Op.Nop:
                         continue
                     elif opc == Op.Assign:
-                        dst = getvar(insn.op(0))
+                        dst = getvar(insn.op(0)).deref()
                         src = insn.op(1)
                         if src.immediate:
-                            dst.set(src.value)
+                            source = src.value
+                            st, sv = source.type, source.value
                         else:
-                            dst.set(getvar(src))
+                            source = getvar(src).deref()
+                            st, sv = source.type, source.data
+                        if dst.container or st.code is TC.Pointer:
+                            if not pascal.assignable(dst.type, st, machine):
+                                raise type_mismatch()
+                            dst.set(source)
+                        else:
+                            if isinstance(source, Variable) and source.container:
+                                sv = source.get()
+                            dst.data = pascal.store(dst.type, st, sv, machine)
                     elif opc == Op.Calculate:
                         if not isinstance((aop := insn.operator), AOp):
                             raise TypeError(F'Operator for {opc} was of type {aop.__class__.__name__} rather than AOp.')
-                        calculate = {
-                            AOp.Add: operator.add,
-                            AOp.Sub: operator.sub,
-                            AOp.Mul: operator.mul,
-                            AOp.Div: operator_div,
-                            AOp.Mod: operator.mod,
-                            AOp.Shl: operator.lshift,
-                            AOp.Shr: operator.rshift,
-                            AOp.And: operator.and_,
-                            AOp.BOr: operator.or_,
-                            AOp.Xor: operator.xor,
-                        }[aop]
-                        src = insn.op(1)
-                        dst = insn.op(0)
-                        sv = getval(src)
-                        dv = getval(dst)
-                        fpu = isinstance(sv, float) or isinstance(dv, float)
-                        try:
-                            result = calculate(dv, sv)
-                            if fpu and not isinstance(result, float):
-                                raise FloatingPointError
-                        except FloatingPointError as FPE:
-                            if not self.fpucw & FPUControl.InvalidOperation:
-                                result = float('nan')
-                            else:
-                                raise IFPSException('invalid operation', FPE) from FPE
-                        except OverflowError as OFE:
-                            if fpu and self.fpucw & FPUControl.Overflow:
-                                result = float('nan')
-                            else:
-                                raise IFPSException('arithmetic overflow', OFE) from OFE
-                        except ZeroDivisionError as ZDE:
-                            if fpu and self.fpucw & FPUControl.ZeroDivide:
-                                result = float('nan')
-                            else:
-                                raise IFPSException('division by zero', ZDE) from ZDE
-                        setval(dst, result)
+                        target = getvar(insn.op(0)).deref()
+                        st, sv = gettyped(insn.op(1))
+                        result = pascal.calculate(aop, target.type, target.data, st, sv, machine)
+                        if isinstance(result, str):
+                            self._reserve_text(len(result))
+                        elif isinstance(result, Variant) and isinstance(result.value, str):
+                            self._reserve_text(len(result.value))
+                        target.data = result
                     elif opc == Op.Push:
                         # TODO: I do not actually know how this works
                         stack.append(getval(insn.op(0)))
                     elif opc == Op.PushVar:
                         stack.append(getvar(insn.op(0)))
                     elif opc == Op.Pop:
-                        self.temp = stack.pop()
+                        stack.pop()
                     elif opc == Op.Call:
-                        callstack.append(CallState(function, ip, sp, exceptions))
-                        function = insn.operands[0]
+                        frames.append(_CallState(function, ip, sp))
+                        function = insn.callee()
                         ip = 0
                         sp = len(stack) - 1
-                        exceptions = []
                         break
                     elif opc == Op.Jump:
                         ip = insn.operands[0]
                     elif opc == Op.JumpTrue:
-                        if getval(insn.op(1)):
+                        if pascal.truth(*gettyped(insn.op(1))):
                             ip = insn.operands[0]
                     elif opc == Op.JumpFalse:
-                        if not getval(insn.op(1)):
+                        if not pascal.truth(*gettyped(insn.op(1))):
                             ip = insn.operands[0]
                     elif opc == Op.Ret:
+                        if (position := run.exit(function, insn.offset, sp)) is not None:
+                            function, ip, sp = position
+                            continue
                         del stack[sp + 1:]
-                        if not callstack:
-                            return
-                        function, ip, sp, exceptions = callstack.pop()
+                        if not frames:
+                            if run.in_flight.error is None:
+                                return
+                            unwind = True
+                            break
+                        function, ip, sp = frames.pop()
                         break
                     elif opc == Op.StackType:
                         raise OpCodeNotImplemented(str(opc))
                     elif opc == Op.PushType:
+                        self._reserve_variables(insn.operands[0])
                         stack.append(Variable(
                             insn.operands[0],
                             VariableSpec(len(stack) - sp, VariableType.Local)
@@ -1006,75 +1501,58 @@ class IFPSEmulator:
                     elif opc == Op.Compare:
                         if not isinstance((cop := insn.operator), COp):
                             raise TypeError(F'Operator for {opc} was of type {cop.__class__.__name__} rather than COp.')
-                        compare = {
-                            COp.GE: operator.ge,
-                            COp.LE: operator.le,
-                            COp.GT: operator.gt,
-                            COp.LT: operator.lt,
-                            COp.NE: operator.ne,
-                            COp.EQ: operator.eq,
-                            COp.IN: operator_in,
-                            COp.IS: operator.is_,
-                        }[cop]
-                        d = getvar(insn.op(0))
-                        a = getval(insn.op(1))
-                        b = getval(insn.op(2))
-                        d.set(compare(a, b))
+                        lt, lv = gettyped(insn.op(1))
+                        rt, rv = gettyped(insn.op(2))
+                        truth = pascal.compare(cop, lt, lv, rt, rv, machine)
+                        into = getvar(insn.op(0)).deref()
+                        into.data = pascal.boolean(into.type, truth, machine)
                     elif opc == Op.CallVar:
                         call = getval(insn.op(0))
                         if isinstance(call, int):
                             call = self.ifps.functions[call]
                         if isinstance(call, Function):
-                            callstack.append(CallState(function, ip, sp, exceptions))
+                            frames.append(_CallState(function, ip, sp))
                             function = call
                             ip = 0
                             sp = len(stack) - 1
-                            exceptions = []
                             break
-                    elif opc in (Op.SetPtr, Op.SetPtrToCopy):
-                        copy = False
-                        if opc == Op.SetPtrToCopy:
-                            copy = True
+                    elif opc == Op.SetPtr:
+                        getvar(insn.op(0)).setptr(getvar(insn.op(1)))
+                    elif opc == Op.SetPtrToCopy:
                         dst = getvar(insn.op(0))
-                        src = getvar(insn.op(1))
-                        dst.setptr(src, copy=copy)
+                        src = insn.op(1)
+                        if (constant := src.value) is None:
+                            dst.setptr(getvar(src), copy=True)
+                        else:
+                            dst.setptr(Variable(constant.type, data=constant.value))
                     elif opc == Op.BooleanNot:
-                        setval(a := insn.op(0), not getval(a))
+                        var = getvar(insn.op(0)).deref()
+                        var.data = pascal.logical_not(var.type, var.data, machine.runtime)
                     elif opc == Op.IntegerNot:
-                        setval(a := insn.op(0), ~getval(a))
+                        var = getvar(insn.op(0)).deref()
+                        var.data = pascal.invert(var.type, var.data, machine.runtime)
                     elif opc == Op.Neg:
-                        setval(a := insn.op(0), -getval(a))
+                        var = getvar(insn.op(0)).deref()
+                        var.data = pascal.negate(var.type, var.data, machine.runtime)
                     elif opc == Op.SetFlag:
                         condition, negated = insn.operands
-                        self.jumpflag = getval(condition) ^ negated
+                        jump = pascal.truth(*gettyped(condition)) ^ negated
                     elif opc == Op.JumpFlag:
-                        if self.jumpflag:
+                        if jump:
                             ip = insn.operands[0]
                     elif opc == Op.PushEH:
-                        exceptions.append(ExceptionHandler(*insn.operands))
+                        run.install(insn.operands, function, sp)
                     elif opc == Op.PopEH:
-                        tp = None
-                        et = EHType(insn.operands[0])
-                        eh = exceptions[-1]
-                        if eh.current != et:
-                            raise RuntimeError(F'Expected {eh.current} block to end, but {et} was ended instead.')
-                        while tp is None:
-                            if et is None:
-                                raise RuntimeError
-                            tp, et = {
-                                EHType.Catch         : (eh.finally_one, EHType.Finally),
-                                EHType.Try           : (eh.finally_one, EHType.Finally),
-                                EHType.Finally       : (eh.finally_two, EHType.SecondFinally),
-                                EHType.SecondFinally : (eh.handler_end, None),
-                            }[et]
-                        eh.current = et
-                        ip = tp
-                        if et is None:
-                            exceptions.pop()
+                        if (position := run.end_block(EHType(insn.operands[0]))) is None:
+                            unwind = True
+                            break
+                        function, ip, sp = position
                     elif opc == Op.Inc:
-                        setval(a := insn.op(0), getval(a) + 1)
+                        counter = getvar(insn.op(0)).deref()
+                        counter.data = pascal.step(counter.type, counter.data, True, machine)
                     elif opc == Op.Dec:
-                        setval(a := insn.op(0), getval(a) - 1)
+                        counter = getvar(insn.op(0)).deref()
+                        counter.data = pascal.step(counter.type, counter.data, False, machine)
                     elif opc == Op.JumpPop1:
                         stack.pop()
                         ip = insn.operands[0]
@@ -1085,35 +1563,14 @@ class IFPSEmulator:
                     else:
                         raise RuntimeError(F'Function contains invalid opcode at 0x{ip:X}.')
                 except IFPSException as EE:
-                    try:
-                        eh = exceptions[-1]
-                    except IndexError:
-                        raise EE
-                    et = EHType.Try
-                    tp = None
-                    while tp is None:
-                        if et is None:
-                            raise RuntimeError
-                        tp, et = {
-                            EHType.Try           : (eh.catch_error, EHType.Catch),
-                            EHType.Catch         : (eh.finally_one, EHType.Finally),
-                            EHType.Finally       : (eh.finally_two, EHType.SecondFinally),
-                            EHType.SecondFinally : (eh.handler_end, None),
-                        }[et]
-                    if et is None:
-                        raise EE
-                    eh.current = et
-                    ip = tp
-                except AbortEmulation:
-                    raise
+                    raised = copy_exception(EE)
+                    break
                 except EmulatorException:
                     raise
                 except Exception as RE:
-                    raise EmulatorException(
-                        F'In {function.symbol} at 0x{insn.offset:X} (cycle {self.clock}), '
-                        F'emulation of {insn!r} failed: {RE!s}')
-            if ip is None:
-                raise RuntimeError(F'Instruction pointer moved out of bounds to 0x{ip:X}.')
+                    raise _failed_instruction(RE, function, insn, self.clock) from RE
+            else:
+                raise EmulatorException(F'In {function.symbol}, no instruction starts at 0x{ip:X}.')
 
     external_symbols: ClassVar[
         dict[str,                        # class name for methods or empty string for functions
@@ -1136,10 +1593,13 @@ class IFPSEmulator:
             pfn.__doc__ = docs
 
             void = kwargs.get('void', signature.return_annotation == signature.empty)
+            caller = kwargs.get('caller', False)
             parameters: list[bool] = []
             specs = iter(signature.parameters.values())
             next(specs) # skip self
             for spec in specs:
+                if caller and spec.name == 'caller':
+                    continue
                 try:
                     hint = eval(spec.annotation, globals(), locals())
                 except Exception as E:
@@ -1148,7 +1608,7 @@ class IFPSEmulator:
                     hint = get_origin(hint)
                 var = isinstance(hint, type) and issubclass(hint, Variable)
                 parameters.append(var)
-            registry[name] = e = IFPSEmulatedFunction(pfn, parameters, void)
+            registry[name] = e = IFPSEmulatedFunction(pfn, parameters, void, caller)
             aliases = kwargs.get('alias', [])
             if isinstance(aliases, str):
                 aliases = [aliases]
@@ -1166,10 +1626,141 @@ class IFPSEmulator:
         return F'$InputFile{k}'
 
     @external()
+    def TWizardForm__GetPasswordEdit(self, this: object) -> object:
+        return self.wizard_form.password_box
+
+    @external()
+    def TWizardForm__GetDirEdit(self, this: object) -> object:
+        return self.wizard_form.dir_edit
+
+    @external()
+    def TWizardForm__GetGroupEdit(self, this: object) -> object:
+        return self.wizard_form.group_edit
+
+    @external()
+    def TWizardForm__GetUserInfoNameEdit(self, this: object) -> object:
+        return self.wizard_form.user_info_name_edit
+
+    @external()
+    def TWizardForm__GetUserInfoOrgEdit(self, this: object) -> object:
+        return self.wizard_form.user_info_org_edit
+
+    @external()
+    def TWizardForm__GetUserInfoSerialEdit(self, this: object) -> object:
+        return self.wizard_form.user_info_serial_edit
+
+    @external()
+    def TWizardForm__GetPrevAppDir(self, this: object) -> str:
+        return ''
+
+    def text_changed(self, box: TextBox) -> Generator[Any, Any, None]:
+        """
+        Runs the handler of a text box whose text changed, as the box's `OnChange` runs: a function
+        of the script, or Setup's own handler. An error reaches the code that changed the text.
+        """
+        handler = box.on_change
+        if isinstance(handler, Function):
+            yield from self.call_from_setup(handler, (box,), _NOTIFY_CALL)
+        elif handler is SetupHandler.UserInfoEditChange:
+            yield from user_info_edit_change(self, box)
+
+    def _box_text(self, this: object) -> str:
+        return this.text if isinstance(this, TextBox) else ''
+
+    def _set_box_text(self, this: object, value: str) -> Generator[Any, Any, None]:
+        if isinstance(this, TextBox) and this.set_text(value):
+            yield from self.text_changed(this)
+
+    def _replace_box_selection(self, this: object, value: str) -> Generator[Any, Any, None]:
+        if isinstance(this, TextBox):
+            this.replace_selection(value)
+            yield from self.text_changed(this)
+
+    @external()
+    def TEdit__GetText(self, this: object) -> str:
+        return self._box_text(this)
+
+    @external()
+    def TCustomEdit__GetText(self, this: object) -> str:
+        return self._box_text(this)
+
+    @external()
+    def TPasswordEdit__GetText(self, this: object) -> str:
+        return self._box_text(this)
+
+    @external()
+    def TEdit__SetText(self, this: object, value: str):
+        yield from self._set_box_text(this, value)
+
+    @external()
+    def TCustomEdit__SetText(self, this: object, value: str):
+        yield from self._set_box_text(this, value)
+
+    @external()
     def TPasswordEdit__SetText(self, this: object, value: str):
+        yield from self._set_box_text(this, value)
         if value:
             yield NewPassword(value)
-        return value
+
+    @external()
+    def TCustomEdit__Clear(self, this: object):
+        if isinstance(this, TextBox):
+            this.clear()
+            yield from self.text_changed(this)
+
+    @external()
+    def TCustomEdit__ClearSelection(self, this: object):
+        if isinstance(this, TextBox) and this.clear_selection():
+            yield from self.text_changed(this)
+
+    @external()
+    def TCustomEdit__GetSelText(self, this: object) -> str:
+        return this.selected_text if isinstance(this, TextBox) else ''
+
+    @external()
+    def TCustomEdit__SetSelText(self, this: object, value: str):
+        yield from self._replace_box_selection(this, value)
+
+    @external()
+    def TCustomEdit__SelectAll(self, this: object):
+        if isinstance(this, TextBox):
+            this.select(0, -1)
+
+    @external()
+    def TCustomEdit__GetSelStart(self, this: object) -> int:
+        return this.selection_start if isinstance(this, TextBox) else 0
+
+    @external()
+    def TCustomEdit__SetSelStart(self, this: object, value: int):
+        if isinstance(this, TextBox):
+            this.select(value, value)
+
+    @external()
+    def TCustomEdit__GetSelLength(self, this: object) -> int:
+        return this.selection_length if isinstance(this, TextBox) else 0
+
+    @external()
+    def TCustomEdit__SetSelLength(self, this: object, value: int):
+        if isinstance(this, TextBox):
+            start = this.selection_start
+            this.select(start, start + value)
+
+    @external()
+    def TEdit__SetCharCase(self, this: object, value: int):
+        if isinstance(this, TextBox) and value in _EDIT_CHAR_CASES:
+            this.set_case(TEditCharCase(value))
+
+    def _set_box_handler(self, this: object, handler: object):
+        if isinstance(this, TextBox):
+            this.on_change = handler if isinstance(handler, Function) else None
+
+    @external()
+    def TEdit__SetOnChange(self, this: object, handler: object):
+        self._set_box_handler(this, handler)
+
+    @external()
+    def TPasswordEdit__SetOnChange(self, this: object, handler: object):
+        self._set_box_handler(this, handler)
 
     @external(alias=['ShellExecuteA', 'ShellExecuteW'])
     def shell32__ShellExecute(self, hwnd: int, operation: str, file: str, args: str, cwd: str, show: int) -> int:
@@ -1220,6 +1811,23 @@ class IFPSEmulator:
         p_record.set(record)
         return True
 
+    @external(alias=[
+        'LoadLibraryW',
+        'LoadLibraryA',
+    ])
+    def kernel32__LoadLibrary(self, name: str) -> int:
+        name = name.lower()
+        base, dot, ext = name.rpartition('.')
+        if dot and ext.lower() == 'dll':
+            name = base
+        return self.winapi_module_to_addr.get(name, 0)
+
+    @external(alias=['GetProcAddressA'])
+    def kernel32__GetProcAddress(self, module: int, name: str) -> int:
+        if module not in self.winapi_addr_to_module:
+            return 0
+        return self.winapi_symbol_to_addr.get(name, 0)
+
     @external(alias=['Process32NextW'])
     def kernel32__Process32Next(self, handle: int, p_record: Variable[list]) -> bool:
         record = p_record.get()
@@ -1251,12 +1859,38 @@ class IFPSEmulator:
         return 0
 
     @external()
+    def IsArm32Compatible(self) -> bool:
+        return architecture('arm32compatible', self.config.x64)
+
+    @external()
+    def IsArm64(self) -> bool:
+        return architecture('arm64', self.config.x64)
+
+    @external()
+    def IsX64(self) -> bool:
+        return architecture('x64', self.config.x64)
+
+    @external()
+    def IsX64OS(self) -> bool:
+        return architecture('x64os', self.config.x64)
+
+    @external()
+    def IsX64Compatible(self) -> bool:
+        return architecture('x64compatible', self.config.x64)
+
+    @external()
+    def IsX86(self) -> bool:
+        return architecture('x86', self.config.x64)
+
+    @external()
+    def IsX86OS(self) -> bool:
+        return architecture('x86os', self.config.x64)
+
+    @external()
     def IsX86Compatible(self) -> bool:
-        return True
+        return architecture('x86compatible', self.config.x64)
 
     @external(alias=[
-        'sArm64',
-        'IsArm32Compatible',
         'Debugging',
         'IsUninstaller',
     ])
@@ -1267,7 +1901,8 @@ class IFPSEmulator:
     def IsAdmin(self) -> bool:
         return self.config.admin
 
-    @external(alias='Sleep')
+    @external(name='Sleep')
+    @external()
     def kernel32__Sleep(self, ms: int):
         seconds = ms / 1000.0
         self.seconds_slept += seconds
@@ -1278,15 +1913,21 @@ class IFPSEmulator:
 
     @external(alias='StrGet')
     def WStrGet(self, string: Variable[str], index: int) -> str:
-        if index <= 0:
-            raise ValueError
-        return string[index - 1:index]
+        text = string.get()
+        if not 1 <= index <= len(text):
+            raise IFPSException(
+                _OUT_OF_STRING_RANGE,
+                PSError.CustomError,
+                failed_call=self.dialect is Dialect.Inno6,
+            )
+        return text[index - 1]
 
     @external(alias='StrSet')
     def WStrSet(self, char: str, index: int, dst: Variable[str]):
         old = dst.get()
-        halt = index - 1
-        dst.set(old[:halt] + char + old[index:])
+        if not 1 <= index <= len(old):
+            raise IFPSException(_OUT_OF_STRING_RANGE, PSError.CustomError)
+        dst.set(old[:index - 1] + char + old[index:])
 
     @external()
     def GetEnv(self, name: str) -> str:
@@ -1300,10 +1941,15 @@ class IFPSEmulator:
     def Abort(self):
         if self.config.throw_abort:
             raise AbortEmulation
+        raise IFPSException(SysConst.SOperationAborted)
 
     @external()
     def DirExists(self, path: str) -> bool:
-        return True
+        return self.installed.directory_exists(path)
+
+    @external()
+    def FileOrDirExists(self, path: str) -> bool:
+        return self.installed.exists(path)
 
     @external()
     def ForceDirectories(self, path: str) -> bool:
@@ -1317,229 +1963,49 @@ class IFPSEmulator:
     def LoadStringsFromFile(self, path: str, out: Variable[str]) -> bool:
         return True
 
-    @cached_property
-    def constant_map(self) -> dict[str, str]:
-        cfg = self.config
-        tmp = cfg.temp_path
-        if not tmp:
-            tmp = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=5))
-            tmp = RF'C:\Windows\Temp\IS-{tmp}'
-        map = {
-            'app'               : cfg.install_to,
-            'win'               : R'C:\Windows',
-            'sys'               : R'C:\Windows\System',
-            'sysnative'         : R'C:\Windows\System32',
-            'src'               : str(Path(cfg.executable).parent),
-            'sd'                : R'C:',
-            'commonpf'          : R'C:\Program Files',
-            'commoncf'          : R'C:\Program Files\Common Files',
-            'tmp'               : tmp,
-            'commonfonts'       : R'C:\Windows\Fonts',
-            'dao'               : R'C:\Program Files\Common Files\Microsoft Shared\DAO',
-            'dotnet11'          : R'C:\Windows\Microsoft.NET\Framework\v1.1.4322',
-            'dotnet20'          : R'C:\Windows\Microsoft.NET\Framework\v3.0',
-            'dotnet2032'        : R'C:\Windows\Microsoft.NET\Framework\v3.0',
-            'dotnet40'          : R'C:\Windows\Microsoft.NET\Framework\v4.0.30319',
-            'dotnet4032'        : R'C:\Windows\Microsoft.NET\Framework\v4.0.30319',
-            'group'             : RF'C:\Users\{cfg.user_name}\Start Menu\Programs\{cfg.inno_name}',
-            'localappdata'      : RF'C:\Users\{cfg.user_name}\AppData\Local',
-            'userappdata'       : RF'C:\Users\{cfg.user_name}\AppData\Roaming',
-            'userdesktop'       : RF'C:\Users\{cfg.user_name}\Desktop',
-            'userdocs'          : RF'C:\Users\{cfg.user_name}\Documents',
-            'userfavourites'    : RF'C:\Users\{cfg.user_name}\Favourites',
-            'usersavedgames'    : RF'C:\Users\{cfg.user_name}\Saved Games',
-            'usersendto'        : RF'C:\Users\{cfg.user_name}\SendTo',
-            'userstartmenu'     : RF'C:\Users\{cfg.user_name}\Start Menu',
-            'userprograms'      : RF'C:\Users\{cfg.user_name}\Start Menu\Programs',
-            'userstartup'       : RF'C:\Users\{cfg.user_name}\Start Menu\Programs\Startup',
-            'usertemplates'     : RF'C:\Users\{cfg.user_name}\Templates',
-            'commonappdata'     : R'C:\ProgramData',
-            'commondesktop'     : R'C:\ProgramData\Microsoft\Windows\Desktop',
-            'commondocs'        : R'C:\ProgramData\Microsoft\Windows\Documents',
-            'commonstartmenu'   : R'C:\ProgramData\Microsoft\Windows\Start Menu',
-            'commonprograms'    : R'C:\ProgramData\Microsoft\Windows\Start Menu\Programs',
-            'commonstartup'     : R'C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup',
-            'commontemplates'   : R'C:\ProgramData\Microsoft\Windows\Templates',
-            'cmd'               : R'C:\Windows\System32\cmd.exe',
-            'computername'      : cfg.host_name,
-            'groupname'         : cfg.inno_name,
-            'hwnd'              : '0',
-            'wizardhwnd'        : '0',
-            'language'          : cfg.language,
-            'srcexe'            : cfg.executable,
-            'sysuserinfoname'   : '{sysuserinfoname}',
-            'sysuserinfoorg'    : '{sysuserinfoorg}',
-            'userinfoname'      : '{userinfoname}',
-            'userinfoorg'       : '{userinfoorg}',
-            'userinfoserial'    : '{userinfoserial}',
-            'username'          : cfg.user_name,
-            'log'               : '',
-        }
+    def code_runner(self, caller: _ScriptRun | None) -> constants.CodeRunner:
+        """
+        Runs the function of a code constant inside the run of the caller, or in a new run of the
+        script without one.
+        """
+        def run_code(function: str, argument: str) -> Generator[Any, Any, str]:
+            value = yield from self.call_by_name(function, [argument], CODE_CONSTANT, caller)
+            return str(value)
+        return run_code
 
-        if (inno := self.inno) is None or (inno.setup_info.Header.Flags & Flags.Uninstallable):
-            map['uninstallexe'] = RF'{cfg.install_to}\unins000.exe'
+    @external(caller=True)
+    def ExpandConstant(self, string: str, caller: _ScriptRun | None = None) -> Generator[Any, Any, str]:
+        return self.constants.expand(string, self.code_runner(caller))
 
-        if cfg.x64:
-            map['syswow64'] = R'C:\Windows\SysWOW64'
-            map['commonpf32'] = R'C:\Program Files (x86)'
-            map['commoncf32'] = R'C:\Program Files (x86)\Common Files'
-            map['commonpf64'] = R'C:\Program Files'
-            map['commoncf64'] = R'C:\Program Files\Common Files'
-            map['dotnet2064'] = R'C:\Windows\Microsoft.NET\Framework64\v3.0'
-            map['dotnet4064'] = R'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'
-        else:
-            map['syswow64'] = R'C:\Windows\System32'
-            map['commonpf32'] = R'C:\Program Files'
-            map['commoncf32'] = R'C:\Program Files\Common Files'
-
-        if cfg.windows_os_version[0] >= 10:
-            map['userfonts'] = RF'{map["localappdata"]}\Microsoft\Windows\Fonts'
-
-        if cfg.windows_os_version[0] >= 7:
-            map['usercf'] = RF'{map["localappdata"]}\Programs\Common'
-            map['userpf'] = RF'{map["localappdata"]}\Programs'
-
-        for auto_var, admin_var, user_var in [
-            ('autoappdata',       'commonappdata',       'userappdata',   ), # noqa
-            ('autocf',            'commoncf',            'usercf',        ), # noqa
-            ('autocf32',          'commoncf32',          'usercf',        ), # noqa
-            ('autocf64',          'commoncf64',          'usercf',        ), # noqa
-            ('autodesktop',       'commondesktop',       'userdesktop',   ), # noqa
-            ('autodocs',          'commondocs',          'userdocs',      ), # noqa
-            ('autofonts',         'commonfonts',         'userfonts',     ), # noqa
-            ('autopf',            'commonpf',            'userpf',        ), # noqa
-            ('autopf32',          'commonpf32',          'userpf',        ), # noqa
-            ('autopf64',          'commonpf64',          'userpf',        ), # noqa
-            ('autoprograms',      'commonprograms',      'userprograms',  ), # noqa
-            ('autostartmenu',     'commonstartmenu',     'userstartmenu', ), # noqa
-            ('autostartup',       'commonstartup',       'userstartup',   ), # noqa
-            ('autotemplates',     'commontemplates',     'usertemplates', ), # noqa
-        ]:
-            try:
-                map[auto_var] = map[admin_var] if cfg.admin else map[user_var]
-            except KeyError:
-                continue
-
-        for legacy, new in [
-            ('cf',     'commoncf',    ), # noqa
-            ('cf32',   'commoncf32',  ), # noqa
-            ('cf64',   'commoncf64',  ), # noqa
-            ('fonts',  'commonfonts', ), # noqa
-            ('pf',     'commonpf',    ), # noqa
-            ('pf32',   'commonpf32',  ), # noqa
-            ('pf64',   'commonpf64',  ), # noqa
-            ('sendto', 'usersendto',  ), # noqa
-        ]:
-            try:
-                map[legacy] = map[new]
-            except KeyError:
-                continue
-
-        return map
-
-    @external()
-    def ExpandConstant(self, string: str) -> str:
-        return self.expand_constant(string)
-
-    @external()
-    def ExpandConstantEx(self, string: str, custom_var: str, custom_val: str) -> str:
-        return self.expand_constant(string, custom_var, custom_val)
-
-    def expand_constant(
+    @external(caller=True)
+    def ExpandConstantEx(
         self,
         string: str,
-        custom_var: str | None = None,
-        custom_val: str | None = None,
-        unescape: bool = False
-    ):
-        config = self.config
-        expand = partial(self.expand_constant, unescape=True)
-        string = re.sub(r'(\{\{.*?\}(?!\}))', '\\1}', string)
+        custom_var: str,
+        custom_val: str,
+        caller: _ScriptRun | None = None,
+    ) -> Generator[Any, Any, str]:
+        return self.constants.expand(string, self.code_runner(caller), {custom_var: custom_val})
 
-        with io.StringIO() as result:
-            constants = self.constant_map
-            formatter = Formatter()
-            backslash = False
-            try:
-                parsed = list(formatter.parse(string))
-            except ValueError as VE:
-                raise IFPSException(F'invalid format string: {string!r}', VE) from VE
-            for prefix, spec, modifier, conversion in parsed:
-                modifier = modifier or ''
-                if backslash and prefix[:1] == '\\':
-                    prefix = prefix[1:]
-                if unescape:
-                    prefix = unquote(prefix)
-                result.write(prefix)
-                if spec is None:
-                    continue
-                elif spec == '\\':
-                    if modifier or conversion:
-                        raise IFPSException('Invalid format string.', ValueError(string))
-                    value = spec
-                elif spec == custom_var:
-                    value = custom_val
-                elif spec.startswith('%'):
-                    name, p, default = spec[1:].partition('|')
-                    name = expand(name)
-                    default = expand(default)
-                    try:
-                        value = config.environment[name]
-                    except KeyError:
-                        value = default if p else F'%{name}%'
-                elif spec == 'drive':
-                    value = self.ExtractFileDrive(expand(modifier))
-                elif spec == 'ini':
-                    # {ini:Filename,Section,Key|DefaultValue}
-                    _, _, default = modifier.partition('|')
-                    value = expand(default)
-                elif spec == 'code':
-                    # {code:FunctionName|Param}
-                    symbol, _, param = modifier.partition('|')
-                    param = expand(param)
-                    try:
-                        function = self.symbols[symbol]
-                    except KeyError as KE:
-                        raise IFPSException(F'String formatter references missing function {symbol}.', KE) from KE
-                    emulation = self.emulate_function(function, param)
-                    value = str(emulation.value)
-                elif spec == 'cm':
-                    # {cm:LaunchProgram,Inno Setup}
-                    # The example above translates to "Launch Inno Setup" if English is the active language.
-                    name, _, placeholders = modifier.partition(',')
-                    value = self.CustomMessage(expand(name))
-                    if placeholders:
-                        def _placeholder(match: re.Match[str]):
-                            try:
-                                return placeholders[int(match[1]) - 1]
-                            except Exception:
-                                return match[0]
-                        placeholders = [ph.strip() for ph in placeholders.split(',')]
-                        value = re.sub('(?<!%)%([1-9]\\d*)', _placeholder, value)
-                elif spec == 'reg':
-                    # {reg:HKXX\SubkeyName,ValueName|DefaultValue}
-                    _, _, default = modifier.partition('|')
-                    value = expand(default)
-                elif spec == 'param':
-                    # {param:ParamName|DefaultValue}
-                    _, _, default = modifier.partition('|')
-                    value = expand(default)
-                else:
-                    try:
-                        value = constants[spec]
-                    except KeyError as KE:
-                        raise IFPSException(F'invalid format field {spec}', KE) from KE
-                backslash = value.endswith('\\')
-                result.write(value)
-            return result.getvalue()
+    def expand_constant(self, string: str, custom_var: str | None = None, custom_val: str = '') -> str:
+        """
+        Expands the constants in the given string as Setup expands them, with one optional custom
+        constant. A code constant runs a function of the script; its calls are not reported.
+        """
+        custom = None if custom_var is None else {custom_var: custom_val}
+        expansion = EventCall(self._timed(self.constants.expand(string, self.code_runner(None), custom)))
+        value = expansion.value
+        assert value is not None
+        return value
 
     @external()
     def DeleteFile(self, path: str) -> bool:
+        self.installed.remove(path)
         return True
 
     @external()
     def FileExists(self, file_name: str) -> bool:
-        return False
+        return self.installed.file_exists(file_name)
 
     @external()
     def Log(self, log: str):
@@ -1547,10 +2013,14 @@ class IFPSEmulator:
 
     @external()
     def Inc(self, p: Variable[int]):
+        if not p.deref().type.code.integer:
+            raise IFPSException(kind=PSError.CouldNotCallProc)
         p.set(p.get() + 1)
 
     @external()
     def Dec(self, p: Variable[int]):
+        if not p.deref().type.code.integer:
+            raise IFPSException(kind=PSError.CouldNotCallProc)
         p.set(p.get() - 1)
 
     @external()
@@ -1558,8 +2028,38 @@ class IFPSEmulator:
         return False
 
     @external()
-    def Trunc(self, x: float) -> float:
-        return math.trunc(x)
+    def Round(self, x: x87.Real) -> int:
+        if self.setup.release.since((6, 6, 0)):
+            return self.runtime.fpu.integer(x, x87.Rounding.Nearest)
+        return self.runtime.fpu.integer(x)
+
+    @external()
+    def Trunc(self, x: x87.Real) -> int:
+        return self.runtime.fpu.integer(x, x87.Rounding.TowardZero)
+
+    @external()
+    def Int(self, x: x87.Real) -> x87.Real:
+        return self.runtime.fpu.round_integral(x, x87.Rounding.TowardZero)
+
+    @external()
+    def Abs(self, x: x87.Real) -> x87.Real:
+        return self.runtime.fpu.absolute(x)
+
+    @external()
+    def Pi(self) -> x87.Real:
+        return self.runtime.fpu.pi()
+
+    @external()
+    def Sqrt(self, x: x87.Real) -> x87.Real:
+        return self.runtime.fpu.square_root(x)
+
+    @external()
+    def Sin(self, x: x87.Real) -> x87.Real:
+        return self.runtime.fpu.sine(x)
+
+    @external()
+    def Cos(self, x: x87.Real) -> x87.Real:
+        return self.runtime.fpu.cosine(x)
 
     @external()
     def GetSpaceOnDisk(
@@ -1616,71 +2116,49 @@ class IFPSEmulator:
 
     @external()
     def ActiveLanguage(self) -> str:
-        return 'en'
+        return self.setup.language_name
 
     @external()
     def CustomMessage(self, msg_name: str) -> str:
-        by_language = {}
-        if (inno := self.inno) is None:
-            return ''
-        for msg in inno.setup_info.Messages:
-            if msg.EncodedName == msg_name and (lv := msg.get_language_value()):
-                lng = lv.Name
-                if lng == self.config.language:
-                    return msg.Value
-                by_language[lng] = msg.Value
-        try:
-            return by_language[0]
-        except KeyError:
-            pass
-        try:
-            return next(iter(by_language.values()))
-        except StopIteration:
-            raise IFPSException(F'Custom message with name {msg_name} not found.')
+        if (message := self.setup.custom_message(msg_name)) is None:
+            raise InternalError(F'Unknown custom message name "{msg_name}"')
+        return message
 
     @external()
     def FmtMessage(self, fmt: str, args: list[str]) -> str:
-        fmt = fmt.replace('{', '{{')
-        fmt = fmt.replace('}', '}}')
-        fmt = '%'.join(re.sub('%(\\d+)', '{\\1}', p) for p in fmt.split('%%'))
-        return fmt.format(*args)
+        return constants.fmt_message(fmt, args)
 
     @external()
-    def Format(self, fmt: str, args: list[str | int | float]) -> str:
-        try:
-            formatted = fmt % tuple(args)
-        except Exception:
-            raise IFPSException('invalid format')
-        else:
-            return formatted
+    def Format(self, fmt: str, args: Variable[list]) -> str:
+        elements = args.deref()
+        arguments = [_open_array_element(elements.at(k)) for k in range(len(elements))]
+        return formatting.format(fmt, arguments, self.runtime, self._reserve_text)
 
     @external()
     def SetupMessage(self, id: int) -> str:
-        try:
-            if inno := self.inno:
-                return inno.setup_info.Messages[id].Value
-        except IndexError:
-            pass
-        return ''
+        return self.setup.message(id)
 
-    @external(alias=['Is64BitInstallMode', 'IsX64Compatible', 'IsX64OS'])
+    @external()
     def IsWin64(self) -> bool:
         return self.config.x64
 
     @external()
-    def IsX86OS(self) -> bool:
-        return not self.config.x64
+    def Is64BitInstallMode(self) -> bool:
+        return self.setup.install_mode.decided()
 
     @external()
     def RaiseException(self, msg: str):
         raise IFPSException(msg)
 
+    @external(caller=True)
+    def GetExceptionMessage(self, caller: _ScriptRun | None = None) -> str:
+        if caller is None or (error := caller.current_exception) is None:
+            return '(There is no current exception)'
+        return error.message
+
     @external()
     def ProcessorArchitecture(self) -> int:
-        if self.config.x64:
-            return TSetupProcessorArchitecture.paX64.value
-        else:
-            return TSetupProcessorArchitecture.paX86.value
+        return processor(self.config.x64).value
 
     @external()
     def GetUserNameString(self) -> str:
@@ -1701,28 +2179,203 @@ class IFPSEmulator:
 
     @external()
     def SetArrayLength(self, array: Variable, n: int):
-        a = array.deref()
-        a.resize(n)
+        array = array.deref()
+        if isinstance(t := array.type, TArray):
+            self._reserve_variables(t.type, n)
+        array.resize(n)
 
     @external()
     def WizardForm(self) -> object:
-        return self
+        return self._form()
 
     @external()
-    def Unassigned(self) -> None:
+    def MainForm(self) -> object:
+        """
+        The function of Inno Setup 5 that gives Setup's main form; before Setup created the form,
+        it raises an internal error.
+        """
+        if (main := self.wizard_form.main) is None:
+            raise InternalError('An attempt was made to access MainForm before it has been created')
+        return main
+
+    def _form(self) -> WizardForm:
+        """
+        The wizard form, for a function that Setup runs through `GetWizardForm`.
+        """
+        form = self.wizard_form
+        form.require()
+        return form
+
+    @external()
+    def CreateCustomPage(self, after: int, caption: str, description: str) -> object:
+        return self._form().add_page(after)
+
+    @external()
+    def CreateInputQueryPage(self, after: int, caption: str, description: str, subcaption: str) -> object:
+        return self._form().add_page(after)
+
+    @external()
+    def CreateInputOptionPage(
+        self,
+        after: int,
+        caption: str,
+        description: str,
+        subcaption: str,
+        exclusive: bool,
+        listbox: bool,
+    ) -> object:
+        return self._form().add_page(after)
+
+    @external()
+    def CreateInputDirPage(
+        self,
+        after: int,
+        caption: str,
+        description: str,
+        subcaption: str,
+        append: bool,
+        folder: str,
+    ) -> object:
+        return self._form().add_page(after)
+
+    @external()
+    def CreateInputFilePage(self, after: int, caption: str, description: str, subcaption: str) -> object:
+        return self._form().add_page(after)
+
+    @external()
+    def CreateOutputMsgPage(self, after: int, caption: str, description: str, message: str) -> object:
+        return self._form().add_page(after)
+
+    @external()
+    def CreateOutputMsgMemoPage(
+        self,
+        after: int,
+        caption: str,
+        description: str,
+        subcaption: str,
+        message: str,
+    ) -> object:
+        return self._form().add_page(after)
+
+    @external(alias='CreateOutputMarqueeProgressPage')
+    def CreateOutputProgressPage(self, caption: str, description: str) -> object:
+        return self._form().add_page(-1, PageStyle.AlwaysSkip | PageStyle.NoButtons)
+
+    @external(alias='CreateExtractionPage')
+    def CreateDownloadPage(self, caption: str, description: str, progress: object) -> object:
+        return self._form().add_page(-1, PageStyle.AlwaysSkip | PageStyle.NoButtons)
+
+    @external()
+    def TWizardPage__GetID(self, this: object) -> int:
+        return _wizard_page(this).id
+
+    @external()
+    def Class__SetNil(self, value: object) -> object:
+        """
+        Pascal Script's assignment of nil to a variable of a class.
+        """
         return None
 
     @external()
-    def Null(self) -> None:
-        return None
+    def Class__CastToType(self, source: object) -> object:
+        """
+        A cast of an object to a class; the emulator's objects do not record the classes that the
+        script knows, and the cast keeps the object.
+        """
+        return source
+
+    @external()
+    def GetWizardForm(self) -> object:
+        return self._form()
+
+    @external()
+    def PageFromID(self, id: int) -> object:
+        return self._form().page(id)
+
+    @external()
+    def PageIndexFromID(self, id: int) -> int:
+        return self._form().page_index(id)
+
+    @external()
+    def WizardDirValue(self) -> str:
+        return self.setup.path_func.remove_backslash_unless_root(self._form().dir_edit.text)
+
+    @external()
+    def WizardGroupValue(self) -> str:
+        return self.setup.path_func.remove_backslash_unless_root(self._form().group_edit.text)
+
+    @external()
+    def IsAdminInstallMode(self) -> bool:
+        return self.setup.admin_install_mode
+
+    @external(caller=True)
+    def GetPreviousData(self, name: str, default: str, caller: _ScriptRun | None = None) -> Generator[Any, Any, str]:
+        app_id = '' if (info := self.setup_info) is None else info.Header.text(TextDirective.AppId) or ''
+        yield from self.constants.expand(app_id, self.code_runner(caller))
+        return default
+
+    @external()
+    def TWizardForm__GetCurPageID(self, this: object) -> int:
+        return self.wizard_form.current
+
+    def _set_page_handler(self, this: object, event: PageEvent, handler: object):
+        page = _wizard_page(this)
+        if isinstance(handler, Function):
+            page.handlers[event] = handler
+        else:
+            page.handlers.pop(event, None)
+
+    @external()
+    def TWizardPage__SetOnActivate(self, this: object, handler: object):
+        self._set_page_handler(this, PageEvent.OnActivate, handler)
+
+    @external()
+    def TWizardPage__SetOnShouldSkipPage(self, this: object, handler: object):
+        self._set_page_handler(this, PageEvent.OnShouldSkipPage, handler)
+
+    @external()
+    def TWizardPage__SetOnNextButtonClick(self, this: object, handler: object):
+        self._set_page_handler(this, PageEvent.OnNextButtonClick, handler)
+
+    @external()
+    def TWizardPage__SetOnBackButtonClick(self, this: object, handler: object):
+        self._set_page_handler(this, PageEvent.OnBackButtonClick, handler)
+
+    @external()
+    def TWizardPage__SetOnCancelButtonClick(self, this: object, handler: object):
+        self._set_page_handler(this, PageEvent.OnCancelButtonClick, handler)
+
+    @external()
+    def Unassigned(self) -> Variant:
+        return variants.EMPTY
+
+    @external()
+    def Null(self) -> Variant:
+        return variants.NULL
+
+    @external()
+    def VarType(self, v: Variant) -> int:
+        return v.type
+
+    @external()
+    def VarIsNull(self, v: Variant) -> bool:
+        return v.type == VarType.Null
+
+    @external()
+    def VarIsEmpty(self, v: Variant) -> bool:
+        return v.type == VarType.Empty
+
+    @external()
+    def VarIsClear(self, v: Variant) -> bool:
+        return v.type == VarType.Empty or v.type in (VarType.Dispatch, VarType.Unknown) and v.value is None
 
     @external()
     def Set8087CW(self, cw: int):
-        self.fpucw = FPUControl(cw)
+        self.runtime.control_word = cw & 0xFFFF
 
     @external()
     def Get8087CW(self) -> int:
-        return self.fpucw.value
+        return self.runtime.control_word | x87.RESERVED_BIT
 
     @external()
     def GetDateTimeString(
@@ -1789,7 +2442,7 @@ class IFPSEmulator:
 
         split = re.split(F'({formats.string!s})', fmt)
         for k in range(0, len(split), 2):
-            split[k] = re.sub('([dmyhnst]+)((?:[aA][mM]?/[pP][mM]?)?)', dt, split[k])
+            split[k] = re.sub('(d+|m+|y+|h+|n+|s+|t+)((?:[aA][mM]?/[pP][mM]?)?)', dt, split[k])
         for k in range(1, len(split), 2):
             split[k] = split[k][1:-1]
         return ''.join(split)
@@ -1819,8 +2472,9 @@ class IFPSEmulator:
     def Uppercase(self, string: str) -> str:
         return string.upper()
 
-    @external()
+    @external(alias='Replicate')
     def StringOfChar(self, c: str, count: int) -> str:
+        self._reserve_text(count, wide=False)
         return c * count
 
     @external()
@@ -1843,11 +2497,14 @@ class IFPSEmulator:
     def StringChangeEx(self, string: Variable[str], old: str, new: str, _: bool) -> int:
         haystack = string.get()
         count = haystack.count(old)
+        self._reserve_text(len(haystack) + count * (len(new) - len(old)))
         string.set(haystack.replace(old, new))
         return count
 
     @external()
-    def Pos(self, string: str, sub: str) -> int:
+    def Pos(self, sub: str, string: str) -> int:
+        if not sub:
+            return 0
         return string.find(sub) + 1
 
     @external()
@@ -1892,65 +2549,99 @@ class IFPSEmulator:
 
     @external()
     def Trim(self, string: str) -> str:
-        return string.strip()
+        return strings.trim(string)
 
     @external()
     def TrimLeft(self, string: str) -> str:
-        return string.lstrip()
+        return strings.trim_left(string)
 
     @external()
     def TrimRight(self, string: str) -> str:
-        return string.rstrip()
+        return strings.trim_right(string)
 
     @external()
     def StringJoin(self, sep: str, values: list[str]) -> str:
+        self._reserve_text(sum(map(len, values)) + len(sep) * max(len(values) - 1, 0))
         return sep.join(values)
 
     @external()
     def StringSplitEx(self, string: str, separators: list[str], quote: str, how: TSplitType) -> list[str]:
-        if not quote:
-            parts = [string]
-        else:
-            quote = re.escape(quote)
-            parts = re.split(F'({quote}.*?{quote})', string)
-        sep = '|'.join(re.escape(s) for s in separators)
-        out = []
-        if how == TSplitType.stExcludeEmpty:
-            sep = F'(?:{sep})+'
-        for k in range(0, len(parts)):
-            if k & 1 == 1:
-                out.append(parts[k])
-                continue
-            out.extend(re.split(sep, string))
-        if how == TSplitType.stExcludeLastEmpty:
-            for k in reversed(range(len(out))):
-                if not out[k]:
-                    out.pop(k)
-                    break
-        return out
+        def spans():
+            found = _split_spans(string, separators, quote)
+            if how == TSplitType.stExcludeEmpty:
+                return (span for span in found if span[0] < span[1])
+            if how == TSplitType.stExcludeLastEmpty:
+                return _without_empty_last(found)
+            return found
+        self._reserve_variables(_StringType, sum(1 for _ in spans()))
+        return [string[start:end] for start, end in spans()]
 
     @external()
     def StringSplit(self, string: str, separators: list[str], how: TSplitType) -> list[str]:
-        return self.StringSplitEx(string, separators, None, how)
-
-    @external(alias='StrToInt64')
-    def StrToInt(self, s: str) -> int:
-        return int(s)
-
-    @external(alias='StrToInt64Def')
-    def StrToIntDef(self, s: str, d: int) -> int:
-        try:
-            return int(s)
-        except Exception:
-            return d
+        return self.StringSplitEx(string, separators, '', how)
 
     @external()
-    def StrToFloat(self, s: str) -> float:
-        return float(s)
+    def StrToInt(self, s: str) -> int:
+        value, error = numbers.val_integer(s, 32)
+        return -1 if error else value
 
-    @external(alias='FloatToStr')
+    @external()
+    def StrToIntDef(self, s: str, d: int) -> int:
+        value, error = numbers.val_integer(s, 32)
+        return d if error else value
+
+    @external()
+    def StrToInt64(self, s: str) -> int:
+        return numbers.str_to_int64(s)
+
+    @external()
+    def StrToInt64Def(self, s: str, d: int) -> int:
+        return numbers.str_to_int64_default(s, d)
+
+    @external()
+    def StrToFloat(self, s: str) -> x87.Real:
+        runtime = self.runtime
+        value, error = numbers.val_float(s, runtime.library)
+        if error or value is None:
+            raise IFPSException(_INVALID_FLOAT)
+        return runtime.fpu.store(value, x87.Format.Extended)
+
+    @external()
+    def FloatToStr(self, e: x87.Real) -> str:
+        if self.dialect is Dialect.Inno6:
+            return numbers.str_fixed(e, 12, self.runtime.library)
+        return numbers.float_to_str(e, self.runtime)
+
+    @external()
+    def StrToUInt64(self, s: str) -> int:
+        return numbers.str_to_uint64(s)
+
+    @external()
+    def StrToUInt64Def(self, s: str, d: int) -> int:
+        return numbers.str_to_uint64_default(s, d)
+
+    @external(alias='UInt64ToStr')
+    def UIntToStr(self, i: int) -> str:
+        return str(i & 0xFFFFFFFFFFFFFFFF)
+
+    @external(alias='Int64ToStr')
     def IntToStr(self, i: int) -> str:
         return str(i)
+
+    @external()
+    def PadL(self, s: str, n: int) -> str:
+        self._reserve_text(n)
+        return s.rjust(n)
+
+    @external()
+    def PadR(self, s: str, n: int) -> str:
+        self._reserve_text(n)
+        return s.ljust(n)
+
+    @external()
+    def PadZ(self, s: str, n: int) -> str:
+        self._reserve_text(n)
+        return s.rjust(n, '0')
 
     @external()
     def StrToVersion(self, s: str, v: Variable[int]) -> bool:
@@ -1969,9 +2660,7 @@ class IFPSEmulator:
 
     @external()
     def AddBackslash(self, string: str) -> str:
-        if string and string[~0] != '\\':
-            string = F'{string}\\'
-        return string
+        return self.setup.path_func.add_backslash(string)
 
     @external()
     def AddPeriod(self, string: str) -> str:
@@ -1981,71 +2670,71 @@ class IFPSEmulator:
 
     @external()
     def RemoveBackslashUnlessRoot(self, string: str) -> str:
-        path = Path(string)
-        if len(path.parts) == 1:
-            return str(path)
-        return self.RemoveBackslash(string)
+        return self.setup.path_func.remove_backslash_unless_root(string)
 
     @external()
     def RemoveBackslash(self, string: str) -> str:
-        return string.rstrip('\\/')
+        return self.setup.path_func.remove_backslash(string)
 
     @external()
     def ChangeFileExt(self, name: str, ext: str) -> str:
-        if not ext.startswith('.'):
-            ext = F'.{ext}'
-        return str(Path(name).with_suffix(ext))
+        return self.setup.path_func.change_ext(name, ext)
 
     @external()
     def ExtractFileExt(self, name: str) -> str:
-        return Path(name).suffix
+        return self.setup.path_func.extract_ext(name)
 
-    @external(alias='ExtractFilePath')
+    @external()
     def ExtractFileDir(self, name: str) -> str:
-        dirname = str(Path(name).parent)
-        return '' if dirname == '.' else dirname
+        return self.setup.path_func.extract_dir(name)
+
+    @external()
+    def ExtractFilePath(self, name: str) -> str:
+        return self.setup.path_func.extract_path(name)
 
     @external()
     def ExtractFileName(self, name: str) -> str:
-        if name:
-            name = Path(name).parts[-1]
-        return name
+        return self.setup.path_func.extract_name(name)
 
     @external()
     def ExtractFileDrive(self, name: str) -> str:
-        if name:
-            parts = Path(name).parts
-            if len(parts) >= 2 and parts[0] == '\\' and parts[1] == '?':
-                parts = parts[2:]
-            if parts[0] == '\\':
-                if len(parts) >= 3:
-                    return '\\'.join(parts[:3])
-            else:
-                root = parts[0]
-                if len(root) == 2 and root[1] == ':':
-                    return root
-        return ''
+        return self.setup.path_func.extract_drive(name)
 
     @external()
     def ExtractRelativePath(self, base: str, dst: str) -> str:
-        return str(Path(dst).relative_to(base))
-
-    @external(alias='ExpandUNCFileName')
-    def ExpandFileName(self, name: str) -> str:
-        if self.ExtractFileDrive(name):
-            return name
-        return str(self.config.cwd / name)
+        return self.setup.path_func.extract_relative_path(base, dst)
 
     @external()
-    def SetLength(self, string: Variable[str], size: int):
-        old = string.get()
+    def ExpandFileName(self, name: str) -> str:
+        try:
+            return self.setup.path_func.expand(name, self.current_folder.path)
+        except PathFuncError as error:
+            raise DelphiException(str(error)) from error
+
+    @external()
+    def ExpandUNCFileName(self, name: str) -> str:
+        return expand_file_name(name, self.current_folder.path)
+
+    @external()
+    def GetCurrentDir(self) -> str:
+        return self.current_folder.path
+
+    @external()
+    def SetLength(self, target: Variable, size: int):
+        target = target.deref()
+        if target.container:
+            self.SetArrayLength(target, size)
+            return
+        size = max(size, 0)
+        self._reserve_text(size, wide=target.type.code not in (TC.AnsiString, TC.PChar))
+        old = target.get()
         old = old.ljust(size, '\0')
-        string.set(old[:size])
+        target.set(old[:size])
 
     @external(alias='OemToCharBuff')
-    def CharToOemBuff(self, string: str) -> str:
+    def CharToOemBuff(self, string: Variable[str]):
         # TODO
-        return string
+        ...
 
     @external()
     def Utf8Encode(self, string: str) -> str:
@@ -2081,7 +2770,7 @@ class IFPSEmulator:
 
     @external()
     def SysErrorMessage(self, code: int) -> str:
-        return F'[description for error {code:08X}]'
+        return F'[description for error {code & 0xFFFFFFFF:08X}]'
 
     @external()
     def MinimizePathName(self, path: str, font: object, max_len: int) -> str:
@@ -2130,8 +2819,10 @@ class IFPSEmulator:
         return OleObject(name)
 
     @external()
-    def IDispatchInvoke(self, ole: OleObject, prop_set: bool, name: str, value: Any) -> int:
-        return 0
+    def IDispatchInvoke(self, ole: OleObject | None, prop_set: bool, name: str, value: Any) -> Variant:
+        if ole is None:
+            raise IFPSException(_NIL_INVOKE)
+        return variants.EMPTY
 
     @external()
     def FindWindowByClassName(self, name: str) -> int:
@@ -2146,102 +2837,384 @@ class IFPSEmulator:
         return self.config.wizard_silent
 
     @external()
+    def WizardNoIcons(self) -> bool:
+        return self._form().icons_off
+
+    @external()
+    def WizardSetupType(self, descriptions: bool) -> str:
+        form = self._form()
+        if (setup_type := form.setup_type) is None:
+            return ''
+        return form.type_description(setup_type) if descriptions else setup_type.Name
+
+    def _field_expander(self, caller: _ScriptRun | None) -> Expander:
+        """
+        Expands the fields of the entries in the lists of the wizard for a support function that the
+        script calls: a code constant runs inside the run of the caller, as in `ExpandConstant`.
+        """
+        def expand(entry: object, field: EntryField, text: str) -> Generator[Any, Any, str]:
+            return self.constants.expand(text, self.code_runner(caller))
+        return expand
+
+    @external(caller=True)
+    def WizardSelectedComponents(self, descriptions: bool, caller: _ScriptRun | None = None) -> Generator[Any, Any, str]:
+        expand = self._field_expander(caller)
+        return comma_text((yield from self._form().selected_components(descriptions, False, expand)))
+
+    @external(caller=True)
+    def WizardSelectedTasks(self, descriptions: bool, caller: _ScriptRun | None = None) -> Generator[Any, Any, str]:
+        expand = self._field_expander(caller)
+        return comma_text((yield from self._form().selected_tasks(descriptions, False, False, expand)))
+
+    @external(alias=['IsComponentSelected'])
+    def WizardIsComponentSelected(self, components: str) -> bool:
+        return _selected(self._form().selection().components, components)
+
+    @external(alias=['IsTaskSelected'])
+    def WizardIsTaskSelected(self, tasks: str) -> bool:
+        return _selected(self._form().selection().tasks, tasks)
+
+    @external()
+    def WizardSelectComponents(self, components: str):
+        self._form().select_components(comma_strings(components.replace('/', '\\')))
+
+    @external()
+    def WizardSelectTasks(self, tasks: str):
+        self._form().select_tasks(comma_strings(tasks.replace('/', '\\')))
+
+    @external()
+    def TWizardForm__GetComponentsList(self, this: object) -> object:
+        return self.wizard_form.components
+
+    @external()
+    def TWizardForm__GetTasksList(self, this: object) -> object:
+        return self.wizard_form.tasks
+
+    @external()
+    def TWizardForm__GetRunList(self, this: object) -> object:
+        return self.wizard_form.run_list
+
+    @external()
+    def TWizardForm__GetTypesCombo(self, this: object) -> object:
+        return self.wizard_form.types_combo
+
+    @external()
+    def TWizardForm__GetNoIconsCheck(self, this: object) -> object:
+        return self.wizard_form.no_icons_check
+
+    @external()
+    def TNewCheckListBox__GetChecked(self, this: object, index: int) -> bool:
+        if isinstance(this, CheckList):
+            return this.checked(index)
+        return True
+
+    @external()
+    def TNewCheckListBox__SetChecked(self, this: object, index: int, checked: bool):
+        if isinstance(this, CheckList):
+            this.set_checked(index, checked)
+
+    @external()
+    def TNewCheckListBox__GetState(self, this: object, index: int) -> int:
+        if isinstance(this, CheckList):
+            return this.state(index)
+        return 1
+
+    @external()
+    def TNewCheckListBox__GetItemEnabled(self, this: object, index: int) -> bool:
+        if isinstance(this, CheckList):
+            return this.enabled(index)
+        return True
+
+    @external()
+    def TNewCheckListBox__CheckItem(self, this: object, index: int, operation: int) -> bool:
+        if isinstance(this, CheckList):
+            return this.check(index, CheckOperation(operation))
+        return True
+
+    @external()
+    def CurrentFilename(self) -> str:
+        if (file := self.current_file) is None or not file.destination:
+            raise _outside_file_entry('CurrentFilename')
+        return file.destination
+
+    @external()
+    def CurrentSourceFilename(self) -> str:
+        if (file := self.current_file) is None or not file.source:
+            raise _outside_file_entry('CurrentSourceFilename', ' with flag "external"')
+        return file.source
+
+    def expand(self, text: str, custom: Mapping[str, str] | None = None) -> Generator[Any, Any, str]:
+        """
+        Expands the constants in a text of the setup where Setup expands it, with the custom
+        constants that Setup passes for it; each code constant runs in a new run of the script.
+        """
+        return self.constants.expand(text, self.code_runner(None), custom)
+
+    def registry_key_exists(self, key: str) -> bool:
+        """
+        Whether a key of the emulated registry exists.
+        """
+        return self.constants.registry('', None, key)
+
+    @property
+    def temporary_directory(self) -> str:
+        """
+        The temporary directory of Setup, the value of `{tmp}`.
+        """
+        return self.constants.temporary_directory
+
+    def check_time(self):
+        """
+        Ends the emulation when its time is up.
+        """
+        if (watch := self._stopwatch) is not None and watch.expired():
+            raise EmulatorTimeout
+
+    def _setup_codes(self) -> dict[ArgumentKind, TC]:
+        """
+        The type codes of the variables that Setup creates for the values that it passes to the
+        functions of the script and for the results that it takes from them.
+        """
+        return {
+            ArgumentKind.String  : TC.UnicodeString if self.ifps.unicode else TC.AnsiString,
+            ArgumentKind.Integer : TC.S32,
+            ArgumentKind.Boolean : TC.U08,
+            ArgumentKind.Step    : TC.U08,
+            ArgumentKind.Page    : TC.Class,
+            ArgumentKind.Object  : TC.Class,
+        }
+
+    def _fits(self, function: Function, call: SetupCall) -> bool:
+        """
+        Whether the declaration of a function of the script takes the call that Setup makes: the
+        same number of parameters, each passed the same way and of the type that Setup passes, and
+        a result of the type that Setup takes. A parameter or a result whose type the script does
+        not record is taken to fit, as Pascal Script records none for a support function that Inno
+        Setup does not document, such as `UsingWinNT`.
+        """
+        if (decl := function.decl) is None or len(decl.parameters) != len(call.parameters):
+            return False
+        codes = self._setup_codes()
+        for parameter, (kind, by_value) in zip(decl.parameters, call.parameters):
+            if parameter.const != by_value:
+                return False
+            if parameter.type is not None and parameter.type.code != codes[kind]:
+                return False
+        if call.result is None:
+            return decl.void
+        if decl.void:
+            return False
+        return (result := decl.return_type) is None or result.code == codes[call.result]
+
+    def call_from_setup(
+        self,
+        function: Function,
+        arguments: Sequence,
+        call: SetupCall,
+        caller: _ScriptRun | None = None,
+    ) -> Generator[Any, Any, Any]:
+        """
+        Calls a function of the script as Setup does: Pascal Script runs a function whose
+        declaration does not take the call on a stack that does not fit it, and the emulation ends
+        there. Setup creates the variables of the values that it passes and of the result that it
+        takes.
+        """
+        if not self._fits(function, call):
+            raise EmulatorUndefined(F'Setup calls {function.name} as {call}, which its declaration does not take.')
+        codes = self._setup_codes()
+        types = [TPrimitive(codes[kind]) for kind, _ in call.parameters]
+        result = None if call.result is None else TPrimitive(codes[call.result])
+        run = _ScriptRun(self.dialect, caller)
+        return (yield from self._execute(run, function, arguments, types, result))
+
+    def call_by_name(
+        self,
+        name: str,
+        arguments: list,
+        call: SetupCall,
+        caller: _ScriptRun | None = None,
+    ) -> Generator[Any, Any, Any]:
+        """
+        Calls a function of the script by name as Setup's `CodeRunner` finds it: a function of the
+        script or a support function that the script imports.
+        """
+        if (function := self.symbols.get(name)) is None:
+            raise DelphiException('Script error: Could not call proc')
+        return (yield from self.call_from_setup(function, arguments, call, caller))
+
+    @external()
+    def Low(self, var: Variable) -> int:
+        return self._bound(var.deref(), False)
+
+    @external()
+    def High(self, var: Variable) -> int:
+        return self._bound(var.deref(), True)
+
+    def _bound(self, var: Variable, high: bool) -> int:
+        t = var.type
+        code = t.code
+        if code is TC.Array:
+            return len(var) - 1 if high else 0
+        if isinstance(t, TStaticArray):
+            start = t.offset or 0
+            return start + t.size - 1 if high else start
+        if code is TC.AnsiString:
+            return len(var.get()) if high else 1
+        if (valid := code.integer_range) is not None:
+            return valid.stop - 1 if high else valid.start
+        raise IFPSException(kind=PSError.CouldNotCallProc)
+
+    @external()
     def SizeOf(self, var: Variable) -> int:
-        if var.pointer:
-            return (self.config.x64 + 1) * 4
-        if var.container:
-            return sum(self.SizeOf(x) for x in var.data)
-        return var.type.code.width
+        return pascal.size_of(var.type, self.runtime)
 
     del external
 
 
+_FORM_CLASSES = frozenset({
+    'TWizardForm',
+    'TMainForm',
+    'TUninstallProgressForm',
+})
+"""
+The classes of Setup's forms, which the emulator holds itself: a member of one called on an empty
+variable fails as Pascal Script fails it, twice, so that the innermost except block does not end
+the error.
+"""
+
+_FORM_VARIABLES = frozenset({
+    'WIZARDFORM',
+    'MAINFORM',
+    'UNINSTALLPROGRESSFORM',
+})
+"""
+The global variables of a script of Inno Setup 6 or later that hold Setup's forms.
+"""
+
+_NOTIFY_CALL = SetupCall.of(parse_function('procedure OnChange(Sender: TObject)'))
+
+_EDIT_CHAR_CASES = frozenset(TEditCharCase)
+
+_LAYOUT_CLASSES = frozenset({
+    'TObject',
+    'TPersistent',
+    'TComponent',
+    'TControl',
+    'TWinControl',
+    'TCustomControl',
+    'TGraphicControl',
+})
+"""
+The classes whose members every control of the wizard has, such as its position and visibility.
+"""
+
+_APPEARANCE = frozenset({
+    'anchors',
+    'borderstyle',
+    'color',
+    'ctl3d',
+    'cursor',
+    'flat',
+    'font',
+    'hint',
+    'itemcaption',
+    'itemfontstyle',
+    'itemlevel',
+    'itemsubitem',
+    'minitemheight',
+    'offset',
+    'parentcolor',
+    'parentfont',
+    'showhint',
+    'showlines',
+    'subitemfontstyle',
+    'taborder',
+    'tabstop',
+    'wanttabs',
+})
+"""
+The properties of the lists, combo boxes and check boxes of the wizard that only change how they
+look.
+"""
+
+
+def _changes_choices(function: Function) -> bool:
+    """
+    Whether a member of a control of the wizard that the emulator does not model may change the
+    choices that the control holds: any member but those of every control, those that only change
+    how it looks, and the casts of Pascal Script, whose class is `Class`.
+    """
+    classname = function.decl.classname if function.decl is not None else None
+    name = function.name
+    if not classname:
+        classname, dot, name = name.partition('.')
+        if not dot:
+            return False
+    if classname == 'Class' or classname in _LAYOUT_CLASSES:
+        return False
+    if name[:3].lower() in ('get', 'set') and name[3:].lower() in _APPEARANCE:
+        return False
+    return True
+
+
 class InnoSetupEmulator(IFPSEmulator):
     """
-    A specialized `refinery.lib.emulator.IFPSEmulator` that can emulate the InnoSetup installation
-    with a focus on continuing execution as much as possible.
+    A specialized `IFPSEmulator` that can emulate the InnoSetup installation with a focus on
+    continuing execution as much as possible.
     """
 
-    def emulate_installation(self, password=''):
+    def __init__(
+        self,
+        archive: InnoArchive | IFPSFile,
+        options: IFPSEmulatorConfig | None = None,
+        **more,
+    ):
+        super().__init__(archive, options, **more)
+        cfg = self.config
+        self.entries: SetupEntries | None = None
+        if (info := self.setup_info) is not None:
+            self.entries = SetupEntries.of(info, cfg.windows_os_version, cfg.windows_sp_version)
+
+    def emulate_installation(
+        self,
+        password: str = '',
+        max_seconds: float | None = None,
+        password_test: Callable[[str], bool] | None = None,
+    ):
         """
-        To the best of the author's knowledge, this function emulates the sequence of calls into
-        the script that the IFPS runtime would make during a setup install.
+        Emulates the calls into the script that Setup makes during an installation in which the user
+        clicks Next on every page until Setup finishes; a silent installation when the configuration
+        says so. Each installation starts the script over. The given password is typed into the box
+        on the password page. An event or entry that ends with a script error is reported as a
+        `refinery.lib.inno.emulation.NewScriptError` and the installation goes on, as described
+        for `refinery.lib.inno.installation.Installation`. Any other exception ends the emulation.
+        A call of an emulated function that fails is reported as a
+        `refinery.lib.inno.emulation.NewEmulationError`, also when the script handles its error.
+        The time limit counts for the whole installation; the given number of seconds replaces the
+        one of the configuration. Setup tests a password against its own before it asks the
+        script; the caller can give that test as `password_test`, without it the test fails.
         """
+        self.reset(walked=True)
+        self.wizard_form.needs_restart = self.setup.always_restart
+        installation = Installation(self, self.entries, password, password_test)
+        return (yield from self._timed(installation.run(), max_seconds))
 
-        class SetupDispatcher:
-
-            InitializeSetup: Callable
-            InitializeWizard: Callable
-            CurStepChanged: Callable
-            ShouldSkipPage: Callable
-            CurPageChanged: Callable
-            PrepareToInstall: Callable
-            CheckPassword: Callable
-            NextButtonClick: Callable
-            DeinitializeSetup: Callable
-
-            def __getattr__(_, name):
-                if pfn := self.symbols.get(name):
-                    def emulated(*a):
-                        return (yield from self.emulate_function(pfn, *a))
-                else:
-                    def emulated(*a):
-                        yield from ()
-                        return False
-                return emulated
-
-        Setup = SetupDispatcher()
-
-        yield from Setup.InitializeSetup()
-        yield from Setup.InitializeWizard()
-        yield from Setup.CurStepChanged(TSetupStep.ssPreInstall)
-
-        for page in PageID:
-
-            skip = yield from Setup.ShouldSkipPage(page)
-
-            if not skip:
-                yield from Setup.CurPageChanged(page)
-                if page == PageID.wpPreparing:
-                    yield from Setup.PrepareToInstall(False)
-                if page == PageID.wpPassword:
-                    yield from Setup.CheckPassword(password)
-
-            yield from Setup.NextButtonClick(page)
-
-            if page == PageID.wpPreparing:
-                yield from Setup.CurStepChanged(TSetupStep.ssInstall)
-            if page == PageID.wpInfoAfter:
-                yield from Setup.CurStepChanged(TSetupStep.ssPostInstall)
-
-        yield from Setup.CurStepChanged(TSetupStep.ssDone)
-        yield from Setup.DeinitializeSetup()
-
-    def unimplemented(self, function: Function):
+    def unimplemented(self, function: Function, arguments: list[Variable], result: Variable | None):
         """
         Any unimplemented function is essentially skipped. Any arguments passed by reference and
         all return values that are of type integer are set to `1` in an attempt to indicate success
-        wherever possible.
+        wherever possible. When the function is a member of a control of the wizard that holds
+        choices of the installation, called on that control, the emulator no longer knows those
+        choices, unless the member belongs to every control, such as its position, or only changes
+        how the control looks.
         """
-        decl = function.decl
-        if decl is None:
-            return
-        if not decl.void:
-            rc = 1
-            rv = self.stack[-1]
-            if not rv.container:
-                rt = rv.type.py_type()
-                if isinstance(rt, type) and issubclass(rt, int):
-                    rv.set(1)
-        else:
-            rc = 0
-        for k in range(rc, rc + len(decl.parameters)):
-            ptr: Variable[Variable] = self.stack[-k]
+        if arguments and _changes_choices(function):
+            self.wizard_form.touched(arguments[0].deref().data)
+        if result is not None and not result.container and _holds_integer(result.type):
+            result.set(1)
+        for ptr in arguments:
             if not ptr.pointer:
                 continue
             var = ptr.deref()
-            if var.container:
-                continue
-            vt = var.type.py_type()
-            if isinstance(vt, type) and issubclass(vt, int):
+            if not var.container and _holds_integer(var.type):
                 var.set(1)

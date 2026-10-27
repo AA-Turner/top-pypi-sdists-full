@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-trino
-Version: 1.10.6
+Version: 1.11.0
 Summary: The trino adapter plugin for dbt (data build tool)
 Home-page: https://github.com/starburstdata/dbt-trino
 Author: Starburst Data
@@ -12,20 +12,19 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: dbt-common<2.0,>=1.25.0
-Requires-Dist: dbt-adapters<2.0,>=1.16
+Requires-Dist: dbt-common<2.0,>=1.37.3
+Requires-Dist: dbt-adapters<2.0,>=1.24.5
 Requires-Dist: trino<1.0,>=0.336
 Requires-Dist: requests<3.0,>=2.32.5
-Requires-Dist: dbt-core<2.0,>=1.8.0
+Requires-Dist: dbt-core<2.0,>=1.11.2
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -103,6 +102,41 @@ Two things to keep in mind:
 - A query whose tags match no routing rule is rejected, not sent to a default cluster (unless a default routing rule is configured). Give your profile tags that match a rule, since statements dbt runs outside a model - metadata queries, for instance - use the profile's. This includes dbt's own pre-run bookkeeping, such as listing and creating schemas and populating the relation cache for every database and schema touched by the run: those queries run once up front, before any model executes and without any per-model context, so they can never pick up a model's `client_tags`/`http_headers` - only your profile's.
 - `X-Trino-Client-Tags` cannot be set through `http_headers`; Trino builds that header itself from `client_tags`.
 - A model's tests are separate nodes with their own config, so they do not inherit the model's `client_tags`/`http_headers` and run with the profile's instead. Configure routing on the tests themselves - inline on each test's `config`, or path-scoped under `tests:`/`data_tests:` in `dbt_project.yml` - if they need to reach the same cluster as the model.
+
+### User-defined functions (SQL UDFs)
+
+dbt-trino supports scalar SQL [user-defined functions](https://docs.getdbt.com/docs/build/udfs): put the function body in `functions/<name>.sql` and its signature in a YAML file. Python, JavaScript and aggregate functions are not supported.
+
+```sql
+-- functions/price_for_xlarge.sql
+price * 2
+```
+
+```yaml
+# functions/price_for_xlarge.yml
+functions:
+  - name: price_for_xlarge
+    description: Calculate the price for the xlarge version of a standard item
+    config:
+      database: memory
+      schema: functions
+      volatility: deterministic
+    arguments:
+      - name: price
+        data_type: double
+    returns:
+      data_type: double
+```
+
+The function is called with `{{ function('price_for_xlarge') }}(price)`. Things to keep in mind:
+
+- **Where a function can live**: Only catalogs whose connector stores functions work.
+- **The body is a single expression**: dbt-trino generates `RETURN <body>`, and Trino does not allow queries in functions, so `SELECT ...` is rejected by Trino when the function is created.
+- **Types are passed to Trino as written**: Use `double` or `real` rather than `float`.
+- **Volatility**: `deterministic` and `non-deterministic` become `DETERMINISTIC` and `NOT DETERMINISTIC`. `stable` is not supported and is ignored with a warning. Trino assumes `DETERMINISTIC` when it is unset and rejects a declaration that contradicts the body, so a body that calls `random()` needs `volatility: non-deterministic`.
+- **Not supported by Trino**: argument `default_value`, `grants` (a warning is logged) and `persist_docs`. The function `description` is stored as the function's `COMMENT`.
+- **Overloads**: Trino identifies a function by its name and argument types. Changing an argument type creates a second function and leaves the old one in place. The old function must be dropped manually.
+- **Starburst Galaxy**: Functions can only be created in the built-in `galaxy.functions` schema. Any other catalog fails with `functions can only be created in the built-in 'galaxy.functions' catalog and schema`. Set `database: galaxy` and `schema: functions` on the function.
 
 ## Contributing
 

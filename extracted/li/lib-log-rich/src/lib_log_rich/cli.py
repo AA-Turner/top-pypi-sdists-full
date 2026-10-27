@@ -29,6 +29,7 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -38,8 +39,9 @@ from click.core import ParameterSource
 
 from . import __init__conf__, safe_console
 from . import config as config_module
-from .adapters.console.rich_console import CONSOLE_PRESETS
+from .domain.dump import DumpFormat
 from .domain.dump_filter import FilterSpecValue
+from .domain.enums import ConsoleTheme, FormatPreset, GraylogProtocol
 from .domain.palettes import CONSOLE_STYLE_THEMES
 from .lib_log_rich import (
     hello_world as _hello_world,
@@ -63,30 +65,85 @@ CLICK_CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])  # noqa: C408
 _TRACEBACK_SUMMARY_LIMIT: Final[int] = 500
 # Allow opt-in verbose mode to print large tracebacks for debugging sessions.
 _TRACEBACK_VERBOSE_LIMIT: Final[int] = 10_000
-TRACEBACK_SUMMARY_LIMIT: Final[int] = _TRACEBACK_SUMMARY_LIMIT
-TRACEBACK_VERBOSE_LIMIT: Final[int] = _TRACEBACK_VERBOSE_LIMIT
 
 
-def _dump_extension(fmt: str) -> str:
+# Choice lists are built from the enum VALUES: click.Choice matches an Enum member
+# by its NAME, so passing the members would reject the lowercase spellings users type.
+_FORMAT_PRESET_CHOICES: Final[tuple[str, ...]] = tuple(preset.value for preset in FormatPreset)
+_DUMP_FORMAT_PRESET_CHOICES: Final[tuple[str, ...]] = tuple(preset.value for preset in FormatPreset if preset.renders_in_text_dump)
+_DUMP_FORMAT_CHOICES: Final[tuple[str, ...]] = tuple(fmt.value for fmt in DumpFormat)
+_GRAYLOG_PROTOCOL_CHOICES: Final[tuple[str, ...]] = tuple(protocol.value for protocol in GraylogProtocol)
+_THEME_CHOICES: Final[tuple[str, ...]] = tuple(theme.value for theme in ConsoleTheme)
+
+_DUMP_EXTENSIONS: Final[Mapping[DumpFormat, str]] = {
+    DumpFormat.TEXT: ".log",
+    DumpFormat.JSON: ".json",
+    DumpFormat.HTML_TABLE: ".html",
+    DumpFormat.HTML_TXT: ".html",
+}
+
+
+@dataclass(slots=True, frozen=True)
+class _RootOptions:
+    """Options the root group hands down to its subcommands through ``ctx.obj``."""
+
+    traceback: bool
+    console_format_template: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class _ComboDump:
+    """A dump rendered for one preset-theme combination, printed after the run."""
+
+    preset: FormatPreset
+    theme: ConsoleTheme
+    payload: str
+
+
+def _to_format_preset(_ctx: click.Context, _param: click.Parameter, value: str | None) -> FormatPreset | None:
+    """Convert a ``--*-format-preset`` choice into its :class:`FormatPreset`."""
+    return None if value is None else FormatPreset.from_str(value)
+
+
+def _to_format_presets(_ctx: click.Context, _param: click.Parameter, values: tuple[str, ...]) -> tuple[FormatPreset, ...]:
+    """Convert the repeated ``--preset`` choices into :class:`FormatPreset` members."""
+    return tuple(FormatPreset.from_str(value) for value in values)
+
+
+def _to_themes(_ctx: click.Context, _param: click.Parameter, values: tuple[str, ...]) -> tuple[ConsoleTheme, ...]:
+    """Convert the repeated ``--theme`` choices into :class:`ConsoleTheme` members."""
+    return tuple(ConsoleTheme.from_str(value) for value in values)
+
+
+def _to_dump_format(_ctx: click.Context, _param: click.Parameter, value: str | None) -> DumpFormat | None:
+    """Convert the ``--dump-format`` choice into its :class:`DumpFormat`."""
+    return None if value is None else DumpFormat(value)
+
+
+def _to_graylog_protocol(_ctx: click.Context, _param: click.Parameter, value: str) -> GraylogProtocol:
+    """Convert the ``--graylog-protocol`` choice into its :class:`GraylogProtocol`."""
+    return GraylogProtocol.from_str(value)
+
+
+def _dump_extension(fmt: DumpFormat) -> str:
     """Return the file extension for ``fmt``.
 
     Keeps CLI behaviour consistent with dump adapter naming conventions.
 
     Args:
-        fmt: Human-entered format name (case-insensitive).
+        fmt: Dump format the file is written in.
 
     Returns:
         File extension beginning with a dot.
 
     Example:
-        >>> _dump_extension('text')
+        >>> _dump_extension(DumpFormat.TEXT)
         '.log'
-        >>> _dump_extension('HTML')
+        >>> _dump_extension(DumpFormat.HTML_TXT)
         '.html'
 
     """
-    mapping = {"text": ".log", "json": ".json", "html_table": ".html", "html_txt": ".html"}
-    return mapping.get(fmt.lower(), f".{fmt.lower()}")
+    return _DUMP_EXTENSIONS[fmt]
 
 
 FilterMapping = Mapping[str, FilterSpecValue]
@@ -145,7 +202,8 @@ def _collect_field_filters(
                 f"Invalid regular expression for {option_name}: {exc}",
                 param_hint=option_name,
             ) from exc
-        _append_filter_spec(filters, key, {"pattern": pattern, "regex": True})
+        # A compiled pattern is itself a regex spec, so no option mapping is needed.
+        _append_filter_spec(filters, key, pattern)
     return filters
 
 
@@ -154,7 +212,7 @@ def _none_if_empty(mapping: dict[str, FilterSpecValue]) -> FilterMapping | None:
     return mapping or None
 
 
-def _resolve_dump_path(base: Path, preset: str, theme: str, fmt: str) -> Path:
+def _resolve_dump_path(base: Path, preset: FormatPreset, theme: ConsoleTheme, fmt: DumpFormat) -> Path:
     """Derive a per-preset-theme path from ``base`` and ``fmt``.
 
     Centralises the filesystem rules documented in `EXAMPLES.md` so repeated
@@ -162,16 +220,16 @@ def _resolve_dump_path(base: Path, preset: str, theme: str, fmt: str) -> Path:
 
     Args:
         base: Target directory or file supplied via ``--dump-path``.
-        preset: Preset identifier used in the filename.
-        theme: Theme identifier used in the filename.
-        fmt: Dump format string passed to :func:`_dump_extension`.
+        preset: Preset whose value is used in the filename.
+        theme: Theme whose value is used in the filename.
+        fmt: Dump format passed to :func:`_dump_extension`.
 
     Returns:
         Fully-qualified path ready for writing.
 
     Example:
         >>> from pathlib import Path
-        >>> _resolve_dump_path(Path('.'), 'short', 'classic', 'text')  # doctest: +SKIP
+        >>> _resolve_dump_path(Path('.'), FormatPreset.SHORT, ConsoleTheme.CLASSIC, DumpFormat.TEXT)  # doctest: +SKIP
         PosixPath('logdemo-short-classic.log')
 
     """
@@ -286,43 +344,32 @@ def _build_dump_filters(
     return context_filters, context_extra_filters, extra_filters
 
 
-def _resolve_format_presets(
-    ctx: click.Context,
-    console_format_preset: str | None,
-    console_format_template: str | None,
-) -> tuple[str | None, str | None]:
-    """Resolve console format preset and template from CLI args and context inheritance.
+def _resolve_format_template(ctx: click.Context, console_format_template: str | None) -> str | None:
+    """Return the subcommand's own template, else the one given to the root group.
 
     Args:
-        ctx: Click context containing inherited values.
-        console_format_preset: Explicit preset from CLI argument.
-        console_format_template: Explicit template from CLI argument.
+        ctx: Click context holding the root group's options.
+        console_format_template: Template given to the subcommand itself.
 
     Returns:
-        Resolved (preset, template) pair, preferring explicit args over inheritance.
+        The template to use, or ``None`` when neither command was given one.
 
     """
-    inherited_preset = ctx.obj.get("console_format_preset") if ctx.obj else None
-    inherited_template = ctx.obj.get("console_format_template") if ctx.obj else None
-
-    if console_format_preset is None:
-        console_format_preset = inherited_preset
-    if console_format_template is None:
-        console_format_template = inherited_template
-
-    return console_format_preset, console_format_template
+    if console_format_template is not None:
+        return console_format_template
+    inherited = ctx.find_object(_RootOptions)
+    return None if inherited is None else inherited.console_format_template
 
 
-def _print_theme_styles(theme_name: str, styles: dict[str, str]) -> None:
+def _print_theme_styles(theme: ConsoleTheme) -> None:
     """Print theme header and style mappings to console.
 
     Args:
-        theme_name: Name of the theme being displayed.
-        styles: Level->style mapping for this theme.
+        theme: Theme whose palette is displayed.
 
     """
-    safe_console.echo(click.style(f"=== Theme: {theme_name} ===", bold=True))
-    for level, style in styles.items():
+    safe_console.echo(click.style(f"=== Theme: {theme} ===", bold=True))
+    for level, style in CONSOLE_STYLE_THEMES[theme].items():
         safe_console.echo(f"  {level:<8} -> {style}")
     safe_console.echo("  emitting sample events…")
 
@@ -333,7 +380,7 @@ def _print_backend_status(
     enable_journald: bool,
     enable_eventlog: bool,
     endpoint_tuple: tuple[str, int] | None,
-    graylog_protocol: str,
+    graylog_protocol: GraylogProtocol,
     graylog_tls: bool,
 ) -> None:
     """Print status of enabled backend adapters.
@@ -343,13 +390,14 @@ def _print_backend_status(
         enable_journald: Whether journald adapter is enabled.
         enable_eventlog: Whether Windows Event Log adapter is enabled.
         endpoint_tuple: Graylog (host, port) if configured.
-        graylog_protocol: Graylog protocol ('tcp' or 'udp').
+        graylog_protocol: Graylog transport protocol.
         graylog_tls: Whether TLS is enabled for Graylog.
 
     """
     if enable_graylog:
         destination = endpoint_tuple or ("127.0.0.1", 12201)
-        scheme = graylog_protocol.upper() + ("+TLS" if graylog_tls and graylog_protocol == "tcp" else "")
+        tls_suffix = "+TLS" if graylog_tls and graylog_protocol is GraylogProtocol.TCP else ""
+        scheme = graylog_protocol.value.upper() + tls_suffix
         safe_console.echo(f"  graylog -> {destination[0]}:{destination[1]} via {scheme}")
     if enable_journald:
         safe_console.echo("  journald -> systemd.journal.send")
@@ -359,18 +407,18 @@ def _print_backend_status(
 
 def _run_theme_demo(
     *,
-    theme_name: str,
+    theme: ConsoleTheme,
     service: str,
     environment: str,
-    dump_format: str | None,
+    dump_format: DumpFormat | None,
     target_path: Path | None,
-    console_format_preset: str | None,
+    console_format_preset: FormatPreset | None,
     console_format_template: str | None,
-    dump_format_preset: str | None,
+    dump_format_preset: FormatPreset | None,
     dump_format_template: str | None,
     enable_graylog: bool,
     graylog_endpoint: tuple[str, int] | None,
-    graylog_protocol: str,
+    graylog_protocol: GraylogProtocol,
     graylog_tls: bool,
     enable_journald: bool,
     enable_eventlog: bool,
@@ -381,10 +429,10 @@ def _run_theme_demo(
     """Execute logdemo for a single theme and return results.
 
     Args:
-        theme_name: Theme to use for this demo run.
+        theme: Theme to use for this demo run.
         service: Service name for log context.
         environment: Environment label for log context.
-        dump_format: Optional dump format name.
+        dump_format: Optional dump format.
         target_path: Optional dump target path.
         console_format_preset: Console output format preset.
         console_format_template: Console output format template.
@@ -392,7 +440,7 @@ def _run_theme_demo(
         dump_format_template: Dump output format template.
         enable_graylog: Whether Graylog adapter is enabled.
         graylog_endpoint: Graylog (host, port) if configured.
-        graylog_protocol: Graylog protocol ('tcp' or 'udp').
+        graylog_protocol: Graylog transport protocol.
         graylog_tls: Whether TLS is enabled for Graylog.
         enable_journald: Whether journald adapter is enabled.
         enable_eventlog: Whether Windows Event Log adapter is enabled.
@@ -409,9 +457,9 @@ def _run_theme_demo(
     """
     try:
         return _logdemo(
-            theme=theme_name,
+            theme=theme,
             service=service,
-            environment=f"{environment}-{theme_name}" if environment else None,
+            environment=f"{environment}-{theme}" if environment else None,
             dump_format=dump_format,
             dump_path=target_path,
             console_format_preset=console_format_preset,
@@ -434,14 +482,14 @@ def _run_theme_demo(
 
 def _resolve_combo_dump_path(
     base_path: Path | None,
-    preset_name: str,
-    theme_name: str,
-    dump_format: str | None,
+    preset: FormatPreset,
+    theme: ConsoleTheme,
+    dump_format: DumpFormat | None,
 ) -> Path | None:
     """Determine dump target path for a preset-theme combo and ensure parent exists."""
-    if not dump_format or base_path is None:
+    if dump_format is None or base_path is None:
         return None
-    target_path = _resolve_dump_path(base_path, preset_name, theme_name, dump_format)
+    target_path = _resolve_dump_path(base_path, preset, theme, dump_format)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     return target_path
 
@@ -450,15 +498,15 @@ def _report_combo_result(
     *,
     result: LogDemoResult,
     target_path: Path | None,
-    dump_format: str | None,
-    preset_name: str,
-    theme_name: str,
-    dumps: list[tuple[str, str, str]],
+    dump_format: DumpFormat | None,
+    preset: FormatPreset,
+    theme: ConsoleTheme,
+    dumps: list[_ComboDump],
     enable_graylog: bool,
     enable_journald: bool,
     enable_eventlog: bool,
     endpoint_tuple: tuple[str, int] | None,
-    graylog_protocol: str,
+    graylog_protocol: GraylogProtocol,
     graylog_tls: bool,
 ) -> None:
     """Report demo results and collect dumps for later printing."""
@@ -473,61 +521,63 @@ def _report_combo_result(
     )
     if target_path is not None:
         safe_console.echo(f"  dump written to {target_path}")
-    elif dump_format and result.dump:
-        dumps.append((preset_name, theme_name, result.dump))
+    elif dump_format is not None and result.dump:
+        dumps.append(_ComboDump(preset=preset, theme=theme, payload=result.dump))
     safe_console.echo()
 
 
-def _print_accumulated_dumps(dumps: list[tuple[str, str, str]], dump_format: str) -> None:
+def _print_accumulated_dumps(dumps: list[_ComboDump], dump_format: DumpFormat) -> None:
     """Print all accumulated dumps to console."""
-    for preset_name, theme_name, payload in dumps:
-        safe_console.echo(click.style(f"--- dump ({dump_format}) preset={preset_name} theme={theme_name} ---", bold=True))
-        safe_console.echo(payload)
+    for combo in dumps:
+        # ``.value``: DumpFormat is a plain Enum, whose f-string form is ``DumpFormat.JSON``.
+        header = f"--- dump ({dump_format.value}) preset={combo.preset} theme={combo.theme} ---"
+        safe_console.echo(click.style(header, bold=True))
+        safe_console.echo(combo.payload)
         safe_console.echo()
 
 
-def _select_themes(themes: tuple[str, ...]) -> list[str]:
+def _select_themes(themes: tuple[ConsoleTheme, ...]) -> list[ConsoleTheme]:
     """Return list of themes to demo, defaulting to all available themes."""
     if themes:
-        return [name.lower() for name in themes]
-    return list(CONSOLE_STYLE_THEMES.keys())
+        return list(themes)
+    return list(ConsoleTheme)
 
 
-def _select_presets(presets: tuple[str, ...]) -> list[str]:
+def _select_presets(presets: tuple[FormatPreset, ...]) -> list[FormatPreset]:
     """Return list of presets to demo, defaulting to all available presets."""
     if presets:
-        return [name.lower() for name in presets]
-    return list(CONSOLE_PRESETS)
+        return list(presets)
+    return list(FormatPreset)
 
 
 def _iterate_presets_and_themes(
     *,
-    selected_presets: list[str],
-    selected_themes: list[str],
+    selected_presets: list[FormatPreset],
+    selected_themes: list[ConsoleTheme],
     base_path: Path | None,
-    dump_format: str | None,
+    dump_format: DumpFormat | None,
     service: str,
     environment: str,
     console_format_template: str | None,
-    dump_format_preset: str | None,
+    dump_format_preset: FormatPreset | None,
     dump_format_template: str | None,
     enable_graylog: bool,
     endpoint_tuple: tuple[str, int] | None,
-    graylog_protocol: str,
+    graylog_protocol: GraylogProtocol,
     graylog_tls: bool,
     enable_journald: bool,
     enable_eventlog: bool,
     context_filters: FilterMapping | None,
     context_extra_filters: FilterMapping | None,
     extra_filters: FilterMapping | None,
-) -> list[tuple[str, str, str]]:
+) -> list[_ComboDump]:
     """Iterate through preset-theme combinations, run demo for each, and collect dumps.
 
     Args:
-        selected_presets: List of preset names to demo.
-        selected_themes: List of theme names to demo.
+        selected_presets: Presets to demo.
+        selected_themes: Themes to demo.
         base_path: Base path for dump files.
-        dump_format: Format for dumps (text, json, etc.).
+        dump_format: Format for dumps, or ``None`` for no dump.
         service: Service name for log context.
         environment: Environment label for log context.
         console_format_template: Console output format template (overrides preset).
@@ -544,22 +594,22 @@ def _iterate_presets_and_themes(
         extra_filters: Filter mappings for event extra payloads.
 
     Returns:
-        List of (preset_name, theme_name, dump_content) tuples for console output.
+        Dumps rendered per combination that were not written to disk, for console output.
 
     """
-    dumps: list[tuple[str, str, str]] = []
-    for preset_name in selected_presets:
-        for theme_name in selected_themes:
-            safe_console.echo(click.style(f"=== Preset: {preset_name}, Theme: {theme_name} ===", bold=True))
-            _print_theme_styles(theme_name, CONSOLE_STYLE_THEMES[theme_name])
-            target_path = _resolve_combo_dump_path(base_path, preset_name, theme_name, dump_format)
+    dumps: list[_ComboDump] = []
+    for preset in selected_presets:
+        for theme in selected_themes:
+            safe_console.echo(click.style(f"=== Preset: {preset}, Theme: {theme} ===", bold=True))
+            _print_theme_styles(theme)
+            target_path = _resolve_combo_dump_path(base_path, preset, theme, dump_format)
             result = _run_theme_demo(
-                theme_name=theme_name,
+                theme=theme,
                 service=service,
                 environment=environment,
                 dump_format=dump_format,
                 target_path=target_path,
-                console_format_preset=preset_name,
+                console_format_preset=preset,
                 console_format_template=console_format_template,
                 dump_format_preset=dump_format_preset,
                 dump_format_template=dump_format_template,
@@ -577,8 +627,8 @@ def _iterate_presets_and_themes(
                 result=result,
                 target_path=target_path,
                 dump_format=dump_format,
-                preset_name=preset_name,
-                theme_name=theme_name,
+                preset=preset,
+                theme=theme,
                 dumps=dumps,
                 enable_graylog=enable_graylog,
                 enable_journald=enable_journald,
@@ -617,22 +667,8 @@ def _iterate_presets_and_themes(
     help="Show full Python traceback on errors (use --no-traceback to suppress).",
 )
 @option(
-    "--console-format-preset",
-    "--console_format_preset",
-    type=click.Choice(["full", "short", "full_loc", "short_loc", "short_loc_icon"], case_sensitive=False),
-    help="Preset console layout forwarded to subcommands unless overridden.",
-)
-@option(
     "--console-format-template",
-    "--console_format_template",
     help="Custom console format template forwarded to subcommands unless overridden.",
-)
-@option(
-    "--queue-stop-timeout",
-    "--queue_stop_timeout",
-    type=float,
-    metavar="SECONDS",
-    help="Override the default queue drain timeout; values <= 0 wait indefinitely (fallback: LOG_QUEUE_STOP_TIMEOUT).",
 )
 @click.pass_context
 def cli(
@@ -641,9 +677,7 @@ def cli(
     use_dotenv: bool,
     hello: bool,
     traceback: bool,
-    console_format_preset: str | None,
     console_format_template: str | None,
-    queue_stop_timeout: float | None,
 ) -> None:
     """Root command storing the traceback preference and default action.
 
@@ -658,9 +692,7 @@ def cli(
         hello: Whether to print the hello-world stub before the banner when no
             subcommand is invoked.
         traceback: Enables verbose tracebacks for subsequent command execution.
-        console_format_preset: Preset layout forwarded to subcommands.
         console_format_template: Custom format template forwarded to subcommands.
-        queue_stop_timeout: Override for the default queue drain timeout.
 
     Note:
         Mutates ``lib_cli_exit_tools.config`` so shared exit handling honours the
@@ -675,14 +707,10 @@ def cli(
     if config_module.should_use_dotenv(explicit=explicit, env_value=env_toggle):
         config_module.enable_dotenv()
 
-    ctx.ensure_object(dict)
-    ctx.obj["traceback"] = traceback
-    if console_format_preset is not None:
-        ctx.obj["console_format_preset"] = console_format_preset
-    if console_format_template is not None:
-        ctx.obj["console_format_template"] = console_format_template
-    if queue_stop_timeout is not None:
-        ctx.obj["queue_stop_timeout"] = queue_stop_timeout
+    ctx.obj = _RootOptions(
+        traceback=traceback,
+        console_format_template=console_format_template,
+    )
     lib_cli_exit_tools.config.traceback = traceback
     lib_cli_exit_tools.config.traceback_force_color = traceback
     if ctx.invoked_subcommand is not None:
@@ -742,20 +770,23 @@ def cli_fail() -> None:
 @option(
     "--preset",
     "presets",
-    type=click.Choice(["full", "short", "full_loc", "short_loc", "short_loc_icon"], case_sensitive=False),
+    type=click.Choice(_FORMAT_PRESET_CHOICES, case_sensitive=False),
+    callback=_to_format_presets,
     multiple=True,
     help="Restrict the demo to specific presets (defaults to all presets).",
 )
 @option(
     "--theme",
     "themes",
-    type=click.Choice(sorted(CONSOLE_STYLE_THEMES.keys())),
+    type=click.Choice(_THEME_CHOICES, case_sensitive=False),
+    callback=_to_themes,
     multiple=True,
     help="Restrict the demo to specific themes (defaults to all themes).",
 )
 @option(
     "--dump-format",
-    type=click.Choice(["text", "json", "html_table", "html_txt"]),
+    type=click.Choice(_DUMP_FORMAT_CHOICES),
+    callback=_to_dump_format,
     help="Render the emitted events into the selected format after emission.",
 )
 @option(
@@ -769,7 +800,8 @@ def cli_fail() -> None:
 )
 @option(
     "--dump-format-preset",
-    type=click.Choice(["full", "short", "full_loc", "short_loc", "short_loc_icon"], case_sensitive=False),
+    type=click.Choice(_DUMP_FORMAT_PRESET_CHOICES, case_sensitive=False),
+    callback=_to_format_preset,
     help="Preset used when rendering text dumps (default inherits runtime).",
 )
 @option(
@@ -780,7 +812,14 @@ def cli_fail() -> None:
 @option("--environment", default="demo", show_default=True, help="Environment label used when emitting demo events.")
 @option("--enable-graylog", is_flag=True, help="Send demo events to Graylog using the configured endpoint.")
 @option("--graylog-endpoint", help="Graylog endpoint in HOST:PORT form (defaults to 127.0.0.1:12201).")
-@option("--graylog-protocol", type=click.Choice(["tcp", "udp"]), default="tcp", show_default=True, help="Transport used for Graylog.")
+@option(
+    "--graylog-protocol",
+    type=click.Choice(_GRAYLOG_PROTOCOL_CHOICES),
+    default=GraylogProtocol.TCP.value,
+    show_default=True,
+    callback=_to_graylog_protocol,
+    help="Transport used for Graylog.",
+)
 @option("--graylog-tls", is_flag=True, help="Enable TLS for the Graylog TCP transport.")
 @option("--enable-journald", is_flag=True, help="Send events to systemd-journald (Linux only).")
 @option("--enable-eventlog", is_flag=True, help="Send events to the Windows Event Log (Windows only).")
@@ -800,18 +839,18 @@ def cli_fail() -> None:
 def cli_logdemo(
     ctx: click.Context,
     *,
-    presets: tuple[str, ...],
-    themes: tuple[str, ...],
-    dump_format: str | None,
+    presets: tuple[FormatPreset, ...],
+    themes: tuple[ConsoleTheme, ...],
+    dump_format: DumpFormat | None,
     dump_path: Path | None,
     console_format_template: str | None,
-    dump_format_preset: str | None,
+    dump_format_preset: FormatPreset | None,
     dump_format_template: str | None,
     service: str,
     environment: str,
     enable_graylog: bool,
     graylog_endpoint: str | None,
-    graylog_protocol: str,
+    graylog_protocol: GraylogProtocol,
     graylog_tls: bool,
     enable_journald: bool,
     enable_eventlog: bool,
@@ -849,7 +888,7 @@ def cli_logdemo(
         environment: Environment label for log context.
         enable_graylog: Whether to send demo events to Graylog.
         graylog_endpoint: Graylog endpoint in HOST:PORT form.
-        graylog_protocol: Transport used for Graylog ('tcp' or 'udp').
+        graylog_protocol: Transport used for Graylog.
         graylog_tls: Whether TLS is enabled for Graylog TCP transport.
         enable_journald: Whether to send events to systemd-journald.
         enable_eventlog: Whether to send events to Windows Event Log.
@@ -885,7 +924,7 @@ def cli_logdemo(
         extra_icontains=extra_icontains,
         extra_regex=extra_regex,
     )
-    _, console_format_template = _resolve_format_presets(ctx, None, console_format_template)
+    console_format_template = _resolve_format_template(ctx, console_format_template)
     dumps = _iterate_presets_and_themes(
         selected_presets=_select_presets(presets),
         selected_themes=_select_themes(themes),
@@ -906,7 +945,7 @@ def cli_logdemo(
         context_extra_filters=context_extra_filters,
         extra_filters=extra_filters,
     )
-    if dump_format and dumps:
+    if dump_format is not None and dumps:
         _print_accumulated_dumps(dumps, dump_format)
 
 

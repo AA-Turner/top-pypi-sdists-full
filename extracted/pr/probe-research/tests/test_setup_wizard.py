@@ -549,11 +549,16 @@ def test_wizard_doctor_copies_all_selected_agents_and_troubleshooting(monkeypatc
     result = CliRunner().invoke(app, ["wizard", "--agent", "both"])
     assert result.exit_code == 0, result.output
     assert len(pages) == 1
-    report, copyable = pages[0]
-    assert copyable is True
-    assert "Claude Code:" in report and "Codex:" in report
-    assert report.count("Probe Research doctor") == 2
-    assert report.count("If something is not working:") == 2
+    shown, copyable = pages[0]
+    # `c` copies every selected agent's full report and troubleshooting...
+    assert isinstance(copyable, str)
+    assert "Claude Code:" in copyable and "Codex:" in copyable
+    assert copyable.count("Probe Research doctor") == 2
+    assert copyable.count("If something is not working:") == 2
+    # ...and the page shows the verdict and a line per agent (2026-10-26).
+    assert shown.startswith("Probe Research doctor: ")
+    assert "Claude Code" in shown and "Codex" in shown and "If something is not working:" not in shown
+    assert len(shown.splitlines()) < 20
 
 
 def test_doctor_notices_codex_holding_a_token_this_device_replaced(monkeypatch, tmp_path):
@@ -1150,12 +1155,41 @@ def test_an_all_off_install_is_not_mistaken_for_a_fresh_machine():
     assert selection.auto_update is False
 
 
-def test_a_genuinely_fresh_machine_still_gets_defaults():
-    fresh = _caps()
-    assert fresh.configured is False
+@pytest.mark.parametrize(
+    "fresh",
+    [
+        _caps(),
+        # The managed CLI's auto-update is on by default before any setup ran
+        # (plan C2): no evidence of one, or `--yes` on a fresh uv install would
+        # keep "everything off" instead of the defaults.
+        _caps(auto_update_enabled=True, auto_update_by_default=True),
+    ],
+    ids=["nothing", "auto-update-on-by-default"],
+)
+def test_a_genuinely_fresh_machine_still_gets_defaults(fresh):
+    import importlib
+
+    assert (fresh.configured, fresh.auto_update_chosen) == (False, False)
+    assert importlib.import_module("probe.cli.main")._probe_already_installed([fresh]) is False
     selection = setup.resolve_selection(fresh, tracking=None, capture=None, auto_update=None)
     assert selection.tracking is True
     assert selection.auto_update is True
+
+
+@pytest.mark.parametrize(
+    ("caps", "row"),
+    [
+        (_caps(auto_update_enabled=True, auto_update_by_default=True), "yes (on by default for this install)"),
+        (_caps(auto_update_enabled=True), "yes"),
+        (_caps(), "no"),
+    ],
+)
+def test_doctor_says_when_auto_update_is_on_by_default(caps, row):
+    """`probe doctor` tells a person's choice from the managed CLI's default,
+    so someone wondering why it updates itself sees why."""
+    line = next(line for line in doctor.render(caps).splitlines() if line.strip().startswith("Enabled"))
+    assert line.split("Enabled", 1)[1].strip() == row
+    assert caps.auto_update_chosen is (row == "yes")
 
 
 def test_legacy_codex_tap_counts_as_an_existing_configuration():
@@ -2548,13 +2582,17 @@ def test_ephemeral_launch_installs_the_cli_persistently(monkeypatch):
     """`npx probe-research` runs us through an EPHEMERAL `uv tool run`, which
     leaves nothing installed. Everything after the wizard assumes a real binary:
     `probe doctor`, the plugin's version-check hook, the MCP headers helper."""
-    from probe.cli import bootstrap
+    from probe.cli import bootstrap, install_pipeline
 
     calls = []
     monkeypatch.setattr(bootstrap, "_resolves_on_path", lambda: False)
     monkeypatch.setattr(
         bootstrap.shutil, "which", lambda name: "/usr/bin/uv" if name == "uv" else None
     )
+    # A machine whose CLI is not side by side (Windows, another filesystem):
+    # the bootstrap's own `uv tool install`. Elsewhere it is the one installer
+    # (tests/test_reinstall_any_prior_state.py, with real uv).
+    monkeypatch.setattr(install_pipeline, "layout_usable", lambda tools: False)
 
     class Done:
         returncode = 0
@@ -2569,8 +2607,9 @@ def test_ephemeral_launch_installs_the_cli_persistently(monkeypatch):
     install = [c for c in calls if "install" in c][0]
     assert install[:4] == ["uv", "tool", "install", "--force"]
     # The legacy distribution owns the same `probe` binary, so it must be
-    # removed FIRST or the old build keeps answering.
-    assert calls[0][:3] == ["uv", "tool", "uninstall"]
+    # removed FIRST or the old build keeps answering (`uv tool dir` only reads).
+    changes = [c for c in calls if c[1:3] != ["tool", "dir"]]
+    assert changes[0][:3] == ["uv", "tool", "uninstall"]
 
 
 def test_an_existing_install_is_left_alone(monkeypatch):
@@ -2604,15 +2643,17 @@ def test_binary_outside_PATH_still_counts_as_installed(monkeypatch, tmp_path):
     assert bootstrap._resolves_on_path() is True
 
 
-def test_no_uv_or_pipx_warns_instead_of_silently_continuing(monkeypatch):
-    from probe.cli import bootstrap
+def test_no_uv_warns_with_the_command_instead_of_silently_continuing(monkeypatch):
+    """The managed install is uv's (plan clean-uninstall-reinstall R-T1): without
+    uv the install is refused, with the commands that put it right."""
+    from probe.cli import bootstrap, install_pipeline
 
     monkeypatch.setattr(bootstrap, "_resolves_on_path", lambda: False)
     monkeypatch.setattr(bootstrap.shutil, "which", lambda _: None)
     result = bootstrap.ensure_persistent_install()
-    assert result.installed is False
-    assert "neither uv nor pipx" in result.message
-    assert "probe doctor" in result.message
+    assert result.installed is False and result.refused
+    assert install_pipeline.UV_INSTALL in result.message
+    assert "uv tool install 'probe-research[all]==" in result.message
 
 
 def test_never_falls_back_to_bare_pip(monkeypatch):
@@ -2973,7 +3014,8 @@ def test_an_ephemeral_update_with_a_current_install_says_so(monkeypatch):
 def test_a_stale_installed_copy_is_upgraded_not_left_with_advice(monkeypatch):
     """Bootstrap proves only installed >= THIS copy, and a uvx/pipx cache can
     serve an old one. Sending the user back to a shell is what this module
-    exists to stop, so it installs @latest itself."""
+    exists to stop, so it installs the latest itself -- that version by
+    number, which the one installer puts beside the running one."""
     from probe.cli import bootstrap
 
     outcome, attempt, specs = _ephemeral_update(
@@ -2986,7 +3028,7 @@ def test_a_stale_installed_copy_is_upgraded_not_left_with_advice(monkeypatch):
         ),
     )
 
-    assert specs == ["probe-research[all]@latest"]
+    assert specs == ["probe-research[all]==5.0.0"]
     assert outcome.lines[1:] == [
         "  running from a temporary environment — upgrading your installed copy "
         "(4.0.0 → 5.0.0)",
@@ -3410,7 +3452,7 @@ def test_install_is_a_verb_that_skips_the_action_menu(monkeypatch, selected_sour
     def apply(*args, **kwargs):
         seen.append("apply")
         header = kwargs["progress_header"](0.0)
-        assert "Step 3 of 4" in header[0]
+        assert "Step 4 of 5" in header[0]
         assert "━" in header[1] and "─" in header[1]
         bars.append(header[1])
         return []
@@ -3695,7 +3737,7 @@ def test_interactive_wizard_asks_action_then_agent_then_runs_features(monkeypatc
     assert events[:4] == ["action", "agent", "confirm", "features"]
 
 
-def _wizard_events(monkeypatch, *, confirms, actions, imports=None, argv=("wizard",)):
+def _wizard_events(monkeypatch, *, confirms, actions, imports=None, argv=("wizard",), defaults=None):
     """Drive `probe wizard` through stubbed screens and record what it showed.
 
     Every screen in the wizard is behind `interactive()`, which every other test
@@ -3747,6 +3789,17 @@ def _wizard_events(monkeypatch, *, confirms, actions, imports=None, argv=("wizar
     monkeypatch.setattr(wizard, "run_action_menu", choose_action)
     monkeypatch.setattr(wizard, "run_agent_menu", choose_agent)
     monkeypatch.setattr(wizard, "run_confirm_install", choose_confirm)
+    if defaults is not None:
+        # The install's Defaults step (between the agents and Review), scripted
+        # and recorded only by the tests that walk Back through it.
+        default_answers = iter(defaults)
+
+        def choose_defaults(pick, **_kwargs):
+            events.append("defaults")
+            return next(default_answers), pick
+
+        monkeypatch.setattr(wizard, "run_defaults_step", choose_defaults)
+
     def choose_imports(_sources, **kwargs):
         events.append("imports")
         answer = next(import_answers) if import_answers is not None else set()
@@ -3771,8 +3824,10 @@ def test_back_out_of_confirmation_returns_to_agent_choices(monkeypatch):
 
     result, events = _wizard_events(
         monkeypatch,
-        # Back out of the confirm screen once, then install.
+        # Back out of the confirm screen to the Defaults step, Back again to
+        # the agents, then install.
         confirms=[tui.BACK, True],
+        defaults=[True, tui.BACK, True, True],
         actions=[Action.CONFIGURE, Action.EXIT],
     )
 
@@ -3780,8 +3835,11 @@ def test_back_out_of_confirmation_returns_to_agent_choices(monkeypatch):
     assert events == [
         "action",
         "agent",
+        "defaults",
         "confirm",
+        "defaults",
         "agent",
+        "defaults",
         "confirm",
         "apply",
         "imports",
@@ -3801,12 +3859,13 @@ def test_back_with_an_agent_flag_lands_on_the_action_menu_not_a_second_agent_ste
         monkeypatch,
         argv=["wizard", "--agent", "both"],
         confirms=[tui.BACK, True],
+        defaults=[True, tui.BACK, True, True],
         actions=[Action.CONFIGURE, Action.CONFIGURE, Action.EXIT],
     )
 
     assert result.exit_code == 0, result.output
     assert "agent" not in events, "--agent must not re-open the agent step"
-    assert events[:3] == ["action", "confirm", "action"]
+    assert events[:5] == ["action", "defaults", "confirm", "defaults", "action"]
 
 
 def test_back_from_import_choices_returns_to_the_menu_without_reinstalling(monkeypatch):
@@ -4551,7 +4610,7 @@ def test_an_empty_agent_step_refuses_to_advance_and_says_why(tmp_path):
     text = "\n".join(screen.lines())
 
     assert "Traceback" not in text, screen.dump()
-    assert "Step 1 of 4" in text, f"an empty selection advanced anyway\n{screen.dump()}"
+    assert "Step 1 of 5" in text, f"an empty selection advanced anyway\n{screen.dump()}"
     assert "choose at least one agent" in text, screen.dump()
 
 
@@ -5541,10 +5600,10 @@ def test_the_bar_tracks_completed_steps(monkeypatch):
 
     monkeypatch.setattr(tui, "interactive", lambda: False)
     progress = tui.Progress("t", ["a", "b", "c", "d"])
-    assert progress.bar().endswith("0/4")
+    assert progress.bar().endswith("  0%")
     progress.finish(0)
     progress.finish(1)
-    assert progress.bar().endswith("2/4")
+    assert progress.bar().endswith("  50%")
     assert progress.bar().count("━") == progress.bar().count("─")
     assert progress.block().index(progress.bar()) < progress.block().index("  ✔ a")
 
@@ -5556,6 +5615,8 @@ def test_install_progress_continues_across_agents(monkeypatch, agent_screen_show
     monkeypatch.setattr(tui, "interactive", lambda: False)
     sources = ("claude_code", "codex", "pi")
     bars = [setup.install_progress(setup.STEP_CONFIRM, agent_screen_shown=agent_screen_shown)]
+    run = setup.InstallRun(sources)
+    shown: list[str] = []
     for index, source in enumerate(sources):
         header = setup.install_apply_header(
             agent_screen_shown=agent_screen_shown,
@@ -5563,17 +5624,25 @@ def test_install_progress_continues_across_agents(monkeypatch, agent_screen_show
             agent_count=len(sources),
             agent_source=source,
         )
-        progress = tui.Progress("This run will:", ["sign in", "install"], overall=header)
+        progress = tui.Progress(
+            "This run will:", ["sign in", "install"], overall=header, run=run.for_agent(source)
+        )
         bars.append(progress.block()[1])
-        assert f"Step {3 if agent_screen_shown else 2} of" in progress.block()[0]
-        assert progress.block()[2] == progress.block()[4] == ""
-        assert setup.agent_label(source) in progress.block()[3]
+        assert f"Step {4 if agent_screen_shown else 3} of" in progress.block()[0]
+        assert progress.block()[2] == progress.block()[5] == ""
+        assert progress.block()[3] == f"Installing for {setup.agent_label(source)} ({index + 1} of 3)"
         progress.finish(0)
         bars.append(progress.block()[1])
+        shown.append(progress.block()[4])
         progress.finish(1)
         bars.append(progress.block()[1])
+        shown.append(progress.block()[4])
     counts = [bar.count("━") for bar in bars]
     assert counts == sorted(counts), "a new coding agent must not reset install progress"
+    # The run's own bar under the heading: one percentage for every agent,
+    # never starting again from empty, 100% only at the end.
+    percents = [int(line.rsplit(" ", 1)[1].rstrip("%")) for line in shown]
+    assert percents == sorted(percents) and percents[-1] == 100 and percents[-2] < 100
     assert "─" in bars[-1], "the import offer still follows installation"
     assert bars[-1] == setup.install_progress(
         setup.STEP_IMPORTS, agent_screen_shown=agent_screen_shown
@@ -6280,8 +6349,8 @@ def test_back_is_reachable_on_every_install_step():
 def test_every_install_step_is_numbered():
     """Installation counts alongside agent selection, review and the import offer."""
     titles = [setup.step_title(n) for n in range(1, len(setup.INSTALL_STEPS) + 1)]
-    assert titles[0].endswith("Step 1 of 4")
-    assert titles[-1].endswith("Step 4 of 4")
+    assert titles[0].endswith("Step 1 of 5")
+    assert titles[-1].endswith("Step 5 of 5")
     assert len({*titles}) == len(titles), "two screens must not claim the same position"
 
 
@@ -7098,7 +7167,7 @@ def test_the_agent_screen_is_skipped_when_there_is_no_choice(monkeypatch):
 
     def apply(*args, **kwargs):
         header = kwargs["progress_header"](0.0)
-        assert "Step 2 of 3" in header[0]
+        assert "Step 3 of 4" in header[0]
         assert "━" in header[1] and "─" in header[1]
         return ["done"]
 
@@ -7201,9 +7270,10 @@ def test_settings_capability_toggles_route_through_the_configure_machinery(
         assert call["selection"].tracking is True, "a capability with no row kept its state"
         assert call["selection"].capture is False, "...and an OFF one stayed off"
         assert call["needs"] == [], "no row left on this screen needs a browser approval"
-    assert lines and any("Claude Code" in line for line in lines), (
-        "per-agent results are labelled"
-    )
+    # One line for the setting, not a section per agent (2026-10-26: "Codex:",
+    # "Already set up the way you asked. Nothing to change." per agent). The
+    # apply is a stand-in here, so the device's file never changed.
+    assert lines == ["Automatic updates did not change"]
 
 
 # --- the review's regression pins ------------------------------------------
@@ -7349,8 +7419,12 @@ def test_a_failing_agent_does_not_kill_the_settings_commit(isolate, monkeypatch)
     )
 
     assert order == ["claude_code", "codex"], "one agent's failure must not skip the other"
-    assert any("not finished" in line for line in lines), "the failure is reported, labelled"
-    assert any("applied" in line for line in lines)
+    # The page: the setting once, then the failure under Details, named for
+    # its agent; the agent that worked says nothing of its own.
+    # One device-wide file: the page says what it holds now.
+    assert lines[0] in ("Automatic updates → on", "Automatic updates did not change")
+    assert "  Claude Code: not finished — re-run `probe wizard` › Settings to retry." in lines
+    assert not any("applied" in line for line in lines)
 
 
 def test_install_on_a_pluginless_machine_matches_the_degraded_screen(monkeypatch):
@@ -7531,6 +7605,12 @@ def test_back_on_a_one_agent_machine_lands_on_the_action_menu(monkeypatch):
     monkeypatch.setattr(
         wizard, "run_confirm_install", lambda *a, **k: events.append("confirm") or tui.BACK
     )
+    # Back from Review lands on the Defaults step; Back again leaves the install.
+    default_answers = iter((True, tui.BACK))
+    monkeypatch.setattr(
+        wizard, "run_defaults_step",
+        lambda pick, **k: (events.append("defaults") or next(default_answers), pick),
+    )
     monkeypatch.setattr(
         wizard, "run_backfill_offer", lambda *a, **k: pytest.fail("installation was canceled")
     )
@@ -7539,7 +7619,7 @@ def test_back_on_a_one_agent_machine_lands_on_the_action_menu(monkeypatch):
     result = CliRunner().invoke(cli_main.app, ["wizard"])
 
     assert result.exit_code == 0, result.output
-    assert events == ["action", "confirm", "action"], (
+    assert events == ["action", "defaults", "confirm", "defaults", "action"], (
         "Back must land on the menu, not loop the confirm screen"
     )
 

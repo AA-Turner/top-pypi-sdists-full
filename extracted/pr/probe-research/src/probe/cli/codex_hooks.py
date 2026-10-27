@@ -7,12 +7,15 @@ that hook off with nothing in the session to say so. Codex's own
 it exactly: every hook's key, whether it is trusted, whether it is enabled,
 and the load warnings `/hooks` shows as "N issues loading hooks".
 
-Read-only and fail-soft: no Codex binary, an older Codex without `hooks/list`, a
-timeout or an unexpected shape all return None, which `probe doctor` prints
-as "unknown". Spawning the app-server costs about 0.2s, so only `probe
-doctor`, the wizard's Diagnose and `probe status` ask, never a hook; `probe
-status` asks at most once per STATUS_TTL_S and keeps the answer on disk
-(`status_snapshot`).
+Fail-soft: no Codex binary, an older Codex without `hooks/list`, a timeout or
+an unexpected shape all return None, which `probe doctor` prints as
+"unknown". Spawning the app-server costs about 0.2s, so it is asked by `probe
+doctor`, the wizard's Diagnose and `probe status` (at most once per
+STATUS_TTL_S, the answer kept on disk: `status_snapshot`), and never by a hook.
+
+It also WRITES, through `approve` alone: the wizard, a recorder switch and every
+Codex plugin update approve Probe's own hooks in Codex's config.toml the way
+`/hooks` does (see the section above `approve`).
 
 `probe status` reads one more signal, from files alone: the heartbeat the
 tracking plugins' dispatcher leaves for each Codex session it runs in
@@ -141,68 +144,153 @@ def codex_binary() -> str | None:
     return shutil.which(name) if name else None
 
 
-def list_hooks(cwd: str | None = None, *, timeout: float = TIMEOUT_S) -> dict | None:
-    """Codex's `hooks/list` result for `cwd`, or None when it cannot be had."""
-    binary = codex_binary()
-    if binary is None:
-        return None
-    try:
-        where = cwd or os.getcwd()
-    except OSError:
-        where = os.path.expanduser("~")
-    requests = [*_REQUESTS, {"jsonrpc": "2.0", "id": _LIST_ID, "method": "hooks/list", "params": {"cwds": [where]}}]
-    try:
-        proc = subprocess.Popen(  # noqa: S603 - the user's own codex binary
+class _AppServer:
+    """One `codex app-server` over stdio: `call` sends a request and waits up to
+    `timeout` for its answer, `close` ends the server and whatever a launcher
+    script started with it."""
+
+    def __init__(self, binary: str, timeout: float) -> None:
+        self.timeout = timeout
+        self.proc = subprocess.Popen(  # noqa: S603 - the user's own codex binary
             [binary, "app-server"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
+            # Codex writes UTF-8 on every platform; Windows' default would read
+            # it as cp1252 (a non-ASCII profile path garbled, or the reader dead).
             text=True,
-            # Its own group, so giving up ends a launcher script AND the
+            encoding="utf-8",
+            errors="replace",
+            # Its own group (POSIX), so giving up ends a launcher script AND the
             # app-server it started, not the launcher alone.
             start_new_session=True,
         )
-    except OSError:
-        return None
-    answer: dict = {}
+        self.answers: dict[int, dict] = {}
+        #: The last answer that was a JSON-RPC error, for the caller to name.
+        self.error: dict | None = None
+        #: The server closed its output: nothing more will be answered.
+        self.ended = False
+        #: A config write was sent: `close` lets the server finish it.
+        self.wrote = False
+        self.arrived = threading.Condition()
+        try:
+            threading.Thread(target=self._read, daemon=True).start()
+        except BaseException:
+            self.close()
+            raise
 
-    def read() -> None:
-        assert proc.stdout is not None
-        for line in proc.stdout:
+    def _read(self) -> None:
+        assert self.proc.stdout is not None
+        try:
+            for line in self.proc.stdout:
+                try:
+                    message = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(message, dict) and isinstance(message.get("id"), int):
+                    with self.arrived:
+                        self.answers[message["id"]] = message
+                        self.arrived.notify_all()
+        except (OSError, ValueError):
+            pass
+        with self.arrived:
+            self.ended = True
+            self.arrived.notify_all()
+
+    def send(self, *messages: dict) -> bool:
+        try:
+            assert self.proc.stdin is not None
+            for message in messages:
+                self.proc.stdin.write(json.dumps(message) + "\n")
+            self.proc.stdin.flush()
+        except (OSError, ValueError):
+            return False
+        return True
+
+    def call(self, request_id: int, method: str, params: dict) -> dict | None:
+        """The answer's `result`, or None for an error, a timeout or a dead server."""
+        self.wrote = self.wrote or method.startswith("config/")
+        if not self.send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params}):
+            return None
+        with self.arrived:
+            self.arrived.wait_for(lambda: request_id in self.answers or self.ended, timeout=self.timeout)
+            answer = self.answers.get(request_id, {})
+            result = answer.get("result")
+            error = answer.get("error")
+        if isinstance(error, dict):
+            self.error = error
+        return result if isinstance(result, dict) else None
+
+    def close(self) -> None:
+        """End the server. Never raises. Closing its input ends a real app-server
+        within milliseconds (measured 0.03s, codex-cli 0.164.0); one that sent a
+        config write gets up to 2s to finish it before anything is killed."""
+        try:
+            if self.proc.stdin is not None:
+                self.proc.stdin.close()
+        except Exception:  # noqa: BLE001 - closing is best effort
+            pass
+        try:
+            self.proc.wait(timeout=2.0 if self.wrote else 0.2)
+            return
+        except Exception:  # noqa: BLE001 - still running: kill it below
+            pass
+        # Windows has no process groups or SIGKILL: `taskkill /T` ends the tree
+        # an npm launcher starts (codex.cmd -> node -> codex.exe).
+        killpg, sigkill = getattr(os, "killpg", None), getattr(signal, "SIGKILL", None)
+        try:
+            if killpg is not None and sigkill is not None:
+                killpg(self.proc.pid, sigkill)
+            elif _on_windows():
+                subprocess.run(  # noqa: S603, S607 - Windows' own taskkill
+                    ["taskkill", "/T", "/F", "/PID", str(self.proc.pid)], capture_output=True, timeout=5
+                )
+            else:
+                self.proc.kill()
+        except Exception:  # noqa: BLE001 - already gone, or not ours to kill
             try:
-                message = json.loads(line)
-            except ValueError:
-                continue
-            if isinstance(message, dict) and message.get("id") == _LIST_ID:
-                answer.update(message)
-                return
+                self.proc.kill()
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            self.proc.wait(timeout=2)
+        except Exception:  # noqa: BLE001
+            pass
 
-    reader = threading.Thread(target=read, daemon=True)
-    reader.start()
+
+def _on_windows() -> bool:
+    return os.name == "nt"
+
+
+def _open(timeout: float) -> _AppServer | None:
+    """A started and initialized app-server, or None without a Codex to start."""
+    binary = codex_binary()
+    if binary is None:
+        return None
     try:
-        assert proc.stdin is not None
-        for request in requests:
-            proc.stdin.write(json.dumps(request) + "\n")
-        proc.stdin.flush()
-        reader.join(timeout)
+        server = _AppServer(binary, timeout)
+    except Exception:  # noqa: BLE001 - no server is "Codex could not be asked"
+        return None
+    server.send(*_REQUESTS)
+    return server
+
+
+def _where(cwd: str | None) -> str:
+    try:
+        return cwd or os.getcwd()
     except OSError:
-        pass
+        return os.path.expanduser("~")
+
+
+def list_hooks(cwd: str | None = None, *, timeout: float = TIMEOUT_S) -> dict | None:
+    """Codex's `hooks/list` result for `cwd`, or None when it cannot be had."""
+    server = _open(timeout)
+    if server is None:
+        return None
+    try:
+        return server.call(_LIST_ID, "hooks/list", {"cwds": [_where(cwd)]})
     finally:
-        try:
-            if proc.stdin is not None:
-                proc.stdin.close()
-        except OSError:
-            pass
-        try:
-            os.killpg(proc.pid, signal.SIGKILL)
-        except OSError:
-            proc.kill()
-        try:
-            proc.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            pass
-    result = answer.get("result")
-    return result if isinstance(result, dict) else None
+        server.close()
 
 
 def status(cwd: str | None = None, *, timeout: float = TIMEOUT_S) -> HookStatus | None:
@@ -212,6 +300,194 @@ def status(cwd: str | None = None, *, timeout: float = TIMEOUT_S) -> HookStatus 
         return None if result is None else summarize(result)
     except Exception:  # noqa: BLE001 - doctor must never be the thing that breaks
         return None
+
+
+# -- approving Probe's own hooks -------------------------------------------------
+#
+# Codex writes an approval as `[hooks.state."<key>"] trusted_hash = "<hash>"` in
+# the user's config.toml, and its app-server's `config/batchWrite` is how it does
+# so itself: `/hooks` in the app, and the automatic approval of plugins shared
+# through a ChatGPT workspace (codex-rs/app-server/src/effective_plugin_change.rs,
+# which a git marketplace like Probe's never qualifies for). Probe makes the same
+# write for its own plugins' hooks, so they run without a trip to `/hooks`.
+
+#: The trust states `approve` writes over. `modified` is an approved entry whose
+#: text changed since, which is what a Probe update that edits one leaves.
+_UNAPPROVED = ("untrusted", "modified")
+_APPROVE_LIST_ID = 2
+_WRITE_ID = 3
+_CHECK_ID = 4
+
+
+@dataclass(frozen=True)
+class Approval:
+    """What `approve` did."""
+
+    #: Keys Codex now reads as trusted that it did not before.
+    approved: tuple[str, ...] = ()
+    #: Why some Probe hook still waits, when one does.
+    error: str | None = None
+    #: No Probe hook waits for approval now, by `summarize`'s count: every enabled
+    #: hook of a Probe-named plugin. Stricter than "nothing `approve` may touch":
+    #: a Probe hook it must not approve (another marketplace's) still waits.
+    done: bool = False
+
+
+def approvable(result: dict, cache: Path, marketplace: str) -> list[tuple[str, str]]:
+    """(key, currentHash) of each enabled hook in a `hooks/list` result that is
+    Probe's own and not approved: a hook of one of PROBE_PLUGINS from
+    `marketplace`, loaded from that plugin's copy under Codex's plugin `cache`.
+    Anything else -- another plugin's, a project's, a user's, a managed one, a
+    Probe-named plugin from another marketplace -- is never touched."""
+    found: dict[str, str] = {}
+    data = result.get("data") if isinstance(result, dict) else None
+    for scope in data if isinstance(data, list) else []:
+        hooks = scope.get("hooks") if isinstance(scope, dict) else None
+        for hook in hooks if isinstance(hooks, list) else []:
+            if not isinstance(hook, dict) or hook.get("source") != "plugin" or hook.get("isManaged"):
+                continue
+            key, plugin_id, digest = hook.get("key"), hook.get("pluginId"), hook.get("currentHash")
+            if not (isinstance(key, str) and isinstance(digest, str) and digest):
+                continue
+            plugin = _plugin(key)
+            if plugin not in PROBE_PLUGINS or plugin_id != f"{plugin}@{marketplace}":
+                continue
+            if not key.startswith(f"{plugin_id}:") or hook.get("enabled") is False:
+                continue
+            if hook.get("trustStatus") not in _UNAPPROVED:
+                continue
+            if not _inside(hook.get("sourcePath"), cache / marketplace / plugin):
+                continue
+            found[key] = digest
+    return sorted(found.items())
+
+
+def _inside(path: object, folder: Path) -> bool:
+    if not isinstance(path, str) or not path:
+        return False
+    try:
+        return _plain(Path(path).resolve()).is_relative_to(_plain(folder.resolve()))
+    except (OSError, ValueError):
+        return False
+
+
+def _plain(path: Path) -> Path:
+    r"""`path` without Windows' extended-length prefix: Codex reports a set
+    CODEX_HOME as `\\?\C:\...`, which `resolve` keeps and a plain path never matches."""
+    text = str(path)
+    for prefix in ("\\\\?\\UNC\\", "\\\\?\\"):
+        if text.startswith(prefix):
+            return Path(("\\\\" if "UNC" in prefix else "") + text[len(prefix):])
+    return path
+
+
+def _trust_states(result: dict | None) -> dict[str, str]:
+    """`key -> trustStatus` for every hook a `hooks/list` result names."""
+    states: dict[str, str] = {}
+    data = result.get("data") if isinstance(result, dict) else None
+    for scope in data if isinstance(data, list) else []:
+        hooks = scope.get("hooks") if isinstance(scope, dict) else None
+        for hook in hooks if isinstance(hooks, list) else []:
+            if isinstance(hook, dict) and isinstance(hook.get("key"), str):
+                states[hook["key"]] = str(hook.get("trustStatus") or "")
+    return states
+
+
+def _none_waiting(result: dict | None, only: frozenset[str] | None = None) -> bool:
+    try:
+        found = summarize(result) if isinstance(result, dict) else None
+    except Exception:  # noqa: BLE001 - an unknown shape is "not known to be done"
+        return False
+    return found is not None and not [key for key in found.untrusted if only is None or _plugin(key) in only]
+
+
+def _refusal(error: dict | None) -> str:
+    """Why Codex did not take the write, in its own words where it gave some."""
+    if not error:
+        return "Codex did not answer"
+    if error.get("code") == -32601:
+        return "this Codex is too old to take it"
+    message = " ".join(str(error.get("message") or "").split())[:200]
+    return f"Codex refused it: {message}" if message else "Codex refused it"
+
+
+def _trust_edit(key: str, digest: str) -> dict:
+    """The config edit `/hooks` makes to approve `key` at `digest`."""
+    quoted = key.replace("\\", "\\\\").replace('"', '\\"')
+    return {"keyPath": f'hooks.state."{quoted}".trusted_hash', "value": digest, "mergeStrategy": "replace"}
+
+
+def _cache() -> Path:
+    from probe.cli import codex_config
+
+    return codex_config.codex_home() / "plugins" / "cache"
+
+
+def waiting(cwd: str | None = None, *, timeout: float = TIMEOUT_S) -> bool:
+    """Some hook `approve` would approve is waiting: the same rule, so a hook
+    Probe may not approve (another marketplace's Probe-named plugin) never
+    reads as work for it. False when Codex cannot be asked. Never raises."""
+    from probe.cli.capabilities import MARKETPLACE
+
+    try:
+        result = list_hooks(cwd, timeout=timeout)
+        return bool(result is not None and approvable(result, _cache(), MARKETPLACE))
+    except Exception:  # noqa: BLE001 - a question asked before the plan never fails it
+        return False
+
+
+def approve(
+    cwd: str | None = None, *, timeout: float = TIMEOUT_S, only: frozenset[str] | None = None
+) -> Approval | None:
+    """Approve Probe's own Codex hooks that Codex would skip, and check that it
+    took. None when Codex could not be asked at all (no binary, no answer). An
+    Approval with nothing approved and no error means none of the hooks it may
+    approve (`approvable`) was waiting. Never raises: an install or an update
+    never fails on this. `only` narrows it to those Probe plugins (the wizard's
+    selection: a capability turned off is never approved in the same run).
+
+    Each call to the app-server gets `timeout` of its own, so a slow start
+    cannot leave the write without time. Codex reads approvals when a session
+    starts, so a session already open keeps skipping them until the next one."""
+    server = None
+    try:
+        from probe.cli.capabilities import MARKETPLACE
+
+        server = _open(timeout)
+        if server is None:
+            return None
+        params = {"cwds": [_where(cwd)]}
+        listed = server.call(_APPROVE_LIST_ID, "hooks/list", params)
+        if listed is None:
+            return None
+        found = [
+            (key, digest)
+            for key, digest in approvable(listed, _cache(), MARKETPLACE)
+            if only is None or _plugin(key) in only
+        ]
+        if not found:
+            return Approval(done=_none_waiting(listed, only))
+        edits = [_trust_edit(key, digest) for key, digest in found]
+        if server.call(_WRITE_ID, "config/batchWrite", {"edits": edits, "reloadUserConfig": True}) is None:
+            return Approval(error=_refusal(server.error))
+        checked = server.call(_CHECK_ID, "hooks/list", params)
+        if checked is None:
+            return Approval(error="Codex did not confirm the approval")
+        # Approved means Codex now SAYS trusted: a key the re-list drops, or reads in
+        # any other state, is not.
+        states = _trust_states(checked)
+        approved = tuple(key for key, _ in found if states.get(key) == TRUSTED)
+        waiting = len(found) - len(approved)
+        return Approval(
+            approved=approved,
+            error=f"{waiting} still waiting" if waiting else None,
+            done=not waiting and _none_waiting(checked, only),
+        )
+    except Exception:  # noqa: BLE001 - an install or an update never fails on this
+        return Approval(error="could not approve them")
+    finally:
+        if server is not None:
+            server.close()
 
 
 # -- `probe status` ------------------------------------------------------------

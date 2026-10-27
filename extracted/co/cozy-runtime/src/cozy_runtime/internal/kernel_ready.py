@@ -28,7 +28,8 @@ from __future__ import annotations
 import re
 import sys
 import threading
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, cast
@@ -54,7 +55,11 @@ class _Slot:
 
 
 _SLOTS: dict[str, _Slot] = {}
-_LOCK = threading.Lock()
+_LOCK = threading.RLock()
+# Explicit wait may overlap a background opener for the same slot. Track actual opener
+# lifetimes as well as slot state; a second publisher must not hide a still-running probe.
+_OPENERS = 0
+_RECORDING = threading.local()
 #: In a group: this GPU's index as its slots name it (`cuda:1`), shared as `cuda:*`, and the
 #: group's size. Alone: None.
 _GROUP: list[tuple[re.Pattern[str], int] | None] = [None]
@@ -74,6 +79,39 @@ class Refused(RuntimeError):
     """A kernel whose probe disagreed with the exact law on this card: it never serves here."""
 
 
+@contextmanager
+def recording() -> Iterator[None]:
+    """Refuse cold GPU probes before capture and exclude new openers until capture ends.
+
+    Do not wait for compilation/probing on a request. The existing slot lock is reentrant
+    so capture may query already-ready kernels through serve(); it cannot open a new one.
+    """
+    with _LOCK:
+        opening = next((name for name, slot in _SLOTS.items() if slot.state == "opening"), None)
+        if opening is not None or _OPENERS:
+            raise Building(opening or "another kernel probe is still opening")
+        depth = getattr(_RECORDING, "depth", 0)
+        _RECORDING.depth = depth + 1
+        try:
+            yield
+        finally:
+            _RECORDING.depth = depth
+
+
+@contextmanager
+def _opening(name: str) -> Iterator[None]:
+    global _OPENERS
+    with _LOCK:
+        if getattr(_RECORDING, "depth", 0):
+            raise Building(name)
+        _OPENERS += 1
+    try:
+        yield
+    finally:
+        with _LOCK:
+            _OPENERS -= 1
+
+
 def ready[T](name: str, opener: Opener[T] | None = None) -> T | None:
     """`name`'s kernel once it serves here, else None: opening (started now by `opener` if it
     was not), or failed. Never blocks a request, except to open a kernel its group serves."""
@@ -90,18 +128,21 @@ def ready[T](name: str, opener: Opener[T] | None = None) -> T | None:
                 slot.state = "ready"
                 LANDED[0] += 1
             return cast("T", slot.value) if slot is not None and slot.state == "ready" else None
+        if getattr(_RECORDING, "depth", 0):
+            raise Building(name)
         slot = _SLOTS[name] = _Slot("opening")
     if quiet:
         try:
-            value = opener(False)
+            with _opening(name):
+                value = opener(False)
         except Exception as exc:
             _ended(name, slot, exc)
             if is_capacity(exc):
                 raise  # the memory manager's to answer
             return None
         if value is not None:
-            _landed(slot, value, "landed" if grouped else "ready")
-            return None if grouped else value
+            selected = _landed(name, slot, value, "landed" if grouped else "ready")
+            return None if grouped else cast("T | None", selected)
     opening = threading.Thread(target=_background, args=(name, slot, opener), daemon=True)
     opening.name = f"{THREAD}{name}"
     opening.start()
@@ -140,51 +181,74 @@ def wait[T](name: str, opener: Opener[T]) -> T:
     with _LOCK:
         slot = _SLOTS.get(name)
         mine = slot is None
+        if getattr(_RECORDING, "depth", 0) and (slot is None or slot.state != "ready"):
+            raise Building(name)
         if slot is None:
             slot = _SLOTS[name] = _Slot("opening")
         elif slot.state == "landed":
             slot.state = "ready"
             LANDED[0] += 1
-    if slot.error is not None:
-        raise slot.error
-    if slot.state == "ready":
-        return cast("T", slot.value)
+        if slot.error is not None:
+            raise slot.error
+        if slot.state == "ready":
+            return cast("T", slot.value)
     try:
-        value = opener(True)
+        with _opening(name):
+            value = opener(True)
         if value is None:
             raise RuntimeError("its opener waited and returned nothing")
     except Exception:
         if mine:  # asked again, it opens again: a failed build is on the machine's record
             with _LOCK:
-                _SLOTS.pop(name, None)
+                if _SLOTS.get(name) is slot and slot.state == "opening":
+                    _SLOTS.pop(name)
         raise
-    _landed(slot, value, "ready")
-    return value
+    with _LOCK:  # its slot may be gone (another opener failed): this verified kernel serves then
+        current = _SLOTS.setdefault(name, _Slot("opening"))
+        if current.error is not None:
+            raise current.error
+        return cast("T", _landed(name, current, value, "ready"))
 
 
 def _background(name: str, slot: _Slot, opener: Opener[object]) -> None:
     kernel_compile.told.set(False)  # no one waits for it
     try:
-        value = opener(True)
+        with _opening(name):
+            value = opener(True)
         if value is None:
             raise RuntimeError("its opener waited and returned nothing")
     except Exception as exc:
         _ended(name, slot, exc)
         return
-    _landed(slot, value, "landed")
+    _landed(name, slot, value, "landed")
 
 
-def _landed(slot: _Slot, value: object, state: str) -> None:
+def _landed(name: str, slot: _Slot, value: object, state: str) -> object | None:
+    """The kernel `name` serves once `slot`'s opener verified `value`: the first verified one,
+    never replaced by a later one. None when `slot` is no longer `name`'s, or failed."""
     with _LOCK:
-        slot.value, slot.state = value, state
-        LANDED[0] += state == "ready"
+        if _SLOTS.get(name) is not slot or slot.state == "failed":
+            return None
+        if slot.state == "opening":
+            slot.value, slot.state = value, state
+            LANDED[0] += state == "ready"
+        elif slot.state == "landed" and state == "ready":
+            slot.state = "ready"
+            LANDED[0] += 1
+        return slot.value
 
 
 def _ended(name: str, slot: _Slot, exc: Exception) -> None:
-    """A failed opener's kernel stays failed here; one the device ran out under asks again."""
+    """A failed opener's kernel stays failed here, even one another opener made serve (the epoch
+    counts that change); one the device ran out under asks again, unless another's serves."""
     with _LOCK:
+        if _SLOTS.get(name) is not slot:
+            return
         if is_capacity(exc):
-            _SLOTS.pop(name, None)
+            if slot.state == "opening":
+                _SLOTS.pop(name)
+            return
+        LANDED[0] += slot.state == "ready"
         slot.state, slot.error = "failed", exc
 
 

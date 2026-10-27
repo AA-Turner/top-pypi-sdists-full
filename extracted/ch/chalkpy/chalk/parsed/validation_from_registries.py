@@ -26,7 +26,6 @@ from chalk.parsed.ast_context import get_project_ast_context
 if TYPE_CHECKING:
     from chalk.features.feature_set import Features, FeaturesProtocol
     from chalk.features.resolver import ResolverRegistry
-    from chalk.queries.materialized_feature_view import MaterializedFeatureView
     from chalk.queries.scheduled_aggregate_backfill import ScheduledAggregateBackfill
     from chalk_rs import AstProjectIndex
 
@@ -233,70 +232,6 @@ def _validate_feature_names_from_registry(feature: "Feature") -> None:
             or feature.lsp_error_builder.class_definition_range(),
             code="25",
         )
-
-
-def validate_materialized_feature_view_from_registries(
-    view: "MaterializedFeatureView",
-    features_registry: dict[str, type["FeaturesProtocol"]],
-) -> list[str]:
-    """Returns explicit validation failures on a materialized feature view."""
-    errors: list[str] = []
-    if view.namespace not in features_registry:
-        errors.append(
-            f"MaterializedFeatureView references namespace '{view.namespace}' which does not exist in the feature registry."
-        )
-        # Every feature check below compares against this namespace, so they would all
-        # report the same missing namespace a second time.
-        return errors
-
-    for fqn in view.features or ():
-        try:
-            feature = Feature.from_root_fqn_in_registry(fqn, features_registry)
-        except FeatureNotFoundException:
-            errors.append(
-                f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
-                + "'features', but that feature does not exist."
-            )
-            continue
-
-        if feature.namespace != view.namespace:
-            errors.append(
-                f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
-                + f"'features', but that feature belongs to namespace '{feature.namespace}'. A "
-                + "materialized feature view can only materialize features from its own namespace."
-            )
-            continue
-
-        # `is_scalar` admits windowed features, which have no observation table of their own to
-        # materialize from, so they are rejected separately rather than through `is_scalar`.
-        if not feature.is_scalar or feature.is_windowed:
-            errors.append(
-                f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
-                + "'features', but only scalar features can be materialized."
-            )
-            continue
-
-        # A wide table is built from the offline store, so a feature that never reaches it has
-        # nothing to materialize from. Rejecting here matters because the request is otherwise
-        # honored halfway: the feature stays in the selection, so reads do not route it to the
-        # observation tables, but it is denied a wide column -- and the query fails looking for a
-        # mapping that was never going to exist. Mirrors `is_offline_store_eligible` in
-        # chalk_offline_store, which is the rule the wide layout actually applies.
-        if not feature.store_offline:
-            errors.append(
-                f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
-                + "'features', but that feature sets 'store_offline=False' and so is never written "
-                + "to the offline store. Remove it from 'features', or set 'store_offline=True'."
-            )
-            continue
-
-        if feature.is_distance_pseudofeature or feature.is_singleton:
-            errors.append(
-                f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
-                + "'features', but that feature is synthesized by Chalk and is not stored offline."
-            )
-
-    return errors
 
 
 def validate_scheduled_agg_backfill_from_registries(

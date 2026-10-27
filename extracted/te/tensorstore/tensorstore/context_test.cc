@@ -25,6 +25,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include <nlohmann/json.hpp>
 #include "tensorstore/context_impl.h"
 #include "tensorstore/context_resource_provider.h"
@@ -414,6 +415,22 @@ TEST(IntConfigResourceTest, ContextSpec) {
   tensorstore::internal::EncodeCacheKey(&cache_key4, resource4);
   EXPECT_EQ(cache_key1, cache_key4);
   EXPECT_EQ(cache_key2, cache_key3);
+
+  Context::Spec new_spec;
+  Context::Resource<IntConfigResource> new_resource_spec1;
+  Context::Resource<IntConfigResource> new_resource_spec2;
+  {
+    auto builder = ContextSpecBuilder::Make();
+    new_spec = builder.spec();
+    new_resource_spec1 = builder.AddResource(resource1);
+    new_resource_spec2 = builder.AddResource(resource1);
+  }
+  EXPECT_THAT(new_spec.ToJson(),
+              ::testing::Optional(MatchesJson(::nlohmann::json::object_t())));
+  EXPECT_THAT(new_resource_spec1.ToJson(),
+              ::testing::Optional(MatchesJson(111)));
+  EXPECT_THAT(new_resource_spec2.ToJson(),
+              ::testing::Optional(MatchesJson(111)));
 }
 
 TEST(StrongRefResourceTest, DirectSpec) {
@@ -974,6 +991,12 @@ TEST(ContextTest, ConcurrentCreateInParent) {
       });
 }
 
+TEST(ContextTest, DefaultSpecWithParent) {
+  Context parent = Context::Default();
+  Context child(Context::Spec{}, parent);
+  EXPECT_EQ(parent, child);
+}
+
 TEST(ContextTest, AllContextResources) {
   auto all_binder = jb::Object(jb::DefaultBinder<>);
   EXPECT_THAT(jb::FromJson<AllContextResources>(
@@ -1012,6 +1035,60 @@ TEST(ContextTest, AllContextResources) {
                    {"nested_resource", ::nlohmann::json::object_t()},
                    {"optional_resource", ::nlohmann::json::object_t()},
                    {"strongref", {{"value", 42}}}})));
+}
+
+template <int I>
+struct DepResource : public NestedResource {
+  using Provider = DepResource;
+  static constexpr char id[] = {'d', 'e', 'p', '_', 'r', 'e',     's', 'o',
+                                'u', 'r', 'c', 'e', '_', '0' + I, 0};
+  static Result<Resource> Create(const Spec& spec,
+                                 ContextResourceCreationContext context) {
+    if (!spec.parent.valid()) {
+      return absl::InvalidArgumentError("not specified");
+    }
+    return NestedResource::Create(spec, context);
+  }
+  static Spec GetSpec(const Resource& resource,
+                      const ContextSpecBuilder& builder) {
+    if (resource.parent.valid()) builder.AddResource(resource.parent);
+    return NestedResource::GetSpec(resource, builder);
+  }
+};
+const ContextResourceRegistration<DepResource<0>> dep_resource_0_reg;
+const ContextResourceRegistration<DepResource<1>> dep_resource_1_reg;
+const ContextResourceRegistration<DepResource<2>> dep_resource_2_reg;
+const ContextResourceRegistration<DepResource<3>> dep_resource_3_reg;
+const ContextResourceRegistration<DepResource<4>> dep_resource_4_reg;
+const ContextResourceRegistration<DepResource<5>> dep_resource_5_reg;
+const ContextResourceRegistration<DepResource<6>> dep_resource_6_reg;
+const ContextResourceRegistration<DepResource<7>> dep_resource_7_reg;
+
+TEST(ContextTest, AllContextResourcesDeterministicOrder) {
+  auto all_binder = jb::Object(jb::DefaultBinder<>);
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto all_resources, jb::FromJson<AllContextResources>(
+                              ::nlohmann::json::object_t(), all_binder));
+  ::nlohmann::json context_json = ::nlohmann::json::object_t();
+  for (int i = 0; i < 8; ++i) {
+    context_json[absl::StrFormat("dep_resource_%d", i)] = {
+        {"parent", {{"value", 100 + i}}}};
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto context,
+                                   Context::FromJson(context_json));
+  TENSORSTORE_ASSERT_OK(all_resources.BindContext(context));
+  Context::Spec new_spec;
+  {
+    auto builder = ContextSpecBuilder::Make();
+    new_spec = builder.spec();
+    all_resources.UnbindContext(builder);
+  }
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto new_spec_json, new_spec.ToJson());
+  for (int i = 0; i < 8; ++i) {
+    EXPECT_EQ(new_spec_json.at(absl::StrFormat("nested_resource#%d", i)),
+              ::nlohmann::json({{"value", 100 + i}}))
+        << "Mismatch at index " << i;
+  }
 }
 
 }  // namespace

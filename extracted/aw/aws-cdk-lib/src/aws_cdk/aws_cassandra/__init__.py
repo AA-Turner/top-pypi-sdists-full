@@ -207,6 +207,7 @@ class CfnKeyspace(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -249,7 +250,7 @@ class CfnKeyspace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fd8481bc3a8aed79ca56b1da03537eb72d1f39b5048347b1f8ac5f28b494a9e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientSideTimestampsEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clientSideTimestampsEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="keyspaceName")
@@ -262,7 +263,7 @@ class CfnKeyspace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5fb7166642fd3aff60742c5e03d8f0094ff2d3ed08ad9f239837dfa2ef308f38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyspaceName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyspaceName", value)
 
     @builtins.property
     @jsii.member(jsii_name="replicationSpecification")
@@ -283,7 +284,7 @@ class CfnKeyspace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb87739fda4abfb9cec927655958eeed2ab44c06374fbd6f52c9ff6c3303247e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicationSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replicationSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -299,7 +300,7 @@ class CfnKeyspace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6bbd84051da75f3e01d5eeefad9f72e1f8f65ba4f3cf7969332aab7dc8d01a19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cassandra.CfnKeyspace.ReplicationSpecificationProperty",
@@ -758,6 +759,7 @@ class CfnTable(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -795,7 +797,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__39801b43f69f67941929194d4199c85a34126143e133e315190906067d512822)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyspaceName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyspaceName", value)
 
     @builtins.property
     @jsii.member(jsii_name="partitionKeyColumns")
@@ -813,7 +815,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e1db183d8a51a33cc93b8d90f2611025ff7f3e6539e707de86fd9a5073f0a785)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "partitionKeyColumns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "partitionKeyColumns", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoScalingSpecifications")
@@ -831,7 +833,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3195a4a3cd982603dec093989818a9b10de0aea3609d08a8cb43f320ba2a2228)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoScalingSpecifications", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoScalingSpecifications", value)
 
     @builtins.property
     @jsii.member(jsii_name="billingMode")
@@ -849,7 +851,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b2219a43361bf3ff1d1bf29e1b2907d75a53df3b7016d534579938eea5d4e91d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "billingMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "billingMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="cdcSpecification")
@@ -867,7 +869,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6d6f243fb6b53b3d40f8fc1ed0b3c81e11937e534f5c4e508a4afcf41e5bb3b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cdcSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cdcSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="clientSideTimestampsEnabled")
@@ -885,7 +887,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fd9370f4f1ef0d5c1349ef8d576cad345ff735c9ca5c01758d25b48bfb48e5bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientSideTimestampsEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clientSideTimestampsEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="clusteringKeyColumns")
@@ -903,7 +905,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__629a90c3101172766e4de27d7d3ce237b18da87338a09c0e62d788bfeb846292)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusteringKeyColumns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clusteringKeyColumns", value)
 
     @builtins.property
     @jsii.member(jsii_name="defaultTimeToLive")
@@ -916,7 +918,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__202d75d85d4343037389d27dd4e5938ef702777fc7f61c15eacbbb8602ec2048)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultTimeToLive", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "defaultTimeToLive", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionSpecification")
@@ -934,7 +936,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__105d2928be0de10d33f2dd6f9726d0b2413424d98fe5d151ccbce2002420a1f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="pointInTimeRecoveryEnabled")
@@ -952,7 +954,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__367fd6c13ef0060b69d310dfec8e4128d6d23ab9f7c5c2c6f4fde1840336b733)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pointInTimeRecoveryEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "pointInTimeRecoveryEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="regularColumns")
@@ -970,7 +972,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c15490d5659aeda79f13514b12c87f518d6de130270ffd24df4af663b6785f59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regularColumns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "regularColumns", value)
 
     @builtins.property
     @jsii.member(jsii_name="replicaSpecifications")
@@ -988,7 +990,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5733bf7940cc5b4e0c443c9b292d6c2f440a7bede5a0f631d4c1f894170bff53)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicaSpecifications", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replicaSpecifications", value)
 
     @builtins.property
     @jsii.member(jsii_name="tableName")
@@ -1001,7 +1003,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8e1536df40ced7d731dcea97d7afa1eab0ec4b34824d105a20130aa6fafe98ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1017,7 +1019,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4224e4814f153e9978b91f35f9c02cfe00615e65fb97b060775097a1c70669ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="warmThroughput")
@@ -1035,7 +1037,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d19ce0025aaac972492a134560945d75be6baf85bf80420a89312af74503253a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "warmThroughput", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "warmThroughput", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cassandra.CfnTable.AutoScalingSettingProperty",
@@ -2740,6 +2742,7 @@ class CfnType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2823,7 +2826,7 @@ class CfnType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca4dbc25b8389c762695ecb965e0cd985e70c9dae5c5a02153927c352e82d0a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fields", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fields", value)
 
     @builtins.property
     @jsii.member(jsii_name="keyspaceName")
@@ -2836,7 +2839,7 @@ class CfnType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3f21da74adafb3839ebabb5326e3d975cafd05abe6458f5914d77c169be2418b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyspaceName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyspaceName", value)
 
     @builtins.property
     @jsii.member(jsii_name="typeName")
@@ -2849,7 +2852,7 @@ class CfnType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__606db280be88e96db966d3665a4a5153b9ee5f616f60ff1d292682aa13ba4bd9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cassandra.CfnType.FieldProperty",

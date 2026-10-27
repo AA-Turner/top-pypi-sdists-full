@@ -182,6 +182,7 @@ class CfnProject(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -246,7 +247,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__00ec8a37d239036aef45828df6e1641281eb61322381f581dbbda703e0e1dce9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -262,7 +263,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d4f62758f6eeae919189869cdb1eb7a8cf59cbd7740027cb53f368c0c732f7ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(

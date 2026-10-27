@@ -54,6 +54,7 @@ from matrx_ai.graph_nodes.agent_action import (
     mandate_key_field,
     require_agent_host,
     resolve_step_agent_full,
+    step_result_version,
     run_step_agent,
 )
 from matrx_ai.graph_nodes.iteration_limit import resolve_step_iteration_limit
@@ -228,6 +229,7 @@ async def _bind_provision_values(inputs: MandateStartInput, resolved: Any) -> Ma
     config_schema=AgentStartConfig,
     icon="target",
     tags=("ai", "mandate", "agent"),
+    result_version=step_result_version,
 )
 async def mandate_start(
     ctx: NodeExecutionContext,

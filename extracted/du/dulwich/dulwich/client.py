@@ -802,6 +802,23 @@ def _read_shallow_updates(
     return (new_shallow, new_unshallow)
 
 
+def _read_shallow_updates_v2(
+    proto: Protocol,
+) -> tuple[set[ObjectID], set[ObjectID]]:
+    """Consume a protocol-v2 shallow-info section if the server sent one.
+
+    The section is not only sent in response to a deepen request: servers
+    also send one when the client announced shallow commits or when the
+    serving repository is itself shallow, so peek for the section header and
+    leave the stream untouched if it is absent.
+    """
+    pkt = proto.read_pkt_line()
+    if pkt is None or pkt.rstrip(b"\n") != b"shallow-info":
+        proto.unread_pkt_line(pkt)
+        return (set(), set())
+    return _read_shallow_updates(proto.read_pkt_seq())
+
+
 class _v1ReceivePackHeader:
     def __init__(
         self,
@@ -1016,7 +1033,17 @@ def _handle_upload_pack_head(
     if protocol_version == 2:
         proto.write_pkt_line(None)
 
-    if depth not in (0, None) or shallow_since is not None or shallow_exclude:
+    if protocol_version == 2:
+        # The response may carry a shallow-info section even when no depth
+        # change was requested, e.g. for a fetch from an already-shallow
+        # repository, so it has to be consumed from the response rather than
+        # predicted from the request.
+        if can_read is not None:
+            (new_shallow, new_unshallow) = _read_shallow_updates_v2(proto)
+        else:
+            new_shallow = None
+            new_unshallow = None
+    elif depth not in (0, None) or shallow_since is not None or shallow_exclude:
         if can_read is not None:
             (new_shallow, new_unshallow) = _read_shallow_updates(proto.read_pkt_seq())
         else:
@@ -2265,7 +2292,10 @@ class TraditionalGitClient(GitClient):
         ):
             raise ValueError(f"unknown Git protocol version {protocol_version}")
         proto, can_read, stderr = self._connect(b"upload-pack", path, protocol_version)
-        server_protocol_version = negotiate_protocol_version(proto)
+        try:
+            server_protocol_version = negotiate_protocol_version(proto)
+        except HangupException as exc:
+            raise _remote_error_from_stderr(stderr) from exc
         if server_protocol_version not in GIT_PROTOCOL_VERSIONS:
             raise ValueError(
                 f"unknown Git protocol version {server_protocol_version} used by server"
@@ -2413,7 +2443,10 @@ class TraditionalGitClient(GitClient):
         ):
             raise ValueError(f"unknown Git protocol version {protocol_version}")
         proto, _, stderr = self._connect(b"upload-pack", path, protocol_version)
-        server_protocol_version = negotiate_protocol_version(proto)
+        try:
+            server_protocol_version = negotiate_protocol_version(proto)
+        except HangupException as exc:
+            raise _remote_error_from_stderr(stderr) from exc
         if server_protocol_version not in GIT_PROTOCOL_VERSIONS:
             raise ValueError(
                 f"unknown Git protocol version {server_protocol_version} used by server"
@@ -2424,7 +2457,10 @@ class TraditionalGitClient(GitClient):
             )
         self.protocol_version = server_protocol_version
         if self.protocol_version == 2:
-            server_capabilities = read_server_capabilities(proto.read_pkt_seq())
+            try:
+                server_capabilities = read_server_capabilities(proto.read_pkt_seq())
+            except HangupException as exc:
+                raise _remote_error_from_stderr(stderr) from exc
             object_format = extract_object_format_from_capabilities(server_capabilities)
 
             # Send ls-refs command with protocol v2 structure
@@ -5124,7 +5160,9 @@ class AbstractHttpGitClient(GitClient):
         resp, read = self._smart_request("git-upload-pack", url, data)
         try:
             resp_proto = Protocol(read, None)  # type: ignore
-            if new_shallow is None and new_unshallow is None:
+            if self.protocol_version == 2:
+                (new_shallow, new_unshallow) = _read_shallow_updates_v2(resp_proto)
+            elif new_shallow is None and new_unshallow is None:
                 (new_shallow, new_unshallow) = _read_shallow_updates(
                     resp_proto.read_pkt_seq()
                 )
@@ -5562,34 +5600,21 @@ def _get_transport_and_path_from_url(
     pool_manager: "urllib3.PoolManager | None" = None,
 ) -> tuple[GitClient, str]:
     parsed = urlparse(url)
-    if parsed.scheme == "git":
-        return (
-            TCPGitClient.from_parsedurl(
-                parsed,
-                thin_packs=thin_packs,
-                report_activity=report_activity,
-                quiet=quiet,
-                include_tags=include_tags,
-                config=config,
-            ),
-            parsed.path,
-        )
-    elif parsed.scheme in ("git+ssh", "ssh"):
-        return SSHGitClient.from_parsedurl(
-            parsed,
-            config=config,
-            username=username,
-            password=password,
-            thin_packs=thin_packs,
-            report_activity=report_activity,
-            quiet=quiet,
-            include_tags=include_tags,
-            key_filename=key_filename,
-            ssh_command=ssh_command,
-        ), parsed.path
-    elif parsed.scheme in ("http", "https"):
-        return (
-            HttpGitClient.from_parsedurl(
+    match parsed.scheme:
+        case "git":
+            return (
+                TCPGitClient.from_parsedurl(
+                    parsed,
+                    thin_packs=thin_packs,
+                    report_activity=report_activity,
+                    quiet=quiet,
+                    include_tags=include_tags,
+                    config=config,
+                ),
+                parsed.path,
+            )
+        case "git+ssh" | "ssh":
+            return SSHGitClient.from_parsedurl(
                 parsed,
                 config=config,
                 username=username,
@@ -5598,28 +5623,42 @@ def _get_transport_and_path_from_url(
                 report_activity=report_activity,
                 quiet=quiet,
                 include_tags=include_tags,
-                pool_manager=pool_manager,
-            ),
-            parsed.path,
-        )
-    elif parsed.scheme == "file":
-        if sys.platform == "win32" or os.name == "nt":
-            return default_local_git_client_cls(
-                thin_packs=thin_packs,
-                report_activity=report_activity,
-                quiet=quiet,
-                include_tags=include_tags,
-            ), _win32_url_to_path(parsed)
-        return (
-            default_local_git_client_cls.from_parsedurl(
-                parsed,
-                thin_packs=thin_packs,
-                report_activity=report_activity,
-                quiet=quiet,
-                include_tags=include_tags,
-            ),
-            parsed.path,
-        )
+                key_filename=key_filename,
+                ssh_command=ssh_command,
+            ), parsed.path
+        case "http" | "https":
+            return (
+                HttpGitClient.from_parsedurl(
+                    parsed,
+                    config=config,
+                    username=username,
+                    password=password,
+                    thin_packs=thin_packs,
+                    report_activity=report_activity,
+                    quiet=quiet,
+                    include_tags=include_tags,
+                    pool_manager=pool_manager,
+                ),
+                parsed.path,
+            )
+        case "file":
+            if sys.platform == "win32" or os.name == "nt":
+                return default_local_git_client_cls(
+                    thin_packs=thin_packs,
+                    report_activity=report_activity,
+                    quiet=quiet,
+                    include_tags=include_tags,
+                ), _win32_url_to_path(parsed)
+            return (
+                default_local_git_client_cls.from_parsedurl(
+                    parsed,
+                    thin_packs=thin_packs,
+                    report_activity=report_activity,
+                    quiet=quiet,
+                    include_tags=include_tags,
+                ),
+                parsed.path,
+            )
 
     raise ValueError(f"unknown scheme '{parsed.scheme}'")
 

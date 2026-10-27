@@ -184,6 +184,7 @@ class CfnDatasetIntegration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -250,7 +251,7 @@ class CfnDatasetIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__876dc9b0db7d7705e62d54799b9318070ee1ccb8604739a44a459de4d7e56853)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -266,7 +267,7 @@ class CfnDatasetIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1beb4b4b11334ea84b851891f00390271b1ea4e3b1db50d1c2ccde6078912caf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -498,6 +499,7 @@ class CfnOrganizationCentralizationRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -550,7 +552,7 @@ class CfnOrganizationCentralizationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8fbb5a84b6997cee28db4665d22fee83629861a1e51fe754b85b3858441e7c2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rule", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleName")
@@ -563,7 +565,7 @@ class CfnOrganizationCentralizationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f42b1edd10be1da3c565db5f9585850487a7c51b5ad7ab0a72c1d4345b4ac7f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -579,7 +581,7 @@ class CfnOrganizationCentralizationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a58679a9a3a800195cc0ecf82553695580c2dd2061901e27320b9025cb6ed262)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationCentralizationRule.CentralizationRuleDestinationProperty",
@@ -1984,6 +1986,7 @@ class CfnOrganizationTelemetryRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2046,7 +2049,7 @@ class CfnOrganizationTelemetryRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__97cf84910a3c46b94c3e90ddf73c07b304a029e413bebd1b7c5e7b2bbe5cd411)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rule", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleName")
@@ -2059,7 +2062,7 @@ class CfnOrganizationTelemetryRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__84099afcf940dd46614099ecc03e181396a6d202813d1517bd79414c5aa2f5ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2075,7 +2078,7 @@ class CfnOrganizationTelemetryRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d494e45ec3f03fbc2168c2e374f689615e98524c832aa6247ad243fabe01ffe7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationTelemetryRule.ActionConditionProperty",
@@ -4205,6 +4208,7 @@ class CfnS3TableIntegration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4258,7 +4262,7 @@ class CfnS3TableIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf60cf475e52ec2455d6bb2610fe113c13df025036010f81e85a0d6a8a9568df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryption", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryption", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -4271,7 +4275,7 @@ class CfnS3TableIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e9563b76b32841a10a2062025b5dc3f2c3e65ffaf4e26519dd2e2939d724590b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="logSources")
@@ -4289,7 +4293,7 @@ class CfnS3TableIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca350dbe6386e8726b94ecfb8ecdcec3eadaea66fddf8e9ace5f7364958e217a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logSources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logSources", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4305,7 +4309,7 @@ class CfnS3TableIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f8d9af1b518d9d7c5df43afc2d1661b0c7f8c2f6e31ea999f0f18044da32c60a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnS3TableIntegration.EncryptionConfigProperty",
@@ -4681,6 +4685,7 @@ class CfnTelemetryEnrichment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4723,7 +4728,7 @@ class CfnTelemetryEnrichment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02bb6f1ff0f0be33515cb6d31d7e6d46827e38f27b9969de30c0b28fd7c13d54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scope", value)
 
 
 @jsii.data_type(
@@ -4899,6 +4904,7 @@ class CfnTelemetryPipelines(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4986,7 +4992,7 @@ class CfnTelemetryPipelines(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c0ea345d0670a42e8cd1fa5ccce024ab9a78b08ece4b335f587f586aa3446f66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4999,7 +5005,7 @@ class CfnTelemetryPipelines(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05b27d7721bf16162cc6c8d3ddffb2e5ab5b3582d0e2acfae8e22f54d86e7f56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5015,7 +5021,7 @@ class CfnTelemetryPipelines(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__481c302f9e6ff7c9111f4e3c3983ac44f104411494a50dcd0e8fbb96b18d733d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryPipelines.TelemetryPipelineConfigurationProperty",
@@ -5589,6 +5595,7 @@ class CfnTelemetryRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5651,7 +5658,7 @@ class CfnTelemetryRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__253115d76ca17e48e13df2aa679666bb12581680b457a45a7743f6a80d6dbfa1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rule", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleName")
@@ -5664,7 +5671,7 @@ class CfnTelemetryRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c59aae5f9c690d805a52b4e5949569db025239eb21172f781673428651a87d80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5680,7 +5687,7 @@ class CfnTelemetryRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec4f4991901119d1b8ec2bf2b1d23daff9627e5f20b555f27ec8fd5bc58890b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnTelemetryRule.ActionConditionProperty",

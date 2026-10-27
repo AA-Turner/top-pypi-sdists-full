@@ -10,9 +10,10 @@ things a program is better at and hands the middle to an agent:
   That count is the DENOMINATOR, and it is trustworthy precisely because no
   model produced it. Silent 2% coverage that reads as "done" is the failure
   mode this whole module exists to make impossible.
-* DECIDE (the agent): what these files are, which deserve a description,
-  whether they amount to an experiment. If the folder is large the agent
-  subdivides it ITSELF -- it can see the shape, and a histogram cannot.
+* DECIDE (the agent): which project each file belongs to, what is not
+  research, and one line on what each file that matters is -- all SELECTED
+  through `probe-backfill-plan`, never written back. Code splits a large
+  folder into slices and units, uploads every file and creates every project.
 * RECONCILE (here, deterministic): what landed, against what was counted.
 
 The agent is launched with a FIXED anchor. It may decide what a folder means;
@@ -166,6 +167,18 @@ def plan_tool_launcher(tool: PlanTool):
         directory.cleanup()
 
 
+#: CREDENTIAL STORES. Never walked, never counted, never admitted -- not by the
+#: research allowlist below and not by `--include-hidden`. Named HERE, apart
+#: from the hidden-folder policy, so that a future edit to that allowlist cannot
+#: admit one: an admitted store is not merely sampled, it is WALKED, inherited
+#: into a project, manifested and UPLOADED whole, and scrubbing samples does not
+#: touch that path because the upload sends bytes off disk and never reads a
+#: sample. `walk` prunes SKIP_DIRS (which carries these) before it asks whether
+#: a hidden folder is admitted, and `hidden_admitted` refuses them as well.
+CREDENTIAL_DIRS = frozenset(
+    {".ssh", ".aws", ".gnupg", ".kube", ".docker", ".azure", ".gcloud", ".config"}
+)
+
 #: Never walked, never offered, never counted. Not a judgment call about what
 #: is interesting -- these are machine-generated trees whose file counts would
 #: swamp the denominator and whose contents nobody wrote.
@@ -187,39 +200,85 @@ SKIP_DIRS = frozenset(
         ".idea",
         ".vscode",
         ".probe",
-        # Dot-directories were ALL skipped until this list had to carry them
-        # explicitly. A blanket `name.startswith(".")` also dropped
-        # `.hydra/config.yaml` -- which is where Hydra writes the config that
-        # NAMES the experiment -- along with `.dvc/` and `.condarc`, and it
-        # dropped them from the CENSUS too, so the denominator claimed a
-        # completeness it did not have. What belongs here is what a machine
-        # wrote and nobody would look for in an import.
+        # Every OTHER dot-folder is skipped by the hidden-folder policy below,
+        # but that skip COUNTS what it passes over and names it in the plan.
+        # These are pruned outright instead: machine-written caches whose
+        # counts would swamp the "skipped" line and cost a walk of their own.
         ".cache",
         ".local",
         ".npm",
         ".cargo",
         ".conda",
         ".jupyter",
-        ".ruff_cache",
         ".terraform",
         ".gradle",
         ".Trash",
-        # CREDENTIAL STORES. These were covered by the blanket dotfile skip
-        # that used to live in the walk; dropping that skip to admit
-        # `.hydra/config.yaml` uncovered them, and an uncovered one is not
-        # merely sampled -- it is WALKED, inherited into a project, manifested
-        # and UPLOADED whole. Scrubbing samples does not touch that path,
-        # because the upload sends bytes off disk and never reads a sample.
-        ".ssh",
-        ".aws",
-        ".gnupg",
-        ".kube",
-        ".docker",
-        ".azure",
-        ".gcloud",
-        ".config",
+        *CREDENTIAL_DIRS,
     }
 )
+
+#: HIDDEN FOLDERS ARE SKIPPED BY DEFAULT; these are the research ones admitted.
+#:
+#: The policy was a denylist (SKIP_DIRS above) until a customer import walked
+#: seven Claude Code agent worktrees under `.claude/worktrees/` -- 65,491 of the
+#: 78,628 files it uploaded were copies of one repo. Any dot-folder nobody had
+#: named was imported. Now a dot-folder is skipped unless it is named here or
+#: passed as `--include-hidden <name>`.
+#:
+#: The blanket dotfile skip this replaces had the opposite flaw, which is why
+#: the list exists rather than a bare `startswith(".")`: it dropped
+#: `.hydra/config.yaml` -- where Hydra writes the config that NAMES the
+#: experiment -- along with `.dvc/`, and it dropped them from the CENSUS too, so
+#: the denominator claimed a completeness it did not have. So a skipped hidden
+#: folder is still WALKED for a count (`backfill_evidence.walk`) and listed with
+#: it in the plan; only its files stay out of the import.
+#:
+#: Hidden FILES (`.condarc`, `.gitignore`) are not governed by this: they are
+#: walked as before, and SKIP_FILES below refuses the credential ones.
+RESEARCH_DOT_DIRS = frozenset({".hydra", ".dvc", ".aim", ".neptune"})
+
+#: Inside an admitted research dot-folder, the subfolders that are copies:
+#: `.dvc/cache` holds a content-addressed copy of every DVC-tracked file (the
+#: workspace already has them) and `.dvc/tmp` is DVC's scratch. Skipped and
+#: counted like a hidden folder, so `.dvc/config` still names the remote.
+RESEARCH_DOT_DIR_SKIPS = {".dvc": frozenset({"cache", "tmp"})}
+
+#: The walk's rules, carried on the census (`Census.walk_rules`). 0 is the
+#: rules before hidden folders and worktree copies were skipped -- the default,
+#: so a census an older CLI saved into a queued job re-walks by ITS rules.
+WALK_RULES = 1
+
+
+def hidden_admitted(name: str, include: frozenset[str] | tuple[str, ...] = ()) -> bool:
+    """Whether the hidden folder `name` is walked into the import.
+
+    The allowlist and the researcher's `--include-hidden` names decide; a
+    credential store is refused whatever either says.
+    """
+    if name in CREDENTIAL_DIRS:
+        return False
+    return name in RESEARCH_DOT_DIRS or name in include
+
+
+def hidden_includes(names) -> tuple[str, ...]:
+    """`--include-hidden` values as folder names: `.claude`, `claude/` -> `.claude`.
+
+    A NAME, matched wherever the folder sits in the tree, not a path. Raises
+    ValueError on a path, so a value that could never match is not silently
+    ignored.
+    """
+    out: list[str] = []
+    for raw in names or ():
+        name = str(raw).strip().rstrip("/")
+        if not name or "/" in name or "\\" in name or name in (".", ".."):
+            raise ValueError(
+                f"--include-hidden takes a hidden folder's name, such as .claude; got {raw!r}"
+            )
+        name = name if name.startswith(".") else "." + name
+        if name not in out:
+            out.append(name)
+    return tuple(out)
+
 
 #: Never counted, never sampled -- machine-written FILES.
 #:
@@ -332,8 +391,12 @@ IMPORTER_AGENTS: tuple[Agent, ...] = (Agent.CLAUDE, Agent.CODEX)
 #:            with no pattern to get wrong. Verified the same day: read outside
 #:            the workspace succeeded, write outside it was blocked.
 #:
-#: `workspace-write` rather than `read-only` because the upload has to reach the
-#: network, and read-only mode has none. `--skip-git-repo-check` is REQUIRED,
+#: `workspace-write` rather than `read-only` because the agent writes its plan
+#: state and JSONL in the scratch dir. NO NETWORK for its commands: code does
+#: every upload, `probe-backfill-plan` is local, and a Codex agent with network
+#: and a signed-in `probe` uploaded files a second time (2026-10-26). The
+#: sandbox governs the agent's commands, not Codex's own model traffic.
+#: `--skip-git-repo-check` is REQUIRED,
 #: not tidiness: Codex refuses to run outside a git repo, and neither a research
 #: folder on a shared mount nor a scratch dir under XDG state is one.
 #:
@@ -371,13 +434,15 @@ AGENT_COPY: dict[Agent, tuple[str, str]] = {
     ),
 }
 
-#: Claude's tool allowlist. `Write`/`Edit` are here because the agent's whole
-#: output IS a file it writes; the deny rule above is what keeps that file out
-#: of the imported folder. Bash stays scoped to `probe` so the CLI is reachable
-#: and nothing else is -- an unscoped Bash would route around the deny rule with
-#: one `echo >`. `probe-backfill-plan` is the classifier's filing tool
-#: (`plan_tool_launcher`): it touches only the agent's own work dir, see there.
-AGENT_TOOLS = "Bash(probe:*),Bash(probe-backfill-plan:*),Read,Glob,Grep,Task,Write,Edit"
+#: Claude's tool allowlist. `Write`/`Edit` are here because the agent may write
+#: a JSONL file for `probe-backfill-plan apply`; the deny rule above is what
+#: keeps that file out of the imported folder. Bash is scoped to
+#: `probe-backfill-plan`, the agents' one command (`plan_tool_launcher`: it
+#: touches only the agent's own work dir). No `probe`: code uploads every file
+#: and creates every project, and an agent that could run `probe artifact add`
+#: uploaded files a second time (2026-10-26, 1,583 duplicates). An unscoped Bash
+#: would route around the deny rule with one `echo >`.
+AGENT_TOOLS = "Bash(probe-backfill-plan:*),Read,Glob,Grep,Task,Write,Edit"
 
 #: The RECONSTRUCTION lane's allowlist, PER AGENT. Its one caller is
 #: `backfill_reconstruction.py`, which launches a project-summary draft with
@@ -464,8 +529,6 @@ CONTEXT_FLAGS = ("--strict-mcp-config", "--disable-slash-commands")
 CODEX_ARGS = (
     "-s",
     "workspace-write",
-    "-c",
-    "sandbox_workspace_write.network_access=true",
     "--skip-git-repo-check",
 )
 
@@ -502,6 +565,11 @@ def readonly_settings(folder: Path | None) -> str:
 def unruleable(folder: Path) -> bool:
     """Whether `folder` cannot be confined by a Claude permission rule."""
     return any(ch in str(folder) for ch in _UNRULEABLE)
+
+
+#: How many skipped folders of each kind a structured summary lists by name.
+#: The counts cover all of them; the list is for reading.
+SKIPPED_LISTED = 50
 
 
 @dataclass(frozen=True)
@@ -541,15 +609,67 @@ class Census:
     #: everything beneath them is missing from this count and from the
     #: evidence, and it used to happen without a word.
     unreadable_dirs: tuple[str, ...] = ()
+    #: Hidden folders the policy skipped (RESEARCH_DOT_DIRS), as
+    #: (root-relative path, files under it). COUNTED, not merely pruned: the
+    #: files are on disk and out of the import by a rule, and the plan says so
+    #: -- a denominator that silently shrank is the bug the hidden-folder
+    #: comment above describes. Not part of `files`, which is what the import
+    #: places and reconciles against, so a policy skip never reads as partial.
+    skipped_hidden: tuple[tuple[str, int], ...] = ()
+    #: Nested git worktrees whose main working tree is also under the root --
+    #: copies of a repo this import already carries -- as (path, files).
+    skipped_worktrees: tuple[tuple[str, int], ...] = ()
+    #: The `--include-hidden` names this walk admitted. Kept with the census
+    #: because the census travels with a queued import: the closing re-walk
+    #: must admit the same folders or their files would read as deleted.
+    include_hidden: tuple[str, ...] = ()
+    #: Which rules the walk ran by (`WALK_RULES`); 0 for a census an older CLI
+    #: saved, which the closing re-walk must repeat (`backfill_evidence.walk`).
+    walk_rules: int = 0
 
     @property
     def incomplete(self) -> bool:
         """True when the walk is known to have missed part of the folder."""
         return bool(self.linked_dirs or self.unreadable_dirs)
 
+    @property
+    def skipped_hidden_files(self) -> int:
+        return sum(n for _, n in self.skipped_hidden)
+
+    @property
+    def skipped_worktree_files(self) -> int:
+        return sum(n for _, n in self.skipped_worktrees)
+
+    @property
+    def on_disk(self) -> int:
+        """Every file the walk saw: the ones it places plus the ones it skipped
+        by rule. The figure the skips are measured against."""
+        return self.files + self.skipped_hidden_files + self.skipped_worktree_files
+
+    def skipped_json(self) -> dict:
+        """The skips as structured fields (the desktop's job record, and the
+        same numbers `backfill.scanned` carries). Additive and bounded: the
+        lists stop at SKIPPED_LISTED entries, the counts never do."""
+        def rows(items):
+            ordered = sorted(items, key=lambda item: (-item[1], item[0]))
+            return [{"path": path, "files": n} for path, n in ordered[:SKIPPED_LISTED]]
+
+        return {
+            "hiddenFolders": rows(self.skipped_hidden),
+            "hiddenFolderCount": len(self.skipped_hidden),
+            "hiddenFiles": self.skipped_hidden_files,
+            "worktrees": rows(self.skipped_worktrees),
+            "worktreeCount": len(self.skipped_worktrees),
+            "worktreeFiles": self.skipped_worktree_files,
+            "includedHidden": list(self.include_hidden),
+        }
+
     def describe(self) -> str:
         noun = "file" if self.files == 1 else "files"
         line = f"{self.files:,} {noun}   {human_bytes(self.bytes)}"
+        skipped = self.skipped_hidden_files + self.skipped_worktree_files
+        if skipped:
+            line += f"   ({skipped:,} more skipped: hidden folders and worktree copies)"
         if self.linked_dirs:
             n = len(self.linked_dirs)
             line += f"   ({n} linked director{'y' if n == 1 else 'ies'} not followed)"
@@ -893,267 +1013,6 @@ def _resolve_ref(client, ref: str) -> tuple[str, str]:
     except NotFoundError as exc:
         raise ValueError(str(exc)) from None
     return found.id, found.row.get("slug") or ref
-
-
-def _subdivide_line(agent: Agent) -> str:
-    """How to handle a big folder — which differs by what the agent HAS.
-
-    Claude has a Task tool, so it can fan out over the subdirectories itself.
-    Codex has no equivalent; telling it to "use subagents" would invite it to
-    invent something, so it is told to work through the folder in passes
-    instead.
-    """
-    if agent is Agent.CLAUDE:
-        return (
-            "If the folder is large or clearly splits into several independent pieces\n"
-            "of work, subdivide it and use subagents — one per piece, each with this\n"
-            "same anchor."
-        )
-    return (
-        "If the folder is large, work through it one subdirectory at a time and\n"
-        "keep going until every one is done. Do not stop at a sample."
-    )
-
-
-#: The skills whose text the importing agent reads, in order. These are the same
-#: documents a live research session is given, and loading them is the whole
-#: point: the hand-written command list they replace had drifted -- it never
-#: mentioned subprojects, though `probe project create --parent` has existed for
-#: a while, and it named eight commands out of a CLI the agent can already run
-#: in full. A second copy of a vocabulary is a copy that goes stale.
-VOCABULARY_SKILLS = ("track-work",)
-
-#: What the importer overrides. A live session is told to register a project
-#: before it designs anything, to create entities as it goes, and its work is
-#: attributed to its session. None of that is true here, so the overrides are
-#: stated ONCE, before the shared text, and the parity test asserts they are
-#: still present.
-VOCABULARY_PREAMBLE = """
-HOW THIS RUN DIFFERS FROM AN ORDINARY RESEARCH SESSION. The reference below is
-the same guidance a live session gets. Three of its instructions do not apply
-to an import, and where they conflict, these win:
-
-  1. The project list is FIXED. It was decided before you started, from evidence
-     across the whole folder. Do not create projects or subprojects, and do not
-     rename one. File into what you were given.
-  2. Create an experiment only where the evidence is in front of you, and never
-     to tidy up. An invented experiment is a wrong answer that looks right.
-  3. Nothing here is attributed to a session. You are describing work that has
-     already happened, not doing new work.
-
-Everything else below is accurate, and the commands in it are available to you.
-"""
-
-
-def _skills_root() -> Path | None:
-    """Where this installation's skill documents live, if they are readable.
-
-    Shipped as package shared data (`share/probe-research/skills`), so an
-    installed CLI carries them; a source checkout has them at `agent/skills`.
-    Both are tried because both are real: the wizard runs from a released
-    wheel, and the tests run from the tree.
-    """
-    candidates = [
-        Path(sys.prefix) / "share" / "probe-research" / "skills",
-        Path(__file__).resolve().parents[3] / "skills",
-    ]
-    for candidate in candidates:
-        if candidate.is_dir():
-            return candidate
-    return None
-
-
-@lru_cache(maxsize=1)
-def vocabulary_text() -> str:
-    """The shared skill text, or "" when this installation has none.
-
-    EMPTY IS A VALID ANSWER. The importer's own rules live in the prompt around
-    this and do not depend on it; a wheel built without the shared data should
-    import a folder slightly less well, not fail to import it at all.
-    """
-    root = _skills_root()
-    if root is None:
-        return ""
-    parts = []
-    for name in VOCABULARY_SKILLS:
-        try:
-            body = (root / name / "SKILL.md").read_text(encoding="utf-8")
-        except OSError:
-            continue
-        parts.append(f"--- reference: {name} ---\n{body.strip()}")
-    if not parts:
-        return ""
-    return VOCABULARY_PREAMBLE + "\n\n" + "\n\n".join(parts) + "\n"
-
-
-def build_prompt(
-    *,
-    folder: Path,
-    census: Census,
-    project: str | None = None,
-    agent: Agent = Agent.CLAUDE,
-) -> str:
-    """The prompt the wizard hands the agent.
-
-    This is the actual deliverable of the feature: the user never writes it, and
-    every rule that keeps the import honest lives here rather than in code the
-    agent cannot see.
-
-    THE AGENT OWNS THE PROJECT STRUCTURE. An earlier version pinned one project,
-    resolved before launch, on the reasoning that an agent free to name things
-    would fork identities. That traded a real problem for a worse one: a folder
-    like `/workspace` holds Michael's work, Xian's work and Connor's work, and
-    collapsing three lines of research into one project named after the
-    directory is a wrong answer that no amount of naming discipline fixes. The
-    shape of the work is exactly the judgment we are paying an agent for.
-
-    What replaces the pin is DISCIPLINE, not a lock: list what exists, reuse
-    before creating, and let `ensure_project`'s near-miss guard refuse a slug
-    that reads as a typo of one already there. `--project` still forces a single
-    destination for anyone who wants the old behaviour.
-    """
-    vocabulary = vocabulary_text()
-    fixed = (
-        f"""
-EVERYTHING GOES IN ONE PROJECT, named by the person who started this:
-
-    --project {project}
-
-Do not create any other project. If some of this work does not belong there,
-say so in your summary rather than filing it elsewhere.
-"""
-        if project
-        else """
-YOU DECIDE THE PROJECTS. This is the judgement you are here for.
-
-    First, see what already exists:
-        probe project list
-
-    Then decide. A folder is not automatically one project. `/workspace` with
-    three researchers' directories under it is at least three; a single
-    experiment directory is one. Split where the WORK is genuinely separate —
-    different question, different model, different line of research — and keep
-    it together where it is not.
-
-    REUSE BEFORE YOU CREATE. If a project for this work already exists, file
-    into it. Two projects for the same research is the one mistake here that
-    nobody can undo later, and it is much easier to make than it looks: a
-    second run that invents `odyssey-infill-v3` next to an existing
-    `odyssey_infill_v3` has silently split the record in half.
-
-    Name them for the WORK, not the directory. `odyssey-infill-v3` and
-    `esm3-baseline` are names someone will recognise in six months;
-    `workspace`, `data` and `michael` are not. Read enough of the folder to
-    name it honestly before you create anything.
-
-        probe project create <slug> --name "<human name>" \\
-            --description "<what this project is, up to 3 sentences>" \\
-            --tag <topic> --tag <model-or-dataset>
-
-    ALWAYS pass --description: a plain description of the project. A few words is
-    fine and three sentences is the ceiling — the point is that it is WRITTEN.
-    Nothing else fills it in — the server generates one only when a child RUN
-    reaches a terminal status, and importing a folder creates no runs, so a
-    project left undescribed here stays undescribed forever. Missed one? Add it
-    with `probe project set <slug> --description "..."`.
-
-    `--project` takes the SLUG -- the one you just chose -- in every command
-    that follows. (An id needs the `id:` prefix: `--project id:<uuid>`.)
-"""
-    )
-    return f"""\
-You are backfilling existing research work into Probe.
-
-FOLDER: {folder}
-This folder and its subdirectories are your entire scope. Do not read outside it.
-A deterministic walk counted {census.files:,} files here — roughly what you should
-expect to account for.
-{fixed}
-Step 1 — upload everything of substance.
-
-    files under {human_bytes(REFERENCE_ABOVE_BYTES)}:
-        probe artifact add --project <project> <path>
-
-    files over {human_bytes(REFERENCE_ABOVE_BYTES)} (checkpoints, datasets, archives):
-        probe artifact add --project <project> <path> --reference --allow-missing
-
-    The second form records the PATH and uploads no bytes. Use it for anything
-    large. Do NOT pass --hash on those: fingerprinting a 10GB file over a shared
-    mount costs minutes and buys nothing here.
-
-    Skip build noise and caches (.git, __pycache__, .venv, node_modules).
-
-Step 2 — say what things are.
-
-    For each artifact that carries meaning — a report, a result table, a config,
-    a plot, a script someone would look for again — say in one line what it is,
-    what produced it, what it shows. This is the part that makes a file findable
-    later, and it is the part nobody did at the time. It matters more than the
-    upload.
-
-    Files carry no notes of their own: name the ones that matter, by path, in
-    the project's documents below, one line each.
-
-    NEVER put the description in --name. The name is the file's relative path
-    and nothing else: the folder tree is built by splitting it on '/', the
-    dashboard works out how to preview a file from the extension at its end, and
-    both break the moment a sentence is appended to it.
-
-    Use the two project-level documents for their different audiences:
-
-    - Put what this project is and how the pieces relate in its dashboard-visible
-      authored Markdown, which is a block INSIDE the Overview page that the
-      page's AI writer may not rewrite. Preserve the existing document before
-      replacing it:
-
-        probe project get <project> | jq -r '.document // ""' > PROJECT.md
-        # Edit PROJECT.md, retaining useful existing sections.
-        probe project set <project> --summary @PROJECT.md
-        probe project get <project> | jq -r '.document // ""'
-
-      This is a whole-document, last-write-wins field, so the first and last
-      reads are required. The last read answers from the PAGE, which renders
-      the document: a fenced block loses its language and a non-https link
-      loses its href. Check that what you wrote is THERE; do not expect the
-      bytes to match, and do not rewrite it again to try to make them.
-
-    - Add what is missing, what a reader should not trust, and operational
-      handoff details to the project's hidden notes:
-
-        probe notes checkout --project <project>
-        # add your paragraph to the file it names, then
-        probe notes push --project <project>
-
-      Notes are the agent briefing, not the dashboard documentation. `push`
-      MERGES, so a concurrent import's paragraph is not erased -- and a real
-      clash comes back as conflict markers rather than a silent overwrite.
-
-Step 3 — group into experiments ONLY if the evidence is there.
-
-    If some part of this plainly IS one experiment — a question, a method, a
-    result you can point at — create it and attach those artifacts.
-    If that would be a guess, DO NOT. Leave them at the project level.
-    Artifacts at the project level are findable; an invented experiment is a
-    wrong answer that looks like a right one.
-
-        probe experiment create <slug> --project <project> \\
-            --name "<human name>" --question "<what it tests>"
-
-    The question IS the experiment's description: an experiment has no
-    separate one, and `--description` is refused. The files that convinced
-    you this was a real experiment go in `probe notes write`, not here.
-
-{_subdivide_line(agent)}
-
-Finish with a JSON summary on its own line. `projects` must list every project
-you filed into, by slug — it is how the import is checked against the {census.files:,}
-files counted above:
-{{{{"files_seen": N, "files_landed": N, "files_skipped": N,
-  "projects": ["<slug>", ...], "experiments_created": N,
-  "summary": "one sentence on what this folder contains"}}}}
-
-{vocabulary}
-"""
 
 
 #: Flags whose ABSENCE stops the run, per agent. These are not preferences:
@@ -3277,6 +3136,7 @@ def run(
     review_excluded: bool = False,
     background: bool = False,
     back_to_selection: bool = False,
+    include_hidden: tuple[str, ...] = (),
 ):
     """The `Import existing work` action. Returns the lines the wizard pages,
     or None for a pure back-out -- the wizard loop's signal to skip the result
@@ -3517,6 +3377,7 @@ def run(
             retry_dead=retry_dead,
             review_excluded=review_excluded,
             background=background,
+            include_hidden=include_hidden,
             **(
                 {"wandb_source": wandb_choices[target], "offer_wandb": False}
                 if target in wandb_choices

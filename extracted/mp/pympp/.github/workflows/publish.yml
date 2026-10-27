@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '17 15 * * 1' # Monday 15:17 UTC
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -35,9 +37,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - uses: tempoxyz/changelogs@4cdda943b3452daf4f6af3dfc25859e03f7b4a31 # 2026-10-21T18-48-43Z-4cdda943 # OIDC trusted publishing
+      - uses: tempoxyz/changelogs@7928d3260c48d9dbe72f9fa4d5fca968cbfa020d # v0.10.0
         with:
           ecosystem: python
           python-version: '3.12'
           conventional-commit: true
           github-token: ${{ steps.app-token.outputs.token }}
+          auto-merge: ${{ github.event_name == 'schedule' }}

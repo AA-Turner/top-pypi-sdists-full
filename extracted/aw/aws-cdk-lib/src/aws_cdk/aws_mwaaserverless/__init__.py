@@ -239,6 +239,7 @@ class CfnWorkflow(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -336,7 +337,7 @@ class CfnWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d9833b67c113a89f2316d0e981ed4884c44210bb5afe3d98b3f48c3dbd4c6636)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definitionS3Location", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "definitionS3Location", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -348,7 +349,7 @@ class CfnWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f38d2888a3ed8ca88fab9cf362f64be8b28ae698d973d6eb717ffc7d26ea95d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="code")
@@ -366,7 +367,7 @@ class CfnWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6aa668ffb7ac62307b59775bdf21aa65d1c85618adec74af4bc2a8bb19c62388)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "code", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -378,7 +379,7 @@ class CfnWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c0e967a0d20001fac7826a1236cef88937fe92efa3aea43c4aee0668b77ace4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfiguration")
@@ -395,7 +396,7 @@ class CfnWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e9714e5f8cd597317652144f2aeeb3923ed676c079ccbe101f8b1965d814594e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfiguration")
@@ -412,7 +413,7 @@ class CfnWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c616011f97b5b305e924c2f2daf971e2cd5a3d599eaa2a5175e319dd0350d98e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggingConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -424,7 +425,7 @@ class CfnWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__31f3fefe9f76e831f4847bf707c5a491dada758aeb33ba982ee044c4ceb516af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkConfiguration")
@@ -441,7 +442,7 @@ class CfnWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e84aedb46d5aeced351a3acc6109aa72f2931744f9ad449eb7c33a1f3e2a6537)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -457,7 +458,7 @@ class CfnWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ba570a00bba6210a762247c25ee50e6fe4f1c5b260184321978c4e85227da8ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="triggerMode")
@@ -469,7 +470,7 @@ class CfnWorkflow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__557aba21ad8506797a84212d0251edcf4b4a6f696028d7d683d648a27326f66c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "triggerMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "triggerMode", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mwaaserverless.CfnWorkflow.CodeProperty",

@@ -325,40 +325,8 @@ def troubleshooting(caps: Capabilities) -> list[str]:
     already know, so only the relevant lines are printed -- and the ones that
     depend on live state say what that state actually is.
     """
-    notes: list[str] = []
-
+    notes = problems(caps)
     agent_source = caps.agent_source
-    # pi has no marketplace CLI this wizard installs or updates a plugin
-    # through (see wizard.INSTALLABLE_AGENT_SOURCES), so there is no "is the
-    # binary on PATH" question to ask here, and its auto-update never "fires
-    # at session start" the way it does for the other two -- nothing in
-    # probe-research-pi ever spawns `probe wizard --action update` (its hooks
-    # are independent TypeScript; see upgrading.py's own pi guard). The old
-    # two-way ternary's silent `else` told a pi user to go install Claude
-    # Code, which was never the question.
-    if agent_source == "pi":
-        agent_name = "pi"
-    else:
-        agent_binary = "codex" if agent_source == "codex" else "claude"
-        agent_name = "Codex" if agent_source == "codex" else "Claude Code"
-        agent_available = (
-            caps.codex_available if agent_source == "codex" else caps.claude_available
-        )
-        if not agent_available:
-            notes.append(
-                f"`{agent_binary}` is not on PATH, so plugin install/update cannot run. The CLI "
-                f"and login still work; install {agent_name} to enable the plugins."
-            )
-    if caps.cli_version is None:
-        notes.append(
-            "`probe` is not resolving. Re-run the install to relink the binaries and "
-            "make sure ~/.local/bin is on your PATH."
-        )
-    if caps.tracking_plugin_installed and not caps.logged_in_as:
-        notes.append(
-            "The tracking plugin is installed but this device is not logged in, so "
-            "the MCP has no credential. Run `probe wizard` to sign in."
-        )
     if agent_source == "codex":
         notes.append(
             "If MCP tools are missing after a restart, run `codex mcp list --json`. "
@@ -379,9 +347,52 @@ def troubleshooting(caps: Capabilities) -> list[str]:
         "name breaks the connection."
     )
     if agent_source != "pi" and caps.auto_update_enabled and caps.last_update_attempt is None:
+        agent_name = _agent_name(agent_source)
         notes.append(
             f"Auto-update is on but has never run on this device. It fires at {agent_name} "
             "session start, so it will not have run yet if you have not opened "
             "a session since enabling it."
+        )
+    return notes
+
+
+def _agent_name(agent_source: str) -> str:
+    return "Codex" if agent_source == "codex" else "Claude Code"
+
+
+def problems(caps: Capabilities) -> list[str]:
+    """What is actually wrong with this agent's setup, from its state: the
+    first half of `troubleshooting`, without the tips every report carries."""
+    notes: list[str] = []
+
+    agent_source = caps.agent_source
+    # pi has no marketplace CLI this wizard installs or updates a plugin
+    # through (see wizard.INSTALLABLE_AGENT_SOURCES), so there is no "is the
+    # binary on PATH" question to ask here, and its auto-update never "fires
+    # at session start" the way it does for the other two -- nothing in
+    # probe-research-pi ever spawns `probe wizard --action update` (its hooks
+    # are independent TypeScript; see upgrading.py's own pi guard). The old
+    # two-way ternary's silent `else` told a pi user to go install Claude
+    # Code, which was never the question.
+    if agent_source != "pi":
+        agent_binary = "codex" if agent_source == "codex" else "claude"
+        agent_name = _agent_name(agent_source)
+        agent_available = (
+            caps.codex_available if agent_source == "codex" else caps.claude_available
+        )
+        if not agent_available:
+            notes.append(
+                f"`{agent_binary}` is not on PATH, so plugin install/update cannot run. The CLI "
+                f"and login still work; install {agent_name} to enable the plugins."
+            )
+    if caps.cli_version is None:
+        notes.append(
+            "`probe` is not resolving. Re-run the install to relink the binaries and "
+            "make sure ~/.local/bin is on your PATH."
+        )
+    if caps.tracking_plugin_installed and not caps.logged_in_as:
+        notes.append(
+            "The tracking plugin is installed but this device is not logged in, so "
+            "the MCP has no credential. Run `probe wizard` to sign in."
         )
     return notes

@@ -193,6 +193,44 @@ class ConnectResource:
         )
         return self._client._post("/v1/connect/shopify/token", data=payload)
 
+    def get_google_analytics_connect_url(
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Google Analytics OAuth connect URL"""
+        params = self._build_params(
+            profile_id=profile_id,
+            redirect_url=redirect_url,
+            reconnect_account_id=reconnect_account_id,
+        )
+        return self._client._get("/v1/connect/googleanalytics", params=params)
+
+    def list_google_analytics_properties(
+        self, pending_data_token: str
+    ) -> dict[str, Any]:
+        """List Google Analytics properties for a pending connect"""
+        params = self._build_params(
+            pending_data_token=pending_data_token,
+        )
+        return self._client._get(
+            "/v1/connect/googleanalytics/properties", params=params
+        )
+
+    def select_google_analytics_property(
+        self, pending_data_token: str, property_id: str
+    ) -> dict[str, Any]:
+        """Connect the chosen Google Analytics property"""
+        payload = self._build_payload(
+            pending_data_token=pending_data_token,
+            property_id=property_id,
+        )
+        return self._client._post(
+            "/v1/connect/googleanalytics/select-property", data=payload
+        )
+
     def get_hub_spot_connect_url(
         self, profile_id: str, *, redirect_url: str | None = None
     ) -> dict[str, Any]:
@@ -1142,6 +1180,44 @@ class ConnectResource:
             access_token=access_token,
         )
         return await self._client._apost("/v1/connect/shopify/token", data=payload)
+
+    async def aget_google_analytics_connect_url(
+        self,
+        profile_id: str,
+        *,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Get Google Analytics OAuth connect URL (async)"""
+        params = self._build_params(
+            profile_id=profile_id,
+            redirect_url=redirect_url,
+            reconnect_account_id=reconnect_account_id,
+        )
+        return await self._client._aget("/v1/connect/googleanalytics", params=params)
+
+    async def alist_google_analytics_properties(
+        self, pending_data_token: str
+    ) -> dict[str, Any]:
+        """List Google Analytics properties for a pending connect (async)"""
+        params = self._build_params(
+            pending_data_token=pending_data_token,
+        )
+        return await self._client._aget(
+            "/v1/connect/googleanalytics/properties", params=params
+        )
+
+    async def aselect_google_analytics_property(
+        self, pending_data_token: str, property_id: str
+    ) -> dict[str, Any]:
+        """Connect the chosen Google Analytics property (async)"""
+        payload = self._build_payload(
+            pending_data_token=pending_data_token,
+            property_id=property_id,
+        )
+        return await self._client._apost(
+            "/v1/connect/googleanalytics/select-property", data=payload
+        )
 
     async def aget_hub_spot_connect_url(
         self, profile_id: str, *, redirect_url: str | None = None

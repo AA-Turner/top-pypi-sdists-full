@@ -6,12 +6,18 @@ import numpy  # noqa F401 for OpenMP proper linkage
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .proxsuite_pywrap import *  # noqa F403
+    from .proxsuite_pywrap import *
+
+import os
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = (
+    "True"  # to avoid issues with OpenMP in some environments
+)
 
 
 def _load_main_module():
-    import platform
     import importlib
+    import platform
 
     machine = platform.machine()
     has_vectorization_instructions = not machine.startswith(
@@ -24,7 +30,7 @@ def _load_main_module():
         except ModuleNotFoundError:
             return False
 
-    if has_vectorization_instructions:  # noqa
+    if has_vectorization_instructions:
         from . import instructionset
 
         all_modules = [

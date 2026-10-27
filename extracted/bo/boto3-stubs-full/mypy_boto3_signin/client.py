@@ -32,6 +32,8 @@ from .type_defs import (
     CreateOAuth2TokenResponseTypeDef,
     CreateOAuth2TokenWithIAMRequestTypeDef,
     CreateOAuth2TokenWithIAMResponseTypeDef,
+    CreateOAuth2TokenWithTokenExchangeRequestTypeDef,
+    CreateOAuth2TokenWithTokenExchangeResponseTypeDef,
     DeleteConsoleAuthorizationConfigurationInputTypeDef,
     DeleteConsoleAuthorizationConfigurationOutputTypeDef,
     DeleteResourcePermissionStatementInputTypeDef,
@@ -63,8 +65,11 @@ class Exceptions(BaseClientExceptions):
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
+    InvalidGrantException: type[BotocoreClientError]
+    InvalidScopeException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
     TooManyRequestsError: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
@@ -108,7 +113,8 @@ class SignInServiceClient(BaseClient):
         self, **kwargs: Unpack[CreateOAuth2TokenRequestTypeDef]
     ) -> CreateOAuth2TokenResponseTypeDef:
         """
-        CreateOAuth2Token API.
+        Exchanges an authorization code or refresh token for an OAuth 2.0 access token
+        and refresh token.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/create_oauth2_token.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#create_oauth2_token)
@@ -118,11 +124,22 @@ class SignInServiceClient(BaseClient):
         self, **kwargs: Unpack[CreateOAuth2TokenWithIAMRequestTypeDef]
     ) -> CreateOAuth2TokenWithIAMResponseTypeDef:
         """
-        Grants permission to exchange client credentials for an OAuth 2.0 access token
-        scoped to a resource that can be used to access AWS services from applications.
+        Exchanges client credentials for an OAuth 2.0 access token scoped to a
+        resource, which you can use to access AWS services from applications.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/create_oauth2_token_with_iam.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#create_oauth2_token_with_iam)
+        """
+
+    def create_o_auth2_token_with_token_exchange(
+        self, **kwargs: Unpack[CreateOAuth2TokenWithTokenExchangeRequestTypeDef]
+    ) -> CreateOAuth2TokenWithTokenExchangeResponseTypeDef:
+        """
+        Exchanges a supported token for an OAuth 2.0 access token scoped to a resource,
+        which you can use to access AWS services from applications.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/create_o_auth2_token_with_token_exchange.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#create_o_auth2_token_with_token_exchange)
         """
 
     def delete_console_authorization_configuration(
@@ -167,8 +184,8 @@ class SignInServiceClient(BaseClient):
         self, **kwargs: Unpack[IntrospectOAuth2TokenWithIAMRequestTypeDef]
     ) -> IntrospectOAuth2TokenWithIAMResponseTypeDef:
         """
-        Grants permission to inspect the metadata and state of an OAuth 2.0 access
-        token or refresh token.
+        Inspects the metadata and active state of an OAuth 2.0 access token or refresh
+        token.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/introspect_oauth2_token_with_iam.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#introspect_oauth2_token_with_iam)
@@ -209,8 +226,7 @@ class SignInServiceClient(BaseClient):
         self, **kwargs: Unpack[RevokeOAuth2TokenWithIAMRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Grants permission to revoke an OAuth 2.0 refresh token and its associated
-        refresh tokens.
+        Revokes an OAuth 2.0 refresh token and its associated token chain.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/revoke_oauth2_token_with_iam.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#revoke_oauth2_token_with_iam)

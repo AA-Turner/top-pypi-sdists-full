@@ -19,6 +19,7 @@ from lib_log_rich.adapters import (
     RichConsoleAdapter,
     SlidingWindowRateLimiter,
 )
+from lib_log_rich.adapters.checkpoint import JsonlCheckpoint
 from lib_log_rich.application import ProcessPipelineDependencies
 from lib_log_rich.application.ports import ConsolePort, DumpPort, GraylogPort, QueuePort, StructuredBackendPort, SystemIdentityPort
 from lib_log_rich.application.use_cases._payload_sanitizer import PayloadSanitizer
@@ -27,8 +28,8 @@ from lib_log_rich.application.use_cases.process_event import create_process_log_
 from lib_log_rich.application.use_cases.shutdown import create_shutdown
 from lib_log_rich.domain import ContextBinder, LogContext, LogEvent, LogLevel, RingBuffer, SeverityMonitor, SystemIdentity
 from lib_log_rich.domain.dump import DumpFormat
-from lib_log_rich.domain.dump_filter import DumpFilter, build_dump_filter
-from lib_log_rich.domain.enums import QueuePolicy
+from lib_log_rich.domain.dump_filter import build_dump_filter
+from lib_log_rich.domain.enums import ConsoleTheme, FormatPreset, QueuePolicy
 from lib_log_rich.runtime import PayloadLimits
 from tests.os_markers import OS_AGNOSTIC
 
@@ -577,7 +578,9 @@ def test_process_event_handles_duplicate_keys_and_serialization() -> None:
         service="svc",
         environment="test",
         job_id="job-dup",
-        extra={1: "context value"},
+        # A non-str key breaks the declared Mapping[str, Any] on purpose: the
+        # test proves the sanitizer stringifies what an untyped caller sends.
+        extra=cast("Any", {1: "context value"}),
     ):
         result = process(logger_name="tests.duplicate", level=LogLevel.INFO, message="long message payload for truncation", extra=extra_payload)
 
@@ -789,7 +792,7 @@ def test_process_event_enqueue_short_circuits_fan_out() -> None:
 def test_capture_dump_uses_real_adapter_and_flushes_buffer(tmp_path: Path) -> None:
     """Dump use case streams filtered events through the real adapter."""
     checkpoint = tmp_path / "ring_buffer.jsonl"
-    ring = RingBuffer(max_events=4, checkpoint_path=checkpoint)
+    ring = RingBuffer(max_events=4, checkpoint=JsonlCheckpoint(checkpoint))
     context = LogContext(service="svc", environment="test", job_id="job", extra={"tenant": "alpha"})
     ring.append(
         LogEvent(
@@ -817,8 +820,7 @@ def test_capture_dump_uses_real_adapter_and_flushes_buffer(tmp_path: Path) -> No
     payload = capture(
         dump_format=DumpFormat.TEXT,
         min_level=LogLevel.ERROR,
-        format_template=None,
-        text_template="{message}",
+        format_template="{message}",
         dump_filter=None,
         colorize=False,
     )
@@ -829,10 +831,22 @@ def test_capture_dump_uses_real_adapter_and_flushes_buffer(tmp_path: Path) -> No
 
 
 @OS_AGNOSTIC
+def test_capture_dump_no_longer_accepts_text_template() -> None:
+    """The ``text_template`` alias of ``format_template`` is gone."""
+    capture = create_capture_dump(ring_buffer=RingBuffer(max_events=1), dump_port=DumpAdapter())
+
+    # Built as a plain mapping: CaptureDump already refuses the keyword statically, and this
+    # test pins the runtime refusal.
+    arguments: dict[str, Any] = {"dump_format": DumpFormat.TEXT, "text_template": "{message}"}
+    with pytest.raises(TypeError, match="text_template"):
+        capture(**arguments)
+
+
+@OS_AGNOSTIC
 def test_capture_dump_with_default_template_and_filter(tmp_path: Path) -> None:
     """Default template and dump filters shape the rendered payload."""
     checkpoint = tmp_path / "defaults.jsonl"
-    ring = RingBuffer(max_events=4, checkpoint_path=checkpoint)
+    ring = RingBuffer(max_events=4, checkpoint=JsonlCheckpoint(checkpoint))
     context = LogContext(service="svc", environment="test", job_id="job")
     ring.append(
         LogEvent(
@@ -861,8 +875,8 @@ def test_capture_dump_with_default_template_and_filter(tmp_path: Path) -> None:
         ring_buffer=ring,
         dump_port=DumpAdapter(),
         default_template="{logger_name}:{message}",
-        default_format_preset="full",
-        default_theme="night",
+        default_format_preset=FormatPreset.FULL,
+        default_theme=ConsoleTheme.DARK,
         default_console_styles={"WARNING": "yellow"},
     )
 
@@ -872,8 +886,7 @@ def test_capture_dump_with_default_template_and_filter(tmp_path: Path) -> None:
         min_level=None,
         format_preset=None,
         format_template=None,
-        text_template=None,
-        theme="day",
+        theme=ConsoleTheme.NEON,
         console_styles={"WARNING": "orange"},
         dump_filter=dump_filter,
         colorize=True,
@@ -1107,17 +1120,15 @@ def test_capture_dump_preserves_explicit_preset(tmp_path: Path) -> None:
             dump_format: DumpFormat,
             path: Path | None = None,
             min_level: LogLevel | None = None,
-            format_preset: str | None = None,
+            format_preset: FormatPreset | None = None,
             format_template: str | None = None,
-            text_template: str | None = None,
-            theme: str | None = None,
+            theme: ConsoleTheme | None = None,
             console_styles: Mapping[str, str] | None = None,
-            filters: DumpFilter | None = None,
             colorize: bool = False,
         ) -> str:
             self.last_args = {
                 "preset": format_preset,
-                "template": format_template if format_template is not None else text_template,
+                "template": format_template,
             }
             return f"{len(events)}"  # minimal payload
 
@@ -1143,15 +1154,14 @@ def test_capture_dump_preserves_explicit_preset(tmp_path: Path) -> None:
 
     payload = capture(
         dump_format=DumpFormat.TEXT,
-        format_preset="short",
+        format_preset=FormatPreset.SHORT,
         format_template=None,
-        text_template=None,
         dump_filter=None,
         colorize=False,
     )
 
     assert payload == "1"
-    assert recorder.last_args == {"preset": "short", "template": "{message}"}
+    assert recorder.last_args == {"preset": FormatPreset.SHORT, "template": "{message}"}
 
 
 def test_shutdown_flushes_adapters_and_stops_queue() -> None:

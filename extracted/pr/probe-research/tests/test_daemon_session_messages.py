@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -80,14 +82,15 @@ class FakeProbe:
         monkeypatch.setattr(probe_api, "session_messages", self.poll)
         monkeypatch.setattr(probe_api, "ack_session_message", self.ack)
 
-    async def poll(self, env, session_id, instance, held=None):
+    async def poll(self, env, session_id, instance, held=None, active_at=None):
         self.polls += 1
         self.instances.add(instance)
         self.held = list(held or [])
+        self.active_at = active_at
         rows = [{k: v for k, v in r.items() if k != "shown"} for r in self.rows.values() if not r.get("shown")]
         return {"messages": rows, "revoked": []}
 
-    async def ack(self, env, session_id, message_id, state, instance):
+    async def ack(self, env, session_id, message_id, state, instance, timeout=None):
         self.instances.add(instance)
         if self.fail_acks:
             return probe_api.AckResult.RETRY
@@ -174,9 +177,9 @@ def test_a_message_is_published_then_acked_then_reported_shown_once_a_hook_took_
     monkeypatch.setattr(mailbox, "publish", lambda m: (order.append("publish"), real_publish(m))[1])
     real_ack = probe.ack
 
-    async def ack(env, sid, mid, state, instance):
+    async def ack(env, sid, mid, state, instance, **kw):
         order.append(state)
-        return await real_ack(env, sid, mid, state, instance)
+        return await real_ack(env, sid, mid, state, instance, **kw)
 
     monkeypatch.setattr(probe_api, "ack_session_message", ack)
     assert _tick(lane) == 1
@@ -197,7 +200,7 @@ def test_a_crash_between_publish_and_ack_delivers_the_message_once(tmp_path, mon
     probe = FakeProbe(monkeypatch, [row])
     lane = ra.RunAlertLane(_worker(tmp_path))
 
-    async def die(env, sid, mid, state, instance):
+    async def die(env, sid, mid, state, instance, **kw):
         raise RuntimeError("killed between the publish and the ack")
 
     monkeypatch.setattr(probe_api, "ack_session_message", die)
@@ -223,7 +226,9 @@ def test_a_crash_between_publish_and_ack_after_the_hook_took_it_is_reported_show
     mailbox.claim(SID, path, by="Stop")
     probe.fail_acks = False
     assert _tick(lane) == 0
-    assert probe.acks == [(row["id"], probe_api.ACK_ACKED), (row["id"], probe_api.ACK_DELIVERED_TO_AGENT)]
+    # The hook's claim is reported before the poll (delivered implies acked),
+    # and the poll lists it no more: nothing left to ack.
+    assert probe.acks == [(row["id"], probe_api.ACK_DELIVERED_TO_AGENT)]
     assert mailbox.waiting(SID) == []
 
 
@@ -284,7 +289,7 @@ def test_the_poll_waits_its_interval_and_a_refused_key_waits_longer(tmp_path, mo
     assert asked >= lane.clock() + ra.RUN_ALERT_POLL_S - 1
     assert asyncio.run(lane.messages.tick()) == 0 and lane.messages.next_poll_at == asked, "not due yet"
 
-    async def refused(env, sid, instance, held=None):
+    async def refused(env, sid, instance, held=None, active_at=None):
         raise probe_api.KeyRefused("GET /v1/sessions/x/messages: HTTP 401")
 
     monkeypatch.setattr(probe_api, "session_messages", refused)
@@ -375,9 +380,12 @@ def test_the_poll_and_the_ack_hit_the_owner_bound_routes(monkeypatch):
 def test_anything_but_a_listing_is_no_answer_and_an_owner_refusal_is_no_refused_key(monkeypatch, answer):
     seen = _serve(monkeypatch, answer)
     assert asyncio.run(probe_api.session_messages(ENV, SID, MACHINE)) is None
-    if answer(seen[0]).status_code != 200:  # an ack's answer body is not read: a 200 is recorded
+    status = answer(seen[0]).status_code
+    if status != 200:  # an ack's answer body is not read: a 200 is recorded
+        # A 404 is no such message (erased, or a server from before the route):
+        # saying it again changes nothing. Anything else is said again.
         assert asyncio.run(probe_api.ack_session_message(ENV, SID, str(uuid.uuid4()), "acked", MACHINE)) is (
-            probe_api.AckResult.RETRY)
+            probe_api.AckResult.GONE if status == 404 else probe_api.AckResult.RETRY)
 
 
 def test_a_refused_key_raises_on_the_poll_and_the_ack(monkeypatch):
@@ -459,7 +467,7 @@ class LeaseServer:
     def _mine(self, instance) -> bool:
         return self.row["leased_by"] == instance and not self.row["shown"]
 
-    async def poll(self, env, session_id, instance, held=None):
+    async def poll(self, env, session_id, instance, held=None, active_at=None):
         row = self.row
         messages = []
         if not row["shown"] and (row["leased_by"] in (None, instance) or row["lapsed"]):
@@ -468,7 +476,7 @@ class LeaseServer:
         revoked = [h for h in held or [] if not (h == row["id"] and self._mine(instance))]
         return {"messages": messages, "revoked": revoked}
 
-    async def ack(self, env, session_id, message_id, state, instance):
+    async def ack(self, env, session_id, message_id, state, instance, timeout=None):
         if self.row["leased_by"] != instance:
             return probe_api.AckResult.LEASE_LOST
         self.row["acked_at"] = self.row.get("acked_at") or datetime.now(UTC).isoformat()
@@ -513,3 +521,519 @@ def test_the_old_machines_copy_goes_once_another_machine_took_the_message(tmp_pa
             if mailbox.claim(SID, path, by="UserPromptSubmit") is not None:
                 shown.append(str(state))
     assert shown == [str(state_b)], "one copy shown, on the machine that holds it"
+
+
+# ---------------------------------------------------------------------------
+# One session live on two machines (the G7 known limits, fixed).
+# ---------------------------------------------------------------------------
+
+
+def test_a_restarted_daemon_reports_every_message_its_hook_took_before_it_polls(tmp_path, monkeypatch):
+    """The hook showed a message and its own report never reached Probe; the
+    daemon died before its next poll. The next daemon says it was shown before
+    it asks for anything -- whatever its poll answers -- once."""
+    shown, waiting = _row("shown here"), _row("still waiting")
+    probe = FakeProbe(monkeypatch, [shown, waiting])
+    lane = ra.RunAlertLane(_worker(tmp_path))
+    assert _tick(lane) == 2
+    assert {m.daemon_instance for m in _inbox_waiting()} == {lane.messages.instance}, "the file names its holder"
+    (path,) = [p for p, m in mailbox.waiting(SID) if m.id == mailbox.inbox_message_id(shown["id"])]
+    assert mailbox.claim(SID, path, by="PostToolUse") is not None
+
+    calls: list = []
+    real_ack = probe.ack
+
+    async def silent_poll(env, sid, instance, held=None, active_at=None):
+        calls.append("poll")
+        return None  # Probe did not answer the poll this time
+
+    async def ack(env, sid, mid, state, instance, **kw):
+        calls.append((mid, state))
+        return await real_ack(env, sid, mid, state, instance, **kw)
+
+    monkeypatch.setattr(probe_api, "session_messages", silent_poll)
+    monkeypatch.setattr(probe_api, "ack_session_message", ack)
+    restarted = ra.RunAlertLane(_worker(tmp_path))
+    _tick(restarted)
+    assert calls == [(shown["id"], probe_api.ACK_DELIVERED_TO_AGENT), "poll"], "before the poll"
+    _tick(restarted)
+    assert calls[2:] == ["poll"], "said once by this daemon"
+    _tick(ra.RunAlertLane(_worker(tmp_path)))
+    assert calls[3:] == [(shown["id"], probe_api.ACK_DELIVERED_TO_AGENT), "poll"], "and by the next (idempotent)"
+    assert probe.rows[shown["id"]]["shown"] and not probe.rows[waiting["id"]].get("shown")
+
+    # Neither a message past its half day nor a service claim not yet received
+    # (not shown) is reported.
+    assert mailbox.shown_inbox_ids(SID, now=time.time() + mailbox.INBOX_TTL_S + 60) == []
+    ((path, _),) = mailbox.waiting(SID)
+    mailbox.claim(SID, path, by="mailbox.claim", token="1_abc")
+    assert mailbox.shown_inbox_ids(SID) == [shown["id"]]
+
+
+def test_a_report_probe_settles_is_not_said_again_and_one_it_missed_is(tmp_path, monkeypatch):
+    monkeypatch.setattr(sm, "RECEIPT_BACKOFF_S", 0.0)  # a missed one is said again at once
+    row = _row()
+    probe = FakeProbe(monkeypatch, [row])
+    lane = ra.RunAlertLane(_worker(tmp_path))
+    _tick(lane)
+    ((path, _),) = mailbox.waiting(SID)
+    mailbox.claim(SID, path, by="Stop")
+    probe.fail_acks = True
+    _tick(lane)
+    assert lane.messages.reported == set(), "no answer: said again"
+    probe.fail_acks = False
+    probe.lost.add(row["id"])  # another daemon holds it now: nothing to say
+    _tick(lane)
+    assert lane.messages.reported == {row["id"]}
+    before = len(probe.acks)
+    _tick(lane)
+    assert len(probe.acks) == before
+
+
+def _transcript(tmp_path: Path, *stamps: str) -> None:
+    work = tmp_path / "home" / "work"
+    work.mkdir(parents=True, exist_ok=True)
+    (tmp_path / f"{SID}.jsonl").write_text("".join(
+        json.dumps({"type": "user", "message": {"content": f"step {n}"}, "cwd": str(work), "timestamp": stamp}) + "\n"
+        for n, stamp in enumerate(stamps)))
+
+
+def test_the_poll_says_when_this_sessions_agent_was_last_active(tmp_path, monkeypatch):
+    probe = FakeProbe(monkeypatch, [])
+    _transcript(tmp_path, "2026-10-26T09:00:00Z", "2026-10-26T09:05:00.500Z")
+    worker = _worker(tmp_path)
+    lane = ra.RunAlertLane(worker)
+    _tick(lane)
+    assert probe.active_at is None, "nothing read yet: no header, as a daemon from before it"
+    worker.read_new()
+    _tick(lane)
+    assert probe.active_at == "2026-10-26T09:05:00.500000+00:00"
+    assert worker.agent_active_at() == datetime(2026, 10, 26, 9, 5, 0, 500000, tzinfo=UTC).timestamp()
+
+
+def test_the_activity_rides_the_poll_as_its_header(monkeypatch):
+    seen = _serve(monkeypatch, lambda r: httpx.Response(200, json={"messages": [], "revoked": []}))
+    asyncio.run(probe_api.session_messages(ENV, SID, MACHINE, [], active_at="2026-10-26T09:05:00+00:00"))
+    asyncio.run(probe_api.session_messages(ENV, SID, MACHINE, []))
+    assert [r.headers.get(probe_api.AGENT_ACTIVE_HEADER) for r in seen] == ["2026-10-26T09:05:00+00:00", None]
+    assert probe_api.AGENT_ACTIVE_HEADER == "X-Probe-Agent-Active-At"  # app/sessions/messages.py
+
+
+class ActivityLeaseServer(LeaseServer):
+    """LeaseServer, plus `app/sessions/messages.py`'s move: a message not yet
+    shown goes to a daemon whose agent was active more than ACTIVITY_LEAD_S
+    after the holder's, both having said when."""
+
+    ACTIVITY_LEAD_S = 60.0
+
+    def __init__(self, monkeypatch, row: dict) -> None:
+        super().__init__(monkeypatch, row)
+        self.row["active"] = None
+
+    async def poll(self, env, session_id, instance, held=None, active_at=None):
+        row = self.row
+        at = sm._epoch(active_at)
+        if (not row["shown"] and row["leased_by"] not in (None, instance) and at is not None
+                and row["active"] is not None and at > row["active"] + self.ACTIVITY_LEAD_S):
+            row["lapsed"] = True  # the holder's agent is not where the researcher is
+        answer = await super().poll(env, session_id, instance, held, active_at)
+        if row["leased_by"] == instance:
+            row["active"] = at
+        return answer
+
+
+def _machine(monkeypatch, tmp_path: Path, name: str, instance: str, active: "float | None") -> ra.RunAlertLane:
+    """One machine's daemon for the session: its own state folder (made current
+    by `_on`), its device id, and when its agent was last active."""
+    state = tmp_path / name / "state"
+    _on(monkeypatch, state)
+    lane = ra.RunAlertLane(_worker(state.parent))
+    lane.messages.instance = instance
+    lane.w.agent_active_at = lambda: active  # the transcript's newest line on this machine
+    lane.state = state  # type: ignore[attr-defined]
+    return lane
+
+
+def _on(monkeypatch, state: Path) -> None:
+    monkeypatch.setenv("XDG_STATE_HOME", str(state))
+    (state / "probe" / "sessions").mkdir(parents=True, exist_ok=True)
+    (lease.sessions_dir() / f"{SID}.state").write_text("daemon")
+    (lease.sessions_dir() / f"{SID}.profile").write_text("daemon")
+
+
+def _tick_on(monkeypatch, lane: ra.RunAlertLane) -> int:
+    _on(monkeypatch, lane.state)  # type: ignore[attr-defined]
+    return _tick(lane)
+
+
+def test_the_researcher_moved_to_b_so_b_takes_the_unshown_message_and_a_drops_its_copy(tmp_path, monkeypatch):
+    """A's daemon keeps polling, but the researcher works on B now: the message A
+    received and never showed moves to B, A's copy goes, and ONE copy is shown."""
+    server = ActivityLeaseServer(monkeypatch, _row("stop the lr=3e-3 run"))
+    a = _machine(monkeypatch, tmp_path, "a", "machine-a-" + "a" * 16, active=1_000_000.0)
+    b = _machine(monkeypatch, tmp_path, "b", "machine-b-" + "b" * 16, active=1_000_030.0)
+    assert _tick_on(monkeypatch, a) == 1 and server.row["leased_by"] == a.messages.instance
+    assert _tick_on(monkeypatch, b) == 0, "30 s newer is no move: A keeps it"
+    b.w.agent_active_at = lambda: 1_000_600.0
+    assert _tick_on(monkeypatch, b) == 1, "the researcher is on B"
+    assert server.row["leased_by"] == b.messages.instance
+
+    assert _tick_on(monkeypatch, a) == 0
+    assert _inbox_waiting() == [], "A's unshown copy was revoked and dropped"
+    shown = []
+    for lane in (a, b):
+        _on(monkeypatch, lane.state)  # type: ignore[attr-defined]
+        for path, _ in mailbox.waiting(SID):
+            if mailbox.claim(SID, path, by="UserPromptSubmit") is not None:
+                shown.append(lane.messages.instance)
+    assert shown == [b.messages.instance]
+
+
+def test_a_holder_whose_agent_is_the_newer_keeps_the_message_until_it_is_not(tmp_path, monkeypatch):
+    server = ActivityLeaseServer(monkeypatch, _row("ship it"))
+    a = _machine(monkeypatch, tmp_path, "a", "machine-a-" + "a" * 16, active=1_000_600.0)
+    b = _machine(monkeypatch, tmp_path, "b", "machine-b-" + "b" * 16, active=1_000_000.0)
+    silent = _machine(monkeypatch, tmp_path, "c", "machine-c-" + "c" * 16, active=None)
+    assert _tick_on(monkeypatch, a) == 1
+    assert _tick_on(monkeypatch, b) == 0 and _tick_on(monkeypatch, silent) == 0
+    assert server.row["leased_by"] == a.messages.instance
+    assert _tick_on(monkeypatch, a) == 0 and len(_inbox_waiting()) == 1, "A's copy stays"
+    # The researcher goes to B: A's agent is the older one now.
+    b.w.agent_active_at = lambda: 1_000_700.0
+    assert _tick_on(monkeypatch, b) == 1 and server.row["leased_by"] == b.messages.instance
+
+
+# ---------------------------------------------------------------------------
+# End to end over HTTP: the hook's own report, then the daemon dies.
+# ---------------------------------------------------------------------------
+
+HOOK = Path(__file__).resolve().parents[1] / "plugins" / "probe-research" / "hooks" / "reads_hook.py"
+
+
+class HttpProbe:
+    """Probe's poll and ack for ONE session's messages on 127.0.0.1, with the
+    lease rules of `app/sessions/messages.py` (holder-only acks, a lapsed lease
+    retaken, a shown message never handed out again)."""
+
+    def __init__(self, rows: list[dict]) -> None:
+        import http.server
+        import threading
+        from urllib.parse import parse_qs, urlparse
+
+        self.rows = {r["id"]: dict(r, leased_by=None, lapsed=False, shown=False) for r in rows}
+        self.acks: list[tuple[str, str, str, str]] = []  # (id, state, instance, bearer)
+        self.lock = threading.Lock()
+        owner = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def _answer(self, status: int, body: dict) -> None:
+                data = json.dumps(body).encode()
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def do_GET(self):  # noqa: N802
+                url = urlparse(self.path)
+                instance = self.headers.get("X-Probe-Daemon-Instance")
+                held = parse_qs(url.query).get("held", [])
+                with owner.lock:
+                    out = []
+                    for row in owner.rows.values():
+                        if not row["shown"] and (row["leased_by"] in (None, instance) or row["lapsed"]):
+                            row["leased_by"], row["lapsed"] = instance, False
+                            out.append({k: row[k] for k in ("id", "body", "created_at", "acked_at", "sender")})
+                    revoked = [h for h in held if not (h in owner.rows and owner.rows[h]["leased_by"] == instance
+                                                       and not owner.rows[h]["shown"])]
+                self._answer(200, {"messages": out, "revoked": revoked})
+
+            def do_POST(self):  # noqa: N802
+                mid = self.path.rstrip("/").split("/")[-2]
+                state = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)))["state"]
+                instance = self.headers.get("X-Probe-Daemon-Instance")
+                with owner.lock:
+                    owner.acks.append((mid, state, instance, self.headers.get("Authorization")))
+                    row = owner.rows.get(mid)
+                    if row is None:
+                        return self._answer(404, {"detail": {"code": "MESSAGE_NOT_FOUND"}})
+                    if row["leased_by"] != instance:
+                        return self._answer(409, {"detail": {"code": "LEASE_LOST"}})
+                    row["acked_at"] = row.get("acked_at") or datetime.now(UTC).isoformat()
+                    row["shown"] = row["shown"] or state == "delivered_to_agent"
+                self._answer(200, {"id": mid})
+
+            def log_message(self, *_args):
+                pass
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def close(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
+
+def test_a_message_as_hook_showed_never_reaches_b_after_as_daemon_died(tmp_path, monkeypatch):
+    """A's daemon leases and publishes it; A's hook shows it and tells Probe
+    itself; A's daemon dies before saying so; A's lease lapses. B's daemon, on
+    the same session, is never handed it."""
+    import subprocess
+    import sys
+
+    row = _row("stop the lr=3e-3 run")
+    probe = HttpProbe([row])
+    try:
+        monkeypatch.setattr(worker_mod, "probe_env", lambda sid: {"PROBE_TOKEN": "pk_daemon",
+                                                                  "PROBE_BASE_URL": probe.url,
+                                                                  "PROBE_DAEMON_SESSION": SID})
+        a = _machine(monkeypatch, tmp_path, "a", "machine-a-" + "a" * 16, active=None)
+        assert _tick_on(monkeypatch, a) == 1
+        config = tmp_path / "a" / "config.json"
+        config.write_text(json.dumps({"contexts": {"default": {"companion_token": "pk_daemon",
+                                                               "base_url": probe.url}}}))
+        payload = json.dumps({"hook_event_name": "PostToolUse", "session_id": SID, "cwd": "/tmp",
+                              "transcript_path": f"/home/u/.claude/projects/-tmp/{SID}.jsonl",
+                              "tool_name": "Bash", "tool_input": {"command": "ls"}, "tool_response": {"stdout": ""},
+                              "tool_use_id": "t1"})
+        env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(tmp_path / "a" / "home"),
+               "XDG_STATE_HOME": str(a.state), "PROBE_CONFIG_PATH": str(config)}  # type: ignore[attr-defined]
+        hook = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True,
+                              env=env, timeout=30)
+        assert hook.returncode == 0 and "stop the lr=3e-3 run" in hook.stdout
+        assert (row["id"], "delivered_to_agent", a.messages.instance, "Bearer pk_daemon") in probe.acks
+        # A's daemon is gone: no more ticks from it, and its lease lapses.
+        probe.rows[row["id"]]["lapsed"] = True
+
+        b = _machine(monkeypatch, tmp_path, "b", "machine-b-" + "b" * 16, active=None)
+        assert _tick_on(monkeypatch, b) == 0
+        assert _inbox_waiting() == [] and mailbox.shown_inbox_ids(SID) == [], "B never has it"
+        assert probe.rows[row["id"]]["leased_by"] == a.messages.instance
+    finally:
+        probe.close()
+
+
+# ---------------------------------------------------------------------------
+# Review of #3530: receipts within a budget; only what a hook showed is reported.
+# ---------------------------------------------------------------------------
+
+
+def _hook_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_reads_hook_for_daemon_tests", HOOK)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _hook_takes(row: dict, *, shown: bool) -> str:
+    """A current hook claims the inbox copy of `row` (its claim line says it
+    writes `shown` lines) and, when `shown`, marks it shown once its output went
+    out. Its mailbox id."""
+    hook = _hook_module()
+    message_id = mailbox.inbox_message_id(row["id"])
+    mailbox.touch_alive(SID, by="PostToolUse")
+    (path,) = [p for p, m in mailbox.waiting(SID) if m.id == message_id]
+    assert hook.claim(SID, path, "PostToolUse") is not None
+    if shown:
+        hook.mark_shown(SID, [message_id], "PostToolUse")
+    return message_id
+
+
+def test_receipts_never_hold_the_poll_past_their_budget(tmp_path, monkeypatch):
+    """Twenty receipts at 10 s each held the poll (and the run alerts on the
+    same task) past the lease: now they get RECEIPT_BUDGET_S in all, and the
+    rest is said at the next tick."""
+    rows = [_row(f"shown {n}") for n in range(5)]
+    probe = FakeProbe(monkeypatch, rows)
+    lane = ra.RunAlertLane(_worker(tmp_path))
+    assert _tick(lane) == 5
+    for row in rows:
+        _hook_takes(row, shown=True)
+    assert sm.RECEIPT_BUDGET_S <= 3.0 and sm.RECEIPT_TIMEOUT_S < sm.RECEIPT_BUDGET_S
+    monkeypatch.setattr(sm, "RECEIPT_BUDGET_S", 0.4)
+    monkeypatch.setattr(sm, "RECEIPT_TIMEOUT_S", 0.3)
+    timeouts: list[float] = []
+
+    async def silent_ack(env, sid, mid, state, instance, timeout=None):
+        timeouts.append(timeout)
+        await asyncio.sleep(10)  # Probe takes the request and never answers
+
+    monkeypatch.setattr(probe_api, "ack_session_message", silent_ack)
+    restarted = ra.RunAlertLane(_worker(tmp_path))
+    restarted.messages.next_poll_at = 0.0
+    before, started = probe.polls, time.monotonic()
+    asyncio.run(asyncio.wait_for(restarted.messages.tick(), 5))
+    took = time.monotonic() - started
+    assert probe.polls == before + 1, "the poll ran"
+    assert took < 0.4 + 0.5, f"the receipts held the poll {took:.1f}s"
+    assert timeouts and all(t <= 0.3 for t in timeouts), "each receipt short"
+    assert restarted.messages.reported == set(), "nothing settled: said again at the next tick"
+
+    monkeypatch.setattr(probe_api, "ack_session_message", probe.ack)
+    restarted.messages.receipt_misses.clear()  # their backoff over
+    _tick(restarted)
+    assert restarted.messages.reported == {row["id"] for row in rows}
+
+
+def test_back_off_state_is_kept_only_for_receipts_still_owed(tmp_path, monkeypatch):
+    """Final review of #3530: a message that expired or settled leaves the
+    back-off map, so it never grows past the mailbox."""
+    FakeProbe(monkeypatch, [])
+    lane = ra.RunAlertLane(_worker(tmp_path))
+    lane.messages.receipt_misses["expired-long-ago"] = (5, time.monotonic() + 600)
+    _tick(lane)
+    assert "expired-long-ago" not in lane.messages.receipt_misses
+
+
+def test_a_claim_never_marked_shown_is_put_back_and_never_reported(tmp_path, monkeypatch):
+    """The claim (the rename) comes before the hook's output: a hook that died
+    or whose output never went out leaves a claim with no `shown` line. That one
+    is never reported shown -- neither before the poll nor when the poll lists
+    it -- and goes back to waiting after UNSHOWN_RETURN_S, for the next hook."""
+    row = _row("stop the lr=3e-3 run")
+    probe = FakeProbe(monkeypatch, [row])
+    lane = ra.RunAlertLane(_worker(tmp_path))
+    assert _tick(lane) == 1
+    message_id = _hook_takes(row, shown=False)
+    assert _tick(lane) == 0
+    assert probe.acks == [(row["id"], probe_api.ACK_ACKED)], "never reported shown"
+    assert mailbox.where(SID, message_id) is mailbox.Where.CLAIMED, "within the grace: still claimed"
+
+    monkeypatch.setattr(mailbox, "UNSHOWN_RETURN_S", 0.0)
+    assert _tick(lane) == 0
+    assert [m.id for m in _inbox_waiting()] == [message_id], "it waits again"
+    assert probe.acks == [(row["id"], probe_api.ACK_ACKED)]
+
+    _hook_takes(row, shown=True)  # the next hook shows it
+    _tick(lane)
+    assert probe.acks[-1] == (row["id"], probe_api.ACK_DELIVERED_TO_AGENT)
+
+
+@pytest.mark.parametrize(("claim_lines", "shown_line", "shown"), [
+    ([{"by": "PostToolUse", "shows": 1}], True, True),       # marked shown
+    ([{"by": "PostToolUse", "shows": 1}], False, False),     # a current hook, never marked
+    ([{"by": "mailbox.claim", "token": "1_abc"},
+      {"by": "PostToolUse", "shows": 1, "receipt": "1_abc"}], False, False),  # a service claim a current hook received
+    ([{"by": "PostToolUse"}], False, True),                  # a hook from before shown lines
+    ([{"by": "mailbox.claim", "token": "1_abc"}], False, True),  # a service claim an older hook received
+    ([{"by": "PostToolUse"}, {"by": "PostToolUse", "shows": 1}], False, False),  # put back, claimed again by a current one
+    ([], False, True),                                       # no line left: as before, the claim is all there is
+])
+@pytest.mark.parametrize("heartbeat", [True, False])
+def test_each_claim_is_held_to_its_own_marker(claim_lines, shown_line, shown, heartbeat):
+    """Per claim (review of #3530): its latest claim line's marker (`shows: 1`)
+    says whether its deliverer marks what it showed. The session's heartbeat
+    plays no part: one session can hold claims of an older and a current hook."""
+    message_id = "s" + uuid.uuid4().hex
+    mailbox.claimed_dir(SID).mkdir(parents=True, exist_ok=True)
+    with mailbox.claim_log_path(SID).open("a", encoding="utf-8") as log:
+        for line in claim_lines:
+            log.write(json.dumps({"id": message_id, "at": time.time(), **line}) + "\n")
+    if shown_line:
+        mailbox.mark_shown(SID, [message_id], by="PostToolUse")
+    if heartbeat:
+        mailbox.touch_alive(SID, by="PostToolUse")
+    assert mailbox.InboxClaims(SID).shown_here(message_id) is shown
+
+
+def test_two_receipts_that_always_time_out_never_starve_the_rest(tmp_path, monkeypatch):
+    """Every tick restarted from the same sorted ids, so two failing receipts
+    used up the budget for good (review of #3530): a missed one backs off and
+    goes after those not tried, and no receipt waits past RECEIPT_TIMEOUT_S."""
+    ids = ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002",
+           "00000000-0000-4000-8000-000000000003"]
+    rows = [{**_row(f"shown {n}"), "id": server_id} for n, server_id in enumerate(ids)]
+    FakeProbe(monkeypatch, rows)
+    lane = ra.RunAlertLane(_worker(tmp_path))
+    assert _tick(lane) == 3
+    for row in rows:
+        _hook_takes(row, shown=True)
+    monkeypatch.setattr(sm, "RECEIPT_TIMEOUT_S", 0.2)
+    monkeypatch.setattr(sm, "RECEIPT_BUDGET_S", 0.4)  # room for two timeouts, as 1.5 s and 3 s
+    took: dict[str, list[float]] = {}
+
+    async def ack(env, sid, mid, state, instance, timeout=None):
+        started = time.monotonic()
+        try:
+            if mid in ids[:2]:
+                await asyncio.sleep(10)  # never answered
+            return probe_api.AckResult.RECORDED
+        finally:
+            took.setdefault(mid, []).append(time.monotonic() - started)
+
+    monkeypatch.setattr(probe_api, "ack_session_message", ack)
+    restarted = ra.RunAlertLane(_worker(tmp_path))
+    for _ in range(2):
+        restarted.messages.next_poll_at = 0.0
+        asyncio.run(asyncio.wait_for(restarted.messages.tick(), 5))
+    assert ids[2] in restarted.messages.reported, "the healthy one is reported within two ticks"
+    assert ids[0] not in restarted.messages.reported and ids[1] not in restarted.messages.reported
+    assert all(t <= 0.2 + 0.1 for times in took.values() for t in times), took
+    assert sm.RECEIPT_BACKOFF_S >= 30.0
+
+
+def _claim_lines(message_id: str) -> list[dict]:
+    path = mailbox.claim_log_path(SID)
+    lines = [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+    return [e for e in lines if e.get("id") == message_id]
+
+
+def test_a_current_hooks_claim_never_marked_shown_waits_again_even_with_no_heartbeat(tmp_path, monkeypatch):
+    """(i) Per claim: the marker on a current hook's claim holds it to its `shown`
+    line whether or not the session has a deliverer heartbeat."""
+    row = _row("stop the lr=3e-3 run")
+    probe = FakeProbe(monkeypatch, [row])
+    lane = ra.RunAlertLane(_worker(tmp_path))
+    assert _tick(lane) == 1
+    hook = _hook_module()
+    message_id = mailbox.inbox_message_id(row["id"])
+    ((path, _),) = mailbox.waiting(SID)
+    assert hook.claim(SID, path, "PostToolUse") is not None  # no heartbeat touched
+    assert mailbox.read_alive(SID) is None and _claim_lines(message_id)[-1]["shows"] == 1
+    monkeypatch.setattr(mailbox, "UNSHOWN_RETURN_S", 0.0)
+    assert _tick(lane) == 0
+    assert [m.id for m in _inbox_waiting()] == [message_id], "it waits again"
+    assert (row["id"], probe_api.ACK_DELIVERED_TO_AGENT) not in probe.acks
+
+
+def test_an_older_hooks_service_claim_counts_as_shown_beside_a_current_hooks_heartbeat(tmp_path, monkeypatch):
+    """(ii) An older hook received a Probe service claim (the service's line has
+    no marker, and the hook writes no line of its own) in a session where a
+    current hook also beats: it counts as shown, is reported, and never waits again."""
+    row = _row("ship it")
+    probe = FakeProbe(monkeypatch, [row])
+    lane = ra.RunAlertLane(_worker(tmp_path))
+    assert _tick(lane) == 1
+    message_id = mailbox.inbox_message_id(row["id"])
+    ((path, _),) = mailbox.waiting(SID)
+    claimed = mailbox.claim(SID, path, by="mailbox.claim", token="1_abc")  # the service's claim for it
+    assert claimed is not None
+    (token_file,) = mailbox.claimed_dir(SID).glob(f"*-{message_id}.1_abc.json")
+    os.rename(token_file, token_file.with_name(path.name))  # the older hook's receipt, no line of its own
+    mailbox.touch_alive(SID, by="PostToolUse")  # a current hook ran here too
+    monkeypatch.setattr(mailbox, "UNSHOWN_RETURN_S", 0.0)
+    assert _tick(lane) == 0
+    assert _inbox_waiting() == [], "never put back"
+    assert (row["id"], probe_api.ACK_DELIVERED_TO_AGENT) in probe.acks
+
+
+def test_a_current_hook_marks_a_service_claim_it_receives(tmp_path, monkeypatch):
+    """The receipt of a Probe service claim by a current hook writes its marker,
+    so that claim too is held to its `shown` line."""
+    row = _row("from the dashboard")
+    FakeProbe(monkeypatch, [row])
+    lane = ra.RunAlertLane(_worker(tmp_path))
+    assert _tick(lane) == 1
+    hook = _hook_module()
+    message_id = mailbox.inbox_message_id(row["id"])
+    ((path, _),) = mailbox.waiting(SID)
+    mailbox.claim(SID, path, by="mailbox.claim", token="1_abc")
+    (token_file,) = mailbox.claimed_dir(SID).glob(f"*-{message_id}.1_abc.json")
+    assert hook.receive(SID, token_file, "PostToolUse", ledger=False) is not None
+    last = _claim_lines(message_id)[-1]
+    assert (last["shows"], last["receipt"]) == (1, "1_abc")
+    assert not mailbox.InboxClaims(SID).shown_here(message_id)

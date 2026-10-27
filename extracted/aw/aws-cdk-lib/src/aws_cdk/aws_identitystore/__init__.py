@@ -175,6 +175,7 @@ class CfnGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -215,7 +216,7 @@ class CfnGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5e2f0d1e640344318d6ca1684bf877149c58a04ff3b658cc26437fd42577ae42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "displayName", value)
 
     @builtins.property
     @jsii.member(jsii_name="identityStoreId")
@@ -228,7 +229,7 @@ class CfnGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ec5af9bcaa29b5bd7b1489efc7cb2d8be21651e7c0abc6581d713983f718c75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityStoreId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identityStoreId", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -241,7 +242,7 @@ class CfnGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__adb1a463b108d61759d25cd969fb5fed9a681bdbfadbf09cefe6655715c026df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
 
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_identitystore_22a099c6.IGroupMembershipRef)
@@ -352,6 +353,7 @@ class CfnGroupMembership(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -394,7 +396,7 @@ class CfnGroupMembership(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__84854d3f76ffaf3fcbc3f65a33c1661f74f5b69424e248ef1e8272d270ac7f78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groupId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "groupId", value)
 
     @builtins.property
     @jsii.member(jsii_name="identityStoreId")
@@ -407,7 +409,7 @@ class CfnGroupMembership(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cbe6d44611bf93ff14a416179e20aded09542ea5eeadef3315ca4e2b9610a458)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityStoreId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identityStoreId", value)
 
     @builtins.property
     @jsii.member(jsii_name="memberId")
@@ -425,7 +427,7 @@ class CfnGroupMembership(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1cf491e3e3c3bfc7f52caab31db7140718db94dfca804458b592c7195b7552ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "memberId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "memberId", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_identitystore.CfnGroupMembership.MemberIdProperty",
@@ -879,6 +881,7 @@ class CfnUser(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -973,7 +976,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__301900d33c75a62d1e3c1bd02c03f25b0d11bc589ec75f854ce7399b17f2826c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityStoreId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identityStoreId", value)
 
     @builtins.property
     @jsii.member(jsii_name="addresses")
@@ -991,7 +994,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66e5124c9e5a7c78e33df91e2e81046dd068c7e448ff1b2c1719dcf440af0c5e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "addresses", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "addresses", value)
 
     @builtins.property
     @jsii.member(jsii_name="birthdate")
@@ -1004,7 +1007,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e2b5a11c29668b4b568184e7dc0a3f3489774c6b1f99ba18fb280a596a9bc522)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "birthdate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "birthdate", value)
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -1017,7 +1020,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__45dc4f84fef48437c2a4a6f155c7f159b723f8daf007bfefb68bbb02438230c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "displayName", value)
 
     @builtins.property
     @jsii.member(jsii_name="emails")
@@ -1035,7 +1038,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__41e7153616933de516f0ab5eabacc07e74bc9198c4fc9b6d7d6e963ab6a4f2da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "emails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "emails", value)
 
     @builtins.property
     @jsii.member(jsii_name="locale")
@@ -1048,7 +1051,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__143d1b357e325b4d0f4fbaf25498e93ae27b316db87d2b0a24c2ca3d32c0bea1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "locale", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "locale", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1066,7 +1069,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__55a7971e0f81d1b982329593e6d3c02a126ac61dd7bfff8f570fc5f70599ed50)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="nickName")
@@ -1079,7 +1082,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a979e88fa2913d9b4b68f6ba2abef40fa6fe90a3a763de28f88a867a0305d56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "nickName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "nickName", value)
 
     @builtins.property
     @jsii.member(jsii_name="phoneNumbers")
@@ -1097,7 +1100,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__482d17169fc7168926f2335e6f8fc648e43aa0b0fea16dc47f2fc67a13b2ec0f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "phoneNumbers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "phoneNumbers", value)
 
     @builtins.property
     @jsii.member(jsii_name="photos")
@@ -1115,7 +1118,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ecc9aeaf0fdeb61c4a9e382987db4d57e3129fca4e373f98750e4f2ecf2b6c54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "photos", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "photos", value)
 
     @builtins.property
     @jsii.member(jsii_name="preferredLanguage")
@@ -1128,7 +1131,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3e16cde9732b2e609a5bc0b02bafa24e640d671c3001e82686337e7e5ad5ab85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredLanguage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preferredLanguage", value)
 
     @builtins.property
     @jsii.member(jsii_name="profileUrl")
@@ -1141,7 +1144,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6001a7982fce667a4ed2f934f209accd5d58ba6916de42ce2df05df3c0c5d2e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "profileUrl", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "profileUrl", value)
 
     @builtins.property
     @jsii.member(jsii_name="roles")
@@ -1159,7 +1162,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__405dc798ecf08df1750a0b40ca59618cea414ac55b836d62d3455ebdc910a556)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roles", value)
 
     @builtins.property
     @jsii.member(jsii_name="timezone")
@@ -1172,7 +1175,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e2565fccd1d43245d2e1f04c999521a09ff1ea5c53c7d57bd9ee72f5283fd169)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timezone", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "timezone", value)
 
     @builtins.property
     @jsii.member(jsii_name="title")
@@ -1185,7 +1188,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8ef9066c800099a8d07d7c473cce870dfb69299e4e351ad02795d8992f404e00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "title", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "title", value)
 
     @builtins.property
     @jsii.member(jsii_name="userName")
@@ -1198,7 +1201,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__85c505e17606aa59b1fea8eeb5349035b31eeebbf3110dfac5d1ad7db3409b93)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userName", value)
 
     @builtins.property
     @jsii.member(jsii_name="userType")
@@ -1211,7 +1214,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__810e987ecd3d4c4abb05fa5393cdd6cae64a7a7c2b526a2abd1c5086cf703793)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userType", value)
 
     @builtins.property
     @jsii.member(jsii_name="website")
@@ -1224,7 +1227,7 @@ class CfnUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__921f82f7eea54d7e0e8a9cf502ce4c31968cb9144304f27f6ac6fcd0efb6ddcf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "website", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "website", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_identitystore.CfnUser.AddressesItemsProperty",

@@ -187,6 +187,7 @@ class CfnMonitor(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -260,7 +261,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e322d44376a19c92cbb57448249fbd6743ef2029acb5ba3c305096a6864eb8f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitorName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitorName", value)
 
     @builtins.property
     @jsii.member(jsii_name="aggregationPeriod")
@@ -273,7 +274,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c64184b589f3340850d3ee7f2a5a37958ff23c484d62174a3c9fcbfa50ba148e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "aggregationPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "aggregationPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -289,7 +290,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d328784c5c619237cb7a9a210ca3934769a878b90d2199dc0c70768cc0e337c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(

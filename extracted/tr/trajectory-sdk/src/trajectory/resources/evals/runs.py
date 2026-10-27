@@ -7,7 +7,7 @@ from typing import Any, Iterable, Literal
 
 import httpx2
 
-from trajectory._base_client import SyncPage, make_request_options, path_template
+from trajectory._base_client import SyncPage, make_request_options, path_template, serialize_header
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
 from trajectory._types import Headers, NotGiven, Omit, not_given, omit
@@ -192,6 +192,55 @@ class Runs(APIResource):
       ),
     )
 
+  def resume(
+    self,
+    run_id: str,
+    *,
+    idempotency_key: str,
+    retry_policy: str | Omit = omit,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> EvalRun:
+    """Resume a failed or cancelled evaluation, preserving its scored results and evaluation
+    ID.
+
+    Args:
+      idempotency_key: Required. Reuse the same key when retrying this recovery request.
+
+      extra_headers: Send extra headers
+
+      extra_query: Add additional query parameters to the request
+
+      extra_body: Add additional JSON properties to the request
+
+      timeout: Override the client-level default timeout for this request, in seconds
+    """
+    if isinstance(run_id, str) and not run_id:
+      raise ValueError(f"Expected a non-empty value for `run_id` but received {run_id!r}")
+    return self._post(
+      path_template(
+        "/api/v1/eval/{run_id}/resume",
+        run_id=run_id,
+      ),
+      cast_to=EvalRun,
+      options=make_request_options(
+        params=maybe_transform(
+          {
+            "retry_policy": retry_policy,
+          }
+        ),
+        headers={
+          "Idempotency-Key": serialize_header(idempotency_key),
+        },
+        extra_headers=extra_headers,
+        extra_query=extra_query,
+        extra_body=extra_body,
+        timeout=timeout,
+      ),
+    )
+
   def progress(
     self,
     run_id: str,
@@ -272,5 +321,6 @@ class RunsWithRawResponse:
     self.retrieve = to_raw_response_wrapper(resource.retrieve)
     self.delete = to_raw_response_wrapper(resource.delete)
     self.cancel = to_raw_response_wrapper(resource.cancel)
+    self.resume = to_raw_response_wrapper(resource.resume)
     self.progress = to_raw_response_wrapper(resource.progress)
     self.retrieve_rollout_statistics = to_raw_response_wrapper(resource.retrieve_rollout_statistics)

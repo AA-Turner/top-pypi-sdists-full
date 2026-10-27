@@ -50,6 +50,22 @@ def _find_repo_root() -> Path:
     return Path(__file__).parent.parent.parent.parent
 
 
+def _run_build_steps(
+    steps: list[tuple[str, list[str], dict[str, str] | None]],
+    repo_root: Path,
+) -> None:
+    """Run build steps in order, aborting on the first failure."""
+    for description, cmd, env in steps:
+        console.print(f"  [dim]→[/dim] {description}...")
+        result = subprocess.run(cmd, cwd=repo_root, env=env)
+        if result.returncode != 0:
+            console.print(
+                f"[bold red]Error:[/bold red] {description} failed "
+                f"(exit {result.returncode})"
+            )
+            raise SystemExit(result.returncode)
+
+
 def _find_dist_dir() -> Path:
     """Locate the renderer dist directory relative to the repo root."""
     return _find_repo_root() / "renderer" / "dist"
@@ -455,13 +471,6 @@ def build_docs() -> None:
     repo_root = _find_repo_root()
     build_dir = repo_root / "tools"
 
-    if not shutil.which("npx"):
-        console.print(
-            "[bold red]Error:[/bold red] [cyan]npx[/cyan] not found. "
-            "Install Node.js to use this command."
-        )
-        raise SystemExit(1)
-
     tailwind_env = {
         **os.environ,
         "NODE_PATH": str(repo_root / "renderer" / "node_modules"),
@@ -481,7 +490,16 @@ def build_docs() -> None:
         steps.append(
             (
                 "Installing renderer dependencies",
-                ["npm", "install", "--prefix", str(renderer_dir)],
+                ["npm", "ci", "--prefix", str(renderer_dir)],
+                None,
+            )
+        )
+
+    if should_install_node_deps(build_dir):
+        steps.append(
+            (
+                "Installing documentation build dependencies",
+                ["npm", "ci", "--prefix", str(build_dir)],
                 None,
             )
         )
@@ -498,8 +516,6 @@ def build_docs() -> None:
     else:
         console.print("  [dim]→[/dim] Renderer up to date, skipping")
         copy_renderer = False
-
-    rebuild_playground = should_rebuild_playground(repo_root)
 
     steps += [
         (
@@ -520,9 +536,13 @@ def build_docs() -> None:
         (
             "Building Tailwind CSS",
             [
-                "npx",
-                "--yes",
-                "@tailwindcss/cli@4",
+                "npm",
+                "exec",
+                "--prefix",
+                str(build_dir),
+                "--no",
+                "--",
+                "tailwindcss",
                 "-i",
                 str(build_dir / "input.css"),
                 "-o",
@@ -541,7 +561,22 @@ def build_docs() -> None:
             ["uv", "run", str(build_dir / "extract_examples.py")],
             None,
         ),
+        (
+            "Compiling theme presets",
+            ["uv", "run", str(build_dir / "generate_theme_presets.py")],
+            None,
+        ),
     ]
+
+    # The steps above write bundle.json, examples.json, and themes.json into
+    # renderer/src, which is exactly what should_rebuild_playground() hashes.
+    # Deciding before they run compares against stale content — a change that
+    # only touched a Python theme would regenerate themes.json but skip the
+    # playground build, leaving docs/playground.html behind.
+    _run_build_steps(steps, repo_root)
+
+    rebuild_playground = should_rebuild_playground(repo_root)
+    steps = []
 
     if rebuild_playground:
         steps.append(
@@ -562,14 +597,7 @@ def build_docs() -> None:
         ),
     )
 
-    for description, cmd, env in steps:
-        console.print(f"  [dim]→[/dim] {description}...")
-        result = subprocess.run(cmd, cwd=repo_root, env=env)
-        if result.returncode != 0:
-            console.print(
-                f"[bold red]Error:[/bold red] {description} failed (exit {result.returncode})"
-            )
-            raise SystemExit(result.returncode)
+    _run_build_steps(steps, repo_root)
 
     # Always ensure docs/ has the renderer files, even when the source
     # hasn't changed.  The chunks are gitignored, so a fresh clone or
@@ -631,9 +659,7 @@ def build_renderers() -> None:
 
     if should_install_node_deps(renderer_dir):
         console.print("  [dim]→[/dim] Installing renderer dependencies...")
-        r = subprocess.run(
-            ["npm", "install", "--prefix", str(renderer_dir)], cwd=repo_root
-        )
+        r = subprocess.run(["npm", "ci", "--prefix", str(renderer_dir)], cwd=repo_root)
         if r.returncode != 0:
             raise SystemExit(r.returncode)
 
@@ -674,6 +700,11 @@ def build_playground() -> None:
         (
             "Extracting playground examples",
             ["uv", "run", str(build_dir / "extract_examples.py")],
+            None,
+        ),
+        (
+            "Compiling theme presets",
+            ["uv", "run", str(build_dir / "generate_theme_presets.py")],
             None,
         ),
         (

@@ -251,7 +251,8 @@ def test_opening_details_and_resuming_retains_the_original_job_id(monkeypatch, j
             assert {job["id"] for job in jobs}.issubset({value for _, value in _choices(choices)})
             return target["id"]
         if title == target["label"]:
-            assert target["id"] in text and target["log_path"] in text
+            # No job id or log path on the page (`c` copies the path).
+            assert target["id"] not in text and target["log_path"] not in text
             assert "One approved file is still pending." in text
             if not resumed:
                 assert any(value is ui.Navigation.RESUME for _, value in _choices(choices))

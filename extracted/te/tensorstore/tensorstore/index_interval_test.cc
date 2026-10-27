@@ -301,6 +301,18 @@ TEST(IndexIntervalTest, IntersectOptionallyImplicit) {
                false, false},
           OIII{IndexInterval::UncheckedClosed(0, 10), true, true}),
       ::testing::Eq(OIII{IndexInterval::UncheckedClosed(0, 10), true, true}));
+
+  // Disjoint intervals: implicit_upper should come from the smaller
+  // inclusive_max, and Intersect should be commutative.
+  {
+    const OIII a{IndexInterval::UncheckedClosed(0, 1), false, false};
+    const OIII b{IndexInterval::UncheckedClosed(5, 9), false, true};
+    EXPECT_EQ(Intersect(a, b), Intersect(b, a));
+    EXPECT_FALSE(Intersect(a, b).implicit_upper());
+    EXPECT_THAT(
+        Intersect(a, b),
+        ::testing::Eq(OIII{IndexInterval::UncheckedSized(5, 0), false, false}));
+  }
 }
 
 TEST(IndexIntervalTest, IntersectPreferringExplicit) {
@@ -1119,6 +1131,43 @@ TEST(ComputeStridedSliceMapTest, SliceError) {
                   /*stop_or_size=*/8,
                   /*stride=*/1, &new_domain, &output_offset),
               StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST(ComputeStridedSliceMapTest, TranslationOffsetOverflow) {
+  OptionallyImplicitIndexInterval new_domain;
+  Index output_offset;
+  EXPECT_THAT(ComputeStridedSliceMap(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedSized(0, 10), false, false},
+                  IntervalForm::sized,
+                  /*translate_origin_to=*/1000000000000LL,
+                  /*start=*/0,
+                  /*stop_or_size=*/1,
+                  /*stride=*/1000000000000LL, &new_domain, &output_offset),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Integer overflow computing slice offset")));
+  EXPECT_THAT(ComputeStridedSliceMap(
+                  OptionallyImplicitIndexInterval{
+                      IndexInterval::UncheckedClosed(0, 10), false, false},
+                  IntervalForm::sized,
+                  /*translate_origin_to=*/kMaxFiniteIndex,
+                  /*start=*/0,
+                  /*stop_or_size=*/1,
+                  /*stride=*/4, &new_domain, &output_offset),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Integer overflow computing slice offset")));
+  EXPECT_THAT(
+      ComputeStridedSliceMap(
+          OptionallyImplicitIndexInterval{
+              IndexInterval::UncheckedClosed(-kMaxFiniteIndex, kMaxFiniteIndex),
+              false, false},
+          IntervalForm::sized,
+          /*translate_origin_to=*/-kMaxFiniteIndex,
+          /*start=*/kMaxFiniteIndex,
+          /*stop_or_size=*/1,
+          /*stride=*/2, &new_domain, &output_offset),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Integer overflow computing slice offset")));
 }
 
 TEST(GetAffineTransformDomainTest, Divisor1) {

@@ -242,6 +242,7 @@ class CfnInvestigationGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -326,7 +327,7 @@ class CfnInvestigationGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__68d7a3472d5ddc810dbc073636686c470b0fe6568b144fc7473b578e828715b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="chatbotNotificationChannels")
@@ -344,7 +345,7 @@ class CfnInvestigationGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5db4331534a87e764a8534aad930983f78144efc39dc99f450b39b9adabfe898)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "chatbotNotificationChannels", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "chatbotNotificationChannels", value)
 
     @builtins.property
     @jsii.member(jsii_name="crossAccountConfigurations")
@@ -362,7 +363,7 @@ class CfnInvestigationGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cab3f68c7637d356559913c4b9be139738c64bd676003ea2810dd4ddafef47e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "crossAccountConfigurations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "crossAccountConfigurations", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfig")
@@ -380,7 +381,7 @@ class CfnInvestigationGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7f51c34e4f09d967ae3c411a2743d3d857ce2c925f1d1b67c9152dd736522694)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="investigationGroupPolicy")
@@ -393,7 +394,7 @@ class CfnInvestigationGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a878340860e2c35de4d03b82df1e97245d5f40120fa110076a32f436fd31ddaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "investigationGroupPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "investigationGroupPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="isCloudTrailEventHistoryEnabled")
@@ -411,7 +412,7 @@ class CfnInvestigationGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8fc3a119f870dceec4d1a3ba5b4f84971973ad9c990d3aa7c5bb5e2ff0005cba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "isCloudTrailEventHistoryEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "isCloudTrailEventHistoryEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="retentionInDays")
@@ -424,7 +425,7 @@ class CfnInvestigationGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fb70ecd162c324b07d0ae455e2881185c11d02912ce9513cd8fd61e7de3c054c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "retentionInDays", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "retentionInDays", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -437,7 +438,7 @@ class CfnInvestigationGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3eb82bc9999595315778658f89b708e57ad701088d012c3391ce1a4e6721195)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagKeyBoundaries")
@@ -453,7 +454,7 @@ class CfnInvestigationGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__847e58d896c672f6db334949abc5da531a40f943b791ff6c76da0751ee7be4ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagKeyBoundaries", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagKeyBoundaries", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -469,7 +470,7 @@ class CfnInvestigationGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__58e4b2d8c71fc2670bc24a5f274e0134fae9ffd7aeca95db0fed9e2d974499f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_aiops.CfnInvestigationGroup.ChatbotNotificationChannelProperty",

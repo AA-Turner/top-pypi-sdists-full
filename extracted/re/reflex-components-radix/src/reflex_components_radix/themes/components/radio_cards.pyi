@@ -18,7 +18,6 @@ class RadioCardsRoot(RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         size: Breakpoints[str, Literal["1", "2", "3"]]
         | Literal["1", "2", "3"]
         | Var[Breakpoints[str, Literal["1", "2", "3"]] | Literal["1", "2", "3"]]
@@ -154,7 +153,6 @@ class RadioCardsRoot(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior.
             size: The size of the checkbox cards: "1" | "2" | "3"
             variant: Variant of button: "classic" | "surface" | "soft"
             color_scheme: Override theme color for button
@@ -203,7 +201,6 @@ class RadioCardsItem(RadixThemesComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         value: Var[str] | str | None = None,
         disabled: Var[bool] | bool | None = None,
         required: Var[bool] | bool | None = None,
@@ -242,7 +239,6 @@ class RadioCardsItem(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            as_child: Change the default rendered element for the one passed as a child, merging their props and behavior.
             value: The value given as data when submitted with a name.
             disabled: When true, prevents the user from interacting with the radio item.
             required: When true, indicates that the user must check the radio item before the owning form can be submitted.

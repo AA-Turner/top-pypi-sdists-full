@@ -132,10 +132,11 @@ class GridColumn(TypedDict):
     title: str
     group: str | None
 
+_COLUMN_DEFAULTS_JS = '(col) => typeof col === "string" ? { title: col, id: col.toLowerCase(), type: "str" } : { type: "str", id: (col.title ?? "").toLowerCase(), ...col }'
+
 class DataEditor(NoSSRComponent):
     def add_imports(self) -> ImportDict: ...
     def add_custom_code(self) -> list[str]: ...
-    def add_hooks(self) -> list[str]: ...
     @classmethod
     def create(
         cls,
@@ -258,6 +259,12 @@ class DataEditor(NoSSRComponent):
     ) -> DataEditor:
         """Create the DataEditor component.
 
+        The column defaults and the ``getCellContent`` callback are settled here:
+        a state-backed column list is mapped through the defaults in a ``useMemo``
+        keyed on it, and the callback is a ``useCallback`` over the columns and
+        data, so neither is rebuilt by a render that changes something else. Both
+        hooks ride on the vars assigned to the props.
+
         Args:
             *children: The children of the data editor.
             extended_cell_types: Whether to enable extended cell types.
@@ -344,7 +351,7 @@ class DataEditor(NoSSRComponent):
             **props: The props of the data editor.
 
         Returns:
-            The DataEditor component.&
+            The DataEditor component.
 
         Raises:
             ValueError: invalid input.

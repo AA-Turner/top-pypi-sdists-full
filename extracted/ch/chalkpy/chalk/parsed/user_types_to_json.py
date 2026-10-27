@@ -126,6 +126,18 @@ def get_registered_types(scope_to: Path, failed: List[FailedImport]) -> UpsertGr
             # Not an LSP error, so log it as a failed import
             failed.append(build_failed_import(e, "validation"))
 
+    # Validated here too, so `chalk lint` reports a view's feature errors.
+    from chalk.parsed.validate_materialized_feature_views import validate_materialized_feature_view_from_registries
+    from chalk.queries.materialized_feature_view import MATERIALIZED_FEATURE_VIEW_REGISTRY
+
+    for ns, view in MATERIALIZED_FEATURE_VIEW_REGISTRY.items():
+        if not _is_relative_to(Path(view.filename), scope_to):
+            continue
+        errors = validate_materialized_feature_view_from_registries(view, FeatureSetBase.registry)  # type: ignore[arg-type]
+        # Under the LSP these are already diagnostics; adding them to `failed` would show each one twice.
+        if errors and not LSPErrorBuilder.lsp:
+            failed.append(build_failed_import("\n".join(errors), f"materialized feature view for namespace '{ns}'"))
+
     features = []
     feature_classes: list[FeatureClassGQL] = []
     for x in FeatureSetBase.registry.values():

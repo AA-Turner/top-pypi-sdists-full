@@ -387,6 +387,10 @@ class RunConversation:
     def opened(self) -> bool:
         return self._opened
 
+    def messages(self) -> list[Any]:
+        """Every message of the conversation so far (stored history + recorded turns)."""
+        return list(self._request.config.messages.to_list())
+
     @classmethod
     async def resume(
         cls,
@@ -434,8 +438,13 @@ class RunConversation:
         response_payload: Any = None,
         error: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
+        answer_metadata: dict[str, Any] | None = None,
     ) -> RunHistoryRecord:
-        """Append one turn and write it. Raises on failure (the caller reports)."""
+        """Append one turn and write it. Raises on failure (the caller reports).
+
+        ``answer_metadata`` lands on the answer's message row (``chat.message.metadata``),
+        as a caller's own ``user_messages`` carry theirs.
+        """
         from matrx_ai.config.message_config import UnifiedMessage
         from matrx_ai.config.send_boundary import config_with_messages
         from matrx_ai.config.unified_config import UnifiedResponse
@@ -446,7 +455,13 @@ class RunConversation:
             prior = self._request.config.messages.to_list()
             trigger = len(prior)
             answer = (
-                [UnifiedMessage(role="assistant", content=[TextContent(text=output_text)])]
+                [
+                    UnifiedMessage(
+                        role="assistant",
+                        content=[TextContent(text=output_text)],
+                        metadata=dict(answer_metadata or {}),
+                    )
+                ]
                 if output_text
                 else []
             )

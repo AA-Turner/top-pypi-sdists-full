@@ -182,6 +182,7 @@ class CfnReplicationSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -235,7 +236,7 @@ class CfnReplicationSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__401a825f2f64c7f43aa191b445089e3f05c7d604910b0cc21cc3247482fe6b87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "regions", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtected")
@@ -253,7 +254,7 @@ class CfnReplicationSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f7e80c63bdb3a34f34a60cf2c6007569f91534c850e3e0d5ff81971357b84ceb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtected", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtected", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -269,7 +270,7 @@ class CfnReplicationSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__62a5418c191d29d34460607507ddfc1db20d9c238a6e3b7c23836c5d8567bb40)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ssmincidents.CfnReplicationSet.RegionConfigurationProperty",
@@ -684,6 +685,7 @@ class CfnResponsePlan(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -735,7 +737,7 @@ class CfnResponsePlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e67df9fc5f3bc8a61eba460486268c2c30023ad53d6df8e842d3e8b9ac30f560)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "incidentTemplate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "incidentTemplate", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -748,7 +750,7 @@ class CfnResponsePlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f6fe96bb67a2e8cf9ed17081e87dca9b4bae9a758917b8dc0c7acfcecd3f893f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="actions")
@@ -766,7 +768,7 @@ class CfnResponsePlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__21ea09daad5c83e024acec967aa141ed17ccce42e9d540fa2d93ad1d5379263e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actions", value)
 
     @builtins.property
     @jsii.member(jsii_name="chatChannel")
@@ -784,7 +786,7 @@ class CfnResponsePlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6cbfd7d3814daad0dc87b791c72d2771e6378248e15dd3bf357c8fc4b21c57c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "chatChannel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "chatChannel", value)
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -797,7 +799,7 @@ class CfnResponsePlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__30e30c0e28ba8f439d0666b7dfd674405b7f48030e42b5e40a5a65458c871ef4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "displayName", value)
 
     @builtins.property
     @jsii.member(jsii_name="engagements")
@@ -810,7 +812,7 @@ class CfnResponsePlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db6ceae0448f92b2a658f4a70b7f889fdb3428c27edf13356b892df77b3df235)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engagements", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engagements", value)
 
     @builtins.property
     @jsii.member(jsii_name="integrations")
@@ -828,7 +830,7 @@ class CfnResponsePlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__93c4aa71c3c7f4abe746fbb2734c882efd5991921a3de24b0ce273912c0a08ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "integrations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "integrations", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -844,7 +846,7 @@ class CfnResponsePlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__69a7be8bb00155310a6bb2a10f552ccab7e10314dc530559615d33902b53b2c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ssmincidents.CfnResponsePlan.ActionProperty",

@@ -458,6 +458,7 @@ class CfnAggregationAuthorization(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -506,7 +507,7 @@ class CfnAggregationAuthorization(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd3558b66422be906f2e97b3cadb6ab3aff487b0ae706aa3e5e5cb5e361a5db2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authorizedAccountId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "authorizedAccountId", value)
 
     @builtins.property
     @jsii.member(jsii_name="authorizedAwsRegion")
@@ -519,7 +520,7 @@ class CfnAggregationAuthorization(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0ec985b949ac5925a51ebe338acec25ecef0e6592afa79374fef259e6fef4198)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authorizedAwsRegion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "authorizedAwsRegion", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -535,7 +536,7 @@ class CfnAggregationAuthorization(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2acb4bb46d29ee80a30777200253cd46f769127ae01597fbc2e951064ea932d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -811,6 +812,7 @@ class CfnConfigRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -869,7 +871,7 @@ class CfnConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d61437c3cdab85e8dc7a25b710d93b6aaaa2a833466cfb80eb3d13340c62da3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inputParameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "inputParameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="source")
@@ -887,7 +889,7 @@ class CfnConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a30b5901e0068cf18be7f15f8558e224eb62559802cd26646f648c0dbf5f3680)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "source", value)
 
     @builtins.property
     @jsii.member(jsii_name="compliance")
@@ -905,7 +907,7 @@ class CfnConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__743f9ee6243708ed2e606e31e618af32604f35d387093cdc8d8634e961b27324)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "compliance", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "compliance", value)
 
     @builtins.property
     @jsii.member(jsii_name="configRuleName")
@@ -918,7 +920,7 @@ class CfnConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e021e024fd440e8ec5c9b4d24e2029d1629640189c221a5866e301e89aa53b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configRuleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configRuleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -931,7 +933,7 @@ class CfnConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__446b3dad0fdf8c8a9449d165e2fed6fa45c11495397d8cfdaf24ac1368e14962)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="evaluationModes")
@@ -949,7 +951,7 @@ class CfnConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3563e34d09c0fb5a803e72a8cee06c0ed65b4c596390bf75303600bfd5df9f44)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluationModes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "evaluationModes", value)
 
     @builtins.property
     @jsii.member(jsii_name="maximumExecutionFrequency")
@@ -962,7 +964,7 @@ class CfnConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c19facad0744d2d150810a1e9fb83a8d41c5447083981222c737ba287c7d08f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maximumExecutionFrequency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maximumExecutionFrequency", value)
 
     @builtins.property
     @jsii.member(jsii_name="scope")
@@ -980,7 +982,7 @@ class CfnConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c70fa274e56c5def397aac6cec3b30f31c7ee9cc7367d5b6bf0c78e63400ca24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scope", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnConfigRule.ComplianceProperty",
@@ -1905,6 +1907,7 @@ class CfnConfigurationAggregator(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1958,7 +1961,7 @@ class CfnConfigurationAggregator(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca6667d76e5d18c00525f2f2e305db803462801d9dd67cb2cc46951b67b7e1c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountAggregationSources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accountAggregationSources", value)
 
     @builtins.property
     @jsii.member(jsii_name="configurationAggregatorName")
@@ -1974,7 +1977,7 @@ class CfnConfigurationAggregator(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d5d468f6c23924787d592b321e6a582b8ee2144e5dc7e23a15626d783a2637da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configurationAggregatorName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configurationAggregatorName", value)
 
     @builtins.property
     @jsii.member(jsii_name="organizationAggregationSource")
@@ -1992,7 +1995,7 @@ class CfnConfigurationAggregator(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__adc51ade0f3204fdf6726c1ef680ca92c25055c195dce6a07df154db27d4c155)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "organizationAggregationSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "organizationAggregationSource", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2008,7 +2011,7 @@ class CfnConfigurationAggregator(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e3d290ef49845b3910d8dfd1137db37b79d04caa1266e44513db09527493d2da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnConfigurationAggregator.AccountAggregationSourceProperty",
@@ -2461,6 +2464,7 @@ class CfnConfigurationRecorder(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2503,7 +2507,7 @@ class CfnConfigurationRecorder(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fcbc5734beaea5ab983c66a385694785e3c9ee7351911d6b565ea4e897a7826e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2519,7 +2523,7 @@ class CfnConfigurationRecorder(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c2a1c68bd9cad77de81d8251d2998854170a63f9e469e6bdea9a9e56f75e6622)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="recordingGroup")
@@ -2537,7 +2541,7 @@ class CfnConfigurationRecorder(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0e1878a10e77a1aa31c809535803af7748be10257943ccb0147e9c0839dda938)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recordingGroup", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recordingGroup", value)
 
     @builtins.property
     @jsii.member(jsii_name="recordingMode")
@@ -2558,7 +2562,7 @@ class CfnConfigurationRecorder(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__79c601a52da19c88133151b63852ca6a6ba71894cd962c2e118e75d604e83fe5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recordingMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recordingMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="startedOnCreate")
@@ -2576,7 +2580,7 @@ class CfnConfigurationRecorder(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9c3d623dafef61fd8e6e84f90f531d6ac59f667e1f08fc3cc9404711bd1b02a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "startedOnCreate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "startedOnCreate", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnConfigurationRecorder.ExclusionByResourceTypesProperty",
@@ -3521,6 +3525,7 @@ class CfnConformancePack(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3567,7 +3572,7 @@ class CfnConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__017266c6d2336c47dd9ced678b7f1432f1d8c14f7d6c1fa5d4e1b853ea226215)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "conformancePackName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "conformancePackName", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateSsmDocumentDetails")
@@ -3580,7 +3585,7 @@ class CfnConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d6f6517778467c160ab2997b6792fb457789ecbb58da9204e3c4a9e8d1b789ed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateSsmDocumentDetails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateSsmDocumentDetails", value)
 
     @builtins.property
     @jsii.member(jsii_name="conformancePackInputParameters")
@@ -3598,7 +3603,7 @@ class CfnConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66a3c1376d21fbc61cfccda9673dabefb2864004881e13f61c2450d58f726d02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "conformancePackInputParameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "conformancePackInputParameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="deliveryS3Bucket")
@@ -3611,7 +3616,7 @@ class CfnConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8e9ac9dd0b9bfb5622779dff282ea562c91d27ddf6529b24e403f4405f47b8ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deliveryS3Bucket", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deliveryS3Bucket", value)
 
     @builtins.property
     @jsii.member(jsii_name="deliveryS3KeyPrefix")
@@ -3624,7 +3629,7 @@ class CfnConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__efa81031141bc30ac68f2881e9910f55d05494d80263ec0832f9c3b4cfa72355)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deliveryS3KeyPrefix", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deliveryS3KeyPrefix", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3640,7 +3645,7 @@ class CfnConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02a8aa042e48725a38e8f1abc2f7884120603e878d4de78006c6530bb4428d14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateBody")
@@ -3653,7 +3658,7 @@ class CfnConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e35eeba4feaded039ed05fa15d28eda7714d806f9cc117a1a4e2a9b4ee39433)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateBody", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateBody", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateS3Uri")
@@ -3666,7 +3671,7 @@ class CfnConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b029ab96d5271df83bfd4de01aeaa0b8d0647c023edcc97787666ca457aa18a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateS3Uri", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateS3Uri", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnConformancePack.ConformancePackInputParameterProperty",
@@ -4137,6 +4142,7 @@ class CfnConnector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4208,7 +4214,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__61918c7b1808238b535e8789165e382e9ba268d216e2234f0ebf122185c405eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectorConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectorConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4224,7 +4230,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__663ebab465463ed0eee0abef7b37f1a19651e5f5aa2c6f8455fd731c287de333)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnConnector.AzureConnectorConfigurationProperty",
@@ -4575,6 +4581,7 @@ class CfnDeliveryChannel(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4606,7 +4613,7 @@ class CfnDeliveryChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__12454c1d1b821f4416cba3de981294f5dbd46e9d821e3996f737b570da3a9428)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3BucketName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "s3BucketName", value)
 
     @builtins.property
     @jsii.member(jsii_name="configSnapshotDeliveryProperties")
@@ -4624,7 +4631,7 @@ class CfnDeliveryChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__29732799858d5a51a49b644a23b9487d8a731f17a76776d46c2a417f67da3159)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configSnapshotDeliveryProperties", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configSnapshotDeliveryProperties", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4637,7 +4644,7 @@ class CfnDeliveryChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1c1e8db307d687d985abe819d5a1478a0354508356913373a8ad756e39975e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="s3KeyPrefix")
@@ -4650,7 +4657,7 @@ class CfnDeliveryChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0e52266b167ad8133727ace537e117b4211b9b1601117d67caf7806c3954ef7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3KeyPrefix", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "s3KeyPrefix", value)
 
     @builtins.property
     @jsii.member(jsii_name="s3KmsKeyArn")
@@ -4663,7 +4670,7 @@ class CfnDeliveryChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__004463c97f710f28b3097f13305e10414949a4af5d0c981486867fd7166ee1f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3KmsKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "s3KmsKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="snsTopicArn")
@@ -4676,7 +4683,7 @@ class CfnDeliveryChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3ec3498b9deb557429daadb315089fa9733a0d0a1516f9379188370be46f7f5d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snsTopicArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snsTopicArn", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnDeliveryChannel.ConfigSnapshotDeliveryPropertiesProperty",
@@ -5078,6 +5085,7 @@ class CfnOrganizationConfigRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5120,7 +5128,7 @@ class CfnOrganizationConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__22e78630a330158f7539628357991f18a40deeba1fd6717ad961c7b74d3e220a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "organizationConfigRuleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "organizationConfigRuleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="excludedAccounts")
@@ -5136,7 +5144,7 @@ class CfnOrganizationConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e24ca951119404bbb132d0e9fc6bac7e6de317bfd3583fa6527330cb5d68d99a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "excludedAccounts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "excludedAccounts", value)
 
     @builtins.property
     @jsii.member(jsii_name="organizationCustomPolicyRuleMetadata")
@@ -5154,7 +5162,7 @@ class CfnOrganizationConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d092f1b41cbf019a6c2f797b420e8cb6cce29c52a1fb671c69086ff9b8083246)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "organizationCustomPolicyRuleMetadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "organizationCustomPolicyRuleMetadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="organizationCustomRuleMetadata")
@@ -5172,7 +5180,7 @@ class CfnOrganizationConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c45ab894736dadec9d2a359d9fb78b8cce28027988ec287fb21ff6deaac97ea7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "organizationCustomRuleMetadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "organizationCustomRuleMetadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="organizationManagedRuleMetadata")
@@ -5190,7 +5198,7 @@ class CfnOrganizationConfigRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__afcd0c2707f5eb2640b1df26b94e2a0dc017a9171de66ccba46831ec339d624b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "organizationManagedRuleMetadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "organizationManagedRuleMetadata", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnOrganizationConfigRule.OrganizationCustomPolicyRuleMetadataProperty",
@@ -6131,6 +6139,7 @@ class CfnOrganizationConformancePack(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6179,7 +6188,7 @@ class CfnOrganizationConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cea7f4b86b4812225b1fd37ba822b06ca4f8bd2b4a689d8f0e20d4123126e765)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "organizationConformancePackName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "organizationConformancePackName", value)
 
     @builtins.property
     @jsii.member(jsii_name="conformancePackInputParameters")
@@ -6197,7 +6206,7 @@ class CfnOrganizationConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__159adc773b03fcb350f20741e9412fc5c36ec7df507a92c7262d5956c971d644)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "conformancePackInputParameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "conformancePackInputParameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="deliveryS3Bucket")
@@ -6210,7 +6219,7 @@ class CfnOrganizationConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a94f3e9391cd9ccab63b3545ca2965f2b81da196ec3ed606dc2485e2d2bbba60)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deliveryS3Bucket", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deliveryS3Bucket", value)
 
     @builtins.property
     @jsii.member(jsii_name="deliveryS3KeyPrefix")
@@ -6223,7 +6232,7 @@ class CfnOrganizationConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0ae88516decc5ecfaa94d5667954693ac8954509566cfdc6d9a34f01c9b4c99d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deliveryS3KeyPrefix", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deliveryS3KeyPrefix", value)
 
     @builtins.property
     @jsii.member(jsii_name="excludedAccounts")
@@ -6239,7 +6248,7 @@ class CfnOrganizationConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__febab378993c1407f9ee864835af34497e5cfa444855d849d7a49b108cdac530)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "excludedAccounts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "excludedAccounts", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6255,7 +6264,7 @@ class CfnOrganizationConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5392cc09524ccb548789da58731b839852a9a539b00f1af8aa9ac9f716e5e187)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateBody")
@@ -6268,7 +6277,7 @@ class CfnOrganizationConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d860cd3b0fe658d27c522bab37bf76c633dcd9da0ecbb8f7f0f2f92015a535a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateBody", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateBody", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateS3Uri")
@@ -6281,7 +6290,7 @@ class CfnOrganizationConformancePack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e88d12b7509e23789f96b51f072d3f7653802810b5db55480548e0a7bb433046)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateS3Uri", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateS3Uri", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnOrganizationConformancePack.ConformancePackInputParameterProperty",
@@ -6683,6 +6692,7 @@ class CfnRemediationConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6716,7 +6726,7 @@ class CfnRemediationConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aec925175a5fdb6367c84a01b084043a639caa8c4046c1a46694ae861ddbfeec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configRuleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configRuleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
@@ -6732,7 +6742,7 @@ class CfnRemediationConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__791d50036178abe388db7c3245e225f2e7ae9d06d20e7b2503c60ea3460eb769)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "parameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetId")
@@ -6745,7 +6755,7 @@ class CfnRemediationConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__728a3fb0792a163b0d41711a1026e997d23c3bab737c4d3fc401219d2e69a7c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetId", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetType")
@@ -6758,7 +6768,7 @@ class CfnRemediationConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8693bd26f1e00cf82d388d4d0c6a4d195b1e165878b4d05bd62ebfe3dd4c25b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetType", value)
 
     @builtins.property
     @jsii.member(jsii_name="automatic")
@@ -6776,7 +6786,7 @@ class CfnRemediationConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7a612c6be9716c299f22f0fc2b57c084a7cafde2f9ec8ebed4b31decea797bb9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "automatic", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "automatic", value)
 
     @builtins.property
     @jsii.member(jsii_name="executionControls")
@@ -6794,7 +6804,7 @@ class CfnRemediationConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__923c16d43d84ed6ed11e372e8cd76942cbebbe48641cade38fc40a0c5b8a7f12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionControls", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionControls", value)
 
     @builtins.property
     @jsii.member(jsii_name="maximumAutomaticAttempts")
@@ -6810,7 +6820,7 @@ class CfnRemediationConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5714155a99562d59349d9e442fb9b95dde4b3edc8e0c0c6ed79babb5d6067731)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maximumAutomaticAttempts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maximumAutomaticAttempts", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceType")
@@ -6823,7 +6833,7 @@ class CfnRemediationConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07705cb1e720ab1182823f69be5c3be2ef6f68a41b55f739f5df8c1a9c30deff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceType", value)
 
     @builtins.property
     @jsii.member(jsii_name="retryAttemptSeconds")
@@ -6836,7 +6846,7 @@ class CfnRemediationConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a02058d16a54cc526726991d338a7198653ae37da9de8b8e8aa6f724c390148d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "retryAttemptSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "retryAttemptSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetVersion")
@@ -6852,7 +6862,7 @@ class CfnRemediationConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__526beea102f85b306c0a794c0c56ee453c40e4cbf63ae9026fc54ca9079a1d84)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetVersion", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_config.CfnRemediationConfiguration.ExecutionControlsProperty",
@@ -7526,6 +7536,7 @@ class CfnStoredQuery(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7583,7 +7594,7 @@ class CfnStoredQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__68f07b8140bc1756df33b7349243de220a74acc8b22b3147e10df17d805bc46e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queryExpression", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queryExpression", value)
 
     @builtins.property
     @jsii.member(jsii_name="queryName")
@@ -7596,7 +7607,7 @@ class CfnStoredQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c2d99f1e6f7c25ab75d279f03683a97d527c922ec9fa2631ca2d69a67087d7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queryName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queryName", value)
 
     @builtins.property
     @jsii.member(jsii_name="queryDescription")
@@ -7609,7 +7620,7 @@ class CfnStoredQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8ed15ad66590b2bdac4f3a3adc1b4a104cfd7ec4d8f6cbfbad2588531f9c38b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queryDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queryDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7625,7 +7636,7 @@ class CfnStoredQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1eb31c625f25801e6c38cec9ee395832782b987abddb68d127cc6e79701d2fb8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -7784,18 +7795,21 @@ class EvaluationMode(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DETECTIVE")
+    @builtins.classmethod
     def DETECTIVE(cls) -> "EvaluationMode":
         '''Evaluate resources that have already been deployed.'''
         return typing.cast("EvaluationMode", jsii.sget(cls, "DETECTIVE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DETECTIVE_AND_PROACTIVE")
+    @builtins.classmethod
     def DETECTIVE_AND_PROACTIVE(cls) -> "EvaluationMode":
         '''Evaluate resources that have already been deployed and before they have been deployed.'''
         return typing.cast("EvaluationMode", jsii.sget(cls, "DETECTIVE_AND_PROACTIVE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROACTIVE")
+    @builtins.classmethod
     def PROACTIVE(cls) -> "EvaluationMode":
         '''Evaluate resources before they have been deployed.'''
         return typing.cast("EvaluationMode", jsii.sget(cls, "PROACTIVE"))
@@ -8215,6 +8229,7 @@ class ManagedRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -8271,7 +8286,7 @@ class ManagedRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__04827ab0bb47eedff43c2f84b879e3697cdf9730cbb27993d70bf043fd305d6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "isCustomWithChanges", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "isCustomWithChanges", value)
 
     @builtins.property
     @jsii.member(jsii_name="isManaged")
@@ -8283,7 +8298,7 @@ class ManagedRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__826b91f1363d629c0ed925d90a79b869890a41b6c4114592f18f237ecec2d251)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "isManaged", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "isManaged", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleScope")
@@ -8295,7 +8310,7 @@ class ManagedRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__49514315a00f8eccd0c88567ab6fd7f8fd1f97e7d5382a88e6bb3dd5185d8c9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleScope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleScope", value)
 
 
 class ManagedRuleIdentifiers(
@@ -8331,6 +8346,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACCESS_KEYS_ROTATED")
+    @builtins.classmethod
     def ACCESS_KEYS_ROTATED(cls) -> builtins.str:
         '''Checks whether the active access keys are rotated within the number of days specified in maxAccessKeyAge.
 
@@ -8340,6 +8356,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACCOUNT_PART_OF_ORGANIZATIONS")
+    @builtins.classmethod
     def ACCOUNT_PART_OF_ORGANIZATIONS(cls) -> builtins.str:
         '''Checks whether AWS account is part of AWS Organizations.
 
@@ -8349,6 +8366,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACM_CERTIFICATE_EXPIRATION_CHECK")
+    @builtins.classmethod
     def ACM_CERTIFICATE_EXPIRATION_CHECK(cls) -> builtins.str:
         '''Checks whether ACM Certificates in your account are marked for expiration within the specified number of days.
 
@@ -8358,6 +8376,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALB_DESYNC_MODE_CHECK")
+    @builtins.classmethod
     def ALB_DESYNC_MODE_CHECK(cls) -> builtins.str:
         '''Checks if an Application Load Balancer (ALB) is configured with a user defined desync mitigation mode.
 
@@ -8367,6 +8386,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALB_HTTP_DROP_INVALID_HEADER_ENABLED")
+    @builtins.classmethod
     def ALB_HTTP_DROP_INVALID_HEADER_ENABLED(cls) -> builtins.str:
         '''Checks if rule evaluates Application Load Balancers (ALBs) to ensure they are configured to drop http headers.
 
@@ -8376,6 +8396,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALB_HTTP_TO_HTTPS_REDIRECTION_CHECK")
+    @builtins.classmethod
     def ALB_HTTP_TO_HTTPS_REDIRECTION_CHECK(cls) -> builtins.str:
         '''Checks whether HTTP to HTTPS redirection is configured on all HTTP listeners of Application Load Balancer.
 
@@ -8385,6 +8406,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALB_WAF_ENABLED")
+    @builtins.classmethod
     def ALB_WAF_ENABLED(cls) -> builtins.str:
         '''Checks if Web Application Firewall (WAF) is enabled on Application Load Balancers (ALBs).
 
@@ -8394,6 +8416,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="API_GW_ASSOCIATED_WITH_WAF")
+    @builtins.classmethod
     def API_GW_ASSOCIATED_WITH_WAF(cls) -> builtins.str:
         '''Checks if an Amazon API Gateway API stage is using an AWS WAF Web ACL.
 
@@ -8403,6 +8426,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="API_GW_CACHE_ENABLED_AND_ENCRYPTED")
+    @builtins.classmethod
     def API_GW_CACHE_ENABLED_AND_ENCRYPTED(cls) -> builtins.str:
         '''Checks that all methods in Amazon API Gateway stages have caching enabled and encrypted.
 
@@ -8412,6 +8436,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="API_GW_ENDPOINT_TYPE_CHECK")
+    @builtins.classmethod
     def API_GW_ENDPOINT_TYPE_CHECK(cls) -> builtins.str:
         '''Checks that Amazon API Gateway APIs are of the type specified in the rule parameter endpointConfigurationType.
 
@@ -8421,6 +8446,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="API_GW_EXECUTION_LOGGING_ENABLED")
+    @builtins.classmethod
     def API_GW_EXECUTION_LOGGING_ENABLED(cls) -> builtins.str:
         '''Checks that all methods in Amazon API Gateway stage has logging enabled.
 
@@ -8430,6 +8456,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="API_GW_SSL_ENABLED")
+    @builtins.classmethod
     def API_GW_SSL_ENABLED(cls) -> builtins.str:
         '''Checks if a REST API stage uses an Secure Sockets Layer (SSL) certificate.
 
@@ -8439,6 +8466,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="API_GW_XRAY_ENABLED")
+    @builtins.classmethod
     def API_GW_XRAY_ENABLED(cls) -> builtins.str:
         '''Checks if AWS X-Ray tracing is enabled on Amazon API Gateway REST APIs.
 
@@ -8448,6 +8476,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="API_GWV2_ACCESS_LOGS_ENABLED")
+    @builtins.classmethod
     def API_GWV2_ACCESS_LOGS_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon API Gateway V2 stages have access logging enabled.
 
@@ -8457,6 +8486,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="API_GWV2_AUTHORIZATION_TYPE_CONFIGURED")
+    @builtins.classmethod
     def API_GWV2_AUTHORIZATION_TYPE_CONFIGURED(cls) -> builtins.str:
         '''Checks if Amazon API Gatewayv2 API routes have an authorization type set.
 
@@ -8466,6 +8496,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPROVED_AMIS_BY_ID")
+    @builtins.classmethod
     def APPROVED_AMIS_BY_ID(cls) -> builtins.str:
         '''Checks whether running instances are using specified AMIs.
 
@@ -8475,6 +8506,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPROVED_AMIS_BY_TAG")
+    @builtins.classmethod
     def APPROVED_AMIS_BY_TAG(cls) -> builtins.str:
         '''Checks whether running instances are using specified AMIs.
 
@@ -8484,6 +8516,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AURORA_LAST_BACKUP_RECOVERY_POINT_CREATED")
+    @builtins.classmethod
     def AURORA_LAST_BACKUP_RECOVERY_POINT_CREATED(cls) -> builtins.str:
         '''Checks if a recovery point was created for Amazon Aurora DB clusters.
 
@@ -8493,6 +8526,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AURORA_MYSQL_BACKTRACKING_ENABLED")
+    @builtins.classmethod
     def AURORA_MYSQL_BACKTRACKING_ENABLED(cls) -> builtins.str:
         '''Checks if an Amazon Aurora MySQL cluster has backtracking enabled.
 
@@ -8502,6 +8536,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AURORA_RESOURCES_PROTECTED_BY_BACKUP_PLAN")
+    @builtins.classmethod
     def AURORA_RESOURCES_PROTECTED_BY_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks if Amazon Aurora DB clusters are protected by a backup plan.
 
@@ -8511,6 +8546,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTOSCALING_CAPACITY_REBALANCING")
+    @builtins.classmethod
     def AUTOSCALING_CAPACITY_REBALANCING(cls) -> builtins.str:
         '''Checks if Capacity Rebalancing is enabled for Amazon EC2 Auto Scaling groups that use multiple instance types.
 
@@ -8520,6 +8556,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTOSCALING_GROUP_ELB_HEALTHCHECK_REQUIRED")
+    @builtins.classmethod
     def AUTOSCALING_GROUP_ELB_HEALTHCHECK_REQUIRED(cls) -> builtins.str:
         '''Checks whether your Auto Scaling groups that are associated with a load balancer are using Elastic Load Balancing health checks.
 
@@ -8529,6 +8566,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTOSCALING_LAUNCH_CONFIG_HOP_LIMIT")
+    @builtins.classmethod
     def AUTOSCALING_LAUNCH_CONFIG_HOP_LIMIT(cls) -> builtins.str:
         '''Checks the number of network hops that the metadata token can travel.
 
@@ -8538,6 +8576,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTOSCALING_LAUNCH_CONFIG_PUBLIC_IP_DISABLED")
+    @builtins.classmethod
     def AUTOSCALING_LAUNCH_CONFIG_PUBLIC_IP_DISABLED(cls) -> builtins.str:
         '''Checks if Amazon EC2 Auto Scaling groups have public IP addresses enabled through Launch Configurations.
 
@@ -8547,6 +8586,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTOSCALING_LAUNCH_TEMPLATE")
+    @builtins.classmethod
     def AUTOSCALING_LAUNCH_TEMPLATE(cls) -> builtins.str:
         '''Checks if an Amazon Elastic Compute Cloud (EC2) Auto Scaling group is created from an EC2 launch template.
 
@@ -8556,6 +8596,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTOSCALING_LAUNCHCONFIG_REQUIRES_IMDSV2")
+    @builtins.classmethod
     def AUTOSCALING_LAUNCHCONFIG_REQUIRES_IMDSV2(cls) -> builtins.str:
         '''Checks whether only IMDSv2 is enabled.
 
@@ -8565,6 +8606,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTOSCALING_MULTIPLE_AZ")
+    @builtins.classmethod
     def AUTOSCALING_MULTIPLE_AZ(cls) -> builtins.str:
         '''Checks if the Auto Scaling group spans multiple Availability Zones.
 
@@ -8574,6 +8616,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTOSCALING_MULTIPLE_INSTANCE_TYPES")
+    @builtins.classmethod
     def AUTOSCALING_MULTIPLE_INSTANCE_TYPES(cls) -> builtins.str:
         '''Checks if an Amazon Elastic Compute Cloud (Amazon EC2) Auto Scaling group uses multiple instance types.
 
@@ -8583,6 +8626,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BACKUP_PLAN_MIN_FREQUENCY_AND_MIN_RETENTION_CHECK")
+    @builtins.classmethod
     def BACKUP_PLAN_MIN_FREQUENCY_AND_MIN_RETENTION_CHECK(cls) -> builtins.str:
         '''Checks if a backup plan has a backup rule that satisfies the required frequency and retention period.
 
@@ -8592,6 +8636,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BACKUP_RECOVERY_POINT_ENCRYPTED")
+    @builtins.classmethod
     def BACKUP_RECOVERY_POINT_ENCRYPTED(cls) -> builtins.str:
         '''Checks if a recovery point is encrypted.
 
@@ -8601,6 +8646,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BACKUP_RECOVERY_POINT_MANUAL_DELETION_DISABLED")
+    @builtins.classmethod
     def BACKUP_RECOVERY_POINT_MANUAL_DELETION_DISABLED(cls) -> builtins.str:
         '''Checks if a backup vault has an attached resource-based policy which prevents deletion of recovery points.
 
@@ -8610,6 +8656,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BACKUP_RECOVERY_POINT_MINIMUM_RETENTION_CHECK")
+    @builtins.classmethod
     def BACKUP_RECOVERY_POINT_MINIMUM_RETENTION_CHECK(cls) -> builtins.str:
         '''Checks if a recovery point expires no earlier than after the specified period.
 
@@ -8619,6 +8666,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BEANSTALK_ENHANCED_HEALTH_REPORTING_ENABLED")
+    @builtins.classmethod
     def BEANSTALK_ENHANCED_HEALTH_REPORTING_ENABLED(cls) -> builtins.str:
         '''Checks if an AWS Elastic Beanstalk environment is configured for enhanced health reporting.
 
@@ -8628,6 +8676,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLB_DESYNC_MODE_CHECK")
+    @builtins.classmethod
     def CLB_DESYNC_MODE_CHECK(cls) -> builtins.str:
         '''Checks if Classic Load Balancers (CLB) are configured with a user defined Desync mitigation mode.
 
@@ -8637,6 +8686,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLB_MULTIPLE_AZ")
+    @builtins.classmethod
     def CLB_MULTIPLE_AZ(cls) -> builtins.str:
         '''Checks if a Classic Load Balancer spans multiple Availability Zones (AZs).
 
@@ -8646,6 +8696,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUD_TRAIL_CLOUD_WATCH_LOGS_ENABLED")
+    @builtins.classmethod
     def CLOUD_TRAIL_CLOUD_WATCH_LOGS_ENABLED(cls) -> builtins.str:
         '''Checks whether AWS CloudTrail trails are configured to send logs to Amazon CloudWatch Logs.
 
@@ -8655,6 +8706,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUD_TRAIL_ENABLED")
+    @builtins.classmethod
     def CLOUD_TRAIL_ENABLED(cls) -> builtins.str:
         '''Checks whether AWS CloudTrail is enabled in your AWS account.
 
@@ -8664,6 +8716,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUD_TRAIL_ENCRYPTION_ENABLED")
+    @builtins.classmethod
     def CLOUD_TRAIL_ENCRYPTION_ENABLED(cls) -> builtins.str:
         '''Checks whether AWS CloudTrail is configured to use the server side encryption (SSE) AWS Key Management Service (AWS KMS) customer master key (CMK) encryption.
 
@@ -8673,6 +8726,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUD_TRAIL_LOG_FILE_VALIDATION_ENABLED")
+    @builtins.classmethod
     def CLOUD_TRAIL_LOG_FILE_VALIDATION_ENABLED(cls) -> builtins.str:
         '''Checks whether AWS CloudTrail creates a signed digest file with logs.
 
@@ -8682,6 +8736,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFORMATION_STACK_DRIFT_DETECTION_CHECK")
+    @builtins.classmethod
     def CLOUDFORMATION_STACK_DRIFT_DETECTION_CHECK(cls) -> builtins.str:
         '''Checks whether an AWS CloudFormation stack's actual configuration differs, or has drifted, from its expected configuration.
 
@@ -8691,6 +8746,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFORMATION_STACK_NOTIFICATION_CHECK")
+    @builtins.classmethod
     def CLOUDFORMATION_STACK_NOTIFICATION_CHECK(cls) -> builtins.str:
         '''Checks whether your CloudFormation stacks are sending event notifications to an SNS topic.
 
@@ -8700,6 +8756,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_ACCESSLOGS_ENABLED")
+    @builtins.classmethod
     def CLOUDFRONT_ACCESSLOGS_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon CloudFront distributions are configured to capture information from Amazon Simple Storage Service (Amazon S3) server access logs.
 
@@ -8709,6 +8766,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_ASSOCIATED_WITH_WAF")
+    @builtins.classmethod
     def CLOUDFRONT_ASSOCIATED_WITH_WAF(cls) -> builtins.str:
         '''Checks if Amazon CloudFront distributions are associated with either WAF or WAFv2 web access control lists (ACLs).
 
@@ -8718,6 +8776,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_CUSTOM_SSL_CERTIFICATE")
+    @builtins.classmethod
     def CLOUDFRONT_CUSTOM_SSL_CERTIFICATE(cls) -> builtins.str:
         '''Checks if the certificate associated with an Amazon CloudFront distribution is the default Secure Sockets Layer (SSL) certificate.
 
@@ -8727,6 +8786,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_DEFAULT_ROOT_OBJECT_CONFIGURED")
+    @builtins.classmethod
     def CLOUDFRONT_DEFAULT_ROOT_OBJECT_CONFIGURED(cls) -> builtins.str:
         '''Checks if an Amazon CloudFront distribution is configured to return a specific object that is the default root object.
 
@@ -8736,6 +8796,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_NO_DEPRECATED_SSL_PROTOCOLS")
+    @builtins.classmethod
     def CLOUDFRONT_NO_DEPRECATED_SSL_PROTOCOLS(cls) -> builtins.str:
         '''Checks if CloudFront distributions are using deprecated SSL protocols for HTTPS communication between CloudFront edge locations and custom origins.
 
@@ -8745,6 +8806,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_ORIGIN_ACCESS_IDENTITY_ENABLED")
+    @builtins.classmethod
     def CLOUDFRONT_ORIGIN_ACCESS_IDENTITY_ENABLED(cls) -> builtins.str:
         '''Checks that Amazon CloudFront distribution with Amazon S3 Origin type has Origin Access Identity (OAI) configured.
 
@@ -8754,6 +8816,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_ORIGIN_FAILOVER_ENABLED")
+    @builtins.classmethod
     def CLOUDFRONT_ORIGIN_FAILOVER_ENABLED(cls) -> builtins.str:
         '''Checks whether an origin group is configured for the distribution of at least 2 origins in the origin group for Amazon CloudFront.
 
@@ -8763,6 +8826,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_SECURITY_POLICY_CHECK")
+    @builtins.classmethod
     def CLOUDFRONT_SECURITY_POLICY_CHECK(cls) -> builtins.str:
         '''Checks if Amazon CloudFront distributions are using a minimum security policy and cipher suite of TLSv1.2 or greater for viewer connections.
 
@@ -8772,6 +8836,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_SNI_ENABLED")
+    @builtins.classmethod
     def CLOUDFRONT_SNI_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon CloudFront distributions are using a custom SSL certificate and are configured to use SNI to serve HTTPS requests.
 
@@ -8781,6 +8846,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_TRAFFIC_TO_ORIGIN_ENCRYPTED")
+    @builtins.classmethod
     def CLOUDFRONT_TRAFFIC_TO_ORIGIN_ENCRYPTED(cls) -> builtins.str:
         '''Checks if Amazon CloudFront distributions are encrypting traffic to custom origins.
 
@@ -8790,6 +8856,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_VIEWER_POLICY_HTTPS")
+    @builtins.classmethod
     def CLOUDFRONT_VIEWER_POLICY_HTTPS(cls) -> builtins.str:
         '''Checks whether your Amazon CloudFront distributions use HTTPS (directly or via a redirection).
 
@@ -8799,6 +8866,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDTRAIL_MULTI_REGION_ENABLED")
+    @builtins.classmethod
     def CLOUDTRAIL_MULTI_REGION_ENABLED(cls) -> builtins.str:
         '''Checks that there is at least one multi-region AWS CloudTrail.
 
@@ -8808,6 +8876,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDTRAIL_S3_DATAEVENTS_ENABLED")
+    @builtins.classmethod
     def CLOUDTRAIL_S3_DATAEVENTS_ENABLED(cls) -> builtins.str:
         '''Checks whether at least one AWS CloudTrail trail is logging Amazon S3 data events for all S3 buckets.
 
@@ -8817,6 +8886,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDTRAIL_SECURITY_TRAIL_ENABLED")
+    @builtins.classmethod
     def CLOUDTRAIL_SECURITY_TRAIL_ENABLED(cls) -> builtins.str:
         '''Checks that there is at least one AWS CloudTrail trail defined with security best practices.
 
@@ -8826,6 +8896,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDWATCH_ALARM_ACTION_CHECK")
+    @builtins.classmethod
     def CLOUDWATCH_ALARM_ACTION_CHECK(cls) -> builtins.str:
         '''Checks whether CloudWatch alarms have at least one alarm action, one INSUFFICIENT_DATA action, or one OK action enabled.
 
@@ -8835,6 +8906,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDWATCH_ALARM_ACTION_ENABLED_CHECK")
+    @builtins.classmethod
     def CLOUDWATCH_ALARM_ACTION_ENABLED_CHECK(cls) -> builtins.str:
         '''Checks if Amazon CloudWatch alarms actions are in enabled state.
 
@@ -8844,6 +8916,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDWATCH_ALARM_RESOURCE_CHECK")
+    @builtins.classmethod
     def CLOUDWATCH_ALARM_RESOURCE_CHECK(cls) -> builtins.str:
         '''Checks whether the specified resource type has a CloudWatch alarm for the specified metric.
 
@@ -8853,6 +8926,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDWATCH_ALARM_SETTINGS_CHECK")
+    @builtins.classmethod
     def CLOUDWATCH_ALARM_SETTINGS_CHECK(cls) -> builtins.str:
         '''Checks whether CloudWatch alarms with the given metric name have the specified settings.
 
@@ -8862,6 +8936,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDWATCH_LOG_GROUP_ENCRYPTED")
+    @builtins.classmethod
     def CLOUDWATCH_LOG_GROUP_ENCRYPTED(cls) -> builtins.str:
         '''Checks whether a log group in Amazon CloudWatch Logs is encrypted with a AWS Key Management Service (KMS) managed Customer Master Keys (CMK).
 
@@ -8871,6 +8946,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CMK_BACKING_KEY_ROTATION_ENABLED")
+    @builtins.classmethod
     def CMK_BACKING_KEY_ROTATION_ENABLED(cls) -> builtins.str:
         '''Checks that key rotation is enabled for each key and matches to the key ID of the customer created customer master key (CMK).
 
@@ -8880,6 +8956,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEBUILD_PROJECT_ARTIFACT_ENCRYPTION")
+    @builtins.classmethod
     def CODEBUILD_PROJECT_ARTIFACT_ENCRYPTION(cls) -> builtins.str:
         '''Checks if an AWS CodeBuild project has encryption enabled for all of its artifacts.
 
@@ -8889,6 +8966,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEBUILD_PROJECT_ENVIRONMENT_PRIVILEGED_CHECK")
+    @builtins.classmethod
     def CODEBUILD_PROJECT_ENVIRONMENT_PRIVILEGED_CHECK(cls) -> builtins.str:
         '''Checks if an AWS CodeBuild project environment has privileged mode enabled.
 
@@ -8898,6 +8976,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEBUILD_PROJECT_ENVVAR_AWSCRED_CHECK")
+    @builtins.classmethod
     def CODEBUILD_PROJECT_ENVVAR_AWSCRED_CHECK(cls) -> builtins.str:
         '''Checks whether the project contains environment variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.
 
@@ -8907,6 +8986,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEBUILD_PROJECT_LOGGING_ENABLED")
+    @builtins.classmethod
     def CODEBUILD_PROJECT_LOGGING_ENABLED(cls) -> builtins.str:
         '''Checks if an AWS CodeBuild project environment has at least one log option enabled.
 
@@ -8916,6 +8996,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEBUILD_PROJECT_S3_LOGS_ENCRYPTED")
+    @builtins.classmethod
     def CODEBUILD_PROJECT_S3_LOGS_ENCRYPTED(cls) -> builtins.str:
         '''Checks if a AWS CodeBuild project configured with Amazon S3 Logs has encryption enabled for its logs.
 
@@ -8925,6 +9006,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEBUILD_PROJECT_SOURCE_REPO_URL_CHECK")
+    @builtins.classmethod
     def CODEBUILD_PROJECT_SOURCE_REPO_URL_CHECK(cls) -> builtins.str:
         '''Checks whether the GitHub or Bitbucket source repository URL contains either personal access tokens or user name and password.
 
@@ -8934,6 +9016,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEDEPLOY_AUTO_ROLLBACK_MONITOR_ENABLED")
+    @builtins.classmethod
     def CODEDEPLOY_AUTO_ROLLBACK_MONITOR_ENABLED(cls) -> builtins.str:
         '''Checks if the deployment group is configured with automatic deployment rollback and deployment monitoring with alarms attached.
 
@@ -8943,6 +9026,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEDEPLOY_EC2_MINIMUM_HEALTHY_HOSTS_CONFIGURED")
+    @builtins.classmethod
     def CODEDEPLOY_EC2_MINIMUM_HEALTHY_HOSTS_CONFIGURED(cls) -> builtins.str:
         '''Checks if the deployment group for EC2/On-Premises Compute Platform is configured with a minimum healthy hosts fleet percentage or host count greater than or equal to the input threshold.
 
@@ -8952,6 +9036,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEDEPLOY_LAMBDA_ALLATONCE_TRAFFIC_SHIFT_DISABLED")
+    @builtins.classmethod
     def CODEDEPLOY_LAMBDA_ALLATONCE_TRAFFIC_SHIFT_DISABLED(cls) -> builtins.str:
         '''Checks if the deployment group for Lambda Compute Platform is not using the default deployment configuration.
 
@@ -8961,6 +9046,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEPIPELINE_DEPLOYMENT_COUNT_CHECK")
+    @builtins.classmethod
     def CODEPIPELINE_DEPLOYMENT_COUNT_CHECK(cls) -> builtins.str:
         '''Checks whether the first deployment stage of the AWS CodePipeline performs more than one deployment.
 
@@ -8970,6 +9056,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEPIPELINE_REGION_FANOUT_CHECK")
+    @builtins.classmethod
     def CODEPIPELINE_REGION_FANOUT_CHECK(cls) -> builtins.str:
         '''Checks whether each stage in the AWS CodePipeline deploys to more than N times the number of the regions the AWS CodePipeline has deployed in all the previous combined stages, where N is the region fanout number.
 
@@ -8979,6 +9066,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CW_LOGGROUP_RETENTION_PERIOD_CHECK")
+    @builtins.classmethod
     def CW_LOGGROUP_RETENTION_PERIOD_CHECK(cls) -> builtins.str:
         '''Checks whether Amazon CloudWatch LogGroup retention period is set to specific number of days.
 
@@ -8988,6 +9076,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DAX_ENCRYPTION_ENABLED")
+    @builtins.classmethod
     def DAX_ENCRYPTION_ENABLED(cls) -> builtins.str:
         '''Checks that DynamoDB Accelerator (DAX) clusters are encrypted.
 
@@ -8997,6 +9086,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DMS_REPLICATION_NOT_PUBLIC")
+    @builtins.classmethod
     def DMS_REPLICATION_NOT_PUBLIC(cls) -> builtins.str:
         '''Checks whether AWS Database Migration Service replication instances are public.
 
@@ -9006,6 +9096,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DYNAMODB_AUTOSCALING_ENABLED")
+    @builtins.classmethod
     def DYNAMODB_AUTOSCALING_ENABLED(cls) -> builtins.str:
         '''Checks whether Auto Scaling or On-Demand is enabled on your DynamoDB tables and/or global secondary indexes.
 
@@ -9015,6 +9106,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DYNAMODB_IN_BACKUP_PLAN")
+    @builtins.classmethod
     def DYNAMODB_IN_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks whether Amazon DynamoDB table is present in AWS Backup plans.
 
@@ -9024,6 +9116,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DYNAMODB_LAST_BACKUP_RECOVERY_POINT_CREATED")
+    @builtins.classmethod
     def DYNAMODB_LAST_BACKUP_RECOVERY_POINT_CREATED(cls) -> builtins.str:
         '''Checks if a recovery point was created for Amazon DynamoDB Tables within the specified period.
 
@@ -9033,6 +9126,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DYNAMODB_PITR_ENABLED")
+    @builtins.classmethod
     def DYNAMODB_PITR_ENABLED(cls) -> builtins.str:
         '''Checks that point in time recovery (PITR) is enabled for Amazon DynamoDB tables.
 
@@ -9042,6 +9136,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DYNAMODB_RESOURCES_PROTECTED_BY_BACKUP_PLAN")
+    @builtins.classmethod
     def DYNAMODB_RESOURCES_PROTECTED_BY_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks if Amazon DynamoDB tables are protected by a backup plan.
 
@@ -9051,6 +9146,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DYNAMODB_TABLE_ENCRYPTED_KMS")
+    @builtins.classmethod
     def DYNAMODB_TABLE_ENCRYPTED_KMS(cls) -> builtins.str:
         '''Checks whether Amazon DynamoDB table is encrypted with AWS Key Management Service (KMS).
 
@@ -9060,6 +9156,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DYNAMODB_TABLE_ENCRYPTION_ENABLED")
+    @builtins.classmethod
     def DYNAMODB_TABLE_ENCRYPTION_ENABLED(cls) -> builtins.str:
         '''Checks whether the Amazon DynamoDB tables are encrypted and checks their status.
 
@@ -9069,6 +9166,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DYNAMODB_THROUGHPUT_LIMIT_CHECK")
+    @builtins.classmethod
     def DYNAMODB_THROUGHPUT_LIMIT_CHECK(cls) -> builtins.str:
         '''Checks whether provisioned DynamoDB throughput is approaching the maximum limit for your account.
 
@@ -9078,6 +9176,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EBS_ENCRYPTED_VOLUMES")
+    @builtins.classmethod
     def EBS_ENCRYPTED_VOLUMES(cls) -> builtins.str:
         '''Checks whether the EBS volumes that are in an attached state are encrypted.
 
@@ -9087,6 +9186,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EBS_IN_BACKUP_PLAN")
+    @builtins.classmethod
     def EBS_IN_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks if Amazon Elastic Block Store (Amazon EBS) volumes are added in backup plans of AWS Backup.
 
@@ -9096,6 +9196,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EBS_OPTIMIZED_INSTANCE")
+    @builtins.classmethod
     def EBS_OPTIMIZED_INSTANCE(cls) -> builtins.str:
         '''Checks whether EBS optimization is enabled for your EC2 instances that can be EBS-optimized.
 
@@ -9105,6 +9206,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EBS_RESOURCES_PROTECTED_BY_BACKUP_PLAN")
+    @builtins.classmethod
     def EBS_RESOURCES_PROTECTED_BY_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks if Amazon Elastic Block Store (Amazon EBS) volumes are protected by a backup plan.
 
@@ -9114,6 +9216,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EBS_SNAPSHOT_PUBLIC_RESTORABLE_CHECK")
+    @builtins.classmethod
     def EBS_SNAPSHOT_PUBLIC_RESTORABLE_CHECK(cls) -> builtins.str:
         '''Checks whether Amazon Elastic Block Store snapshots are not publicly restorable.
 
@@ -9123,6 +9226,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_DESIRED_INSTANCE_TENANCY")
+    @builtins.classmethod
     def EC2_DESIRED_INSTANCE_TENANCY(cls) -> builtins.str:
         '''Checks instances for specified tenancy.
 
@@ -9132,6 +9236,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_DESIRED_INSTANCE_TYPE")
+    @builtins.classmethod
     def EC2_DESIRED_INSTANCE_TYPE(cls) -> builtins.str:
         '''Checks whether your EC2 instances are of the specified instance types.
 
@@ -9141,6 +9246,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_EBS_ENCRYPTION_BY_DEFAULT")
+    @builtins.classmethod
     def EC2_EBS_ENCRYPTION_BY_DEFAULT(cls) -> builtins.str:
         '''Check that Amazon Elastic Block Store (EBS) encryption is enabled by default.
 
@@ -9150,6 +9256,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_IMDSV2_CHECK")
+    @builtins.classmethod
     def EC2_IMDSV2_CHECK(cls) -> builtins.str:
         '''Checks whether your Amazon Elastic Compute Cloud (Amazon EC2) instance metadata version is configured with Instance Metadata Service Version 2 (IMDSv2).
 
@@ -9159,6 +9266,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_INSTANCE_DETAILED_MONITORING_ENABLED")
+    @builtins.classmethod
     def EC2_INSTANCE_DETAILED_MONITORING_ENABLED(cls) -> builtins.str:
         '''Checks whether detailed monitoring is enabled for EC2 instances.
 
@@ -9168,6 +9276,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_INSTANCE_MANAGED_BY_SSM")
+    @builtins.classmethod
     def EC2_INSTANCE_MANAGED_BY_SSM(cls) -> builtins.str:
         '''Checks whether the Amazon EC2 instances in your account are managed by AWS Systems Manager.
 
@@ -9177,6 +9286,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_INSTANCE_MULTIPLE_ENI_CHECK")
+    @builtins.classmethod
     def EC2_INSTANCE_MULTIPLE_ENI_CHECK(cls) -> builtins.str:
         '''Checks if Amazon Elastic Compute Cloud (Amazon EC2) uses multiple ENIs (Elastic Network Interfaces) or Elastic Fabric Adapters (EFAs).
 
@@ -9186,6 +9296,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_INSTANCE_NO_PUBLIC_IP")
+    @builtins.classmethod
     def EC2_INSTANCE_NO_PUBLIC_IP(cls) -> builtins.str:
         '''Checks whether Amazon Elastic Compute Cloud (Amazon EC2) instances have a public IP association.
 
@@ -9195,6 +9306,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_INSTANCE_PROFILE_ATTACHED")
+    @builtins.classmethod
     def EC2_INSTANCE_PROFILE_ATTACHED(cls) -> builtins.str:
         '''Checks if an Amazon Elastic Compute Cloud (Amazon EC2) instance has an Identity and Access Management (IAM) profile attached to it.
 
@@ -9207,6 +9319,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_INSTANCES_IN_VPC")
+    @builtins.classmethod
     def EC2_INSTANCES_IN_VPC(cls) -> builtins.str:
         '''Checks whether your EC2 instances belong to a virtual private cloud (VPC).
 
@@ -9216,6 +9329,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_LAST_BACKUP_RECOVERY_POINT_CREATED")
+    @builtins.classmethod
     def EC2_LAST_BACKUP_RECOVERY_POINT_CREATED(cls) -> builtins.str:
         '''Checks if a recovery point was created for Amazon Elastic Compute Cloud (Amazon EC2) instances.
 
@@ -9225,6 +9339,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_MANAGED_INSTANCE_APPLICATIONS_BLOCKED")
+    @builtins.classmethod
     def EC2_MANAGED_INSTANCE_APPLICATIONS_BLOCKED(cls) -> builtins.str:
         '''Checks that none of the specified applications are installed on the instance.
 
@@ -9234,6 +9349,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_MANAGED_INSTANCE_APPLICATIONS_REQUIRED")
+    @builtins.classmethod
     def EC2_MANAGED_INSTANCE_APPLICATIONS_REQUIRED(cls) -> builtins.str:
         '''Checks whether all of the specified applications are installed on the instance.
 
@@ -9243,6 +9359,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_MANAGED_INSTANCE_ASSOCIATION_COMPLIANCE_STATUS_CHECK")
+    @builtins.classmethod
     def EC2_MANAGED_INSTANCE_ASSOCIATION_COMPLIANCE_STATUS_CHECK(cls) -> builtins.str:
         '''Checks whether the compliance status of AWS Systems Manager association compliance is COMPLIANT or NON_COMPLIANT after the association execution on the instance.
 
@@ -9252,6 +9369,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_MANAGED_INSTANCE_INVENTORY_BLOCKED")
+    @builtins.classmethod
     def EC2_MANAGED_INSTANCE_INVENTORY_BLOCKED(cls) -> builtins.str:
         '''Checks whether instances managed by AWS Systems Manager are configured to collect blocked inventory types.
 
@@ -9261,6 +9379,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_MANAGED_INSTANCE_PATCH_COMPLIANCE_STATUS_CHECK")
+    @builtins.classmethod
     def EC2_MANAGED_INSTANCE_PATCH_COMPLIANCE_STATUS_CHECK(cls) -> builtins.str:
         '''Checks whether the compliance status of the Amazon EC2 Systems Manager patch compliance is COMPLIANT or NON_COMPLIANT after the patch installation on the instance.
 
@@ -9270,6 +9389,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_MANAGED_INSTANCE_PLATFORM_CHECK")
+    @builtins.classmethod
     def EC2_MANAGED_INSTANCE_PLATFORM_CHECK(cls) -> builtins.str:
         '''Checks whether EC2 managed instances have the desired configurations.
 
@@ -9279,6 +9399,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_NO_AMAZON_KEY_PAIR")
+    @builtins.classmethod
     def EC2_NO_AMAZON_KEY_PAIR(cls) -> builtins.str:
         '''Checks if running Amazon Elastic Compute Cloud (EC2) instances are launched using amazon key pairs.
 
@@ -9288,6 +9409,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_PARAVIRTUAL_INSTANCE_CHECK")
+    @builtins.classmethod
     def EC2_PARAVIRTUAL_INSTANCE_CHECK(cls) -> builtins.str:
         '''Checks if the virtualization type of an EC2 instance is paravirtual.
 
@@ -9297,6 +9419,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_RESOURCES_PROTECTED_BY_BACKUP_PLAN")
+    @builtins.classmethod
     def EC2_RESOURCES_PROTECTED_BY_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks if Amazon Elastic Compute Cloud (Amazon EC2) instances are protected by a backup plan.
 
@@ -9306,6 +9429,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_SECURITY_GROUP_ATTACHED_TO_ENI")
+    @builtins.classmethod
     def EC2_SECURITY_GROUP_ATTACHED_TO_ENI(cls) -> builtins.str:
         '''Checks that security groups are attached to Amazon Elastic Compute Cloud (Amazon EC2) instances or to an elastic network interface.
 
@@ -9315,6 +9439,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_SECURITY_GROUP_ATTACHED_TO_ENI_PERIODIC")
+    @builtins.classmethod
     def EC2_SECURITY_GROUP_ATTACHED_TO_ENI_PERIODIC(cls) -> builtins.str:
         '''Checks if non-default security groups are attached to Elastic network interfaces (ENIs).
 
@@ -9324,6 +9449,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_SECURITY_GROUPS_INCOMING_SSH_DISABLED")
+    @builtins.classmethod
     def EC2_SECURITY_GROUPS_INCOMING_SSH_DISABLED(cls) -> builtins.str:
         '''Checks whether the incoming SSH traffic for the security groups is accessible.
 
@@ -9333,6 +9459,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_SECURITY_GROUPS_RESTRICTED_INCOMING_TRAFFIC")
+    @builtins.classmethod
     def EC2_SECURITY_GROUPS_RESTRICTED_INCOMING_TRAFFIC(cls) -> builtins.str:
         '''Checks whether the security groups in use do not allow unrestricted incoming TCP traffic to the specified ports.
 
@@ -9342,6 +9469,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_STOPPED_INSTANCE")
+    @builtins.classmethod
     def EC2_STOPPED_INSTANCE(cls) -> builtins.str:
         '''Checks whether there are instances stopped for more than the allowed number of days.
 
@@ -9351,6 +9479,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_TOKEN_HOP_LIMIT_CHECK")
+    @builtins.classmethod
     def EC2_TOKEN_HOP_LIMIT_CHECK(cls) -> builtins.str:
         '''Checks if an Amazon Elastic Compute Cloud (EC2) instance metadata has a specified token hop limit that is below the desired limit.
 
@@ -9360,6 +9489,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_TRANSIT_GATEWAY_AUTO_VPC_ATTACH_DISABLED")
+    @builtins.classmethod
     def EC2_TRANSIT_GATEWAY_AUTO_VPC_ATTACH_DISABLED(cls) -> builtins.str:
         '''Checks if Amazon Elastic Compute Cloud (Amazon EC2) Transit Gateways have 'AutoAcceptSharedAttachments' enabled.
 
@@ -9369,6 +9499,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_VOLUME_IECS_TASK_DEFINITION_USER_FOR_HOST_MODE_CHECKNUSE_CHECK")
+    @builtins.classmethod
     def EC2_VOLUME_IECS_TASK_DEFINITION_USER_FOR_HOST_MODE_CHECKNUSE_CHECK(
         cls,
     ) -> builtins.str:
@@ -9380,6 +9511,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_VOLUME_INUSE_CHECK")
+    @builtins.classmethod
     def EC2_VOLUME_INUSE_CHECK(cls) -> builtins.str:
         '''Checks whether EBS volumes are attached to EC2 instances.
 
@@ -9389,6 +9521,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECR_PRIVATE_IMAGE_SCANNING_ENABLED")
+    @builtins.classmethod
     def ECR_PRIVATE_IMAGE_SCANNING_ENABLED(cls) -> builtins.str:
         '''Checks if a private Amazon Elastic Container Registry (ECR) repository has image scanning enabled.
 
@@ -9398,6 +9531,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECR_PRIVATE_LIFECYCLE_POLICY_CONFIGURED")
+    @builtins.classmethod
     def ECR_PRIVATE_LIFECYCLE_POLICY_CONFIGURED(cls) -> builtins.str:
         '''Checks if a private Amazon Elastic Container Registry (ECR) repository has at least one lifecycle policy configured.
 
@@ -9407,6 +9541,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECR_PRIVATE_TAG_IMMUTABILITY_ENABLED")
+    @builtins.classmethod
     def ECR_PRIVATE_TAG_IMMUTABILITY_ENABLED(cls) -> builtins.str:
         '''Checks if a private Amazon Elastic Container Registry (ECR) repository has tag immutability enabled.
 
@@ -9416,6 +9551,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_AWSVPC_NETWORKING_ENABLED")
+    @builtins.classmethod
     def ECS_AWSVPC_NETWORKING_ENABLED(cls) -> builtins.str:
         '''Checks if the networking mode for active ECSTaskDefinitions is set to ‘awsvpc’.
 
@@ -9425,6 +9561,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_CONTAINER_INSIGHTS_ENABLED")
+    @builtins.classmethod
     def ECS_CONTAINER_INSIGHTS_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon Elastic Container Service clusters have container insights enabled.
 
@@ -9434,6 +9571,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_CONTAINERS_NONPRIVILEGED")
+    @builtins.classmethod
     def ECS_CONTAINERS_NONPRIVILEGED(cls) -> builtins.str:
         '''Checks if the privileged parameter in the container definition of ECSTaskDefinitions is set to ‘true’.
 
@@ -9443,6 +9581,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_CONTAINERS_READONLY_ACCESS")
+    @builtins.classmethod
     def ECS_CONTAINERS_READONLY_ACCESS(cls) -> builtins.str:
         '''Checks if Amazon Elastic Container Service (Amazon ECS) Containers only have read-only access to its root filesystems.
 
@@ -9452,6 +9591,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_FARGATE_LATEST_PLATFORM_VERSION")
+    @builtins.classmethod
     def ECS_FARGATE_LATEST_PLATFORM_VERSION(cls) -> builtins.str:
         '''Checks if Amazon Elastic Container Service (ECS) Fargate Services is running on the latest Fargate platform version.
 
@@ -9461,6 +9601,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_NO_ENVIRONMENT_SECRETS")
+    @builtins.classmethod
     def ECS_NO_ENVIRONMENT_SECRETS(cls) -> builtins.str:
         '''Checks if secrets are passed as container environment variables.
 
@@ -9470,6 +9611,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_TASK_DEFINITION_LOG_CONFIGURATION")
+    @builtins.classmethod
     def ECS_TASK_DEFINITION_LOG_CONFIGURATION(cls) -> builtins.str:
         '''Checks if logConfiguration is set on active ECS Task Definitions.
 
@@ -9479,6 +9621,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_TASK_DEFINITION_MEMORY_HARD_LIMIT")
+    @builtins.classmethod
     def ECS_TASK_DEFINITION_MEMORY_HARD_LIMIT(cls) -> builtins.str:
         '''Checks if Amazon Elastic Container Service (ECS) task definitions have a set memory limit for its container definitions.
 
@@ -9488,6 +9631,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_TASK_DEFINITION_NONROOT_USER")
+    @builtins.classmethod
     def ECS_TASK_DEFINITION_NONROOT_USER(cls) -> builtins.str:
         '''Checks if ECSTaskDefinitions specify a user for Amazon Elastic Container Service (Amazon ECS) EC2 launch type containers to run on.
 
@@ -9497,6 +9641,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_TASK_DEFINITION_PID_MODE_CHECK")
+    @builtins.classmethod
     def ECS_TASK_DEFINITION_PID_MODE_CHECK(cls) -> builtins.str:
         '''Checks if ECSTaskDefinitions are configured to share a host’s process namespace with its Amazon Elastic Container Service (Amazon ECS) containers.
 
@@ -9506,6 +9651,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EFS_ACCESS_POINT_ENFORCE_ROOT_DIRECTORY")
+    @builtins.classmethod
     def EFS_ACCESS_POINT_ENFORCE_ROOT_DIRECTORY(cls) -> builtins.str:
         '''Checks if Amazon Elastic File System (Amazon EFS) access points are configured to enforce a root directory.
 
@@ -9515,6 +9661,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EFS_ACCESS_POINT_ENFORCE_USER_IDENTITY")
+    @builtins.classmethod
     def EFS_ACCESS_POINT_ENFORCE_USER_IDENTITY(cls) -> builtins.str:
         '''Checks if Amazon Elastic File System (Amazon EFS) access points are configured to enforce a user identity.
 
@@ -9524,6 +9671,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EFS_ENCRYPTED_CHECK")
+    @builtins.classmethod
     def EFS_ENCRYPTED_CHECK(cls) -> builtins.str:
         '''hecks whether Amazon Elastic File System (Amazon EFS) is configured to encrypt the file data using AWS Key Management Service (AWS KMS).
 
@@ -9533,6 +9681,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EFS_IN_BACKUP_PLAN")
+    @builtins.classmethod
     def EFS_IN_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks whether Amazon Elastic File System (Amazon EFS) file systems are added in the backup plans of AWS Backup.
 
@@ -9542,6 +9691,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EFS_LAST_BACKUP_RECOVERY_POINT_CREATED")
+    @builtins.classmethod
     def EFS_LAST_BACKUP_RECOVERY_POINT_CREATED(cls) -> builtins.str:
         '''Checks if a recovery point was created for Amazon Elastic File System (Amazon EFS) File Systems.
 
@@ -9551,6 +9701,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EFS_RESOURCES_PROTECTED_BY_BACKUP_PLAN")
+    @builtins.classmethod
     def EFS_RESOURCES_PROTECTED_BY_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks if Amazon Elastic File System (Amazon EFS) File Systems are protected by a backup plan.
 
@@ -9560,6 +9711,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EIP_ATTACHED")
+    @builtins.classmethod
     def EIP_ATTACHED(cls) -> builtins.str:
         '''Checks whether all Elastic IP addresses that are allocated to a VPC are attached to EC2 instances or in-use elastic network interfaces (ENIs).
 
@@ -9569,6 +9721,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EKS_CLUSTER_OLDEST_SUPPORTED_VERSION")
+    @builtins.classmethod
     def EKS_CLUSTER_OLDEST_SUPPORTED_VERSION(cls) -> builtins.str:
         '''Checks if an Amazon Elastic Kubernetes Service (EKS) cluster is running the oldest supported version.
 
@@ -9578,6 +9731,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EKS_CLUSTER_SUPPORTED_VERSION")
+    @builtins.classmethod
     def EKS_CLUSTER_SUPPORTED_VERSION(cls) -> builtins.str:
         '''Checks if an Amazon Elastic Kubernetes Service (EKS) cluster is running a supported Kubernetes version.
 
@@ -9587,6 +9741,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EKS_ENDPOINT_NO_PUBLIC_ACCESS")
+    @builtins.classmethod
     def EKS_ENDPOINT_NO_PUBLIC_ACCESS(cls) -> builtins.str:
         '''Checks whether Amazon Elastic Kubernetes Service (Amazon EKS) endpoint is not publicly accessible.
 
@@ -9596,6 +9751,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EKS_SECRETS_ENCRYPTED")
+    @builtins.classmethod
     def EKS_SECRETS_ENCRYPTED(cls) -> builtins.str:
         '''Checks whether Amazon Elastic Kubernetes Service clusters are configured to have Kubernetes secrets encrypted using AWS Key Management Service (KMS) keys.
 
@@ -9605,6 +9761,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELASTIC_BEANSTALK_MANAGED_UPDATES_ENABLED")
+    @builtins.classmethod
     def ELASTIC_BEANSTALK_MANAGED_UPDATES_ENABLED(cls) -> builtins.str:
         '''Checks if managed platform updates in an AWS Elastic Beanstalk environment is enabled.
 
@@ -9614,6 +9771,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELASTICACHE_REDIS_CLUSTER_AUTOMATIC_BACKUP_CHECK")
+    @builtins.classmethod
     def ELASTICACHE_REDIS_CLUSTER_AUTOMATIC_BACKUP_CHECK(cls) -> builtins.str:
         '''Check if the Amazon ElastiCache Redis clusters have automatic backup turned on.
 
@@ -9623,6 +9781,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELASTICSEARCH_ENCRYPTED_AT_REST")
+    @builtins.classmethod
     def ELASTICSEARCH_ENCRYPTED_AT_REST(cls) -> builtins.str:
         '''Checks whether Amazon Elasticsearch Service (Amazon ES) domains have encryption at rest configuration enabled.
 
@@ -9632,6 +9791,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELASTICSEARCH_IN_VPC_ONLY")
+    @builtins.classmethod
     def ELASTICSEARCH_IN_VPC_ONLY(cls) -> builtins.str:
         '''Checks whether Amazon Elasticsearch Service (Amazon ES) domains are in Amazon Virtual Private Cloud (Amazon VPC).
 
@@ -9641,6 +9801,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELASTICSEARCH_NODE_TO_NODE_ENCRYPTION_CHECK")
+    @builtins.classmethod
     def ELASTICSEARCH_NODE_TO_NODE_ENCRYPTION_CHECK(cls) -> builtins.str:
         '''Check that Amazon ElasticSearch Service nodes are encrypted end to end.
 
@@ -9650,6 +9811,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELB_ACM_CERTIFICATE_REQUIRED")
+    @builtins.classmethod
     def ELB_ACM_CERTIFICATE_REQUIRED(cls) -> builtins.str:
         '''Checks whether the Classic Load Balancers use SSL certificates provided by AWS Certificate Manager.
 
@@ -9659,6 +9821,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELB_CROSS_ZONE_LOAD_BALANCING_ENABLED")
+    @builtins.classmethod
     def ELB_CROSS_ZONE_LOAD_BALANCING_ENABLED(cls) -> builtins.str:
         '''Checks if cross-zone load balancing is enabled for the Classic Load Balancers (CLBs).
 
@@ -9668,6 +9831,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELB_CUSTOM_SECURITY_POLICY_SSL_CHECK")
+    @builtins.classmethod
     def ELB_CUSTOM_SECURITY_POLICY_SSL_CHECK(cls) -> builtins.str:
         '''Checks whether your Classic Load Balancer SSL listeners are using a custom policy.
 
@@ -9677,6 +9841,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELB_DELETION_PROTECTION_ENABLED")
+    @builtins.classmethod
     def ELB_DELETION_PROTECTION_ENABLED(cls) -> builtins.str:
         '''Checks whether Elastic Load Balancing has deletion protection enabled.
 
@@ -9686,6 +9851,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELB_LOGGING_ENABLED")
+    @builtins.classmethod
     def ELB_LOGGING_ENABLED(cls) -> builtins.str:
         '''Checks whether the Application Load Balancer and the Classic Load Balancer have logging enabled.
 
@@ -9695,6 +9861,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELB_PREDEFINED_SECURITY_POLICY_SSL_CHECK")
+    @builtins.classmethod
     def ELB_PREDEFINED_SECURITY_POLICY_SSL_CHECK(cls) -> builtins.str:
         '''Checks whether your Classic Load Balancer SSL listeners are using a predefined policy.
 
@@ -9704,6 +9871,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELB_TLS_HTTPS_LISTENERS_ONLY")
+    @builtins.classmethod
     def ELB_TLS_HTTPS_LISTENERS_ONLY(cls) -> builtins.str:
         '''Checks whether your Classic Load Balancer is configured with SSL or HTTPS listeners.
 
@@ -9713,6 +9881,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELBV2_ACM_CERTIFICATE_REQUIRED")
+    @builtins.classmethod
     def ELBV2_ACM_CERTIFICATE_REQUIRED(cls) -> builtins.str:
         '''Checks if Application Load Balancers and Network Load Balancers have listeners that are configured to use certificates from AWS Certificate Manager (ACM).
 
@@ -9722,6 +9891,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELBV2_MULTIPLE_AZ")
+    @builtins.classmethod
     def ELBV2_MULTIPLE_AZ(cls) -> builtins.str:
         '''Checks if an Elastic Load Balancer V2 (Application, Network, or Gateway Load Balancer) has registered instances from multiple Availability Zones (AZ's).
 
@@ -9731,6 +9901,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EMR_KERBEROS_ENABLED")
+    @builtins.classmethod
     def EMR_KERBEROS_ENABLED(cls) -> builtins.str:
         '''Checks that Amazon EMR clusters have Kerberos enabled.
 
@@ -9740,6 +9911,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EMR_MASTER_NO_PUBLIC_IP")
+    @builtins.classmethod
     def EMR_MASTER_NO_PUBLIC_IP(cls) -> builtins.str:
         '''Checks whether Amazon Elastic MapReduce (EMR) clusters' master nodes have public IPs.
 
@@ -9749,6 +9921,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FMS_SECURITY_GROUP_AUDIT_POLICY_CHECK")
+    @builtins.classmethod
     def FMS_SECURITY_GROUP_AUDIT_POLICY_CHECK(cls) -> builtins.str:
         '''(deprecated) Checks whether the security groups associated inScope resources are compliant with the master security groups at each rule level based on allowSecurityGroup and denySecurityGroup flag.
 
@@ -9761,6 +9934,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FMS_SECURITY_GROUP_CONTENT_CHECK")
+    @builtins.classmethod
     def FMS_SECURITY_GROUP_CONTENT_CHECK(cls) -> builtins.str:
         '''(deprecated) Checks whether AWS Firewall Manager created security groups content is the same as the master security groups.
 
@@ -9773,6 +9947,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FMS_SECURITY_GROUP_RESOURCE_ASSOCIATION_CHECK")
+    @builtins.classmethod
     def FMS_SECURITY_GROUP_RESOURCE_ASSOCIATION_CHECK(cls) -> builtins.str:
         '''(deprecated) Checks whether Amazon EC2 or an elastic network interface is associated with AWS Firewall Manager security groups.
 
@@ -9785,6 +9960,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FMS_SHIELD_RESOURCE_POLICY_CHECK")
+    @builtins.classmethod
     def FMS_SHIELD_RESOURCE_POLICY_CHECK(cls) -> builtins.str:
         '''Checks whether an Application Load Balancer, Amazon CloudFront distributions, Elastic Load Balancer or Elastic IP has AWS Shield protection.
 
@@ -9794,6 +9970,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FMS_WEBACL_RESOURCE_POLICY_CHECK")
+    @builtins.classmethod
     def FMS_WEBACL_RESOURCE_POLICY_CHECK(cls) -> builtins.str:
         '''Checks whether the web ACL is associated with an Application Load Balancer, API Gateway stage, or Amazon CloudFront distributions.
 
@@ -9803,6 +9980,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FMS_WEBACL_RULEGROUP_ASSOCIATION_CHECK")
+    @builtins.classmethod
     def FMS_WEBACL_RULEGROUP_ASSOCIATION_CHECK(cls) -> builtins.str:
         '''Checks that the rule groups associate with the web ACL at the correct priority.
 
@@ -9814,6 +9992,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FSX_LAST_BACKUP_RECOVERY_POINT_CREATED")
+    @builtins.classmethod
     def FSX_LAST_BACKUP_RECOVERY_POINT_CREATED(cls) -> builtins.str:
         '''Checks if a recovery point was created for Amazon FSx File Systems.
 
@@ -9823,6 +10002,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FSX_RESOURCES_PROTECTED_BY_BACKUP_PLAN")
+    @builtins.classmethod
     def FSX_RESOURCES_PROTECTED_BY_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks if Amazon FSx File Systems are protected by a backup plan.
 
@@ -9832,6 +10012,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GUARDDUTY_ENABLED_CENTRALIZED")
+    @builtins.classmethod
     def GUARDDUTY_ENABLED_CENTRALIZED(cls) -> builtins.str:
         '''Checks whether Amazon GuardDuty is enabled in your AWS account and region.
 
@@ -9844,6 +10025,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GUARDDUTY_NON_ARCHIVED_FINDINGS")
+    @builtins.classmethod
     def GUARDDUTY_NON_ARCHIVED_FINDINGS(cls) -> builtins.str:
         '''Checks whether the Amazon GuardDuty has findings that are non archived.
 
@@ -9853,6 +10035,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_CUSTOMER_POLICY_BLOCKED_KMS_ACTIONS")
+    @builtins.classmethod
     def IAM_CUSTOMER_POLICY_BLOCKED_KMS_ACTIONS(cls) -> builtins.str:
         '''Checks that the managed AWS Identity and Access Management policies that you create do not allow blocked actions on all AWS AWS KMS keys.
 
@@ -9862,6 +10045,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_GROUP_HAS_USERS_CHECK")
+    @builtins.classmethod
     def IAM_GROUP_HAS_USERS_CHECK(cls) -> builtins.str:
         '''Checks whether IAM groups have at least one IAM user.
 
@@ -9871,6 +10055,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_INLINE_POLICY_BLOCKED_KMS_ACTIONS")
+    @builtins.classmethod
     def IAM_INLINE_POLICY_BLOCKED_KMS_ACTIONS(cls) -> builtins.str:
         '''Checks that the inline policies attached to your AWS Identity and Access Management users, roles, and groups do not allow blocked actions on all AWS Key Management Service keys.
 
@@ -9880,6 +10065,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_NO_INLINE_POLICY_CHECK")
+    @builtins.classmethod
     def IAM_NO_INLINE_POLICY_CHECK(cls) -> builtins.str:
         '''Checks that inline policy feature is not in use.
 
@@ -9889,6 +10075,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_PASSWORD_POLICY")
+    @builtins.classmethod
     def IAM_PASSWORD_POLICY(cls) -> builtins.str:
         '''Checks whether the account password policy for IAM users meets the specified requirements indicated in the parameters.
 
@@ -9898,6 +10085,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_POLICY_BLOCKED_CHECK")
+    @builtins.classmethod
     def IAM_POLICY_BLOCKED_CHECK(cls) -> builtins.str:
         '''Checks whether for each IAM resource, a policy ARN in the input parameter is attached to the IAM resource.
 
@@ -9907,6 +10095,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_POLICY_IN_USE")
+    @builtins.classmethod
     def IAM_POLICY_IN_USE(cls) -> builtins.str:
         '''Checks whether the IAM policy ARN is attached to an IAM user, or an IAM group with one or more IAM users, or an IAM role with one or more trusted entity.
 
@@ -9916,6 +10105,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_POLICY_NO_STATEMENTS_WITH_ADMIN_ACCESS")
+    @builtins.classmethod
     def IAM_POLICY_NO_STATEMENTS_WITH_ADMIN_ACCESS(cls) -> builtins.str:
         '''Checks the IAM policies that you create for Allow statements that grant permissions to all actions on all resources.
 
@@ -9925,6 +10115,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_POLICY_NO_STATEMENTS_WITH_FULL_ACCESS")
+    @builtins.classmethod
     def IAM_POLICY_NO_STATEMENTS_WITH_FULL_ACCESS(cls) -> builtins.str:
         '''Checks if AWS Identity and Access Management (IAM) policies that you create grant permissions to all actions on individual AWS resources.
 
@@ -9934,6 +10125,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_ROLE_MANAGED_POLICY_CHECK")
+    @builtins.classmethod
     def IAM_ROLE_MANAGED_POLICY_CHECK(cls) -> builtins.str:
         '''Checks that AWS Identity and Access Management (IAM) policies in a list of policies are attached to all AWS roles.
 
@@ -9943,6 +10135,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_ROOT_ACCESS_KEY_CHECK")
+    @builtins.classmethod
     def IAM_ROOT_ACCESS_KEY_CHECK(cls) -> builtins.str:
         '''Checks whether the root user access key is available.
 
@@ -9952,6 +10145,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_USER_GROUP_MEMBERSHIP_CHECK")
+    @builtins.classmethod
     def IAM_USER_GROUP_MEMBERSHIP_CHECK(cls) -> builtins.str:
         '''Checks whether IAM users are members of at least one IAM group.
 
@@ -9961,6 +10155,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_USER_MFA_ENABLED")
+    @builtins.classmethod
     def IAM_USER_MFA_ENABLED(cls) -> builtins.str:
         '''Checks whether the AWS Identity and Access Management users have multi-factor authentication (MFA) enabled.
 
@@ -9970,6 +10165,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_USER_NO_POLICIES_CHECK")
+    @builtins.classmethod
     def IAM_USER_NO_POLICIES_CHECK(cls) -> builtins.str:
         '''Checks that none of your IAM users have policies attached.
 
@@ -9981,6 +10177,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_USER_UNUSED_CREDENTIALS_CHECK")
+    @builtins.classmethod
     def IAM_USER_UNUSED_CREDENTIALS_CHECK(cls) -> builtins.str:
         '''Checks whether your AWS Identity and Access Management (IAM) users have passwords or active access keys that have not been used within the specified number of days you provided.
 
@@ -9990,6 +10187,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="INTERNET_GATEWAY_AUTHORIZED_VPC_ONLY")
+    @builtins.classmethod
     def INTERNET_GATEWAY_AUTHORIZED_VPC_ONLY(cls) -> builtins.str:
         '''Checks that Internet gateways (IGWs) are only attached to an authorized Amazon Virtual Private Cloud (VPCs).
 
@@ -9999,6 +10197,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KINESIS_STREAM_ENCRYPTED")
+    @builtins.classmethod
     def KINESIS_STREAM_ENCRYPTED(cls) -> builtins.str:
         '''Checks if Amazon Kinesis streams are encrypted at rest with server-side encryption.
 
@@ -10008,6 +10207,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KMS_CMK_NOT_SCHEDULED_FOR_DELETION")
+    @builtins.classmethod
     def KMS_CMK_NOT_SCHEDULED_FOR_DELETION(cls) -> builtins.str:
         '''Checks whether customer master keys (CMKs) are not scheduled for deletion in AWS Key Management Service (KMS).
 
@@ -10017,6 +10217,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LAMBDA_CONCURRENCY_CHECK")
+    @builtins.classmethod
     def LAMBDA_CONCURRENCY_CHECK(cls) -> builtins.str:
         '''Checks whether the AWS Lambda function is configured with function-level concurrent execution limit.
 
@@ -10026,6 +10227,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LAMBDA_DLQ_CHECK")
+    @builtins.classmethod
     def LAMBDA_DLQ_CHECK(cls) -> builtins.str:
         '''Checks whether an AWS Lambda function is configured with a dead-letter queue.
 
@@ -10035,6 +10237,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LAMBDA_FUNCTION_PUBLIC_ACCESS_PROHIBITED")
+    @builtins.classmethod
     def LAMBDA_FUNCTION_PUBLIC_ACCESS_PROHIBITED(cls) -> builtins.str:
         '''Checks whether the AWS Lambda function policy attached to the Lambda resource prohibits public access.
 
@@ -10044,6 +10247,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LAMBDA_FUNCTION_SETTINGS_CHECK")
+    @builtins.classmethod
     def LAMBDA_FUNCTION_SETTINGS_CHECK(cls) -> builtins.str:
         '''Checks that the lambda function settings for runtime, role, timeout, and memory size match the expected values.
 
@@ -10053,6 +10257,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LAMBDA_INSIDE_VPC")
+    @builtins.classmethod
     def LAMBDA_INSIDE_VPC(cls) -> builtins.str:
         '''Checks whether an AWS Lambda function is in an Amazon Virtual Private Cloud.
 
@@ -10062,6 +10267,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LAMBDA_VPC_MULTI_AZ_CHECK")
+    @builtins.classmethod
     def LAMBDA_VPC_MULTI_AZ_CHECK(cls) -> builtins.str:
         '''Checks if Lambda has more than 1 availability zone associated.
 
@@ -10071,6 +10277,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MFA_ENABLED_FOR_IAM_CONSOLE_ACCESS")
+    @builtins.classmethod
     def MFA_ENABLED_FOR_IAM_CONSOLE_ACCESS(cls) -> builtins.str:
         '''Checks whether AWS Multi-Factor Authentication (MFA) is enabled for all IAM users that use a console password.
 
@@ -10080,6 +10287,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NACL_NO_UNRESTRICTED_SSH_RDP")
+    @builtins.classmethod
     def NACL_NO_UNRESTRICTED_SSH_RDP(cls) -> builtins.str:
         '''Checks if default ports for SSH/RDP ingress traffic for network access control lists (NACLs) is unrestricted.
 
@@ -10089,6 +10297,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETFW_POLICY_DEFAULT_ACTION_FRAGMENT_PACKETS")
+    @builtins.classmethod
     def NETFW_POLICY_DEFAULT_ACTION_FRAGMENT_PACKETS(cls) -> builtins.str:
         '''Checks if an AWS Network Firewall policy is configured with a user defined stateless default action for fragmented packets.
 
@@ -10098,6 +10307,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETFW_POLICY_DEFAULT_ACTION_FULL_PACKETS")
+    @builtins.classmethod
     def NETFW_POLICY_DEFAULT_ACTION_FULL_PACKETS(cls) -> builtins.str:
         '''Checks if an AWS Network Firewall policy is configured with a user defined default stateless action for full packets.
 
@@ -10107,6 +10317,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETFW_POLICY_RULE_GROUP_ASSOCIATED")
+    @builtins.classmethod
     def NETFW_POLICY_RULE_GROUP_ASSOCIATED(cls) -> builtins.str:
         '''Check AWS Network Firewall policy is associated with stateful OR stateless rule groups.
 
@@ -10116,6 +10327,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETFW_STATELESS_RULE_GROUP_NOT_EMPTY")
+    @builtins.classmethod
     def NETFW_STATELESS_RULE_GROUP_NOT_EMPTY(cls) -> builtins.str:
         '''Checks if a Stateless Network Firewall Rule Group contains rules.
 
@@ -10125,6 +10337,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NLB_CROSS_ZONE_LOAD_BALANCING_ENABLED")
+    @builtins.classmethod
     def NLB_CROSS_ZONE_LOAD_BALANCING_ENABLED(cls) -> builtins.str:
         '''Checks if cross-zone load balancing is enabled on Network Load Balancers (NLBs).
 
@@ -10134,6 +10347,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENSEARCH_ACCESS_CONTROL_ENABLED")
+    @builtins.classmethod
     def OPENSEARCH_ACCESS_CONTROL_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon OpenSearch Service domains have fine-grained access control enabled.
 
@@ -10143,6 +10357,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENSEARCH_AUDIT_LOGGING_ENABLED")
+    @builtins.classmethod
     def OPENSEARCH_AUDIT_LOGGING_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon OpenSearch Service domains have audit logging enabled.
 
@@ -10152,6 +10367,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENSEARCH_DATA_NODE_FAULT_TOLERANCE")
+    @builtins.classmethod
     def OPENSEARCH_DATA_NODE_FAULT_TOLERANCE(cls) -> builtins.str:
         '''Checks if Amazon OpenSearch Service domains are configured with at least three data nodes and zoneAwarenessEnabled is true.
 
@@ -10161,6 +10377,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENSEARCH_ENCRYPTED_AT_REST")
+    @builtins.classmethod
     def OPENSEARCH_ENCRYPTED_AT_REST(cls) -> builtins.str:
         '''Checks if Amazon OpenSearch Service domains have encryption at rest configuration enabled.
 
@@ -10170,6 +10387,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENSEARCH_HTTPS_REQUIRED")
+    @builtins.classmethod
     def OPENSEARCH_HTTPS_REQUIRED(cls) -> builtins.str:
         '''Checks whether connections to OpenSearch domains are using HTTPS.
 
@@ -10179,6 +10397,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENSEARCH_IN_VPC_ONLY")
+    @builtins.classmethod
     def OPENSEARCH_IN_VPC_ONLY(cls) -> builtins.str:
         '''Checks if Amazon OpenSearch Service domains are in an Amazon Virtual Private Cloud (VPC).
 
@@ -10188,6 +10407,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENSEARCH_LOGS_TO_CLOUDWATCH")
+    @builtins.classmethod
     def OPENSEARCH_LOGS_TO_CLOUDWATCH(cls) -> builtins.str:
         '''Checks if Amazon OpenSearch Service domains are configured to send logs to Amazon CloudWatch Logs.
 
@@ -10197,6 +10417,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENSEARCH_NODE_TO_NODE_ENCRYPTION_CHECK")
+    @builtins.classmethod
     def OPENSEARCH_NODE_TO_NODE_ENCRYPTION_CHECK(cls) -> builtins.str:
         '''Check if Amazon OpenSearch Service nodes are encrypted end to end.
 
@@ -10206,6 +10427,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_AUTOMATIC_MINOR_VERSION_UPGRADE_ENABLED")
+    @builtins.classmethod
     def RDS_AUTOMATIC_MINOR_VERSION_UPGRADE_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon Relational Database Service (RDS) database instances are configured for automatic minor version upgrades.
 
@@ -10215,6 +10437,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CLUSTER_DEFAULT_ADMIN_CHECK")
+    @builtins.classmethod
     def RDS_CLUSTER_DEFAULT_ADMIN_CHECK(cls) -> builtins.str:
         '''Checks if an Amazon Relational Database Service (Amazon RDS) database cluster has changed the admin username from its default value.
 
@@ -10224,6 +10447,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CLUSTER_DELETION_PROTECTION_ENABLED")
+    @builtins.classmethod
     def RDS_CLUSTER_DELETION_PROTECTION_ENABLED(cls) -> builtins.str:
         '''Checks if an Amazon Relational Database Service (Amazon RDS) cluster has deletion protection enabled.
 
@@ -10233,6 +10457,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CLUSTER_IAM_AUTHENTICATION_ENABLED")
+    @builtins.classmethod
     def RDS_CLUSTER_IAM_AUTHENTICATION_ENABLED(cls) -> builtins.str:
         '''Checks if an Amazon RDS Cluster has AWS Identity and Access Management (IAM) authentication enabled.
 
@@ -10242,6 +10467,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CLUSTER_MULTI_AZ_ENABLED")
+    @builtins.classmethod
     def RDS_CLUSTER_MULTI_AZ_ENABLED(cls) -> builtins.str:
         '''Checks if Multi-AZ replication is enabled on Amazon Aurora and Hermes clusters managed by Amazon Relational Database Service (Amazon RDS).
 
@@ -10251,6 +10477,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_DB_INSTANCE_BACKUP_ENABLED")
+    @builtins.classmethod
     def RDS_DB_INSTANCE_BACKUP_ENABLED(cls) -> builtins.str:
         '''Checks whether RDS DB instances have backups enabled.
 
@@ -10260,6 +10487,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_DB_SECURITY_GROUP_NOT_ALLOWED")
+    @builtins.classmethod
     def RDS_DB_SECURITY_GROUP_NOT_ALLOWED(cls) -> builtins.str:
         '''Checks if there are any Amazon Relational Database Service (RDS) DB security groups that are not the default DB security group.
 
@@ -10269,6 +10497,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_ENHANCED_MONITORING_ENABLED")
+    @builtins.classmethod
     def RDS_ENHANCED_MONITORING_ENABLED(cls) -> builtins.str:
         '''Checks whether enhanced monitoring is enabled for Amazon Relational Database Service (Amazon RDS) instances.
 
@@ -10278,6 +10507,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_IN_BACKUP_PLAN")
+    @builtins.classmethod
     def RDS_IN_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks whether Amazon RDS database is present in back plans of AWS Backup.
 
@@ -10287,6 +10517,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_INSTANCE_DEFAULT_ADMIN_CHECK")
+    @builtins.classmethod
     def RDS_INSTANCE_DEFAULT_ADMIN_CHECK(cls) -> builtins.str:
         '''Checks if an Amazon Relational Database Service (Amazon RDS) database has changed the admin username from its default value.
 
@@ -10296,6 +10527,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_INSTANCE_DELETION_PROTECTION_ENABLED")
+    @builtins.classmethod
     def RDS_INSTANCE_DELETION_PROTECTION_ENABLED(cls) -> builtins.str:
         '''Checks if an Amazon Relational Database Service (Amazon RDS) instance has deletion protection enabled.
 
@@ -10305,6 +10537,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_INSTANCE_IAM_AUTHENTICATION_ENABLED")
+    @builtins.classmethod
     def RDS_INSTANCE_IAM_AUTHENTICATION_ENABLED(cls) -> builtins.str:
         '''Checks if an Amazon RDS instance has AWS Identity and Access Management (IAM) authentication enabled.
 
@@ -10314,6 +10547,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_INSTANCE_PUBLIC_ACCESS_CHECK")
+    @builtins.classmethod
     def RDS_INSTANCE_PUBLIC_ACCESS_CHECK(cls) -> builtins.str:
         '''Check whether the Amazon Relational Database Service instances are not publicly accessible.
 
@@ -10323,6 +10557,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_LAST_BACKUP_RECOVERY_POINT_CREATED")
+    @builtins.classmethod
     def RDS_LAST_BACKUP_RECOVERY_POINT_CREATED(cls) -> builtins.str:
         '''Checks if a recovery point was created for Amazon Relational Database Service (Amazon RDS).
 
@@ -10332,6 +10567,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_LOGGING_ENABLED")
+    @builtins.classmethod
     def RDS_LOGGING_ENABLED(cls) -> builtins.str:
         '''Checks that respective logs of Amazon Relational Database Service (Amazon RDS) are enabled.
 
@@ -10341,6 +10577,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_MULTI_AZ_SUPPORT")
+    @builtins.classmethod
     def RDS_MULTI_AZ_SUPPORT(cls) -> builtins.str:
         '''Checks whether high availability is enabled for your RDS DB instances.
 
@@ -10350,6 +10587,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_RESOURCES_PROTECTED_BY_BACKUP_PLAN")
+    @builtins.classmethod
     def RDS_RESOURCES_PROTECTED_BY_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks if Amazon Relational Database Service (Amazon RDS) instances are protected by a backup plan.
 
@@ -10359,6 +10597,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_SNAPSHOT_ENCRYPTED")
+    @builtins.classmethod
     def RDS_SNAPSHOT_ENCRYPTED(cls) -> builtins.str:
         '''Checks whether Amazon Relational Database Service (Amazon RDS) DB snapshots are encrypted.
 
@@ -10368,6 +10607,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_SNAPSHOTS_PUBLIC_PROHIBITED")
+    @builtins.classmethod
     def RDS_SNAPSHOTS_PUBLIC_PROHIBITED(cls) -> builtins.str:
         '''Checks if Amazon Relational Database Service (Amazon RDS) snapshots are public.
 
@@ -10377,6 +10617,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_STORAGE_ENCRYPTED")
+    @builtins.classmethod
     def RDS_STORAGE_ENCRYPTED(cls) -> builtins.str:
         '''Checks whether storage encryption is enabled for your RDS DB instances.
 
@@ -10386,6 +10627,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_AUDIT_LOGGING_ENABLED")
+    @builtins.classmethod
     def REDSHIFT_AUDIT_LOGGING_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon Redshift clusters are logging audits to a specific bucket.
 
@@ -10395,6 +10637,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_BACKUP_ENABLED")
+    @builtins.classmethod
     def REDSHIFT_BACKUP_ENABLED(cls) -> builtins.str:
         '''Checks that Amazon Redshift automated snapshots are enabled for clusters.
 
@@ -10404,6 +10647,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_CLUSTER_CONFIGURATION_CHECK")
+    @builtins.classmethod
     def REDSHIFT_CLUSTER_CONFIGURATION_CHECK(cls) -> builtins.str:
         '''Checks whether Amazon Redshift clusters have the specified settings.
 
@@ -10413,6 +10657,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_CLUSTER_KMS_ENABLED")
+    @builtins.classmethod
     def REDSHIFT_CLUSTER_KMS_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon Redshift clusters are using a specified AWS Key Management Service (AWS KMS) key for encryption.
 
@@ -10422,6 +10667,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_CLUSTER_MAINTENANCE_SETTINGS_CHECK")
+    @builtins.classmethod
     def REDSHIFT_CLUSTER_MAINTENANCE_SETTINGS_CHECK(cls) -> builtins.str:
         '''Checks whether Amazon Redshift clusters have the specified maintenance settings.
 
@@ -10431,6 +10677,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_CLUSTER_PUBLIC_ACCESS_CHECK")
+    @builtins.classmethod
     def REDSHIFT_CLUSTER_PUBLIC_ACCESS_CHECK(cls) -> builtins.str:
         '''Checks whether Amazon Redshift clusters are not publicly accessible.
 
@@ -10440,6 +10687,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_DEFAULT_ADMIN_CHECK")
+    @builtins.classmethod
     def REDSHIFT_DEFAULT_ADMIN_CHECK(cls) -> builtins.str:
         '''Checks if an Amazon Redshift cluster has changed the admin username from its default value.
 
@@ -10449,6 +10697,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_DEFAULT_DB_NAME_CHECK")
+    @builtins.classmethod
     def REDSHIFT_DEFAULT_DB_NAME_CHECK(cls) -> builtins.str:
         '''Checks if a Redshift cluster has changed its database name from the default value.
 
@@ -10458,6 +10707,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_ENHANCED_VPC_ROUTING_ENABLED")
+    @builtins.classmethod
     def REDSHIFT_ENHANCED_VPC_ROUTING_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon Redshift cluster has 'enhancedVpcRouting' enabled.
 
@@ -10467,6 +10717,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_REQUIRE_TLS_SSL")
+    @builtins.classmethod
     def REDSHIFT_REQUIRE_TLS_SSL(cls) -> builtins.str:
         '''Checks whether Amazon Redshift clusters require TLS/SSL encryption to connect to SQL clients.
 
@@ -10476,6 +10727,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REQUIRED_TAGS")
+    @builtins.classmethod
     def REQUIRED_TAGS(cls) -> builtins.str:
         '''Checks whether your resources have the tags that you specify.
 
@@ -10487,6 +10739,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROOT_ACCOUNT_HARDWARE_MFA_ENABLED")
+    @builtins.classmethod
     def ROOT_ACCOUNT_HARDWARE_MFA_ENABLED(cls) -> builtins.str:
         '''Checks whether your AWS account is enabled to use multi-factor authentication (MFA) hardware device to sign in with root credentials.
 
@@ -10496,6 +10749,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROOT_ACCOUNT_MFA_ENABLED")
+    @builtins.classmethod
     def ROOT_ACCOUNT_MFA_ENABLED(cls) -> builtins.str:
         '''Checks whether users of your AWS account require a multi-factor authentication (MFA) device to sign in with root credentials.
 
@@ -10505,6 +10759,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_ACCOUNT_LEVEL_PUBLIC_ACCESS_BLOCKS")
+    @builtins.classmethod
     def S3_ACCOUNT_LEVEL_PUBLIC_ACCESS_BLOCKS(cls) -> builtins.str:
         '''Checks whether the required public access block settings are configured from account level.
 
@@ -10514,6 +10769,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_ACCOUNT_LEVEL_PUBLIC_ACCESS_BLOCKS_PERIODIC")
+    @builtins.classmethod
     def S3_ACCOUNT_LEVEL_PUBLIC_ACCESS_BLOCKS_PERIODIC(cls) -> builtins.str:
         '''Checks if the required public access block settings are configured from account level.
 
@@ -10523,6 +10779,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_ACL_PROHIBITED")
+    @builtins.classmethod
     def S3_BUCKET_ACL_PROHIBITED(cls) -> builtins.str:
         '''Checks if Amazon Simple Storage Service (Amazon S3) Buckets allow user permissions through access control lists (ACLs).
 
@@ -10532,6 +10789,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_BLOCKED_ACTIONS_PROHIBITED")
+    @builtins.classmethod
     def S3_BUCKET_BLOCKED_ACTIONS_PROHIBITED(cls) -> builtins.str:
         '''Checks if the Amazon Simple Storage Service bucket policy does not allow blacklisted bucket-level and object-level actions on resources in the bucket for principals from other AWS accounts.
 
@@ -10541,6 +10799,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_DEFAULT_LOCK_ENABLED")
+    @builtins.classmethod
     def S3_BUCKET_DEFAULT_LOCK_ENABLED(cls) -> builtins.str:
         '''Checks whether Amazon Simple Storage Service (Amazon S3) bucket has lock enabled, by default.
 
@@ -10550,6 +10809,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_LEVEL_PUBLIC_ACCESS_PROHIBITED")
+    @builtins.classmethod
     def S3_BUCKET_LEVEL_PUBLIC_ACCESS_PROHIBITED(cls) -> builtins.str:
         '''Checks if Amazon Simple Storage Service (Amazon S3) buckets are publicly accessible.
 
@@ -10559,6 +10819,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_LOGGING_ENABLED")
+    @builtins.classmethod
     def S3_BUCKET_LOGGING_ENABLED(cls) -> builtins.str:
         '''Checks whether logging is enabled for your S3 buckets.
 
@@ -10568,6 +10829,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_POLICY_GRANTEE_CHECK")
+    @builtins.classmethod
     def S3_BUCKET_POLICY_GRANTEE_CHECK(cls) -> builtins.str:
         '''Checks that the access granted by the Amazon S3 bucket is restricted by any of the AWS principals, federated users, service principals, IP addresses, or VPCs that you provide.
 
@@ -10577,6 +10839,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_POLICY_NOT_MORE_PERMISSIVE")
+    @builtins.classmethod
     def S3_BUCKET_POLICY_NOT_MORE_PERMISSIVE(cls) -> builtins.str:
         '''Checks if your Amazon Simple Storage Service bucket policies do not allow other inter-account permissions than the control Amazon S3 bucket policy that you provide.
 
@@ -10586,6 +10849,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_PUBLIC_READ_PROHIBITED")
+    @builtins.classmethod
     def S3_BUCKET_PUBLIC_READ_PROHIBITED(cls) -> builtins.str:
         '''Checks if your Amazon S3 buckets do not allow public read access.
 
@@ -10595,6 +10859,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_PUBLIC_WRITE_PROHIBITED")
+    @builtins.classmethod
     def S3_BUCKET_PUBLIC_WRITE_PROHIBITED(cls) -> builtins.str:
         '''Checks that your Amazon S3 buckets do not allow public write access.
 
@@ -10604,6 +10869,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_REPLICATION_ENABLED")
+    @builtins.classmethod
     def S3_BUCKET_REPLICATION_ENABLED(cls) -> builtins.str:
         '''Checks whether S3 buckets have cross-region replication enabled.
 
@@ -10613,6 +10879,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_SERVER_SIDE_ENCRYPTION_ENABLED")
+    @builtins.classmethod
     def S3_BUCKET_SERVER_SIDE_ENCRYPTION_ENABLED(cls) -> builtins.str:
         '''Checks that your Amazon S3 bucket either has Amazon S3 default encryption enabled or that the S3 bucket policy explicitly denies put-object requests without server side encryption that uses AES-256 or AWS Key Management Service.
 
@@ -10622,6 +10889,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_SSL_REQUESTS_ONLY")
+    @builtins.classmethod
     def S3_BUCKET_SSL_REQUESTS_ONLY(cls) -> builtins.str:
         '''Checks whether S3 buckets have policies that require requests to use Secure Socket Layer (SSL).
 
@@ -10631,6 +10899,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET_VERSIONING_ENABLED")
+    @builtins.classmethod
     def S3_BUCKET_VERSIONING_ENABLED(cls) -> builtins.str:
         '''Checks whether versioning is enabled for your S3 buckets.
 
@@ -10640,6 +10909,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_DEFAULT_ENCRYPTION_KMS")
+    @builtins.classmethod
     def S3_DEFAULT_ENCRYPTION_KMS(cls) -> builtins.str:
         '''Checks whether the Amazon Simple Storage Service (Amazon S3) buckets are encrypted with AWS Key Management Service (AWS KMS).
 
@@ -10649,6 +10919,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_EVENT_NOTIFICATIONS_ENABLED")
+    @builtins.classmethod
     def S3_EVENT_NOTIFICATIONS_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon S3 Events Notifications are enabled on an S3 bucket.
 
@@ -10658,6 +10929,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_LAST_BACKUP_RECOVERY_POINT_CREATED")
+    @builtins.classmethod
     def S3_LAST_BACKUP_RECOVERY_POINT_CREATED(cls) -> builtins.str:
         '''Checks if a recovery point was created for Amazon Simple Storage Service (Amazon S3).
 
@@ -10667,6 +10939,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_LIFECYCLE_POLICY_CHECK")
+    @builtins.classmethod
     def S3_LIFECYCLE_POLICY_CHECK(cls) -> builtins.str:
         '''Checks if a lifecycle rule is configured for an Amazon Simple Storage Service (Amazon S3) bucket.
 
@@ -10676,6 +10949,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_RESOURCES_PROTECTED_BY_BACKUP_PLAN")
+    @builtins.classmethod
     def S3_RESOURCES_PROTECTED_BY_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks if Amazon Simple Storage Service (Amazon S3) buckets are protected by a backup plan.
 
@@ -10685,6 +10959,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_VERSION_LIFECYCLE_POLICY_CHECK")
+    @builtins.classmethod
     def S3_VERSION_LIFECYCLE_POLICY_CHECK(cls) -> builtins.str:
         '''Checks if Amazon Simple Storage Service (Amazon S3) version enabled buckets have lifecycle policy configured.
 
@@ -10694,6 +10969,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGEMAKER_ENDPOINT_CONFIGURATION_KMS_KEY_CONFIGURED")
+    @builtins.classmethod
     def SAGEMAKER_ENDPOINT_CONFIGURATION_KMS_KEY_CONFIGURED(cls) -> builtins.str:
         '''Checks whether AWS Key Management Service (KMS) key is configured for an Amazon SageMaker endpoint configuration.
 
@@ -10703,6 +10979,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGEMAKER_NOTEBOOK_INSTANCE_KMS_KEY_CONFIGURED")
+    @builtins.classmethod
     def SAGEMAKER_NOTEBOOK_INSTANCE_KMS_KEY_CONFIGURED(cls) -> builtins.str:
         '''Check whether an AWS Key Management Service (KMS) key is configured for SageMaker notebook instance.
 
@@ -10712,6 +10989,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGEMAKER_NOTEBOOK_NO_DIRECT_INTERNET_ACCESS")
+    @builtins.classmethod
     def SAGEMAKER_NOTEBOOK_NO_DIRECT_INTERNET_ACCESS(cls) -> builtins.str:
         '''Checks whether direct internet access is disabled for an Amazon SageMaker notebook instance.
 
@@ -10721,6 +10999,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SECRETSMANAGER_ROTATION_ENABLED_CHECK")
+    @builtins.classmethod
     def SECRETSMANAGER_ROTATION_ENABLED_CHECK(cls) -> builtins.str:
         '''Checks whether AWS Secrets Manager secret has rotation enabled.
 
@@ -10730,6 +11009,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SECRETSMANAGER_SCHEDULED_ROTATION_SUCCESS_CHECK")
+    @builtins.classmethod
     def SECRETSMANAGER_SCHEDULED_ROTATION_SUCCESS_CHECK(cls) -> builtins.str:
         '''Checks whether AWS Secrets Manager secret rotation has rotated successfully as per the rotation schedule.
 
@@ -10739,6 +11019,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SECRETSMANAGER_SECRET_PERIODIC_ROTATION")
+    @builtins.classmethod
     def SECRETSMANAGER_SECRET_PERIODIC_ROTATION(cls) -> builtins.str:
         '''Checks if AWS Secrets Manager secrets have been rotated in the past specified number of days.
 
@@ -10748,6 +11029,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SECRETSMANAGER_SECRET_UNUSED")
+    @builtins.classmethod
     def SECRETSMANAGER_SECRET_UNUSED(cls) -> builtins.str:
         '''Checks if AWS Secrets Manager secrets have been accessed within a specified number of days.
 
@@ -10757,6 +11039,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SECRETSMANAGER_USING_CMK")
+    @builtins.classmethod
     def SECRETSMANAGER_USING_CMK(cls) -> builtins.str:
         '''Checks if all secrets in AWS Secrets Manager are encrypted using the AWS managed key (aws/secretsmanager) or a customer managed key that was created in AWS Key Management Service (AWS KMS).
 
@@ -10766,6 +11049,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SECURITYHUB_ENABLED")
+    @builtins.classmethod
     def SECURITYHUB_ENABLED(cls) -> builtins.str:
         '''Checks that AWS Security Hub is enabled for an AWS account.
 
@@ -10775,6 +11059,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SERVICE_VPC_ENDPOINT_ENABLED")
+    @builtins.classmethod
     def SERVICE_VPC_ENDPOINT_ENABLED(cls) -> builtins.str:
         '''Checks whether Service Endpoint for the service provided in rule parameter is created for each Amazon VPC.
 
@@ -10784,6 +11069,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SHIELD_ADVANCED_ENABLED_AUTO_RENEW")
+    @builtins.classmethod
     def SHIELD_ADVANCED_ENABLED_AUTO_RENEW(cls) -> builtins.str:
         '''Checks whether EBS volumes are attached to EC2 instances.
 
@@ -10793,6 +11079,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SHIELD_DRT_ACCESS")
+    @builtins.classmethod
     def SHIELD_DRT_ACCESS(cls) -> builtins.str:
         '''Verify that DDoS response team (DRT) can access AWS account.
 
@@ -10802,6 +11089,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SNS_ENCRYPTED_KMS")
+    @builtins.classmethod
     def SNS_ENCRYPTED_KMS(cls) -> builtins.str:
         '''Checks whether Amazon SNS topic is encrypted with AWS Key Management Service (AWS KMS).
 
@@ -10811,6 +11099,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SNS_TOPIC_MESSAGE_DELIVERY_NOTIFICATION_ENABLED")
+    @builtins.classmethod
     def SNS_TOPIC_MESSAGE_DELIVERY_NOTIFICATION_ENABLED(cls) -> builtins.str:
         '''Checks if Amazon Simple Notification Service (SNS) logging is enabled for the delivery status of notification messages sent to a topic for the endpoints.
 
@@ -10820,6 +11109,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SSM_DOCUMENT_NOT_PUBLIC")
+    @builtins.classmethod
     def SSM_DOCUMENT_NOT_PUBLIC(cls) -> builtins.str:
         '''Checks if AWS Systems Manager documents owned by the account are public.
 
@@ -10829,6 +11119,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STORAGEGATEWAY_LAST_BACKUP_RECOVERY_POINT_CREATED")
+    @builtins.classmethod
     def STORAGEGATEWAY_LAST_BACKUP_RECOVERY_POINT_CREATED(cls) -> builtins.str:
         '''Checks if a recovery point was created for AWS Storage Gateway volumes.
 
@@ -10838,6 +11129,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SUBNET_AUTO_ASSIGN_PUBLIC_IP_DISABLED")
+    @builtins.classmethod
     def SUBNET_AUTO_ASSIGN_PUBLIC_IP_DISABLED(cls) -> builtins.str:
         '''hecks if Amazon Virtual Private Cloud (Amazon VPC) subnets are assigned a public IP address.
 
@@ -10847,6 +11139,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VIRTUALMACHINE_LAST_BACKUP_RECOVERY_POINT_CREATED")
+    @builtins.classmethod
     def VIRTUALMACHINE_LAST_BACKUP_RECOVERY_POINT_CREATED(cls) -> builtins.str:
         '''Checks if a recovery point was created for AWS Backup-Gateway VirtualMachines.
 
@@ -10856,6 +11149,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VIRTUALMACHINE_RESOURCES_PROTECTED_BY_BACKUP_PLAN")
+    @builtins.classmethod
     def VIRTUALMACHINE_RESOURCES_PROTECTED_BY_BACKUP_PLAN(cls) -> builtins.str:
         '''Checks if AWS Backup-Gateway VirtualMachines are protected by a backup plan.
 
@@ -10865,6 +11159,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VPC_DEFAULT_SECURITY_GROUP_CLOSED")
+    @builtins.classmethod
     def VPC_DEFAULT_SECURITY_GROUP_CLOSED(cls) -> builtins.str:
         '''Checks that the default security group of any Amazon Virtual Private Cloud (VPC) does not allow inbound or outbound traffic.
 
@@ -10877,6 +11172,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VPC_FLOW_LOGS_ENABLED")
+    @builtins.classmethod
     def VPC_FLOW_LOGS_ENABLED(cls) -> builtins.str:
         '''Checks whether Amazon Virtual Private Cloud flow logs are found and enabled for Amazon VPC.
 
@@ -10886,6 +11182,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VPC_NETWORK_ACL_UNUSED_CHECK")
+    @builtins.classmethod
     def VPC_NETWORK_ACL_UNUSED_CHECK(cls) -> builtins.str:
         '''Checks if there are unused network access control lists (network ACLs).
 
@@ -10895,6 +11192,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VPC_PEERING_DNS_RESOLUTION_CHECK")
+    @builtins.classmethod
     def VPC_PEERING_DNS_RESOLUTION_CHECK(cls) -> builtins.str:
         '''Checks if DNS resolution from accepter/requester VPC to private IP is enabled.
 
@@ -10904,6 +11202,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VPC_SG_OPEN_ONLY_TO_AUTHORIZED_PORTS")
+    @builtins.classmethod
     def VPC_SG_OPEN_ONLY_TO_AUTHORIZED_PORTS(cls) -> builtins.str:
         '''Checks whether the security group with 0.0.0.0/0 of any Amazon Virtual Private Cloud (Amazon VPC) allows only specific inbound TCP or UDP traffic.
 
@@ -10913,6 +11212,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VPC_VPN_2_TUNNELS_UP")
+    @builtins.classmethod
     def VPC_VPN_2_TUNNELS_UP(cls) -> builtins.str:
         '''Checks that both AWS Virtual Private Network tunnels provided by AWS Site-to-Site VPN are in UP status.
 
@@ -10922,6 +11222,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_CLASSIC_LOGGING_ENABLED")
+    @builtins.classmethod
     def WAF_CLASSIC_LOGGING_ENABLED(cls) -> builtins.str:
         '''Checks if logging is enabled on AWS Web Application Firewall (WAF) classic global web ACLs.
 
@@ -10931,6 +11232,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_GLOBAL_RULE_NOT_EMPTY")
+    @builtins.classmethod
     def WAF_GLOBAL_RULE_NOT_EMPTY(cls) -> builtins.str:
         '''Checks if an AWS WAF global rule contains any conditions.
 
@@ -10940,6 +11242,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_GLOBAL_RULEGROUP_NOT_EMPTY")
+    @builtins.classmethod
     def WAF_GLOBAL_RULEGROUP_NOT_EMPTY(cls) -> builtins.str:
         '''Checks if an AWS WAF Classic rule group contains any rules.
 
@@ -10949,6 +11252,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_GLOBAL_WEBACL_NOT_EMPTY")
+    @builtins.classmethod
     def WAF_GLOBAL_WEBACL_NOT_EMPTY(cls) -> builtins.str:
         '''Checks whether a WAF Global Web ACL contains any WAF rules or rule groups.
 
@@ -10958,6 +11262,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_REGIONAL_RULE_NOT_EMPTY")
+    @builtins.classmethod
     def WAF_REGIONAL_RULE_NOT_EMPTY(cls) -> builtins.str:
         '''Checks whether WAF regional rule contains conditions.
 
@@ -10967,6 +11272,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_REGIONAL_RULEGROUP_NOT_EMPTY")
+    @builtins.classmethod
     def WAF_REGIONAL_RULEGROUP_NOT_EMPTY(cls) -> builtins.str:
         '''Checks if WAF Regional rule groups contain any rules.
 
@@ -10976,6 +11282,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_REGIONAL_WEBACL_NOT_EMPTY")
+    @builtins.classmethod
     def WAF_REGIONAL_WEBACL_NOT_EMPTY(cls) -> builtins.str:
         '''Checks if a WAF regional Web ACL contains any WAF rules or rule groups.
 
@@ -10985,6 +11292,7 @@ class ManagedRuleIdentifiers(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAFV2_LOGGING_ENABLED")
+    @builtins.classmethod
     def WAFV2_LOGGING_ENABLED(cls) -> builtins.str:
         '''Checks whether logging is enabled on AWS Web Application Firewall (WAFV2) regional and global web access control list (ACLs).
 
@@ -11065,2346 +11373,2737 @@ class ResourceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACM_CERTIFICATE")
+    @builtins.classmethod
     def ACM_CERTIFICATE(cls) -> "ResourceType":
         '''AWS Certificate manager certificate.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ACM_CERTIFICATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACMPCA_CERTIFICATE_AUTHORITY")
+    @builtins.classmethod
     def ACMPCA_CERTIFICATE_AUTHORITY(cls) -> "ResourceType":
         '''AWS Private Certificate Authority CertificateAuthority.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ACMPCA_CERTIFICATE_AUTHORITY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACMPCA_CERTIFICATE_AUTHORITY_ACTIVATION")
+    @builtins.classmethod
     def ACMPCA_CERTIFICATE_AUTHORITY_ACTIVATION(cls) -> "ResourceType":
         '''AWS Private Certificate Authority CertificateAuthorityActivation.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ACMPCA_CERTIFICATE_AUTHORITY_ACTIVATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_MQ_BROKER")
+    @builtins.classmethod
     def AMAZON_MQ_BROKER(cls) -> "ResourceType":
         '''Amazon MQ broker.'''
         return typing.cast("ResourceType", jsii.sget(cls, "AMAZON_MQ_BROKER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMPLIFY_APP")
+    @builtins.classmethod
     def AMPLIFY_APP(cls) -> "ResourceType":
         '''AWS Amplify App.'''
         return typing.cast("ResourceType", jsii.sget(cls, "AMPLIFY_APP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMPLIFY_BRANCH")
+    @builtins.classmethod
     def AMPLIFY_BRANCH(cls) -> "ResourceType":
         '''AWS Amplify Branch.'''
         return typing.cast("ResourceType", jsii.sget(cls, "AMPLIFY_BRANCH"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APIGATEWAY_REST_API")
+    @builtins.classmethod
     def APIGATEWAY_REST_API(cls) -> "ResourceType":
         '''API Gateway REST API.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APIGATEWAY_REST_API"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APIGATEWAY_STAGE")
+    @builtins.classmethod
     def APIGATEWAY_STAGE(cls) -> "ResourceType":
         '''API Gateway Stage.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APIGATEWAY_STAGE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APIGATEWAYV2_API")
+    @builtins.classmethod
     def APIGATEWAYV2_API(cls) -> "ResourceType":
         '''API Gatewayv2 API.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APIGATEWAYV2_API"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APIGATEWAYV2_STAGE")
+    @builtins.classmethod
     def APIGATEWAYV2_STAGE(cls) -> "ResourceType":
         '''API Gatewayv2 Stage.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APIGATEWAYV2_STAGE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_CONFIG_DEPLOYMENT_STRATEGY")
+    @builtins.classmethod
     def APP_CONFIG_DEPLOYMENT_STRATEGY(cls) -> "ResourceType":
         '''AWS AppConfig Deployment Strategy.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_CONFIG_DEPLOYMENT_STRATEGY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_CONFIG_HOSTED_CONFIGURATION_VERSION")
+    @builtins.classmethod
     def APP_CONFIG_HOSTED_CONFIGURATION_VERSION(cls) -> "ResourceType":
         '''AWS AppConfig HostedConfigurationVersion.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_CONFIG_HOSTED_CONFIGURATION_VERSION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_FLOW_FLOW")
+    @builtins.classmethod
     def APP_FLOW_FLOW(cls) -> "ResourceType":
         '''Amazon AppFlow Flow.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_FLOW_FLOW"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_INTEGRATIONS_EVENT_INTEGRATION")
+    @builtins.classmethod
     def APP_INTEGRATIONS_EVENT_INTEGRATION(cls) -> "ResourceType":
         '''Amazon AppIntegrations EventIntegration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_INTEGRATIONS_EVENT_INTEGRATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_MESH_GATEWAY_ROUTE")
+    @builtins.classmethod
     def APP_MESH_GATEWAY_ROUTE(cls) -> "ResourceType":
         '''AWS AppMesh GatewayRoute.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_MESH_GATEWAY_ROUTE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_MESH_MESH")
+    @builtins.classmethod
     def APP_MESH_MESH(cls) -> "ResourceType":
         '''AWS AppMesh Mesh.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_MESH_MESH"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_MESH_ROUTE")
+    @builtins.classmethod
     def APP_MESH_ROUTE(cls) -> "ResourceType":
         '''AWS AppMesh Route.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_MESH_ROUTE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_MESH_VIRTUAL_GATEWAY")
+    @builtins.classmethod
     def APP_MESH_VIRTUAL_GATEWAY(cls) -> "ResourceType":
         '''AWS AppMesh VirtualGateway.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_MESH_VIRTUAL_GATEWAY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_MESH_VIRTUAL_NODE")
+    @builtins.classmethod
     def APP_MESH_VIRTUAL_NODE(cls) -> "ResourceType":
         '''AWS AppMesh VirtualNode.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_MESH_VIRTUAL_NODE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_MESH_VIRTUAL_ROUTER")
+    @builtins.classmethod
     def APP_MESH_VIRTUAL_ROUTER(cls) -> "ResourceType":
         '''AWS AppMesh VirtualRouter.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_MESH_VIRTUAL_ROUTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_MESH_VIRTUAL_SERVICE")
+    @builtins.classmethod
     def APP_MESH_VIRTUAL_SERVICE(cls) -> "ResourceType":
         '''AWS AppMesh VirtualService.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_MESH_VIRTUAL_SERVICE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_RUNNER_SERVICE")
+    @builtins.classmethod
     def APP_RUNNER_SERVICE(cls) -> "ResourceType":
         '''AWS AppRunner Service.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_RUNNER_SERVICE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_RUNNER_VPC_CONNECTOR")
+    @builtins.classmethod
     def APP_RUNNER_VPC_CONNECTOR(cls) -> "ResourceType":
         '''AWS AppRunner VpcConnector.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_RUNNER_VPC_CONNECTOR"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_STREAM_APPLICATION")
+    @builtins.classmethod
     def APP_STREAM_APPLICATION(cls) -> "ResourceType":
         '''Amazon AppStream Application.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_STREAM_APPLICATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_STREAM_DIRECTORY_CONFIG")
+    @builtins.classmethod
     def APP_STREAM_DIRECTORY_CONFIG(cls) -> "ResourceType":
         '''Amazon AppStream Directory Config.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_STREAM_DIRECTORY_CONFIG"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_STREAM_FLEET")
+    @builtins.classmethod
     def APP_STREAM_FLEET(cls) -> "ResourceType":
         '''Amazon AppStream Fleet.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_STREAM_FLEET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APP_STREAM_STACK")
+    @builtins.classmethod
     def APP_STREAM_STACK(cls) -> "ResourceType":
         '''Amazon AppStream Stack.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APP_STREAM_STACK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPCONFIG_APPLICATION")
+    @builtins.classmethod
     def APPCONFIG_APPLICATION(cls) -> "ResourceType":
         '''AWS AppConfig application.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APPCONFIG_APPLICATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPCONFIG_CONFIGURATION_PROFILE")
+    @builtins.classmethod
     def APPCONFIG_CONFIGURATION_PROFILE(cls) -> "ResourceType":
         '''AWS AppConfig configuration profile.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APPCONFIG_CONFIGURATION_PROFILE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPCONFIG_ENVIRONMENT")
+    @builtins.classmethod
     def APPCONFIG_ENVIRONMENT(cls) -> "ResourceType":
         '''AWS AppConfig environment.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APPCONFIG_ENVIRONMENT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPSYNC_GRAPHQL_API")
+    @builtins.classmethod
     def APPSYNC_GRAPHQL_API(cls) -> "ResourceType":
         '''AWS AppSync GraphQL Api.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APPSYNC_GRAPHQL_API"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APS_RULE_GROUPS_NAMESPACE")
+    @builtins.classmethod
     def APS_RULE_GROUPS_NAMESPACE(cls) -> "ResourceType":
         '''Amazon Managed Service for Prometheus RuleGroupsNamespace.'''
         return typing.cast("ResourceType", jsii.sget(cls, "APS_RULE_GROUPS_NAMESPACE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ATHENA_PREPARED_STATEMENT")
+    @builtins.classmethod
     def ATHENA_PREPARED_STATEMENT(cls) -> "ResourceType":
         '''Amazon Athena PreparedStatement.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ATHENA_PREPARED_STATEMENT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUDIT_MANAGER_ASSESSMENT")
+    @builtins.classmethod
     def AUDIT_MANAGER_ASSESSMENT(cls) -> "ResourceType":
         '''AWS AuditManager Assessment.'''
         return typing.cast("ResourceType", jsii.sget(cls, "AUDIT_MANAGER_ASSESSMENT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTO_SCALING_GROUP")
+    @builtins.classmethod
     def AUTO_SCALING_GROUP(cls) -> "ResourceType":
         '''AWS Auto Scaling group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "AUTO_SCALING_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTO_SCALING_LAUNCH_CONFIGURATION")
+    @builtins.classmethod
     def AUTO_SCALING_LAUNCH_CONFIGURATION(cls) -> "ResourceType":
         '''AWS Auto Scaling launch configuration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "AUTO_SCALING_LAUNCH_CONFIGURATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTO_SCALING_POLICY")
+    @builtins.classmethod
     def AUTO_SCALING_POLICY(cls) -> "ResourceType":
         '''AWS Auto Scaling policy.'''
         return typing.cast("ResourceType", jsii.sget(cls, "AUTO_SCALING_POLICY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTO_SCALING_SCHEDULED_ACTION")
+    @builtins.classmethod
     def AUTO_SCALING_SCHEDULED_ACTION(cls) -> "ResourceType":
         '''AWS Auto Scaling scheduled action.'''
         return typing.cast("ResourceType", jsii.sget(cls, "AUTO_SCALING_SCHEDULED_ACTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUTO_SCALING_WARM_POOL")
+    @builtins.classmethod
     def AUTO_SCALING_WARM_POOL(cls) -> "ResourceType":
         '''EC2 Auto Scaling Warm Pool.'''
         return typing.cast("ResourceType", jsii.sget(cls, "AUTO_SCALING_WARM_POOL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BACKUP_BACKUP_PLAN")
+    @builtins.classmethod
     def BACKUP_BACKUP_PLAN(cls) -> "ResourceType":
         '''AWS Backup backup plan.'''
         return typing.cast("ResourceType", jsii.sget(cls, "BACKUP_BACKUP_PLAN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BACKUP_BACKUP_SELECTION")
+    @builtins.classmethod
     def BACKUP_BACKUP_SELECTION(cls) -> "ResourceType":
         '''AWS Backup backup selection.'''
         return typing.cast("ResourceType", jsii.sget(cls, "BACKUP_BACKUP_SELECTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BACKUP_BACKUP_VAULT")
+    @builtins.classmethod
     def BACKUP_BACKUP_VAULT(cls) -> "ResourceType":
         '''AWS Backup backup vault.'''
         return typing.cast("ResourceType", jsii.sget(cls, "BACKUP_BACKUP_VAULT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BACKUP_RECOVERY_POINT")
+    @builtins.classmethod
     def BACKUP_RECOVERY_POINT(cls) -> "ResourceType":
         '''AWS Backup recovery point.'''
         return typing.cast("ResourceType", jsii.sget(cls, "BACKUP_RECOVERY_POINT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BACKUP_REPORT_PLAN")
+    @builtins.classmethod
     def BACKUP_REPORT_PLAN(cls) -> "ResourceType":
         '''AWS Backup report plan.'''
         return typing.cast("ResourceType", jsii.sget(cls, "BACKUP_REPORT_PLAN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BATCH_COMPUTE_ENVIRONMENT")
+    @builtins.classmethod
     def BATCH_COMPUTE_ENVIRONMENT(cls) -> "ResourceType":
         '''AWS Batch compute environment.'''
         return typing.cast("ResourceType", jsii.sget(cls, "BATCH_COMPUTE_ENVIRONMENT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BATCH_JOB_QUEUE")
+    @builtins.classmethod
     def BATCH_JOB_QUEUE(cls) -> "ResourceType":
         '''AWS Batch job queue.'''
         return typing.cast("ResourceType", jsii.sget(cls, "BATCH_JOB_QUEUE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BATCH_SCHEDULING_POLICY")
+    @builtins.classmethod
     def BATCH_SCHEDULING_POLICY(cls) -> "ResourceType":
         '''AWS Batch SchedulingPolicy.'''
         return typing.cast("ResourceType", jsii.sget(cls, "BATCH_SCHEDULING_POLICY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BUDGETS_BUDGETS_ACTION")
+    @builtins.classmethod
     def BUDGETS_BUDGETS_ACTION(cls) -> "ResourceType":
         '''AWS Budgets Budgets Action.'''
         return typing.cast("ResourceType", jsii.sget(cls, "BUDGETS_BUDGETS_ACTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CASSANDRA_KEYSPACE")
+    @builtins.classmethod
     def CASSANDRA_KEYSPACE(cls) -> "ResourceType":
         '''Amazon KeySpaces Cassandra Keyspace.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CASSANDRA_KEYSPACE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUD_WATCH_METRIC_STREAM")
+    @builtins.classmethod
     def CLOUD_WATCH_METRIC_STREAM(cls) -> "ResourceType":
         '''Amazon CloudWatch Metric Stream.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CLOUD_WATCH_METRIC_STREAM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUD9_ENVIRONMENT_EC2")
+    @builtins.classmethod
     def CLOUD9_ENVIRONMENT_EC2(cls) -> "ResourceType":
         '''AWS Cloud9 environment EC2.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CLOUD9_ENVIRONMENT_EC2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFORMATION_STACK")
+    @builtins.classmethod
     def CLOUDFORMATION_STACK(cls) -> "ResourceType":
         '''AWS CloudFormation stack.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CLOUDFORMATION_STACK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_DISTRIBUTION")
+    @builtins.classmethod
     def CLOUDFRONT_DISTRIBUTION(cls) -> "ResourceType":
         '''Amazon CloudFront Distribution.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CLOUDFRONT_DISTRIBUTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_STREAMING_DISTRIBUTION")
+    @builtins.classmethod
     def CLOUDFRONT_STREAMING_DISTRIBUTION(cls) -> "ResourceType":
         '''Amazon CloudFront streaming distribution.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CLOUDFRONT_STREAMING_DISTRIBUTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDTRAIL_TRAIL")
+    @builtins.classmethod
     def CLOUDTRAIL_TRAIL(cls) -> "ResourceType":
         '''AWS CloudTrail trail.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CLOUDTRAIL_TRAIL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDWATCH_ALARM")
+    @builtins.classmethod
     def CLOUDWATCH_ALARM(cls) -> "ResourceType":
         '''Amazon CloudWatch Alarm.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CLOUDWATCH_ALARM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDWATCH_RUM_APP_MONITOR")
+    @builtins.classmethod
     def CLOUDWATCH_RUM_APP_MONITOR(cls) -> "ResourceType":
         '''Amazon CloudWatch RUM.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CLOUDWATCH_RUM_APP_MONITOR"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODE_ARTIFACT_REPOSITORY")
+    @builtins.classmethod
     def CODE_ARTIFACT_REPOSITORY(cls) -> "ResourceType":
         '''AWS CodeArtifact Repository.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CODE_ARTIFACT_REPOSITORY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODE_BUILD_REPORT_GROUP")
+    @builtins.classmethod
     def CODE_BUILD_REPORT_GROUP(cls) -> "ResourceType":
         '''AWS CodeBuild ReportGroup.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CODE_BUILD_REPORT_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODE_GURU_PROFILER_PROFILING_GROUP")
+    @builtins.classmethod
     def CODE_GURU_PROFILER_PROFILING_GROUP(cls) -> "ResourceType":
         '''Amazon CodeGuruP rofiler ProfilingGroup.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CODE_GURU_PROFILER_PROFILING_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODE_GURU_REVIEWER_REPOSITORY_ASSOCIATION")
+    @builtins.classmethod
     def CODE_GURU_REVIEWER_REPOSITORY_ASSOCIATION(cls) -> "ResourceType":
         '''Amazon CodeGuru Reviewer Repository Association.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CODE_GURU_REVIEWER_REPOSITORY_ASSOCIATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEBUILD_PROJECT")
+    @builtins.classmethod
     def CODEBUILD_PROJECT(cls) -> "ResourceType":
         '''AWS CodeBuild project.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CODEBUILD_PROJECT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEDEPLOY_APPLICATION")
+    @builtins.classmethod
     def CODEDEPLOY_APPLICATION(cls) -> "ResourceType":
         '''AWS CodeDeploy application.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CODEDEPLOY_APPLICATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEDEPLOY_DEPLOYMENT_CONFIG")
+    @builtins.classmethod
     def CODEDEPLOY_DEPLOYMENT_CONFIG(cls) -> "ResourceType":
         '''AWS CodeDeploy deployment config.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CODEDEPLOY_DEPLOYMENT_CONFIG"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEDEPLOY_DEPLOYMENT_GROUP")
+    @builtins.classmethod
     def CODEDEPLOY_DEPLOYMENT_GROUP(cls) -> "ResourceType":
         '''AWS CodeDeploy deployment group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CODEDEPLOY_DEPLOYMENT_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CODEPIPELINE_PIPELINE")
+    @builtins.classmethod
     def CODEPIPELINE_PIPELINE(cls) -> "ResourceType":
         '''AWS CodePipeline pipeline.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CODEPIPELINE_PIPELINE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONFIG_CONFORMANCE_PACK_COMPLIANCE")
+    @builtins.classmethod
     def CONFIG_CONFORMANCE_PACK_COMPLIANCE(cls) -> "ResourceType":
         '''AWS Config conformance pack compliance.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CONFIG_CONFORMANCE_PACK_COMPLIANCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONFIG_RESOURCE_COMPLIANCE")
+    @builtins.classmethod
     def CONFIG_RESOURCE_COMPLIANCE(cls) -> "ResourceType":
         '''AWS Config resource compliance.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CONFIG_RESOURCE_COMPLIANCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONNECT_INSTANCE")
+    @builtins.classmethod
     def CONNECT_INSTANCE(cls) -> "ResourceType":
         '''Amazon Connect Instance.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CONNECT_INSTANCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONNECT_PHONE_NUMBER")
+    @builtins.classmethod
     def CONNECT_PHONE_NUMBER(cls) -> "ResourceType":
         '''Amazon Connect Phone Number.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CONNECT_PHONE_NUMBER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONNECT_QUICK_CONNECT")
+    @builtins.classmethod
     def CONNECT_QUICK_CONNECT(cls) -> "ResourceType":
         '''Amazon Connect QuickConnect.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CONNECT_QUICK_CONNECT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CUSTOMER_PROFILES_DOMAIN")
+    @builtins.classmethod
     def CUSTOMER_PROFILES_DOMAIN(cls) -> "ResourceType":
         '''Amazon Connect Customer Profiles Domain.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CUSTOMER_PROFILES_DOMAIN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CUSTOMER_PROFILES_OBJECT_TYPE")
+    @builtins.classmethod
     def CUSTOMER_PROFILES_OBJECT_TYPE(cls) -> "ResourceType":
         '''Amazon Connect CustomerProfiles ObjectType.'''
         return typing.cast("ResourceType", jsii.sget(cls, "CUSTOMER_PROFILES_OBJECT_TYPE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DATASYNC_LOCATION_EFS")
+    @builtins.classmethod
     def DATASYNC_LOCATION_EFS(cls) -> "ResourceType":
         '''AWS DataSync location EFS.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DATASYNC_LOCATION_EFS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DATASYNC_LOCATION_FSX_LUSTRE")
+    @builtins.classmethod
     def DATASYNC_LOCATION_FSX_LUSTRE(cls) -> "ResourceType":
         '''AWS DataSync location FSx Lustre.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DATASYNC_LOCATION_FSX_LUSTRE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DATASYNC_LOCATION_FSX_WINDOWS")
+    @builtins.classmethod
     def DATASYNC_LOCATION_FSX_WINDOWS(cls) -> "ResourceType":
         '''AWS DataSync location FSx Windows.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DATASYNC_LOCATION_FSX_WINDOWS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DATASYNC_LOCATION_HDFS")
+    @builtins.classmethod
     def DATASYNC_LOCATION_HDFS(cls) -> "ResourceType":
         '''AWS DataSync location HDFS.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DATASYNC_LOCATION_HDFS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DATASYNC_LOCATION_NFS")
+    @builtins.classmethod
     def DATASYNC_LOCATION_NFS(cls) -> "ResourceType":
         '''AWS DataSync location NFS.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DATASYNC_LOCATION_NFS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DATASYNC_LOCATION_OBJECT_STORAGE")
+    @builtins.classmethod
     def DATASYNC_LOCATION_OBJECT_STORAGE(cls) -> "ResourceType":
         '''AWS DataSync location object storage.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DATASYNC_LOCATION_OBJECT_STORAGE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DATASYNC_LOCATION_S3")
+    @builtins.classmethod
     def DATASYNC_LOCATION_S3(cls) -> "ResourceType":
         '''AWS DataSync location S3.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DATASYNC_LOCATION_S3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DATASYNC_LOCATION_SMB")
+    @builtins.classmethod
     def DATASYNC_LOCATION_SMB(cls) -> "ResourceType":
         '''AWS DataSync location SMB.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DATASYNC_LOCATION_SMB"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DATASYNC_TASK")
+    @builtins.classmethod
     def DATASYNC_TASK(cls) -> "ResourceType":
         '''AWS DataSync task.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DATASYNC_TASK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEVICE_FARM_INSTANCE_PROFILE")
+    @builtins.classmethod
     def DEVICE_FARM_INSTANCE_PROFILE(cls) -> "ResourceType":
         '''AWS DeviceFarm Instance Profile.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DEVICE_FARM_INSTANCE_PROFILE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEVICE_FARM_PROJECT")
+    @builtins.classmethod
     def DEVICE_FARM_PROJECT(cls) -> "ResourceType":
         '''AWS DeviceFarm Project.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DEVICE_FARM_PROJECT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEVICE_FARM_TEST_GRID_PROJECT")
+    @builtins.classmethod
     def DEVICE_FARM_TEST_GRID_PROJECT(cls) -> "ResourceType":
         '''AWS Device Farm Test Grid Project.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DEVICE_FARM_TEST_GRID_PROJECT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DMS_ENDPOINT")
+    @builtins.classmethod
     def DMS_ENDPOINT(cls) -> "ResourceType":
         '''AWS DMS Endpoint.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DMS_ENDPOINT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DMS_EVENT_SUBSCRIPTION")
+    @builtins.classmethod
     def DMS_EVENT_SUBSCRIPTION(cls) -> "ResourceType":
         '''AWS DMS event subscription.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DMS_EVENT_SUBSCRIPTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DMS_REPLICATION_SUBNET_GROUP")
+    @builtins.classmethod
     def DMS_REPLICATION_SUBNET_GROUP(cls) -> "ResourceType":
         '''AWS DMS replication subnet group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DMS_REPLICATION_SUBNET_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DYNAMODB_TABLE")
+    @builtins.classmethod
     def DYNAMODB_TABLE(cls) -> "ResourceType":
         '''Amazon DynamoDB Table.'''
         return typing.cast("ResourceType", jsii.sget(cls, "DYNAMODB_TABLE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EBS_VOLUME")
+    @builtins.classmethod
     def EBS_VOLUME(cls) -> "ResourceType":
         '''Elastic Block Store (EBS) volume.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EBS_VOLUME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_CAPACITY_RESERVATION")
+    @builtins.classmethod
     def EC2_CAPACITY_RESERVATION(cls) -> "ResourceType":
         '''EC2 CapacityReservation.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_CAPACITY_RESERVATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_CARRIER_GATEWAY")
+    @builtins.classmethod
     def EC2_CARRIER_GATEWAY(cls) -> "ResourceType":
         '''EC2 CarrierGateway.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_CARRIER_GATEWAY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_CLIENT_VPN_ENDPOINT")
+    @builtins.classmethod
     def EC2_CLIENT_VPN_ENDPOINT(cls) -> "ResourceType":
         '''EC2 ClientVpnEndpoint.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_CLIENT_VPN_ENDPOINT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_CUSTOMER_GATEWAY")
+    @builtins.classmethod
     def EC2_CUSTOMER_GATEWAY(cls) -> "ResourceType":
         '''Amazon EC2 customer gateway.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_CUSTOMER_GATEWAY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_DHCP_OPTIONS")
+    @builtins.classmethod
     def EC2_DHCP_OPTIONS(cls) -> "ResourceType":
         '''EC2 DHCP Options.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_DHCP_OPTIONS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_EC2_FLEET")
+    @builtins.classmethod
     def EC2_EC2_FLEET(cls) -> "ResourceType":
         '''EC2 EC2 Fleet.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_EC2_FLEET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_EGRESS_ONLY_INTERNET_GATEWAY")
+    @builtins.classmethod
     def EC2_EGRESS_ONLY_INTERNET_GATEWAY(cls) -> "ResourceType":
         '''EC2 Egress only internet gateway.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_EGRESS_ONLY_INTERNET_GATEWAY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_EIP")
+    @builtins.classmethod
     def EC2_EIP(cls) -> "ResourceType":
         '''EC2 Elastic IP.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_EIP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_FLOW_LOG")
+    @builtins.classmethod
     def EC2_FLOW_LOG(cls) -> "ResourceType":
         '''EC2 flow log.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_FLOW_LOG"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_HOST")
+    @builtins.classmethod
     def EC2_HOST(cls) -> "ResourceType":
         '''EC2 host.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_HOST"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_INSTANCE")
+    @builtins.classmethod
     def EC2_INSTANCE(cls) -> "ResourceType":
         '''EC2 instance.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_INSTANCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_INTERNET_GATEWAY")
+    @builtins.classmethod
     def EC2_INTERNET_GATEWAY(cls) -> "ResourceType":
         '''Amazon EC2 internet gateway.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_INTERNET_GATEWAY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_IPAM")
+    @builtins.classmethod
     def EC2_IPAM(cls) -> "ResourceType":
         '''EC2 IPAM.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_IPAM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_IPAM_POOL")
+    @builtins.classmethod
     def EC2_IPAM_POOL(cls) -> "ResourceType":
         '''EC2 IPAMPool.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_IPAM_POOL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_IPAM_SCOPE")
+    @builtins.classmethod
     def EC2_IPAM_SCOPE(cls) -> "ResourceType":
         '''EC2 IPAMScope.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_IPAM_SCOPE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_LAUNCH_TEMPLATE")
+    @builtins.classmethod
     def EC2_LAUNCH_TEMPLATE(cls) -> "ResourceType":
         '''EC2 launch template.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_LAUNCH_TEMPLATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_NAT_GATEWAY")
+    @builtins.classmethod
     def EC2_NAT_GATEWAY(cls) -> "ResourceType":
         '''EC2 NAT gateway.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_NAT_GATEWAY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_NETWORK_ACL")
+    @builtins.classmethod
     def EC2_NETWORK_ACL(cls) -> "ResourceType":
         '''Amazon EC2 network ACL.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_NETWORK_ACL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_NETWORK_INSIGHTS_ACCESS_SCOPE_ANALYSIS")
+    @builtins.classmethod
     def EC2_NETWORK_INSIGHTS_ACCESS_SCOPE_ANALYSIS(cls) -> "ResourceType":
         '''EC2 Network Insights Access Scope Analysis.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_NETWORK_INSIGHTS_ACCESS_SCOPE_ANALYSIS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_NETWORK_INSIGHTS_PATH")
+    @builtins.classmethod
     def EC2_NETWORK_INSIGHTS_PATH(cls) -> "ResourceType":
         '''EC2 Network Insights Path.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_NETWORK_INSIGHTS_PATH"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_NETWORK_INTERFACE")
+    @builtins.classmethod
     def EC2_NETWORK_INTERFACE(cls) -> "ResourceType":
         '''EC2 Network Interface.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_NETWORK_INTERFACE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_PREFIX_LIST")
+    @builtins.classmethod
     def EC2_PREFIX_LIST(cls) -> "ResourceType":
         '''EC2 PrefixList.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_PREFIX_LIST"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_REGISTERED_HA_INSTANCE")
+    @builtins.classmethod
     def EC2_REGISTERED_HA_INSTANCE(cls) -> "ResourceType":
         '''EC2 registered HA instance.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_REGISTERED_HA_INSTANCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_ROUTE_TABLE")
+    @builtins.classmethod
     def EC2_ROUTE_TABLE(cls) -> "ResourceType":
         '''Amazon EC2 route table.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_ROUTE_TABLE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_SECURITY_GROUP")
+    @builtins.classmethod
     def EC2_SECURITY_GROUP(cls) -> "ResourceType":
         '''EC2 security group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_SECURITY_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_SPOT_FLEET")
+    @builtins.classmethod
     def EC2_SPOT_FLEET(cls) -> "ResourceType":
         '''EC2 SpotFleet.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_SPOT_FLEET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_SUBNET")
+    @builtins.classmethod
     def EC2_SUBNET(cls) -> "ResourceType":
         '''Amazon EC2 subnet table.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_SUBNET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_SUBNET_ROUTE_TABLE_ASSOCIATION")
+    @builtins.classmethod
     def EC2_SUBNET_ROUTE_TABLE_ASSOCIATION(cls) -> "ResourceType":
         '''EC2 Subnet Route Table Association.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_SUBNET_ROUTE_TABLE_ASSOCIATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_TRAFFIC_MIRROR_FILTER")
+    @builtins.classmethod
     def EC2_TRAFFIC_MIRROR_FILTER(cls) -> "ResourceType":
         '''EC2 Traffic Mirror Filter.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_TRAFFIC_MIRROR_FILTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_TRAFFIC_MIRROR_SESSION")
+    @builtins.classmethod
     def EC2_TRAFFIC_MIRROR_SESSION(cls) -> "ResourceType":
         '''EC2 Traffic Mirror Session.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_TRAFFIC_MIRROR_SESSION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_TRAFFIC_MIRROR_TARGET")
+    @builtins.classmethod
     def EC2_TRAFFIC_MIRROR_TARGET(cls) -> "ResourceType":
         '''EC2 Traffic Mirror Target.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_TRAFFIC_MIRROR_TARGET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_TRANSIT_GATEWAY")
+    @builtins.classmethod
     def EC2_TRANSIT_GATEWAY(cls) -> "ResourceType":
         '''EC2 transit gateway.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_TRANSIT_GATEWAY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_TRANSIT_GATEWAY_ATTACHMENT")
+    @builtins.classmethod
     def EC2_TRANSIT_GATEWAY_ATTACHMENT(cls) -> "ResourceType":
         '''EC2 transit gateway attachment.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_TRANSIT_GATEWAY_ATTACHMENT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_TRANSIT_GATEWAY_CONNECT")
+    @builtins.classmethod
     def EC2_TRANSIT_GATEWAY_CONNECT(cls) -> "ResourceType":
         '''EC2 TransitGatewayConnect.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_TRANSIT_GATEWAY_CONNECT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_TRANSIT_GATEWAY_MULTICAST_DOMAIN")
+    @builtins.classmethod
     def EC2_TRANSIT_GATEWAY_MULTICAST_DOMAIN(cls) -> "ResourceType":
         '''EC2 TransitGatewayMulticastDomain.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_TRANSIT_GATEWAY_MULTICAST_DOMAIN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_TRANSIT_GATEWAY_ROUTE_TABLE")
+    @builtins.classmethod
     def EC2_TRANSIT_GATEWAY_ROUTE_TABLE(cls) -> "ResourceType":
         '''EC2 transit gateway route table.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_TRANSIT_GATEWAY_ROUTE_TABLE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_VPC")
+    @builtins.classmethod
     def EC2_VPC(cls) -> "ResourceType":
         '''Amazon EC2 VPC.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_VPC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_VPC_ENDPOINT")
+    @builtins.classmethod
     def EC2_VPC_ENDPOINT(cls) -> "ResourceType":
         '''EC2 VPC endpoint.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_VPC_ENDPOINT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_VPC_ENDPOINT_SERVICE")
+    @builtins.classmethod
     def EC2_VPC_ENDPOINT_SERVICE(cls) -> "ResourceType":
         '''EC2 VPC endpoint service.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_VPC_ENDPOINT_SERVICE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_VPC_PEERING_CONNECTION")
+    @builtins.classmethod
     def EC2_VPC_PEERING_CONNECTION(cls) -> "ResourceType":
         '''EC2 VPC peering connection.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_VPC_PEERING_CONNECTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_VPN_CONNECTION")
+    @builtins.classmethod
     def EC2_VPN_CONNECTION(cls) -> "ResourceType":
         '''Amazon EC2 VPN connection.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_VPN_CONNECTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EC2_VPN_GATEWAY")
+    @builtins.classmethod
     def EC2_VPN_GATEWAY(cls) -> "ResourceType":
         '''Amazon EC2 VPN gateway.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EC2_VPN_GATEWAY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECR_PUBLIC_REPOSITORY")
+    @builtins.classmethod
     def ECR_PUBLIC_REPOSITORY(cls) -> "ResourceType":
         '''Amazon ECR public repository.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ECR_PUBLIC_REPOSITORY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECR_PULL_THROUGH_CACHE_RULE")
+    @builtins.classmethod
     def ECR_PULL_THROUGH_CACHE_RULE(cls) -> "ResourceType":
         '''Amazon ECR PullThrough Cache Rule.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ECR_PULL_THROUGH_CACHE_RULE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECR_REGISTRY_POLICY")
+    @builtins.classmethod
     def ECR_REGISTRY_POLICY(cls) -> "ResourceType":
         '''Amazon ECR registry policy.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ECR_REGISTRY_POLICY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECR_REPOSITORY")
+    @builtins.classmethod
     def ECR_REPOSITORY(cls) -> "ResourceType":
         '''Amazon ECR repository.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ECR_REPOSITORY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_CAPACITY_PROVIDER")
+    @builtins.classmethod
     def ECS_CAPACITY_PROVIDER(cls) -> "ResourceType":
         '''Amazon ECS CapacityProvider.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ECS_CAPACITY_PROVIDER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_CLUSTER")
+    @builtins.classmethod
     def ECS_CLUSTER(cls) -> "ResourceType":
         '''Amazon ECS cluster.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ECS_CLUSTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_SERVICE")
+    @builtins.classmethod
     def ECS_SERVICE(cls) -> "ResourceType":
         '''Amazon ECS service.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ECS_SERVICE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_TASK_DEFINITION")
+    @builtins.classmethod
     def ECS_TASK_DEFINITION(cls) -> "ResourceType":
         '''Amazon ECS task definition.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ECS_TASK_DEFINITION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ECS_TASK_SET")
+    @builtins.classmethod
     def ECS_TASK_SET(cls) -> "ResourceType":
         '''Amazon ECS TaskSet.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ECS_TASK_SET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EFS_ACCESS_POINT")
+    @builtins.classmethod
     def EFS_ACCESS_POINT(cls) -> "ResourceType":
         '''Amazon EFS access point.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EFS_ACCESS_POINT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EFS_FILE_SYSTEM")
+    @builtins.classmethod
     def EFS_FILE_SYSTEM(cls) -> "ResourceType":
         '''Amazon EFS file system.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EFS_FILE_SYSTEM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EKS_ADDON")
+    @builtins.classmethod
     def EKS_ADDON(cls) -> "ResourceType":
         '''Amazon Elastic Kubernetes Service addon.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EKS_ADDON"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EKS_CLUSTER")
+    @builtins.classmethod
     def EKS_CLUSTER(cls) -> "ResourceType":
         '''Amazon Elastic Kubernetes Service cluster.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EKS_CLUSTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EKS_IDENTITY_PROVIDER_CONFIG")
+    @builtins.classmethod
     def EKS_IDENTITY_PROVIDER_CONFIG(cls) -> "ResourceType":
         '''Amazon Elastic Kubernetes Service identity provider config.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EKS_IDENTITY_PROVIDER_CONFIG"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELASTIC_BEANSTALK_APPLICATION")
+    @builtins.classmethod
     def ELASTIC_BEANSTALK_APPLICATION(cls) -> "ResourceType":
         '''AWS Elastic Beanstalk (EB) application.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ELASTIC_BEANSTALK_APPLICATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELASTIC_BEANSTALK_APPLICATION_VERSION")
+    @builtins.classmethod
     def ELASTIC_BEANSTALK_APPLICATION_VERSION(cls) -> "ResourceType":
         '''AWS Elastic Beanstalk (EB) application version.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ELASTIC_BEANSTALK_APPLICATION_VERSION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELASTIC_BEANSTALK_ENVIRONMENT")
+    @builtins.classmethod
     def ELASTIC_BEANSTALK_ENVIRONMENT(cls) -> "ResourceType":
         '''AWS Elastic Beanstalk (EB) environment.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ELASTIC_BEANSTALK_ENVIRONMENT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELASTICSEARCH_DOMAIN")
+    @builtins.classmethod
     def ELASTICSEARCH_DOMAIN(cls) -> "ResourceType":
         '''Amazon ElasticSearch domain.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ELASTICSEARCH_DOMAIN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELB_LOAD_BALANCER")
+    @builtins.classmethod
     def ELB_LOAD_BALANCER(cls) -> "ResourceType":
         '''AWS ELB classic load balancer.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ELB_LOAD_BALANCER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELBV2_LISTENER")
+    @builtins.classmethod
     def ELBV2_LISTENER(cls) -> "ResourceType":
         '''AWS ELBv2 application load balancer listener.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ELBV2_LISTENER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELBV2_LOAD_BALANCER")
+    @builtins.classmethod
     def ELBV2_LOAD_BALANCER(cls) -> "ResourceType":
         '''AWS ELBv2 network load balancer or AWS ELBv2 application load balancer.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ELBV2_LOAD_BALANCER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EMR_SECURITY_CONFIGURATION")
+    @builtins.classmethod
     def EMR_SECURITY_CONFIGURATION(cls) -> "ResourceType":
         '''Amazon EMR security configuration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EMR_SECURITY_CONFIGURATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVENT_SCHEMAS_SCHEMA")
+    @builtins.classmethod
     def EVENT_SCHEMAS_SCHEMA(cls) -> "ResourceType":
         '''Amazon EventBridge Schemas Schema.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVENT_SCHEMAS_SCHEMA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVENTBRIDGE_API_DESTINATION")
+    @builtins.classmethod
     def EVENTBRIDGE_API_DESTINATION(cls) -> "ResourceType":
         '''Amazon EventBridge Api Destination.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVENTBRIDGE_API_DESTINATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVENTBRIDGE_ARCHIVE")
+    @builtins.classmethod
     def EVENTBRIDGE_ARCHIVE(cls) -> "ResourceType":
         '''Amazon EventBridge Archive.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVENTBRIDGE_ARCHIVE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVENTBRIDGE_ENDPOINT")
+    @builtins.classmethod
     def EVENTBRIDGE_ENDPOINT(cls) -> "ResourceType":
         '''Amazon EventBridge Endpoint.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVENTBRIDGE_ENDPOINT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVENTBRIDGE_EVENTBUS")
+    @builtins.classmethod
     def EVENTBRIDGE_EVENTBUS(cls) -> "ResourceType":
         '''Amazon EventBridge EventBus.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVENTBRIDGE_EVENTBUS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVENTS_CONNECTION")
+    @builtins.classmethod
     def EVENTS_CONNECTION(cls) -> "ResourceType":
         '''Amazon EventBridge Connection.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVENTS_CONNECTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVENTS_RULE")
+    @builtins.classmethod
     def EVENTS_RULE(cls) -> "ResourceType":
         '''Amazon EventBridge Events Rule.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVENTS_RULE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVENTSCHEMAS_DISCOVERER")
+    @builtins.classmethod
     def EVENTSCHEMAS_DISCOVERER(cls) -> "ResourceType":
         '''Amazon EventBridge EventSchemas discoverer.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVENTSCHEMAS_DISCOVERER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVENTSCHEMAS_REGISTRY")
+    @builtins.classmethod
     def EVENTSCHEMAS_REGISTRY(cls) -> "ResourceType":
         '''Amazon EventBridge EventSchemas registry.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVENTSCHEMAS_REGISTRY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVENTSCHEMAS_REGISTRY_POLICY")
+    @builtins.classmethod
     def EVENTSCHEMAS_REGISTRY_POLICY(cls) -> "ResourceType":
         '''Amazon EventBridge EventSchemas registry policy.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVENTSCHEMAS_REGISTRY_POLICY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVIDENTLY_LAUNCH")
+    @builtins.classmethod
     def EVIDENTLY_LAUNCH(cls) -> "ResourceType":
         '''Amazon CloudWatch Evidently Launch.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVIDENTLY_LAUNCH"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EVIDENTLY_PROJECT")
+    @builtins.classmethod
     def EVIDENTLY_PROJECT(cls) -> "ResourceType":
         '''Amazon CloudWatch Evidently Project.'''
         return typing.cast("ResourceType", jsii.sget(cls, "EVIDENTLY_PROJECT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FIS_EXPERIMENT_TEMPLATE")
+    @builtins.classmethod
     def FIS_EXPERIMENT_TEMPLATE(cls) -> "ResourceType":
         '''AWS Fault Injection Simulator Experiment_Template.'''
         return typing.cast("ResourceType", jsii.sget(cls, "FIS_EXPERIMENT_TEMPLATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FORECAST_DATASET")
+    @builtins.classmethod
     def FORECAST_DATASET(cls) -> "ResourceType":
         '''Amazon Forecast Dataset.'''
         return typing.cast("ResourceType", jsii.sget(cls, "FORECAST_DATASET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FORECAST_DATASET_GROUP")
+    @builtins.classmethod
     def FORECAST_DATASET_GROUP(cls) -> "ResourceType":
         '''Amazon Forecast DatasetGroup.'''
         return typing.cast("ResourceType", jsii.sget(cls, "FORECAST_DATASET_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FRAUDDETECTOR_ENTITY_TYPE")
+    @builtins.classmethod
     def FRAUDDETECTOR_ENTITY_TYPE(cls) -> "ResourceType":
         '''AWS FraudDetector entity type.'''
         return typing.cast("ResourceType", jsii.sget(cls, "FRAUDDETECTOR_ENTITY_TYPE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FRAUDDETECTOR_LABEL")
+    @builtins.classmethod
     def FRAUDDETECTOR_LABEL(cls) -> "ResourceType":
         '''AWS FraudDetector label.'''
         return typing.cast("ResourceType", jsii.sget(cls, "FRAUDDETECTOR_LABEL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FRAUDDETECTOR_OUTCOME")
+    @builtins.classmethod
     def FRAUDDETECTOR_OUTCOME(cls) -> "ResourceType":
         '''AWS FraudDetector outcome.'''
         return typing.cast("ResourceType", jsii.sget(cls, "FRAUDDETECTOR_OUTCOME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FRAUDDETECTOR_VARIABLE")
+    @builtins.classmethod
     def FRAUDDETECTOR_VARIABLE(cls) -> "ResourceType":
         '''AWS FraudDetector variable.'''
         return typing.cast("ResourceType", jsii.sget(cls, "FRAUDDETECTOR_VARIABLE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GLOBALACCELERATOR_ACCELERATOR")
+    @builtins.classmethod
     def GLOBALACCELERATOR_ACCELERATOR(cls) -> "ResourceType":
         '''AWS GlobalAccelerator accelerator.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GLOBALACCELERATOR_ACCELERATOR"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GLOBALACCELERATOR_ENDPOINT_GROUP")
+    @builtins.classmethod
     def GLOBALACCELERATOR_ENDPOINT_GROUP(cls) -> "ResourceType":
         '''AWS GlobalAccelerator endpoint group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GLOBALACCELERATOR_ENDPOINT_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GLOBALACCELERATOR_LISTENER")
+    @builtins.classmethod
     def GLOBALACCELERATOR_LISTENER(cls) -> "ResourceType":
         '''AWS GlobalAccelerator listener.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GLOBALACCELERATOR_LISTENER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GLUE_CLASSIFIER")
+    @builtins.classmethod
     def GLUE_CLASSIFIER(cls) -> "ResourceType":
         '''AWS Glue Classifier.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GLUE_CLASSIFIER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GLUE_JOB")
+    @builtins.classmethod
     def GLUE_JOB(cls) -> "ResourceType":
         '''AWS Glue Job.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GLUE_JOB"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GLUE_ML_TRANSFORM")
+    @builtins.classmethod
     def GLUE_ML_TRANSFORM(cls) -> "ResourceType":
         '''AWS Glue machine learning transform.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GLUE_ML_TRANSFORM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GRAFANA_WORKSPACE")
+    @builtins.classmethod
     def GRAFANA_WORKSPACE(cls) -> "ResourceType":
         '''Amazon Managed Grafana Workspace.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GRAFANA_WORKSPACE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GREENGRASSV2_COMPONENT_VERSION")
+    @builtins.classmethod
     def GREENGRASSV2_COMPONENT_VERSION(cls) -> "ResourceType":
         '''AWS IoT Greengrass Version2 ComponentVersion.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GREENGRASSV2_COMPONENT_VERSION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GROUND_STATION_CONFIG")
+    @builtins.classmethod
     def GROUND_STATION_CONFIG(cls) -> "ResourceType":
         '''AWS GroundStation Config.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GROUND_STATION_CONFIG"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GROUNDSTATION_MISSION_PROFILE")
+    @builtins.classmethod
     def GROUNDSTATION_MISSION_PROFILE(cls) -> "ResourceType":
         '''AWS GroundStation MissionProfile.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GROUNDSTATION_MISSION_PROFILE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GUARDDUTY_DETECTOR")
+    @builtins.classmethod
     def GUARDDUTY_DETECTOR(cls) -> "ResourceType":
         '''Amazon GuardDuty detector.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GUARDDUTY_DETECTOR"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GUARDDUTY_FILTER")
+    @builtins.classmethod
     def GUARDDUTY_FILTER(cls) -> "ResourceType":
         '''Amazon GuardDuty Filter.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GUARDDUTY_FILTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GUARDDUTY_IP_SET")
+    @builtins.classmethod
     def GUARDDUTY_IP_SET(cls) -> "ResourceType":
         '''Amazon GuardDuty IP Set.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GUARDDUTY_IP_SET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GUARDDUTY_THREAT_INTEL_SET")
+    @builtins.classmethod
     def GUARDDUTY_THREAT_INTEL_SET(cls) -> "ResourceType":
         '''Amazon GuardDuty Threat Intel Set.'''
         return typing.cast("ResourceType", jsii.sget(cls, "GUARDDUTY_THREAT_INTEL_SET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HEALTH_LAKE_FHIR_DATASTORE")
+    @builtins.classmethod
     def HEALTH_LAKE_FHIR_DATASTORE(cls) -> "ResourceType":
         '''AWS HealthLake FHIR Datastore.'''
         return typing.cast("ResourceType", jsii.sget(cls, "HEALTH_LAKE_FHIR_DATASTORE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_ACCESSANALYZER_ANALYZER")
+    @builtins.classmethod
     def IAM_ACCESSANALYZER_ANALYZER(cls) -> "ResourceType":
         '''AWS IAM AccessAnalyzer analyzer.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IAM_ACCESSANALYZER_ANALYZER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_GROUP")
+    @builtins.classmethod
     def IAM_GROUP(cls) -> "ResourceType":
         '''AWS IAM group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IAM_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_INSTANCE_PROFILE")
+    @builtins.classmethod
     def IAM_INSTANCE_PROFILE(cls) -> "ResourceType":
         '''AWS IAM InstanceProfile.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IAM_INSTANCE_PROFILE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_POLICY")
+    @builtins.classmethod
     def IAM_POLICY(cls) -> "ResourceType":
         '''AWS IAM policy.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IAM_POLICY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_ROLE")
+    @builtins.classmethod
     def IAM_ROLE(cls) -> "ResourceType":
         '''AWS IAM role.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IAM_ROLE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_SAML_PROVIDER")
+    @builtins.classmethod
     def IAM_SAML_PROVIDER(cls) -> "ResourceType":
         '''AWS IAM SAMLProvider.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IAM_SAML_PROVIDER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_SERVER_CERTIFICATE")
+    @builtins.classmethod
     def IAM_SERVER_CERTIFICATE(cls) -> "ResourceType":
         '''AWS IAM ServerCertificate.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IAM_SERVER_CERTIFICATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IAM_USER")
+    @builtins.classmethod
     def IAM_USER(cls) -> "ResourceType":
         '''AWS IAM user.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IAM_USER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IMAGE_BUILDER_IMAGE_PIPELINE")
+    @builtins.classmethod
     def IMAGE_BUILDER_IMAGE_PIPELINE(cls) -> "ResourceType":
         '''EC2 Image Builder Image Pipeline.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IMAGE_BUILDER_IMAGE_PIPELINE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IMAGEBUILDER_CONTAINER_RECIPE")
+    @builtins.classmethod
     def IMAGEBUILDER_CONTAINER_RECIPE(cls) -> "ResourceType":
         '''EC2 Image Builder ContainerRecipe.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IMAGEBUILDER_CONTAINER_RECIPE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IMAGEBUILDER_DISTRIBUTION_CONFIGURATION")
+    @builtins.classmethod
     def IMAGEBUILDER_DISTRIBUTION_CONFIGURATION(cls) -> "ResourceType":
         '''EC2 Image Builder DistributionConfiguration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IMAGEBUILDER_DISTRIBUTION_CONFIGURATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IMAGEBUILDER_INFRASTRUCTURE_CONFIGURATION")
+    @builtins.classmethod
     def IMAGEBUILDER_INFRASTRUCTURE_CONFIGURATION(cls) -> "ResourceType":
         '''EC2 Image Builder InfrastructureConfiguration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IMAGEBUILDER_INFRASTRUCTURE_CONFIGURATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="INSPECTORV2_FILTER")
+    @builtins.classmethod
     def INSPECTORV2_FILTER(cls) -> "ResourceType":
         '''Amazon Inspector Filter.'''
         return typing.cast("ResourceType", jsii.sget(cls, "INSPECTORV2_FILTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_ACCOUNT_AUDIT_CONFIGURATION")
+    @builtins.classmethod
     def IOT_ACCOUNT_AUDIT_CONFIGURATION(cls) -> "ResourceType":
         '''AWS IoT Account Audit Configuration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_ACCOUNT_AUDIT_CONFIGURATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_ANALYTICS_CHANNEL")
+    @builtins.classmethod
     def IOT_ANALYTICS_CHANNEL(cls) -> "ResourceType":
         '''AWS IoT Analytics channel.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_ANALYTICS_CHANNEL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_ANALYTICS_DATASET")
+    @builtins.classmethod
     def IOT_ANALYTICS_DATASET(cls) -> "ResourceType":
         '''AWS IoT Analytics dataset.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_ANALYTICS_DATASET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_ANALYTICS_DATASTORE")
+    @builtins.classmethod
     def IOT_ANALYTICS_DATASTORE(cls) -> "ResourceType":
         '''AWS IoT Analytics datastore.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_ANALYTICS_DATASTORE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_ANALYTICS_PIPELINE")
+    @builtins.classmethod
     def IOT_ANALYTICS_PIPELINE(cls) -> "ResourceType":
         '''AWS IoT Analytics pipeline.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_ANALYTICS_PIPELINE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_AUTHORIZER")
+    @builtins.classmethod
     def IOT_AUTHORIZER(cls) -> "ResourceType":
         '''AWS IoT authorizer.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_AUTHORIZER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_CA_CERTIFICATE")
+    @builtins.classmethod
     def IOT_CA_CERTIFICATE(cls) -> "ResourceType":
         '''AWS IoT CACertificate.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_CA_CERTIFICATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_CUSTOM_METRIC")
+    @builtins.classmethod
     def IOT_CUSTOM_METRIC(cls) -> "ResourceType":
         '''AWS IoT Custom Metric.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_CUSTOM_METRIC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_DIMENSION")
+    @builtins.classmethod
     def IOT_DIMENSION(cls) -> "ResourceType":
         '''AWS IoT dimension.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_DIMENSION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_EVENTS_ALARM_MODEL")
+    @builtins.classmethod
     def IOT_EVENTS_ALARM_MODEL(cls) -> "ResourceType":
         '''AWS IoT Events Alarm Model.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_EVENTS_ALARM_MODEL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_EVENTS_DETECTOR_MODEL")
+    @builtins.classmethod
     def IOT_EVENTS_DETECTOR_MODEL(cls) -> "ResourceType":
         '''AWS IoT Events Detector Model.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_EVENTS_DETECTOR_MODEL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_EVENTS_INPUT")
+    @builtins.classmethod
     def IOT_EVENTS_INPUT(cls) -> "ResourceType":
         '''AWS IoT Events Input.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_EVENTS_INPUT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_FLEET_METRIC")
+    @builtins.classmethod
     def IOT_FLEET_METRIC(cls) -> "ResourceType":
         '''AWS IoT Fleet Metric.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_FLEET_METRIC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_JOB_TEMPLATE")
+    @builtins.classmethod
     def IOT_JOB_TEMPLATE(cls) -> "ResourceType":
         '''AWS IoT JobTemplate.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_JOB_TEMPLATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_MITIGATION_ACTION")
+    @builtins.classmethod
     def IOT_MITIGATION_ACTION(cls) -> "ResourceType":
         '''AWS IoT mitigation action.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_MITIGATION_ACTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_POLICY")
+    @builtins.classmethod
     def IOT_POLICY(cls) -> "ResourceType":
         '''AWS IoT policy.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_POLICY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_PROVISIONING_TEMPLATE")
+    @builtins.classmethod
     def IOT_PROVISIONING_TEMPLATE(cls) -> "ResourceType":
         '''AWS IoT ProvisioningTemplate.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_PROVISIONING_TEMPLATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_ROLE_ALIAS")
+    @builtins.classmethod
     def IOT_ROLE_ALIAS(cls) -> "ResourceType":
         '''AWS IoT role alias.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_ROLE_ALIAS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_SCHEDULED_AUDIT")
+    @builtins.classmethod
     def IOT_SCHEDULED_AUDIT(cls) -> "ResourceType":
         '''AWS IoT Scheduled Audit.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_SCHEDULED_AUDIT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_SECURITY_PROFILE")
+    @builtins.classmethod
     def IOT_SECURITY_PROFILE(cls) -> "ResourceType":
         '''AWS IoT security profile.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_SECURITY_PROFILE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_SITEWISE_ASSETMODEL")
+    @builtins.classmethod
     def IOT_SITEWISE_ASSETMODEL(cls) -> "ResourceType":
         '''AWS IoT SiteWise asset model.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_SITEWISE_ASSETMODEL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_SITEWISE_DASHBOARD")
+    @builtins.classmethod
     def IOT_SITEWISE_DASHBOARD(cls) -> "ResourceType":
         '''AWS IoT SiteWise dashboard.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_SITEWISE_DASHBOARD"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_SITEWISE_GATEWAY")
+    @builtins.classmethod
     def IOT_SITEWISE_GATEWAY(cls) -> "ResourceType":
         '''AWS IoT SiteWise Gateway.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_SITEWISE_GATEWAY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_SITEWISE_PORTAL")
+    @builtins.classmethod
     def IOT_SITEWISE_PORTAL(cls) -> "ResourceType":
         '''AWS IoT SiteWise portal.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_SITEWISE_PORTAL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_SITEWISE_PROJECT")
+    @builtins.classmethod
     def IOT_SITEWISE_PROJECT(cls) -> "ResourceType":
         '''AWS IoT SiteWise project.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_SITEWISE_PROJECT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_TWIN_MAKER_COMPONENT_TYPE")
+    @builtins.classmethod
     def IOT_TWIN_MAKER_COMPONENT_TYPE(cls) -> "ResourceType":
         '''AWS IoT TwinMaker ComponentType.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_TWIN_MAKER_COMPONENT_TYPE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_TWIN_MAKER_SCENE")
+    @builtins.classmethod
     def IOT_TWIN_MAKER_SCENE(cls) -> "ResourceType":
         '''AWS IoT Twin Maker Scene.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_TWIN_MAKER_SCENE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_TWIN_MAKER_SYNC_JOB")
+    @builtins.classmethod
     def IOT_TWIN_MAKER_SYNC_JOB(cls) -> "ResourceType":
         '''AWS IoT TwinMaker SyncJob.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_TWIN_MAKER_SYNC_JOB"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_TWINMAKER_ENTITY")
+    @builtins.classmethod
     def IOT_TWINMAKER_ENTITY(cls) -> "ResourceType":
         '''AWS IoT TwinMaker entity.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_TWINMAKER_ENTITY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_TWINMAKER_WORKSPACE")
+    @builtins.classmethod
     def IOT_TWINMAKER_WORKSPACE(cls) -> "ResourceType":
         '''AWS IoT TwinMaker workspace.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_TWINMAKER_WORKSPACE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_WIRELESS_FUOTA_TASK")
+    @builtins.classmethod
     def IOT_WIRELESS_FUOTA_TASK(cls) -> "ResourceType":
         '''AWS IoT Wireless FuotaTask.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_WIRELESS_FUOTA_TASK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_WIRELESS_MULTICAST_GROUP")
+    @builtins.classmethod
     def IOT_WIRELESS_MULTICAST_GROUP(cls) -> "ResourceType":
         '''AWS IoT Wireless MulticastGroup.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_WIRELESS_MULTICAST_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IOT_WIRELESS_SERVICE_PROFILE")
+    @builtins.classmethod
     def IOT_WIRELESS_SERVICE_PROFILE(cls) -> "ResourceType":
         '''AWS IoTWireless Service Profile.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IOT_WIRELESS_SERVICE_PROFILE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IVS_CHANNEL")
+    @builtins.classmethod
     def IVS_CHANNEL(cls) -> "ResourceType":
         '''Amazon Interactive Video Service (IVS) channel.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IVS_CHANNEL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IVS_PLAYBACK_KEYPAIR")
+    @builtins.classmethod
     def IVS_PLAYBACK_KEYPAIR(cls) -> "ResourceType":
         '''Amazon Interactive Video Service (IVS) playback key pair.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IVS_PLAYBACK_KEYPAIR"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IVS_RECORDING_CONFIGURATION")
+    @builtins.classmethod
     def IVS_RECORDING_CONFIGURATION(cls) -> "ResourceType":
         '''Amazon Interactive Video Service (IVS) recording configuration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "IVS_RECORDING_CONFIGURATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KAFKA_CONNECT_CONNECTOR")
+    @builtins.classmethod
     def KAFKA_CONNECT_CONNECTOR(cls) -> "ResourceType":
         '''Amazon Managed Streaming for Apache Kafka Connect Connector.'''
         return typing.cast("ResourceType", jsii.sget(cls, "KAFKA_CONNECT_CONNECTOR"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KENDRA_INDEX")
+    @builtins.classmethod
     def KENDRA_INDEX(cls) -> "ResourceType":
         '''Amazon Kendra Index.'''
         return typing.cast("ResourceType", jsii.sget(cls, "KENDRA_INDEX"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KINESIS_ANALYTICS_V2_APPLICATION")
+    @builtins.classmethod
     def KINESIS_ANALYTICS_V2_APPLICATION(cls) -> "ResourceType":
         '''Amazon Kinesis Analytics V2 application.'''
         return typing.cast("ResourceType", jsii.sget(cls, "KINESIS_ANALYTICS_V2_APPLICATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KINESIS_FIREHOSE_DELIVERY_STREAM")
+    @builtins.classmethod
     def KINESIS_FIREHOSE_DELIVERY_STREAM(cls) -> "ResourceType":
         '''Amazon Data Firehose DeliveryStream.'''
         return typing.cast("ResourceType", jsii.sget(cls, "KINESIS_FIREHOSE_DELIVERY_STREAM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KINESIS_STREAM")
+    @builtins.classmethod
     def KINESIS_STREAM(cls) -> "ResourceType":
         '''Amazon Kinesis stream.'''
         return typing.cast("ResourceType", jsii.sget(cls, "KINESIS_STREAM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KINESIS_STREAM_CONSUMER")
+    @builtins.classmethod
     def KINESIS_STREAM_CONSUMER(cls) -> "ResourceType":
         '''Amazon Kinesis stream consumer.'''
         return typing.cast("ResourceType", jsii.sget(cls, "KINESIS_STREAM_CONSUMER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KINESIS_VIDEO_SIGNALING_CHANNEL")
+    @builtins.classmethod
     def KINESIS_VIDEO_SIGNALING_CHANNEL(cls) -> "ResourceType":
         '''Amazon Kinesis Video Streams Signaling Channel.'''
         return typing.cast("ResourceType", jsii.sget(cls, "KINESIS_VIDEO_SIGNALING_CHANNEL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KINESIS_VIDEO_STREAM")
+    @builtins.classmethod
     def KINESIS_VIDEO_STREAM(cls) -> "ResourceType":
         '''Amazon Kinesis Video Stream.'''
         return typing.cast("ResourceType", jsii.sget(cls, "KINESIS_VIDEO_STREAM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KMS_ALIAS")
+    @builtins.classmethod
     def KMS_ALIAS(cls) -> "ResourceType":
         '''AWS KMS Alias.'''
         return typing.cast("ResourceType", jsii.sget(cls, "KMS_ALIAS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KMS_KEY")
+    @builtins.classmethod
     def KMS_KEY(cls) -> "ResourceType":
         '''AWS KMS Key.'''
         return typing.cast("ResourceType", jsii.sget(cls, "KMS_KEY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LAMBDA_CODE_SIGNING_CONFIG")
+    @builtins.classmethod
     def LAMBDA_CODE_SIGNING_CONFIG(cls) -> "ResourceType":
         '''AWS Lambda CodeSigningConfig.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LAMBDA_CODE_SIGNING_CONFIG"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LAMBDA_FUNCTION")
+    @builtins.classmethod
     def LAMBDA_FUNCTION(cls) -> "ResourceType":
         '''AWS Lambda function.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LAMBDA_FUNCTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LEX_BOT")
+    @builtins.classmethod
     def LEX_BOT(cls) -> "ResourceType":
         '''Amazon Lex Bot.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LEX_BOT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LEX_BOT_ALIAS")
+    @builtins.classmethod
     def LEX_BOT_ALIAS(cls) -> "ResourceType":
         '''Amazon Lex Bot Alias.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LEX_BOT_ALIAS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LIGHTSAIL_BUCKET")
+    @builtins.classmethod
     def LIGHTSAIL_BUCKET(cls) -> "ResourceType":
         '''AWS Lightsail bucket.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LIGHTSAIL_BUCKET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LIGHTSAIL_CERTIFICATE")
+    @builtins.classmethod
     def LIGHTSAIL_CERTIFICATE(cls) -> "ResourceType":
         '''Amazon Lightsail Certificate.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LIGHTSAIL_CERTIFICATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LIGHTSAIL_DISK")
+    @builtins.classmethod
     def LIGHTSAIL_DISK(cls) -> "ResourceType":
         '''Amazon Lightsail Disk.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LIGHTSAIL_DISK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LIGHTSAIL_STATIC_IP")
+    @builtins.classmethod
     def LIGHTSAIL_STATIC_IP(cls) -> "ResourceType":
         '''AWS Lightsail static IP.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LIGHTSAIL_STATIC_IP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LOGS_DESTINATION")
+    @builtins.classmethod
     def LOGS_DESTINATION(cls) -> "ResourceType":
         '''Amazon CloudWatch Logs Destination.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LOGS_DESTINATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LOOKOUT_METRICS_ALERT")
+    @builtins.classmethod
     def LOOKOUT_METRICS_ALERT(cls) -> "ResourceType":
         '''AWS Lookout Metrics Alert.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LOOKOUT_METRICS_ALERT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LOOKOUT_VISION_PROJECT")
+    @builtins.classmethod
     def LOOKOUT_VISION_PROJECT(cls) -> "ResourceType":
         '''Amazon Lookout Vision Project.'''
         return typing.cast("ResourceType", jsii.sget(cls, "LOOKOUT_VISION_PROJECT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MEDIA_CONNECT_FLOW_SOURCE")
+    @builtins.classmethod
     def MEDIA_CONNECT_FLOW_SOURCE(cls) -> "ResourceType":
         '''AWS Elemental MediaConnect FlowSource.'''
         return typing.cast("ResourceType", jsii.sget(cls, "MEDIA_CONNECT_FLOW_SOURCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MEDIA_PACKAGE_PACKAGING_CONFIGURATION")
+    @builtins.classmethod
     def MEDIA_PACKAGE_PACKAGING_CONFIGURATION(cls) -> "ResourceType":
         '''AWS Elemental MediaPackage Packaging Configuration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "MEDIA_PACKAGE_PACKAGING_CONFIGURATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MEDIACONNECT_FLOW_ENTITLEMENT")
+    @builtins.classmethod
     def MEDIACONNECT_FLOW_ENTITLEMENT(cls) -> "ResourceType":
         '''AWS Elemental MediaConnect FlowEntitlement.'''
         return typing.cast("ResourceType", jsii.sget(cls, "MEDIACONNECT_FLOW_ENTITLEMENT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MEDIACONNECT_FLOW_VPC_INTERFACE")
+    @builtins.classmethod
     def MEDIACONNECT_FLOW_VPC_INTERFACE(cls) -> "ResourceType":
         '''AWS Elemental MediaConnect FlowVpcInterface.'''
         return typing.cast("ResourceType", jsii.sget(cls, "MEDIACONNECT_FLOW_VPC_INTERFACE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MEDIAPACKAGE_PACKAGING_GROUP")
+    @builtins.classmethod
     def MEDIAPACKAGE_PACKAGING_GROUP(cls) -> "ResourceType":
         '''AWS Elemental MediaPackage packaging group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "MEDIAPACKAGE_PACKAGING_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MEDIATAILOR_PLAYBACK_CONFIGURATION")
+    @builtins.classmethod
     def MEDIATAILOR_PLAYBACK_CONFIGURATION(cls) -> "ResourceType":
         '''AWS Elemental MediaTailor PlaybackConfiguration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "MEDIATAILOR_PLAYBACK_CONFIGURATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MSK_BATCH_SCRAM_SECRET")
+    @builtins.classmethod
     def MSK_BATCH_SCRAM_SECRET(cls) -> "ResourceType":
         '''Amazon MSK BatchScramSecret.'''
         return typing.cast("ResourceType", jsii.sget(cls, "MSK_BATCH_SCRAM_SECRET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MSK_CLUSTER")
+    @builtins.classmethod
     def MSK_CLUSTER(cls) -> "ResourceType":
         '''Amazon MSK cluster.'''
         return typing.cast("ResourceType", jsii.sget(cls, "MSK_CLUSTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MSK_CONFIGURATION")
+    @builtins.classmethod
     def MSK_CONFIGURATION(cls) -> "ResourceType":
         '''Amazon MSK Configuration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "MSK_CONFIGURATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_FIREWALL_FIREWALL")
+    @builtins.classmethod
     def NETWORK_FIREWALL_FIREWALL(cls) -> "ResourceType":
         '''AWS Network Firewall Firewall.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_FIREWALL_FIREWALL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_FIREWALL_FIREWALL_POLICY")
+    @builtins.classmethod
     def NETWORK_FIREWALL_FIREWALL_POLICY(cls) -> "ResourceType":
         '''AWS Network Firewall Firewall Policy.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_FIREWALL_FIREWALL_POLICY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_FIREWALL_RULE_GROUP")
+    @builtins.classmethod
     def NETWORK_FIREWALL_RULE_GROUP(cls) -> "ResourceType":
         '''AWS Network Firewall Rule Group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_FIREWALL_RULE_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_FIREWALL_TLS_INSPECTION_CONFIGURATION")
+    @builtins.classmethod
     def NETWORK_FIREWALL_TLS_INSPECTION_CONFIGURATION(cls) -> "ResourceType":
         '''AWS NetworkFirewall TLSInspectionConfiguration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_FIREWALL_TLS_INSPECTION_CONFIGURATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_MANAGER_CONNECT_PEER")
+    @builtins.classmethod
     def NETWORK_MANAGER_CONNECT_PEER(cls) -> "ResourceType":
         '''AWS NetworkManager ConnectPeer.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_MANAGER_CONNECT_PEER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_MANAGER_CUSTOMER_GATEWAY_ASSOCIATION")
+    @builtins.classmethod
     def NETWORK_MANAGER_CUSTOMER_GATEWAY_ASSOCIATION(cls) -> "ResourceType":
         '''AWS NetworkManager CustomerGatewayAssociation.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_MANAGER_CUSTOMER_GATEWAY_ASSOCIATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_MANAGER_DEVICE")
+    @builtins.classmethod
     def NETWORK_MANAGER_DEVICE(cls) -> "ResourceType":
         '''AWS Network Manager Device.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_MANAGER_DEVICE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_MANAGER_GLOBAL_NETWORK")
+    @builtins.classmethod
     def NETWORK_MANAGER_GLOBAL_NETWORK(cls) -> "ResourceType":
         '''AWS Network Manager Global Network.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_MANAGER_GLOBAL_NETWORK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_MANAGER_LINK")
+    @builtins.classmethod
     def NETWORK_MANAGER_LINK(cls) -> "ResourceType":
         '''AWS NetworkManager Link.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_MANAGER_LINK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_MANAGER_LINK_ASSOCIATION")
+    @builtins.classmethod
     def NETWORK_MANAGER_LINK_ASSOCIATION(cls) -> "ResourceType":
         '''AWS NetworkManager LinkAssociation.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_MANAGER_LINK_ASSOCIATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_MANAGER_SITE")
+    @builtins.classmethod
     def NETWORK_MANAGER_SITE(cls) -> "ResourceType":
         '''AWS NetworkManager Site.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_MANAGER_SITE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK_MANAGER_TRANSIT_GATEWAY_REGISTRATION")
+    @builtins.classmethod
     def NETWORK_MANAGER_TRANSIT_GATEWAY_REGISTRATION(cls) -> "ResourceType":
         '''AWS Network Manager Transit Gateway Registration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "NETWORK_MANAGER_TRANSIT_GATEWAY_REGISTRATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENSEARCH_DOMAIN")
+    @builtins.classmethod
     def OPENSEARCH_DOMAIN(cls) -> "ResourceType":
         '''Amazon OpenSearch domain.'''
         return typing.cast("ResourceType", jsii.sget(cls, "OPENSEARCH_DOMAIN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PANORAMA_PACKAGE")
+    @builtins.classmethod
     def PANORAMA_PACKAGE(cls) -> "ResourceType":
         '''AWS Panorama Package.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PANORAMA_PACKAGE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PERSONALIZE_DATASET")
+    @builtins.classmethod
     def PERSONALIZE_DATASET(cls) -> "ResourceType":
         '''Amazon Personalize Dataset.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PERSONALIZE_DATASET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PERSONALIZE_DATASET_GROUP")
+    @builtins.classmethod
     def PERSONALIZE_DATASET_GROUP(cls) -> "ResourceType":
         '''Amazon Personalize DatasetGroup.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PERSONALIZE_DATASET_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PERSONALIZE_SCHEMA")
+    @builtins.classmethod
     def PERSONALIZE_SCHEMA(cls) -> "ResourceType":
         '''Amazon Personalize Schema.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PERSONALIZE_SCHEMA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PERSONALIZE_SOLUTION")
+    @builtins.classmethod
     def PERSONALIZE_SOLUTION(cls) -> "ResourceType":
         '''Amazon Personalize Solution.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PERSONALIZE_SOLUTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PINPOINT_APP")
+    @builtins.classmethod
     def PINPOINT_APP(cls) -> "ResourceType":
         '''Amazon Pinpoint App.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PINPOINT_APP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PINPOINT_APPLICATION_SETTINGS")
+    @builtins.classmethod
     def PINPOINT_APPLICATION_SETTINGS(cls) -> "ResourceType":
         '''Amazon Pinpoint Application Settings.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PINPOINT_APPLICATION_SETTINGS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PINPOINT_CAMPAIGN")
+    @builtins.classmethod
     def PINPOINT_CAMPAIGN(cls) -> "ResourceType":
         '''Amazon Pinpoint Campaign.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PINPOINT_CAMPAIGN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PINPOINT_EMAIL_CHANNEL")
+    @builtins.classmethod
     def PINPOINT_EMAIL_CHANNEL(cls) -> "ResourceType":
         '''Amazon Pinpoint EmailChannel.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PINPOINT_EMAIL_CHANNEL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PINPOINT_EMAIL_TEMPLATE")
+    @builtins.classmethod
     def PINPOINT_EMAIL_TEMPLATE(cls) -> "ResourceType":
         '''Amazon Pinpoint EmailTemplate.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PINPOINT_EMAIL_TEMPLATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PINPOINT_EVENT_STREAM")
+    @builtins.classmethod
     def PINPOINT_EVENT_STREAM(cls) -> "ResourceType":
         '''Amazon Pinpoint EventStream.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PINPOINT_EVENT_STREAM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PINPOINT_IN_APP_TEMPLATE")
+    @builtins.classmethod
     def PINPOINT_IN_APP_TEMPLATE(cls) -> "ResourceType":
         '''Amazon Pinpoint InAppTemplate.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PINPOINT_IN_APP_TEMPLATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PINPOINT_SEGMENT")
+    @builtins.classmethod
     def PINPOINT_SEGMENT(cls) -> "ResourceType":
         '''Amazon Pinpoint Segment.'''
         return typing.cast("ResourceType", jsii.sget(cls, "PINPOINT_SEGMENT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="QLDB_LEDGER")
+    @builtins.classmethod
     def QLDB_LEDGER(cls) -> "ResourceType":
         '''Amazon QLDB ledger.'''
         return typing.cast("ResourceType", jsii.sget(cls, "QLDB_LEDGER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_DB_CLUSTER")
+    @builtins.classmethod
     def RDS_DB_CLUSTER(cls) -> "ResourceType":
         '''Amazon RDS database cluster.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RDS_DB_CLUSTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_DB_CLUSTER_SNAPSHOT")
+    @builtins.classmethod
     def RDS_DB_CLUSTER_SNAPSHOT(cls) -> "ResourceType":
         '''Amazon RDS database cluster snapshot.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RDS_DB_CLUSTER_SNAPSHOT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_DB_INSTANCE")
+    @builtins.classmethod
     def RDS_DB_INSTANCE(cls) -> "ResourceType":
         '''Amazon RDS database instance.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RDS_DB_INSTANCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_DB_SECURITY_GROUP")
+    @builtins.classmethod
     def RDS_DB_SECURITY_GROUP(cls) -> "ResourceType":
         '''Amazon RDS database security group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RDS_DB_SECURITY_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_DB_SNAPSHOT")
+    @builtins.classmethod
     def RDS_DB_SNAPSHOT(cls) -> "ResourceType":
         '''Amazon RDS database snapshot.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RDS_DB_SNAPSHOT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_DB_SUBNET_GROUP")
+    @builtins.classmethod
     def RDS_DB_SUBNET_GROUP(cls) -> "ResourceType":
         '''Amazon RDS database subnet group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RDS_DB_SUBNET_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_EVENT_SUBSCRIPTION")
+    @builtins.classmethod
     def RDS_EVENT_SUBSCRIPTION(cls) -> "ResourceType":
         '''Amazon RDS event subscription.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RDS_EVENT_SUBSCRIPTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_GLOBAL_CLUSTER")
+    @builtins.classmethod
     def RDS_GLOBAL_CLUSTER(cls) -> "ResourceType":
         '''Amazon RDS global cluster.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RDS_GLOBAL_CLUSTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_OPTION_GROUP")
+    @builtins.classmethod
     def RDS_OPTION_GROUP(cls) -> "ResourceType":
         '''Amazon RDS OptionGroup.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RDS_OPTION_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_CLUSTER")
+    @builtins.classmethod
     def REDSHIFT_CLUSTER(cls) -> "ResourceType":
         '''Amazon Redshift cluster.'''
         return typing.cast("ResourceType", jsii.sget(cls, "REDSHIFT_CLUSTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_CLUSTER_PARAMETER_GROUP")
+    @builtins.classmethod
     def REDSHIFT_CLUSTER_PARAMETER_GROUP(cls) -> "ResourceType":
         '''Amazon Redshift cluster parameter group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "REDSHIFT_CLUSTER_PARAMETER_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_CLUSTER_SECURITY_GROUP")
+    @builtins.classmethod
     def REDSHIFT_CLUSTER_SECURITY_GROUP(cls) -> "ResourceType":
         '''Amazon Redshift cluster security group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "REDSHIFT_CLUSTER_SECURITY_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_CLUSTER_SNAPSHOT")
+    @builtins.classmethod
     def REDSHIFT_CLUSTER_SNAPSHOT(cls) -> "ResourceType":
         '''Amazon Redshift cluster snapshot.'''
         return typing.cast("ResourceType", jsii.sget(cls, "REDSHIFT_CLUSTER_SNAPSHOT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_CLUSTER_SUBNET_GROUP")
+    @builtins.classmethod
     def REDSHIFT_CLUSTER_SUBNET_GROUP(cls) -> "ResourceType":
         '''Amazon Redshift cluster subnet group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "REDSHIFT_CLUSTER_SUBNET_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_EVENT_SUBSCRIPTION")
+    @builtins.classmethod
     def REDSHIFT_EVENT_SUBSCRIPTION(cls) -> "ResourceType":
         '''Amazon Redshift event subscription.'''
         return typing.cast("ResourceType", jsii.sget(cls, "REDSHIFT_EVENT_SUBSCRIPTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REDSHIFT_SCHEDULED_ACTION")
+    @builtins.classmethod
     def REDSHIFT_SCHEDULED_ACTION(cls) -> "ResourceType":
         '''Amazon Redshift Scheduled Action.'''
         return typing.cast("ResourceType", jsii.sget(cls, "REDSHIFT_SCHEDULED_ACTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RESILIENCEHUB_APP")
+    @builtins.classmethod
     def RESILIENCEHUB_APP(cls) -> "ResourceType":
         '''AWS ResilienceHub App.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RESILIENCEHUB_APP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RESILIENCEHUB_RESILIENCY_POLICY")
+    @builtins.classmethod
     def RESILIENCEHUB_RESILIENCY_POLICY(cls) -> "ResourceType":
         '''AWS ResilienceHub resiliency policy.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RESILIENCEHUB_RESILIENCY_POLICY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RESOURCE_EXPLORER2_INDEX")
+    @builtins.classmethod
     def RESOURCE_EXPLORER2_INDEX(cls) -> "ResourceType":
         '''AWS Resource Explorer Index.'''
         return typing.cast("ResourceType", jsii.sget(cls, "RESOURCE_EXPLORER2_INDEX"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROBO_MAKER_ROBOT_APPLICATION")
+    @builtins.classmethod
     def ROBO_MAKER_ROBOT_APPLICATION(cls) -> "ResourceType":
         '''AWS RoboMaker Robot Application.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROBO_MAKER_ROBOT_APPLICATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROBO_MAKER_ROBOT_APPLICATION_VERSION")
+    @builtins.classmethod
     def ROBO_MAKER_ROBOT_APPLICATION_VERSION(cls) -> "ResourceType":
         '''AWS RoboMaker Robot Application Version.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROBO_MAKER_ROBOT_APPLICATION_VERSION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROBO_MAKER_SIMULATION_APPLICATION")
+    @builtins.classmethod
     def ROBO_MAKER_SIMULATION_APPLICATION(cls) -> "ResourceType":
         '''AWS RoboMaker Simulation Application.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROBO_MAKER_SIMULATION_APPLICATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_HEALTH_CHECK")
+    @builtins.classmethod
     def ROUTE53_HEALTH_CHECK(cls) -> "ResourceType":
         '''Amazon Route53 Health Check.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_HEALTH_CHECK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_HOSTED_ZONE")
+    @builtins.classmethod
     def ROUTE53_HOSTED_ZONE(cls) -> "ResourceType":
         '''Amazon Route53 Hosted Zone.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_HOSTED_ZONE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RECOVERY_CONTROL_CLUSTER")
+    @builtins.classmethod
     def ROUTE53_RECOVERY_CONTROL_CLUSTER(cls) -> "ResourceType":
         '''Amazon Route53 Recovery Control Cluster.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RECOVERY_CONTROL_CLUSTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RECOVERY_CONTROL_CONTROL_PANEL")
+    @builtins.classmethod
     def ROUTE53_RECOVERY_CONTROL_CONTROL_PANEL(cls) -> "ResourceType":
         '''Amazon Route53 Recovery Control Control Panel.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RECOVERY_CONTROL_CONTROL_PANEL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RECOVERY_CONTROL_ROUTING_CONTROL")
+    @builtins.classmethod
     def ROUTE53_RECOVERY_CONTROL_ROUTING_CONTROL(cls) -> "ResourceType":
         '''Amazon Route53 Recovery Control Routing Control.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RECOVERY_CONTROL_ROUTING_CONTROL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RECOVERY_CONTROL_SAFETY_RULE")
+    @builtins.classmethod
     def ROUTE53_RECOVERY_CONTROL_SAFETY_RULE(cls) -> "ResourceType":
         '''Amazon Route53 Recovery Control Safety Rule.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RECOVERY_CONTROL_SAFETY_RULE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RECOVERY_READINESS_CELL")
+    @builtins.classmethod
     def ROUTE53_RECOVERY_READINESS_CELL(cls) -> "ResourceType":
         '''Amazon Route 53 Application Recovery Controller Cell.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RECOVERY_READINESS_CELL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RECOVERY_READINESS_READINESS_CHECK")
+    @builtins.classmethod
     def ROUTE53_RECOVERY_READINESS_READINESS_CHECK(cls) -> "ResourceType":
         '''Amazon Route 53 Application Recovery Controller Readiness Check.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RECOVERY_READINESS_READINESS_CHECK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RECOVERY_READINESS_RECOVERY_GROUP")
+    @builtins.classmethod
     def ROUTE53_RECOVERY_READINESS_RECOVERY_GROUP(cls) -> "ResourceType":
         '''Amazon Route53 recovery readiness recovery group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RECOVERY_READINESS_RECOVERY_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RECOVERY_READINESS_RESOURCE_SET")
+    @builtins.classmethod
     def ROUTE53_RECOVERY_READINESS_RESOURCE_SET(cls) -> "ResourceType":
         '''Amazon Route53 Recovery Readiness Resource Set.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RECOVERY_READINESS_RESOURCE_SET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RESOLVER_FIREWALL_DOMAIN_LIST")
+    @builtins.classmethod
     def ROUTE53_RESOLVER_FIREWALL_DOMAIN_LIST(cls) -> "ResourceType":
         '''Amazon Route53 Resolver Firewall Domain List.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RESOLVER_FIREWALL_DOMAIN_LIST"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RESOLVER_FIREWALL_RULE_GROUP")
+    @builtins.classmethod
     def ROUTE53_RESOLVER_FIREWALL_RULE_GROUP(cls) -> "ResourceType":
         '''AWS Route53 Resolver FirewallRuleGroup.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RESOLVER_FIREWALL_RULE_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RESOLVER_FIREWALL_RULE_GROUP_ASSOCIATION")
+    @builtins.classmethod
     def ROUTE53_RESOLVER_FIREWALL_RULE_GROUP_ASSOCIATION(cls) -> "ResourceType":
         '''Amazon Route53 Resolver Firewall Rule Group Association.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RESOLVER_FIREWALL_RULE_GROUP_ASSOCIATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RESOLVER_QUERY_LOGGING_CONFIG")
+    @builtins.classmethod
     def ROUTE53_RESOLVER_QUERY_LOGGING_CONFIG(cls) -> "ResourceType":
         '''Amazon Route53 Resolver ResolverQueryLoggingConfig.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RESOLVER_QUERY_LOGGING_CONFIG"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RESOLVER_QUERY_LOGGING_CONFIG_ASSOCIATION")
+    @builtins.classmethod
     def ROUTE53_RESOLVER_QUERY_LOGGING_CONFIG_ASSOCIATION(cls) -> "ResourceType":
         '''Amazon Route53 Resolver ResolverQueryLoggingConfigAssociation.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RESOLVER_QUERY_LOGGING_CONFIG_ASSOCIATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RESOLVER_RESOLVER_ENDPOINT")
+    @builtins.classmethod
     def ROUTE53_RESOLVER_RESOLVER_ENDPOINT(cls) -> "ResourceType":
         '''Amazon Route53 resolver resolver endpoint.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RESOLVER_RESOLVER_ENDPOINT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RESOLVER_RESOLVER_RULE")
+    @builtins.classmethod
     def ROUTE53_RESOLVER_RESOLVER_RULE(cls) -> "ResourceType":
         '''Amazon Route53 resolver resolver rule.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RESOLVER_RESOLVER_RULE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ROUTE53_RESOLVER_RESOLVER_RULE_ASSOCIATION")
+    @builtins.classmethod
     def ROUTE53_RESOLVER_RESOLVER_RULE_ASSOCIATION(cls) -> "ResourceType":
         '''Amazon Route53 resolver resolver rule association.'''
         return typing.cast("ResourceType", jsii.sget(cls, "ROUTE53_RESOLVER_RESOLVER_RULE_ASSOCIATION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_ACCESS_POINT")
+    @builtins.classmethod
     def S3_ACCESS_POINT(cls) -> "ResourceType":
         '''Amazon S3 AccessPoint.'''
         return typing.cast("ResourceType", jsii.sget(cls, "S3_ACCESS_POINT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_ACCOUNT_PUBLIC_ACCESS_BLOCK")
+    @builtins.classmethod
     def S3_ACCOUNT_PUBLIC_ACCESS_BLOCK(cls) -> "ResourceType":
         '''Amazon S3 account public access block.'''
         return typing.cast("ResourceType", jsii.sget(cls, "S3_ACCOUNT_PUBLIC_ACCESS_BLOCK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_BUCKET")
+    @builtins.classmethod
     def S3_BUCKET(cls) -> "ResourceType":
         '''Amazon S3 bucket.'''
         return typing.cast("ResourceType", jsii.sget(cls, "S3_BUCKET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_MULTIREGION_ACCESS_POINT")
+    @builtins.classmethod
     def S3_MULTIREGION_ACCESS_POINT(cls) -> "ResourceType":
         '''Amazon S3 Multi-Region Access Point.'''
         return typing.cast("ResourceType", jsii.sget(cls, "S3_MULTIREGION_ACCESS_POINT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_STORAGE_LENS")
+    @builtins.classmethod
     def S3_STORAGE_LENS(cls) -> "ResourceType":
         '''Amazon S3 Storage Lens.'''
         return typing.cast("ResourceType", jsii.sget(cls, "S3_STORAGE_LENS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGE_MAKER_APP_IMAGE_CONFIG")
+    @builtins.classmethod
     def SAGE_MAKER_APP_IMAGE_CONFIG(cls) -> "ResourceType":
         '''Amazon SageMaker AppImageConfig.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SAGE_MAKER_APP_IMAGE_CONFIG"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGE_MAKER_IMAGE")
+    @builtins.classmethod
     def SAGE_MAKER_IMAGE(cls) -> "ResourceType":
         '''Amazon SageMaker Image.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SAGE_MAKER_IMAGE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGEMAKER_CODE_REPOSITORY")
+    @builtins.classmethod
     def SAGEMAKER_CODE_REPOSITORY(cls) -> "ResourceType":
         '''Amazon SageMaker code repository.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SAGEMAKER_CODE_REPOSITORY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGEMAKER_DOMAIN")
+    @builtins.classmethod
     def SAGEMAKER_DOMAIN(cls) -> "ResourceType":
         '''Amazon SageMaker Domain.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SAGEMAKER_DOMAIN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGEMAKER_FEATURE_GROUP")
+    @builtins.classmethod
     def SAGEMAKER_FEATURE_GROUP(cls) -> "ResourceType":
         '''Amazon SageMaker FeatureGroup.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SAGEMAKER_FEATURE_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGEMAKER_MODEL")
+    @builtins.classmethod
     def SAGEMAKER_MODEL(cls) -> "ResourceType":
         '''Amazon SageMaker model.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SAGEMAKER_MODEL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGEMAKER_NOTEBOOK_INSTANCE")
+    @builtins.classmethod
     def SAGEMAKER_NOTEBOOK_INSTANCE(cls) -> "ResourceType":
         '''Amazon SageMaker notebook instance.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SAGEMAKER_NOTEBOOK_INSTANCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAGEMAKER_WORKTEAM")
+    @builtins.classmethod
     def SAGEMAKER_WORKTEAM(cls) -> "ResourceType":
         '''Amazon SageMaker workteam.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SAGEMAKER_WORKTEAM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SECRETS_MANAGER_SECRET")
+    @builtins.classmethod
     def SECRETS_MANAGER_SECRET(cls) -> "ResourceType":
         '''AWS Secrets Manager secret.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SECRETS_MANAGER_SECRET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SERVICE_CATALOG_CLOUDFORMATION_PRODUCT")
+    @builtins.classmethod
     def SERVICE_CATALOG_CLOUDFORMATION_PRODUCT(cls) -> "ResourceType":
         '''AWS Service Catalog CloudFormation product.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SERVICE_CATALOG_CLOUDFORMATION_PRODUCT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SERVICE_CATALOG_CLOUDFORMATION_PROVISIONED_PRODUCT")
+    @builtins.classmethod
     def SERVICE_CATALOG_CLOUDFORMATION_PROVISIONED_PRODUCT(cls) -> "ResourceType":
         '''AWS Service Catalog CloudFormation provisioned product.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SERVICE_CATALOG_CLOUDFORMATION_PROVISIONED_PRODUCT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SERVICE_CATALOG_PORTFOLIO")
+    @builtins.classmethod
     def SERVICE_CATALOG_PORTFOLIO(cls) -> "ResourceType":
         '''AWS Service Catalog portfolio.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SERVICE_CATALOG_PORTFOLIO"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SERVICE_DISCOVERY_INSTANCE")
+    @builtins.classmethod
     def SERVICE_DISCOVERY_INSTANCE(cls) -> "ResourceType":
         '''AWS Cloud Map Instance.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SERVICE_DISCOVERY_INSTANCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SERVICEDISCOVERY_HTTP_NAMESPACE")
+    @builtins.classmethod
     def SERVICEDISCOVERY_HTTP_NAMESPACE(cls) -> "ResourceType":
         '''AWS Cloud Map(ServiceDiscovery) Http Namespace.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SERVICEDISCOVERY_HTTP_NAMESPACE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SERVICEDISCOVERY_PUBLIC_DNS_NAMESPACE")
+    @builtins.classmethod
     def SERVICEDISCOVERY_PUBLIC_DNS_NAMESPACE(cls) -> "ResourceType":
         '''AWS Cloud Map(ServiceDiscovery) Public Dns Namespace.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SERVICEDISCOVERY_PUBLIC_DNS_NAMESPACE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SERVICEDISCOVERY_SERVICE")
+    @builtins.classmethod
     def SERVICEDISCOVERY_SERVICE(cls) -> "ResourceType":
         '''AWS Cloud Map(ServiceDiscovery) service.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SERVICEDISCOVERY_SERVICE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SES_CONFIGURATION_SET")
+    @builtins.classmethod
     def SES_CONFIGURATION_SET(cls) -> "ResourceType":
         '''Amazon SES Configuration Set.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SES_CONFIGURATION_SET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SES_CONTACT_LIST")
+    @builtins.classmethod
     def SES_CONTACT_LIST(cls) -> "ResourceType":
         '''Amazon SES Contact List.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SES_CONTACT_LIST"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SES_RECEIPT_FILTER")
+    @builtins.classmethod
     def SES_RECEIPT_FILTER(cls) -> "ResourceType":
         '''Amazon SES ReceiptFilter.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SES_RECEIPT_FILTER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SES_RECEIPT_RECEIPT_RULE_SET")
+    @builtins.classmethod
     def SES_RECEIPT_RECEIPT_RULE_SET(cls) -> "ResourceType":
         '''Amazon SES ReceiptRuleSet.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SES_RECEIPT_RECEIPT_RULE_SET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SES_TEMPLATE")
+    @builtins.classmethod
     def SES_TEMPLATE(cls) -> "ResourceType":
         '''Amazon SES Template.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SES_TEMPLATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SHIELD_PROTECTION")
+    @builtins.classmethod
     def SHIELD_PROTECTION(cls) -> "ResourceType":
         '''AWS Shield protection.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SHIELD_PROTECTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SHIELD_REGIONAL_PROTECTION")
+    @builtins.classmethod
     def SHIELD_REGIONAL_PROTECTION(cls) -> "ResourceType":
         '''AWS Shield regional protection.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SHIELD_REGIONAL_PROTECTION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SIGNER_SIGNING_PROFILE")
+    @builtins.classmethod
     def SIGNER_SIGNING_PROFILE(cls) -> "ResourceType":
         '''AWS Signer SigningProfile.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SIGNER_SIGNING_PROFILE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SNS_TOPIC")
+    @builtins.classmethod
     def SNS_TOPIC(cls) -> "ResourceType":
         '''Amazon SNS topic.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SNS_TOPIC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQS_QUEUE")
+    @builtins.classmethod
     def SQS_QUEUE(cls) -> "ResourceType":
         '''Amazon SQS queue.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SQS_QUEUE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STEPFUNCTIONS_ACTIVITY")
+    @builtins.classmethod
     def STEPFUNCTIONS_ACTIVITY(cls) -> "ResourceType":
         '''AWS StepFunctions activity.'''
         return typing.cast("ResourceType", jsii.sget(cls, "STEPFUNCTIONS_ACTIVITY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STEPFUNCTIONS_STATE_MACHINE")
+    @builtins.classmethod
     def STEPFUNCTIONS_STATE_MACHINE(cls) -> "ResourceType":
         '''AWS StepFunctions state machine.'''
         return typing.cast("ResourceType", jsii.sget(cls, "STEPFUNCTIONS_STATE_MACHINE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYSTEMS_MANAGER_ASSOCIATION_COMPLIANCE")
+    @builtins.classmethod
     def SYSTEMS_MANAGER_ASSOCIATION_COMPLIANCE(cls) -> "ResourceType":
         '''AWS Systems Manager association compliance.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SYSTEMS_MANAGER_ASSOCIATION_COMPLIANCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYSTEMS_MANAGER_FILE_DATA")
+    @builtins.classmethod
     def SYSTEMS_MANAGER_FILE_DATA(cls) -> "ResourceType":
         '''AWS Systems Manager file data.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SYSTEMS_MANAGER_FILE_DATA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYSTEMS_MANAGER_MANAGED_INSTANCE_INVENTORY")
+    @builtins.classmethod
     def SYSTEMS_MANAGER_MANAGED_INSTANCE_INVENTORY(cls) -> "ResourceType":
         '''AWS Systems Manager managed instance inventory.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SYSTEMS_MANAGER_MANAGED_INSTANCE_INVENTORY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYSTEMS_MANAGER_PATCH_COMPLIANCE")
+    @builtins.classmethod
     def SYSTEMS_MANAGER_PATCH_COMPLIANCE(cls) -> "ResourceType":
         '''AWS Systems Manager patch compliance.'''
         return typing.cast("ResourceType", jsii.sget(cls, "SYSTEMS_MANAGER_PATCH_COMPLIANCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TRANSFER_AGREEMENT")
+    @builtins.classmethod
     def TRANSFER_AGREEMENT(cls) -> "ResourceType":
         '''AWS Transfer Agreement.'''
         return typing.cast("ResourceType", jsii.sget(cls, "TRANSFER_AGREEMENT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TRANSFER_CERTIFICATE")
+    @builtins.classmethod
     def TRANSFER_CERTIFICATE(cls) -> "ResourceType":
         '''AWS Transfer Family Certificate.'''
         return typing.cast("ResourceType", jsii.sget(cls, "TRANSFER_CERTIFICATE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TRANSFER_CONNECTOR")
+    @builtins.classmethod
     def TRANSFER_CONNECTOR(cls) -> "ResourceType":
         '''AWS Transfer Connector.'''
         return typing.cast("ResourceType", jsii.sget(cls, "TRANSFER_CONNECTOR"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TRANSFER_WORKFLOW")
+    @builtins.classmethod
     def TRANSFER_WORKFLOW(cls) -> "ResourceType":
         '''AWS Transfer workflow.'''
         return typing.cast("ResourceType", jsii.sget(cls, "TRANSFER_WORKFLOW"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_RATE_BASED_RULE")
+    @builtins.classmethod
     def WAF_RATE_BASED_RULE(cls) -> "ResourceType":
         '''AWS WAF rate based rule.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAF_RATE_BASED_RULE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_REGIONAL_RATE_BASED_RULE")
+    @builtins.classmethod
     def WAF_REGIONAL_RATE_BASED_RULE(cls) -> "ResourceType":
         '''AWS WAF regional rate based rule.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAF_REGIONAL_RATE_BASED_RULE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_REGIONAL_RULE")
+    @builtins.classmethod
     def WAF_REGIONAL_RULE(cls) -> "ResourceType":
         '''AWS WAF regional rule.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAF_REGIONAL_RULE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_REGIONAL_RULE_GROUP")
+    @builtins.classmethod
     def WAF_REGIONAL_RULE_GROUP(cls) -> "ResourceType":
         '''AWS WAF regional rule group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAF_REGIONAL_RULE_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_REGIONAL_WEB_ACL")
+    @builtins.classmethod
     def WAF_REGIONAL_WEB_ACL(cls) -> "ResourceType":
         '''AWS WAF web ACL.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAF_REGIONAL_WEB_ACL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_RULE")
+    @builtins.classmethod
     def WAF_RULE(cls) -> "ResourceType":
         '''AWS WAF rule.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAF_RULE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_RULE_GROUP")
+    @builtins.classmethod
     def WAF_RULE_GROUP(cls) -> "ResourceType":
         '''AWS WAF rule group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAF_RULE_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAF_WEB_ACL")
+    @builtins.classmethod
     def WAF_WEB_ACL(cls) -> "ResourceType":
         '''AWS WAF web ACL.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAF_WEB_ACL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAFV2_IP_SET")
+    @builtins.classmethod
     def WAFV2_IP_SET(cls) -> "ResourceType":
         '''AWS WAFv2 ip set.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAFV2_IP_SET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAFV2_MANAGED_RULE_SET")
+    @builtins.classmethod
     def WAFV2_MANAGED_RULE_SET(cls) -> "ResourceType":
         '''AWS WAFv2 managed rule set.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAFV2_MANAGED_RULE_SET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAFV2_REGEX_PATTERN_SET")
+    @builtins.classmethod
     def WAFV2_REGEX_PATTERN_SET(cls) -> "ResourceType":
         '''AWS WAFv2 regex pattern set.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAFV2_REGEX_PATTERN_SET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAFV2_RULE_GROUP")
+    @builtins.classmethod
     def WAFV2_RULE_GROUP(cls) -> "ResourceType":
         '''AWS WAFv2 rule group.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAFV2_RULE_GROUP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WAFV2_WEB_ACL")
+    @builtins.classmethod
     def WAFV2_WEB_ACL(cls) -> "ResourceType":
         '''AWS WAFv2 web ACL.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WAFV2_WEB_ACL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WORKSPACES_CONNECTION_ALIAS")
+    @builtins.classmethod
     def WORKSPACES_CONNECTION_ALIAS(cls) -> "ResourceType":
         '''Amazon WorkSpaces connection alias.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WORKSPACES_CONNECTION_ALIAS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WORKSPACES_WORKSPACE")
+    @builtins.classmethod
     def WORKSPACES_WORKSPACE(cls) -> "ResourceType":
         '''Amazon WorkSpaces workSpace.'''
         return typing.cast("ResourceType", jsii.sget(cls, "WORKSPACES_WORKSPACE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="XRAY_ENCRYPTION_CONFIGURATION")
+    @builtins.classmethod
     def XRAY_ENCRYPTION_CONFIGURATION(cls) -> "ResourceType":
         '''AWS X-Ray encryption configuration.'''
         return typing.cast("ResourceType", jsii.sget(cls, "XRAY_ENCRYPTION_CONFIGURATION"))
@@ -13722,6 +14421,7 @@ class AccessKeysRotated(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -13960,6 +14660,7 @@ class CloudFormationStackDriftDetectionCheck(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -14203,6 +14904,7 @@ class CloudFormationStackNotificationCheck(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -14570,6 +15272,7 @@ class CustomPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -14626,7 +15329,7 @@ class CustomPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b9854d10077a651dbdf4a0cba3107e925b9c9a611c8097fed5bcc7444e15b83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "isCustomWithChanges", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "isCustomWithChanges", value)
 
     @builtins.property
     @jsii.member(jsii_name="isManaged")
@@ -14638,7 +15341,7 @@ class CustomPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9abd1840e8081b6260fc81d74f36283b1fe5d04439637f73b38817fbca86b313)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "isManaged", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "isManaged", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleScope")
@@ -14650,7 +15353,7 @@ class CustomPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ef65597b7cc84c802aee5d97e6dbc9dbf9e0f04df2ae41e5102e9265b7960d0f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleScope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleScope", value)
 
 
 @jsii.data_type(
@@ -15039,6 +15742,7 @@ class CustomRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -15095,7 +15799,7 @@ class CustomRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c0958f3032e21e6d261e16c22aa71b2651c7a065516dfb3c5643d0d9c874710)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "isCustomWithChanges", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "isCustomWithChanges", value)
 
     @builtins.property
     @jsii.member(jsii_name="isManaged")
@@ -15107,7 +15811,7 @@ class CustomRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d658d05e8291c14eee0e010031415e38f12fcc5a172cffd783e9708dd81b597f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "isManaged", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "isManaged", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleScope")
@@ -15119,7 +15823,7 @@ class CustomRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b4a42de8a257fafa046633793b8c78f666811737b6939072d51be06693e271c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleScope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleScope", value)
 
 
 @jsii.data_type(

@@ -3,34 +3,28 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-/// Splits a test node ID into file path and test parts
-fn split_test_node(node: &str) -> (&str, Option<&str>) {
-    match node.split_once("::") {
-        Some((path, test)) => (path, Some(test)),
-        None => (node, None),
-    }
+/// Split a node ID into its file path and suffix, preserving the `::` separator.
+pub(crate) fn split_test_node(node: &str) -> (&str, &str) {
+    node.split_at(node.find("::").unwrap_or(node.len()))
 }
 
-/// Groups test nodes by their subproject
+/// Group tests into nonempty subprojects with paths relative to each working directory.
 pub fn group_tests_by_subproject(
     rootpath: &Path,
-    test_nodes: &[String],
+    test_nodes: Vec<String>,
 ) -> HashMap<PathBuf, Vec<String>> {
     let mut groups: HashMap<PathBuf, Vec<String>> = HashMap::new();
     let mut subproject_roots: HashSet<PathBuf> = HashSet::new();
 
     for test_node in test_nodes {
-        let subproject_root = find_subproject_root(rootpath, test_node);
+        let subproject_root = find_subproject_root(rootpath, &test_node);
         let is_subproject = subproject_root != *rootpath;
 
         if is_subproject {
             subproject_roots.insert(subproject_root.clone());
         }
 
-        groups
-            .entry(subproject_root)
-            .or_default()
-            .push(test_node.clone());
+        groups.entry(subproject_root).or_default().push(test_node);
     }
 
     if let Some(root_tests) = groups.get_mut(rootpath) {
@@ -44,6 +38,12 @@ pub fn group_tests_by_subproject(
         });
     }
 
+    groups.retain(|directory, tests| {
+        if directory != rootpath {
+            *tests = make_test_paths_relative(tests, rootpath, directory);
+        }
+        !tests.is_empty()
+    });
     groups
 }
 
@@ -57,22 +57,13 @@ fn find_subproject_root(rootpath: &Path, test_node: &str) -> PathBuf {
         _ => return rootpath.to_path_buf(),
     };
 
-    if let Some(parent) = test_path.parent() {
-        let mut current = parent;
-
-        while current.starts_with(rootpath) && current != rootpath {
-            if current.join("pyproject.toml").exists() {
-                return current.to_path_buf();
-            }
-
-            match current.parent() {
-                Some(parent) => current = parent,
-                None => break,
-            }
-        }
-    }
-
-    rootpath.to_path_buf()
+    test_path
+        .ancestors()
+        .skip(1)
+        .take_while(|current| current.starts_with(rootpath) && *current != rootpath)
+        .find(|current| current.join("pyproject.toml").exists())
+        .unwrap_or(rootpath)
+        .to_path_buf()
 }
 
 pub fn make_test_paths_relative(
@@ -83,18 +74,11 @@ pub fn make_test_paths_relative(
     test_nodes
         .iter()
         .map(|node| {
-            let (file_path, test_part) = split_test_node(node);
+            let (file_path, suffix) = split_test_node(node);
 
             let absolute_path = old_base.join(file_path);
             match absolute_path.strip_prefix(new_base) {
-                Ok(relative_path) => {
-                    let mut new_node = relative_path.to_string_lossy().into_owned();
-                    if let Some(test) = test_part {
-                        new_node.push_str("::");
-                        new_node.push_str(test);
-                    }
-                    new_node
-                }
+                Ok(relative_path) => format!("{}{suffix}", relative_path.display()),
                 Err(_) => node.clone(),
             }
         })
@@ -104,6 +88,41 @@ pub fn make_test_paths_relative(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn groups_nonempty_projects_with_paths_relative_to_their_working_directory() {
+        let project = tempfile::tempdir().expect("temporary project");
+        let root = project.path().canonicalize().expect("canonical root");
+        let nested = root.join("nested");
+        std::fs::create_dir(&nested).expect("nested project");
+        for path in [
+            root.join("test_root.py"),
+            nested.join("test_child.py"),
+            nested.join("pyproject.toml"),
+        ] {
+            std::fs::write(path, "").expect("project file");
+        }
+        let groups = group_tests_by_subproject(
+            &root,
+            vec![
+                "test_root.py::test_root".into(),
+                "nested/test_child.py::TestChild::test_method[x::y]".into(),
+                // Existing behavior excludes unresolved nodes under a discovered subproject.
+                "nested/test_missing.py::test_missing".into(),
+            ],
+        );
+        assert_eq!(
+            groups,
+            HashMap::from([
+                (root.clone(), vec!["test_root.py::test_root".into()]),
+                (
+                    nested,
+                    vec!["test_child.py::TestChild::test_method[x::y]".into()]
+                ),
+            ])
+        );
+        assert!(group_tests_by_subproject(&root, vec![]).is_empty());
+    }
 
     #[test]
     fn test_make_test_paths_relative() {

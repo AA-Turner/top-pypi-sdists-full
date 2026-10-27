@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from refinery.lib.exceptions import RefineryPartialResult
+
 
 def _lengthdelta(offset: int) -> int:
     if offset < 0x80 or 0x7D00 <= offset:
@@ -29,6 +31,10 @@ def _find_longest_match(data: bytes | bytearray, offset: int) -> tuple[int, int]
 
 
 def aplib_decompress(data: bytes | bytearray | memoryview) -> bytearray:
+    """
+    Decompress an aPLib stream. Input that ends before the end marker, or that cannot be decoded
+    after some output, raises a `RefineryPartialResult` with the output decoded so far.
+    """
     src = bytes(data)
     pos = 0
     end = len(src)
@@ -62,54 +68,64 @@ def aplib_decompress(data: bytes | bytearray | memoryview) -> bytearray:
         return result
 
     def _back_copy(offset: int, length: int) -> None:
+        if not 0 < offset <= len(output):
+            raise ValueError(F'aPLib match offset {offset} is outside the output of size {len(output)}')
         for _ in range(length):
             output.append(output[-offset])
 
-    output.append(_read_byte())
+    if not src:
+        return output
+
     LWM = 0
     R0 = 0
 
-    while True:
-        if _read_bit():
+    try:
+        output.append(_read_byte())
+        while True:
             if _read_bit():
                 if _read_bit():
-                    offs = 0
-                    for _ in range(4):
-                        offs = (offs << 1) | _read_bit()
-                    if offs:
-                        _back_copy(offs, 1)
+                    if _read_bit():
+                        offs = 0
+                        for _ in range(4):
+                            offs = (offs << 1) | _read_bit()
+                        if offs:
+                            _back_copy(offs, 1)
+                        else:
+                            output.append(0)
+                        LWM = 0
                     else:
-                        output.append(0)
-                    LWM = 0
+                        b = _read_byte()
+                        if b <= 1:
+                            break
+                        length = 2 + (b & 1)
+                        offs = b >> 1
+                        _back_copy(offs, length)
+                        R0 = offs
+                        LWM = 1
                 else:
-                    b = _read_byte()
-                    if b <= 1:
-                        break
-                    length = 2 + (b & 1)
-                    offs = b >> 1
-                    _back_copy(offs, length)
-                    R0 = offs
+                    offs = _read_gamma()
+                    if LWM == 0 and offs == 2:
+                        offs = R0
+                        length = _read_gamma()
+                        _back_copy(offs, length)
+                    else:
+                        if LWM == 0:
+                            offs -= 3
+                        else:
+                            offs -= 2
+                        offs = (offs << 8) | _read_byte()
+                        length = _read_gamma()
+                        length += _lengthdelta(offs)
+                        _back_copy(offs, length)
+                        R0 = offs
                     LWM = 1
             else:
-                offs = _read_gamma()
-                if LWM == 0 and offs == 2:
-                    offs = R0
-                    length = _read_gamma()
-                    _back_copy(offs, length)
-                else:
-                    if LWM == 0:
-                        offs -= 3
-                    else:
-                        offs -= 2
-                    offs = (offs << 8) | _read_byte()
-                    length = _read_gamma()
-                    length += _lengthdelta(offs)
-                    _back_copy(offs, length)
-                    R0 = offs
-                LWM = 1
-        else:
-            output.append(_read_byte())
-            LWM = 0
+                output.append(_read_byte())
+                LWM = 0
+    except EOFError:
+        raise RefineryPartialResult('The input ended before the end marker.', output) from None
+    except ValueError as error:
+        raise RefineryPartialResult(F'Decoding failed after {len(output)} bytes: {error!s}', output) from error
 
     return output
 

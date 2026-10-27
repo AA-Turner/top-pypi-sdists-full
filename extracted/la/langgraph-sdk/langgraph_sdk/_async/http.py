@@ -179,7 +179,7 @@ class HttpClient:
                 return await self.request_reconnect(
                     loc,
                     "GET",
-                    headers=request_headers,
+                    headers=headers,
                     # don't pass on_response so it's only called once
                     reconnect_limit=reconnect_limit - 1,
                 )
@@ -217,7 +217,7 @@ class HttpClient:
             current_headers = dict(
                 request_headers if reconnect_path is None else reconnect_headers
             )
-            if last_event_id is not None:
+            if last_event_id:
                 current_headers["Last-Event-ID"] = last_event_id
 
             current_method = method if reconnect_path is None else "GET"

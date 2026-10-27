@@ -139,10 +139,18 @@ def apply(
     lines = list(report["notes"])
     for kind in ("installed", "refreshed", "removed"):
         if report[kind]:
-            lines.append(
-                f"{kind.capitalize()} {len(report[kind])} skill(s) in {root}: {', '.join(report[kind])}"
-            )
+            # A count and the folder, not every skill's name: the list was the
+            # widest line on the wizard's screens (and its title on one).
+            count = len(report[kind])
+            lines.append(f"{kind.capitalize()} {count} skill{'' if count == 1 else 's'} in {_shown(root)}.")
     return lines
+
+
+def _shown(path) -> str:
+    """`path` with the home folder written `~`."""
+    home = os.path.expanduser("~")
+    text = str(path)
+    return "~" + text[len(home):] if home and text.startswith(home + os.sep) else text
 
 
 def refresh(source: str, env: "dict[str, str] | None" = None) -> list[str]:
@@ -171,4 +179,4 @@ def remove(source: str, env: "dict[str, str] | None" = None) -> list[str]:
     if root is None:
         return []
     gone = core.prune(root, keep=frozenset())
-    return [f"Removed {len(gone)} Probe skill(s) from {root}."] if gone else []
+    return [f"Removed {len(gone)} Probe skill{'' if len(gone) == 1 else 's'} from {_shown(root)}."] if gone else []

@@ -92,13 +92,15 @@ def build_path(login: str | None, inherited: str | None, home: Path) -> str:
     return ":".join(out)
 
 
-async def read(*, timeout: float = TIMEOUT_S, names: tuple = NAMES) -> tuple[str, dict] | None:
+async def read(*, timeout: float = TIMEOUT_S, names: tuple = NAMES, env: dict | None = None) -> tuple[str, dict] | None:
     """Ask the login shell for PATH and `names` (default: the context
     variables; the watch asks for a report's consent variables). None when
     there is no shell, it printed no PATH, or it could not start (and on
     Windows, which has no login shell to ask: Git Bash's would print a POSIX
-    PATH). Never raises."""
-    shell = os.environ.get("SHELL") or ""
+    PATH). `env`: the shell's own environment (default: this process's), so a
+    caller that is not the service can ask with a clean one (`lifeboat`).
+    Never raises."""
+    shell = (env if env is not None else os.environ).get("SHELL") or ""
     if os.name == "nt" or not shell or not os.path.isabs(shell):
         return None
     home = Path.home()
@@ -112,6 +114,7 @@ async def read(*, timeout: float = TIMEOUT_S, names: tuple = NAMES) -> tuple[str
             stderr=asyncio.subprocess.DEVNULL,
             cwd=str(home) if home.is_dir() else "/",
             start_new_session=True,
+            env=env,
         )
     except (OSError, ValueError):
         return None

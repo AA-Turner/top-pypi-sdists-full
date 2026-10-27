@@ -20,6 +20,7 @@ pub mod context;
 /// Error types for the parser.
 pub mod error;
 mod input;
+pub mod lossless;
 /// Markdown nodes.
 pub mod node;
 pub mod range;
@@ -59,15 +60,68 @@ where
 	S: Span,
 	E: ParseError<'data> + Display,
 {
-	// Modifiers are parsed as delimiters and resolved into the tree once the whole message is in;
-	// see `range`.
-	//
-	// An opener read before block syntax that then matches nothing was not an opener, and its line
-	// is a paragraph; parse again without it. Each round settles at least one, and the rounds
-	// share one fuel tank. Past the last, whatever is left stays where it stands.
+	parse_rounds(&data.into(), options, |parsed, unmatched| {
+		range::resolve(
+			parsed.value,
+			options.syntaxes,
+			unmatched,
+			&mut node::Ids::default(),
+		)
+		.map(|nodes| Spanned {
+			value: nodes,
+			span: parsed.span,
+		})
+	})
+}
+
+/// Parse markdown content into a [`lossless`] tree, which holds every byte of `data` and writes
+/// back into exactly it with [`unparse()`]. Modifiers pair as they do in [`parse`], but nothing is
+/// normalized.
+///
+/// # Errors
+/// As [`parse`].
+#[tracing::instrument(ret, err, level = Level::DEBUG)]
+pub fn parse_lossless<'data, E>(
+	data: impl Into<Input<'data>> + Debug,
+	options: Options,
+) -> Result<lossless::Node<'data>, E>
+where
+	E: ParseError<'data> + Display,
+{
+	let input = data.into();
+	let source = range::lossless::Source {
+		text: input.content,
+		start: input.start,
+	};
+	parse_rounds(&input, options, |parsed, unmatched| {
+		range::lossless::resolve(
+			parsed,
+			source,
+			options.syntaxes,
+			unmatched,
+			&mut node::Ids::default(),
+		)
+	})
+}
+
+/// Parse `input`, handing the result to `finish`.
+///
+/// Modifiers are parsed as delimiters and resolved into the tree once the whole message is in; see
+/// `range`. An opener read before block syntax that then matches nothing was not an opener, and
+/// its line is a paragraph, so `finish` rejects it and the input is parsed again without it. Each
+/// round settles at least one, and the rounds share one fuel tank. Past the last, whatever is left
+/// stays where it stands.
+fn parse_rounds<'data, S, E, T>(
+	input: &Input<'data>,
+	options: Options,
+	mut finish: impl FnMut(node::Elements<'data, S>, Unmatched) -> Result<T, Vec<range::delim::Offset>>,
+) -> Result<T, E>
+where
+	S: Span,
+	E: ParseError<'data> + Display,
+{
 	const ROUNDS: usize = 4;
 
-	let input = data.into();
 	let mut disabled = HashSet::new();
 	let mut context = Context::new(options);
 
@@ -83,18 +137,8 @@ where
 		} else {
 			Unmatched::Text
 		};
-		match range::resolve(
-			parsed.value,
-			options.syntaxes,
-			unmatched,
-			&mut node::Ids::default(),
-		) {
-			Ok(nodes) => {
-				return Ok(Spanned {
-					value: nodes,
-					span: parsed.span,
-				});
-			}
+		match finish(parsed, unmatched) {
+			Ok(finished) => return Ok(finished),
 			Err(unmatched) => disabled.extend(unmatched),
 		}
 	}

@@ -191,6 +191,7 @@ class CfnSubscription(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -284,7 +285,7 @@ class CfnSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2264e4565d2d4d44c92ac482d1abca4e56a7ad39f2b5324e46eab75cc7fdf0bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "planFamily", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "planFamily", value)
 
     @builtins.property
     @jsii.member(jsii_name="planTier")
@@ -297,7 +298,7 @@ class CfnSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e9f809cda0a88badeae8d937a4f8ea2bf227619f26816deceac90a4446c7c25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "planTier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "planTier", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceArns")
@@ -310,7 +311,7 @@ class CfnSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a39fdfdebc494ad5ca9c5f31f7927af341bed2fa1ae2e33ae02e20f6531a75a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="usageLevel")
@@ -322,7 +323,7 @@ class CfnSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f54b40dddf5c2ac8ecc7cf7f4276637cc0539a0f7654de89b33c9be4140f8fbc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "usageLevel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "usageLevel", value)
 
 
 @jsii.data_type(

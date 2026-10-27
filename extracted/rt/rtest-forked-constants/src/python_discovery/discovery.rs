@@ -1,27 +1,54 @@
 //! Test discovery types and main entry point.
 
 use crate::collection::error::{CollectionError, CollectionResult, CollectionWarning};
-use crate::collection::nodes::Function;
-use crate::collection::types::Location;
-use crate::python_discovery::cases::CasesExpansion;
+use crate::python_discovery::cases::{
+    parse_decorators_to_specs, CannotExpandReason, CasesExpansion, DuplicateIds,
+};
+use crate::python_discovery::constant_resolver::ConstantResolver;
 use crate::python_discovery::module_resolver::ModuleResolver;
 use crate::python_discovery::pattern;
-use crate::python_discovery::semantic_analyzer::SemanticTestDiscovery;
+use crate::python_discovery::semantic_analyzer::{SemanticTestDiscovery, TestMethodInfo};
 use crate::python_discovery::visitor::TestDiscoveryVisitor;
-use ruff_python_ast::{Mod, Stmt, StmtClassDef};
-use ruff_python_parser::{parse, Mode, ParseOptions};
-use std::path::Path;
+use ruff_python_ast::{Stmt, StmtClassDef};
+use ruff_python_parser::parse_module;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 /// Information about a discovered test
 #[derive(Debug, Clone)]
 pub struct TestInfo {
     pub name: String,
-    pub line: usize,
-    #[allow(dead_code)]
-    pub is_method: bool,
     pub class_name: Option<String>,
     /// Test cases expansion result from parsing decorators.
     pub cases_expansion: CasesExpansion,
+}
+
+impl TestInfo {
+    pub(crate) fn base_nodeid(&self, module_nodeid: &str) -> String {
+        if let Some(class_name) = &self.class_name {
+            format!("{}::{}::{}", module_nodeid, class_name, self.name)
+        } else {
+            format!("{}::{}", module_nodeid, self.name)
+        }
+    }
+
+    /// Expand static cases into node IDs, keeping a base ID for runtime fallback.
+    pub(crate) fn nodeids(&self, module_nodeid: &str) -> Vec<String> {
+        let base = self.base_nodeid(module_nodeid);
+        match &self.cases_expansion {
+            CasesExpansion::NotDecorated | CasesExpansion::CannotExpand(_) => vec![base],
+            CasesExpansion::Expanded(cases) => {
+                cases.iter().map(|id| format!("{base}[{id}]")).collect()
+            }
+        }
+    }
+}
+
+pub(crate) fn require_pytest_collection(tests: &mut [TestInfo], reason: &str) {
+    for test in tests {
+        test.cases_expansion =
+            CasesExpansion::CannotExpand(CannotExpandReason::UnsupportedExpression(reason.into()));
+    }
 }
 
 /// Configuration for test discovery
@@ -29,6 +56,7 @@ pub struct TestInfo {
 pub struct TestDiscoveryConfig {
     pub python_classes: Vec<String>,
     pub python_functions: Vec<String>,
+    pub duplicate_ids: DuplicateIds,
 }
 
 impl Default for TestDiscoveryConfig {
@@ -36,6 +64,7 @@ impl Default for TestDiscoveryConfig {
         Self {
             python_classes: vec!["Test*".into()],
             python_functions: vec!["test*".into()],
+            duplicate_ids: DuplicateIds::default(),
         }
     }
 }
@@ -63,21 +92,44 @@ pub(crate) fn class_has_init(class: &StmtClassDef) -> bool {
         .any(|stmt| matches!(stmt, Stmt::FunctionDef(func) if func.name.as_str() == "__init__"))
 }
 
+/// Collect method-level specs so each discovery path can apply the child's class decorators.
+pub(crate) fn collect_test_methods(
+    class: &StmtClassDef,
+    config: &TestDiscoveryConfig,
+    resolver: &ConstantResolver,
+) -> Vec<TestMethodInfo> {
+    class
+        .body
+        .iter()
+        .filter_map(|stmt| match stmt {
+            Stmt::FunctionDef(func) if config.is_test_function(func.name.as_str()) => {
+                Some(TestMethodInfo {
+                    name: func.name.to_string(),
+                    method_specs: parse_decorators_to_specs(
+                        &func.decorator_list,
+                        resolver,
+                        Some(class.name.as_str()),
+                        config.duplicate_ids,
+                    ),
+                })
+            }
+            _ => None,
+        })
+        .collect()
+}
+
 /// Parse a Python file and discover test functions/methods
 pub fn discover_tests(
     path: &Path,
     source: &str,
     config: &TestDiscoveryConfig,
 ) -> CollectionResult<Vec<TestInfo>> {
-    let parsed = parse(source, ParseOptions::from(Mode::Module)).map_err(|e| {
+    let parsed = parse_module(source).map_err(|e| {
         CollectionError::ParseError(format!("Failed to parse {}: {:?}", path.display(), e))
     })?;
 
     let mut visitor = TestDiscoveryVisitor::new(config);
-    let module = parsed.into_syntax();
-    if let Mod::Module(module) = module {
-        visitor.visit_module(&module);
-    }
+    visitor.visit_module(&parsed.into_syntax());
 
     Ok(visitor.into_tests())
 }
@@ -89,11 +141,62 @@ pub fn discover_tests_with_inheritance(
     config: &TestDiscoveryConfig,
     root_path: &Path,
 ) -> CollectionResult<(Vec<TestInfo>, Vec<CollectionWarning>)> {
-    let module_path = path_to_module_path(path, root_path);
-    let mut module_resolver = ModuleResolver::new(root_path)?;
-    let mut discovery = SemanticTestDiscovery::new(config.clone());
+    DiscoveryCache::default().discover_tests(path, source, config, root_path)
+}
 
-    discovery.discover_tests(path, source, module_path, &mut module_resolver)
+/// Cache only within a collection run so later runs observe changed conftests.
+#[derive(Default)]
+pub(crate) struct DiscoveryCache {
+    conftests: HashMap<PathBuf, bool>,
+}
+
+impl DiscoveryCache {
+    pub(crate) fn discover_tests(
+        &mut self,
+        path: &Path,
+        source: &str,
+        config: &TestDiscoveryConfig,
+        root_path: &Path,
+    ) -> CollectionResult<(Vec<TestInfo>, Vec<CollectionWarning>)> {
+        let module_path = path_to_module_path(path, root_path);
+        let module_resolver = ModuleResolver::new(root_path);
+        let mut discovery = SemanticTestDiscovery::new(config.clone());
+
+        let (mut tests, warnings) =
+            discovery.discover_tests(path, source, module_path, &module_resolver)?;
+        for directory in path
+            .ancestors()
+            .skip(1)
+            .take_while(|directory| directory.starts_with(root_path))
+        {
+            if self.requires_runtime(directory)? {
+                require_pytest_collection(&mut tests, "runtime parametrization in conftest.py");
+                break;
+            }
+        }
+        Ok((tests, warnings))
+    }
+
+    fn requires_runtime(&mut self, directory: &Path) -> CollectionResult<bool> {
+        if let Some(&runtime) = self.conftests.get(directory) {
+            return Ok(runtime);
+        }
+        let conftest = directory.join("conftest.py");
+        let runtime = if conftest.is_file() {
+            let source = std::fs::read_to_string(&conftest)?;
+            let parsed = parse_module(&source).map_err(|error| {
+                CollectionError::ParseError(format!(
+                    "Failed to parse {}: {error}",
+                    conftest.display()
+                ))
+            })?;
+            ConstantResolver::from_module(&parsed.into_syntax()).has_runtime_parameters()
+        } else {
+            false
+        };
+        self.conftests.insert(directory.to_path_buf(), runtime);
+        Ok(runtime)
+    }
 }
 
 /// Convert a file path to a module path
@@ -109,12 +212,13 @@ fn path_to_module_path(file_path: &Path, root_path: &Path) -> Vec<String> {
 
             // Strip .py extension from the last component
             if Some(component) == last_component {
-                if let Some(without_ext) = name_str.strip_suffix(".py") {
-                    if without_ext != "__init__" {
-                        parts.push(without_ext.to_string());
-                    }
-                } else {
-                    parts.push(name_str.to_string());
+                if name_str != "__init__.py" {
+                    parts.push(
+                        name_str
+                            .strip_suffix(".py")
+                            .unwrap_or(&name_str)
+                            .to_string(),
+                    );
                 }
             } else {
                 parts.push(name_str.to_string());
@@ -123,52 +227,6 @@ fn path_to_module_path(file_path: &Path, root_path: &Path) -> Vec<String> {
     }
 
     parts
-}
-
-/// Convert TestInfo to one or more Function collectors.
-///
-/// Returns multiple Functions if the test has expanded cases (e.g., `test_foo[0]`, `test_foo[1]`).
-/// Returns a single Function if not decorated or if cases cannot be statically expanded.
-pub fn test_info_to_functions(
-    test: &TestInfo,
-    module_path: &Path,
-    module_nodeid: &str,
-) -> Vec<Function> {
-    let base_nodeid = if let Some(class_name) = &test.class_name {
-        format!("{}::{}::{}", module_nodeid, class_name, test.name)
-    } else {
-        format!("{}::{}", module_nodeid, test.name)
-    };
-
-    match &test.cases_expansion {
-        CasesExpansion::NotDecorated | CasesExpansion::CannotExpand(_) => {
-            vec![Function {
-                name: test.name.clone(),
-                nodeid: base_nodeid,
-                location: Location {
-                    path: module_path.to_path_buf(),
-                    line: Some(test.line),
-                    name: test.name.clone(),
-                },
-            }]
-        }
-        CasesExpansion::Expanded(cases) => cases
-            .iter()
-            .map(|case| {
-                let nodeid = format!("{}[{}]", base_nodeid, case.case_id);
-                let name_with_case = format!("{}[{}]", test.name, case.case_id);
-                Function {
-                    name: name_with_case.clone(),
-                    nodeid,
-                    location: Location {
-                        path: module_path.to_path_buf(),
-                        line: Some(test.line),
-                        name: name_with_case,
-                    },
-                }
-            })
-            .collect(),
-    }
 }
 
 #[cfg(test)]
@@ -204,11 +262,9 @@ mod tests {
         assert_eq!(tests.len(), 2);
 
         assert_eq!(tests[0].name, "test_simple");
-        assert!(!tests[0].is_method);
         assert_eq!(tests[0].class_name, None);
 
         assert_eq!(tests[1].name, "test_method");
-        assert!(tests[1].is_method);
         assert_eq!(tests[1].class_name, Some("TestClass".into()));
     }
 
@@ -407,120 +463,6 @@ class TestDerived(TestBase):
     }
 
     #[test]
-    fn test_inherited_method_with_class_parametrize() {
-        let source = r#"
-import pytest
-
-class TestParent:
-    def test_inherited(self, x):
-        pass
-
-@pytest.mark.parametrize("x", [1, 2])
-class TestChild(TestParent):
-    pass
-"#;
-
-        let config = TestDiscoveryConfig::default();
-        let tests = discover_tests(&PathBuf::from("test.py"), source, &config).unwrap();
-
-        // Should have 2 TestInfo:
-        // - TestParent::test_inherited (no parametrize)
-        // - TestChild::test_inherited (with parametrize expansion)
-        assert_eq!(tests.len(), 2, "Expected 2 TestInfo, got: {:?}", tests);
-
-        // Check parent test (no expansion)
-        let parent_tests: Vec<&TestInfo> = tests
-            .iter()
-            .filter(|t| t.class_name.as_ref().is_some_and(|c| c == "TestParent"))
-            .collect();
-        assert_eq!(parent_tests.len(), 1);
-        assert!(matches!(
-            parent_tests[0].cases_expansion,
-            CasesExpansion::NotDecorated
-        ));
-
-        // Check child test (should have Expanded with 2 cases)
-        let child_tests: Vec<&TestInfo> = tests
-            .iter()
-            .filter(|t| t.class_name.as_ref().is_some_and(|c| c == "TestChild"))
-            .collect();
-        assert_eq!(child_tests.len(), 1, "Child should have 1 TestInfo");
-
-        // The expansion should produce [1] and [2]
-        if let CasesExpansion::Expanded(cases) = &child_tests[0].cases_expansion {
-            assert_eq!(cases.len(), 2, "Expected 2 cases in expansion");
-            assert_eq!(cases[0].case_id, "1");
-            assert_eq!(cases[1].case_id, "2");
-        } else {
-            panic!(
-                "Expected child test to have Expanded cases, got: {:?}",
-                child_tests[0].cases_expansion
-            );
-        }
-    }
-
-    #[test]
-    fn test_parametrized_fixture_cannot_expand() {
-        let source = r#"
-import pytest
-
-class TestLoanExtract:
-    @pytest.fixture(params=[False, True], autouse=True)
-    def _set_flag(self, request):
-        pass
-
-    def test_plain(self):
-        pass
-
-    @pytest.mark.parametrize("x", [1, 2])
-    def test_param(self, x):
-        pass
-"#;
-
-        let config = TestDiscoveryConfig::default();
-        let tests = discover_tests(&PathBuf::from("test.py"), source, &config).unwrap();
-        assert_eq!(tests.len(), 2);
-        assert!(
-            tests
-                .iter()
-                .all(|t| matches!(t.cases_expansion, CasesExpansion::CannotExpand(_))),
-            "expected CannotExpand for fixture params, got: {:?}",
-            tests
-                .iter()
-                .map(|t| &t.cases_expansion)
-                .collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn test_plain_fixture_still_expands_parametrize() {
-        let source = r#"
-import pytest
-
-class TestLoanExtract:
-    @pytest.fixture(autouse=True)
-    def _set_flag(self):
-        pass
-
-    @pytest.mark.parametrize("x", [1, 2])
-    def test_param(self, x):
-        pass
-"#;
-
-        let config = TestDiscoveryConfig::default();
-        let tests = discover_tests(&PathBuf::from("test.py"), source, &config).unwrap();
-        assert_eq!(tests.len(), 1);
-        if let CasesExpansion::Expanded(cases) = &tests[0].cases_expansion {
-            assert_eq!(cases.len(), 2);
-        } else {
-            panic!(
-                "plain @pytest.fixture should not block parametrize, got: {:?}",
-                tests[0].cases_expansion
-            );
-        }
-    }
-
-    #[test]
     fn test_stdlib_inheritance_graceful() {
         use std::fs;
         use tempfile::TempDir;
@@ -586,63 +528,44 @@ class TestDerived(SomeBase):
     }
 
     #[test]
-    fn test_inherited_method_with_class_parametrize_semantic() {
-        use std::fs;
-        use tempfile::TempDir;
+    fn both_discovery_paths_apply_child_class_parameters_to_inherited_methods() {
+        let project = tempfile::tempdir().expect("temporary project");
+        let path = project.path().join("test_inherit.py");
+        let source = indoc! {r#"
+            import pytest
 
-        // Create a temp directory
-        let temp_dir = TempDir::new().unwrap();
-        let test_path = temp_dir.path().join("test_inherit.py");
+            class TestParent:
+                def test_inherited(self, x):
+                    pass
 
-        let source = r#"
-import pytest
-
-class TestParent:
-    def test_inherited(self, x):
-        pass
-
-@pytest.mark.parametrize("x", [1, 2])
-class TestChild(TestParent):
-    pass
-"#;
-        fs::write(&test_path, source).unwrap();
-
+            @pytest.mark.parametrize("x", [1, 2])
+            class TestChild(TestParent):
+                pass
+        "#};
+        std::fs::write(&path, source).expect("write test module");
         let config = TestDiscoveryConfig::default();
-        let (tests, _warnings) =
-            discover_tests_with_inheritance(&test_path, source, &config, temp_dir.path()).unwrap();
 
-        // Should have 2 TestInfo:
-        // - TestParent::test_inherited (no parametrize)
-        // - TestChild::test_inherited (with parametrize expansion)
-        assert_eq!(tests.len(), 2, "Expected 2 TestInfo, got: {:?}", tests);
-
-        // Check parent test (no expansion)
-        let parent_tests: Vec<&TestInfo> = tests
-            .iter()
-            .filter(|t| t.class_name.as_ref().is_some_and(|c| c == "TestParent"))
-            .collect();
-        assert_eq!(parent_tests.len(), 1);
-        assert!(matches!(
-            parent_tests[0].cases_expansion,
-            CasesExpansion::NotDecorated
-        ));
-
-        // Check child test (should have Expanded with 2 cases)
-        let child_tests: Vec<&TestInfo> = tests
-            .iter()
-            .filter(|t| t.class_name.as_ref().is_some_and(|c| c == "TestChild"))
-            .collect();
-        assert_eq!(child_tests.len(), 1, "Child should have 1 TestInfo");
-
-        // The expansion should produce [1] and [2]
-        if let CasesExpansion::Expanded(cases) = &child_tests[0].cases_expansion {
-            assert_eq!(cases.len(), 2, "Expected 2 cases in expansion");
-            assert_eq!(cases[0].case_id, "1");
-            assert_eq!(cases[1].case_id, "2");
-        } else {
-            panic!(
-                "Expected child test to have Expanded cases, got: {:?}",
-                child_tests[0].cases_expansion
+        for tests in [
+            discover_tests(&path, source, &config).expect("local discovery"),
+            discover_tests_with_inheritance(&path, source, &config, project.path())
+                .expect("semantic discovery")
+                .0,
+        ] {
+            assert!(matches!(
+                tests[0].cases_expansion,
+                CasesExpansion::NotDecorated
+            ));
+            let ids: Vec<_> = tests
+                .iter()
+                .flat_map(|test| test.nodeids("test_inherit.py"))
+                .collect();
+            assert_eq!(
+                ids,
+                [
+                    "test_inherit.py::TestParent::test_inherited",
+                    "test_inherit.py::TestChild::test_inherited[1]",
+                    "test_inherit.py::TestChild::test_inherited[2]",
+                ]
             );
         }
     }

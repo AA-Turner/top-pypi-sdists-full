@@ -323,6 +323,7 @@ class CfnTestCase(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -422,7 +423,7 @@ class CfnTestCase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a0b8945362e3fa289aad135a767811c67a4cdb45010d2377c0fb6dd670ca829f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="steps")
@@ -440,7 +441,7 @@ class CfnTestCase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b0a0c6d80a2bab21c010f9956a7784691e07a0d6ed782a3cc4f9fe81b470a060)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "steps", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "steps", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -453,7 +454,7 @@ class CfnTestCase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a7d3be2bb2b7f3fe2d6ec231a15d229997932dffe177165c78ec826c8431cca3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -469,7 +470,7 @@ class CfnTestCase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e8acfd7d3d54fa56bbe1ab5b9bc79609eaccb189083fe4b8cc7217ad659a8e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_apptest.CfnTestCase.BatchProperty",

@@ -12,6 +12,7 @@ from numpy_groupies.aggregate_numba.compose import (
     rule_int64,
 )
 from numpy_groupies.aggregate_numba.jit import njit_stable
+from numpy_groupies.validation import NEGATIVE_INDICES
 
 
 def _argmax_driver_factory(nan_variant: bool) -> Any:
@@ -52,7 +53,7 @@ def _argmax_driver_factory(nan_variant: bool) -> Any:
                 running[ri] = val if win else cur
                 out[ri] = i if win else out[ri]
             if bad:
-                raise ValueError("negative indices not supported")
+                raise ValueError(NEGATIVE_INDICES)
 
         kernel = kernel_nan
     else:
@@ -101,7 +102,7 @@ def _argmax_driver_factory(nan_variant: bool) -> Any:
                     running[ri] = val
                     out[ri] = i
             if bad:
-                raise ValueError("negative indices not supported")
+                raise ValueError(NEGATIVE_INDICES)
 
         kernel = kernel_plain
 
@@ -112,8 +113,6 @@ def _argmax_driver_factory(nan_variant: bool) -> Any:
         out_dtype: np.dtype,
         aux_dtype: np.dtype,
         fill_value: float,
-        ddof: int,
-        q: float,
     ) -> npt.NDArray[np.number]:
         # once this resolved, every index is within [0, size) - the loop does
         # not need an upper bounds check (negative ones are flagged and raised
@@ -167,7 +166,7 @@ def _argmin_driver_factory(nan_variant: bool) -> Any:
                 running[ri] = val if win else cur
                 out[ri] = i if win else out[ri]
             if bad:
-                raise ValueError("negative indices not supported")
+                raise ValueError(NEGATIVE_INDICES)
 
         kernel = kernel_nan
     else:
@@ -202,7 +201,7 @@ def _argmin_driver_factory(nan_variant: bool) -> Any:
                     running[ri] = val
                     out[ri] = i
             if bad:
-                raise ValueError("negative indices not supported")
+                raise ValueError(NEGATIVE_INDICES)
 
         kernel = kernel_plain
 
@@ -213,8 +212,6 @@ def _argmin_driver_factory(nan_variant: bool) -> Any:
         out_dtype: np.dtype,
         aux_dtype: np.dtype,
         fill_value: float,
-        ddof: int,
-        q: float,
     ) -> npt.NDArray[np.number]:
         size = output_size(group_idx, size_arg)
         out = np.full(size, fill_value, out_dtype)

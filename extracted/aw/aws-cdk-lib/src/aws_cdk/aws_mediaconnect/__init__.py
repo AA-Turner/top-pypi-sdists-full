@@ -237,6 +237,7 @@ class CfnBridge(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -288,7 +289,7 @@ class CfnBridge(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__897e5b31abf5fb8064d23feda8e8dab6abc8fc04b479fede8ec2f5a8f11283ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="placementArn")
@@ -301,7 +302,7 @@ class CfnBridge(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b6c0d91a8143e25d3431f038cc493b72ff78caeb2aae6a8de25ef906162ed203)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "placementArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "placementArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="sources")
@@ -319,7 +320,7 @@ class CfnBridge(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c151228d22c29de1b22fb11c72513278ae8b19faf50c26128a49b5bb5cd8231e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sources", value)
 
     @builtins.property
     @jsii.member(jsii_name="egressGatewayBridge")
@@ -337,7 +338,7 @@ class CfnBridge(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8744f4915b3da8a1fb0b28e71cdd2260912dbea385353bb4a2378a0dcf2e1a19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "egressGatewayBridge", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "egressGatewayBridge", value)
 
     @builtins.property
     @jsii.member(jsii_name="ingressGatewayBridge")
@@ -355,7 +356,7 @@ class CfnBridge(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2370206c3aaeddbbe4f170d30b717ce583cd273a4a651e68abaf2042096869bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ingressGatewayBridge", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ingressGatewayBridge", value)
 
     @builtins.property
     @jsii.member(jsii_name="outputs")
@@ -373,7 +374,7 @@ class CfnBridge(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f0f04e00fdc529449b6434bd02be499c861ae34a03215caf6afedaf59974ca0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outputs", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "outputs", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceFailoverConfig")
@@ -391,7 +392,7 @@ class CfnBridge(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0a1d3ccb8b1bf31380b43926b18329ad07b95b13cfd50c81dfdcb52ed4700194)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceFailoverConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceFailoverConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridge.BridgeFlowSourceProperty",
@@ -1441,6 +1442,7 @@ class CfnBridgeOutput(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1472,7 +1474,7 @@ class CfnBridgeOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__238bd53ec2ae6381eaaf2c652a080561d1722805471e9d898d9d8e2b66530295)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bridgeArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "bridgeArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1485,7 +1487,7 @@ class CfnBridgeOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4567364d21ca9ebe1a2f33abcf1e7bc00c0f6b671c2062fd3c6766537faf1fa0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkOutput")
@@ -1503,7 +1505,7 @@ class CfnBridgeOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__78fe544a540a0346bab7b296adf77b0088521ed5104d3678ee517ee4d8b43eb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkOutput", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkOutput", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridgeOutput.BridgeNetworkOutputProperty",
@@ -2069,6 +2071,7 @@ class CfnBridgeSource(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2100,7 +2103,7 @@ class CfnBridgeSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__28bb545b11a59b0c10f19770b49da21586071508bfbed47b6b137ab43e2aaa5d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bridgeArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "bridgeArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2113,7 +2116,7 @@ class CfnBridgeSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__26ff480997cae96d755e2b7e83019229c27702f843cafce3fc5647020ec7d7a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="flowSource")
@@ -2131,7 +2134,7 @@ class CfnBridgeSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fa9a2d6952ebe510d69e3877d36b01cb4f6aa83e11dfcf61576bdfaffa0dea74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flowSource", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkSource")
@@ -2149,7 +2152,7 @@ class CfnBridgeSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__afb1ff783738c431282bcaa0dec602d425b3f5a39195a1f65e4e683ba344caea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkSource", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnBridgeSource.BridgeFlowSourceProperty",
@@ -2679,6 +2682,7 @@ class CfnFlow(
                 min_latency=123,
                 name="name",
                 ndi_source_settings=mediaconnect.CfnFlow.NdiSourceSettingsProperty(
+                    audio_reference_level=123,
                     source_name="sourceName"
                 ),
                 protocol="protocol",
@@ -2916,6 +2920,7 @@ class CfnFlow(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3022,7 +3027,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b9dd07005f4a1ea040eea97dccca156a16f5e9f3f6686139fbd52108ac4c3b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="source")
@@ -3040,7 +3045,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__869299c75adeb5a7d478686f55b98acba18c279372a76486ab2c6231b1e54e54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "source", value)
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZone")
@@ -3053,7 +3058,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__843065332a6d7586586605a6ec8a2bd932a36dd6774052d60e5f9fd8e52c280c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZone", value)
 
     @builtins.property
     @jsii.member(jsii_name="encodingConfig")
@@ -3070,7 +3075,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d6f0f1e2278d1da874874f4b7eca0ae2a0516f56f52b61b0f4fa2fc76cb67385)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encodingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encodingConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="flowSize")
@@ -3083,7 +3088,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__18797920a62f69ac5303a95d3356fc95d49473634b7f27d9e7ef811a4ad6cb34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowSize", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flowSize", value)
 
     @builtins.property
     @jsii.member(jsii_name="maintenance")
@@ -3101,7 +3106,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ddd188e9c2d5f8f194cf0b4c16e8b355b0ebcec43d953e6b0c8b77128e640aab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maintenance", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maintenance", value)
 
     @builtins.property
     @jsii.member(jsii_name="mediaStreams")
@@ -3119,7 +3124,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c580931c160d15b8c0f43f0fe96dc390b640ae81cbc1900b00f369aaa3c3f6e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mediaStreams", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mediaStreams", value)
 
     @builtins.property
     @jsii.member(jsii_name="ndiConfig")
@@ -3137,7 +3142,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f78a65c7535e71bd81a721df5718188077330f02b6d7cdd75ebb5693c7db1cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ndiConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ndiConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceFailoverConfig")
@@ -3155,7 +3160,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9d7deae7edf526ef9a6af2e16b592ef198ecb0cc777d1c7d97f392933ad97ef6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceFailoverConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceFailoverConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceMonitoringConfig")
@@ -3173,7 +3178,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__03a0a0b12b76b8e0b7700d38b27d7f2ca928ad701fe5600b9bad475822621b98)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceMonitoringConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceMonitoringConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3189,7 +3194,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cc43d55c7dfcbfb5ed25f67e80b4290708d63e4d7268175df8c3e2c4c048e0d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcInterfaces")
@@ -3207,7 +3212,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7e75424871a1b67422fa8fe727bf0720abe8ea217c131244844ca71d14e25f4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcInterfaces", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcInterfaces", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow.AudioMonitoringSettingProperty",
@@ -5003,15 +5008,20 @@ class CfnFlow(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlow.NdiSourceSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={"source_name": "sourceName"},
+        name_mapping={
+            "audio_reference_level": "audioReferenceLevel",
+            "source_name": "sourceName",
+        },
     )
     class NdiSourceSettingsProperty:
         def __init__(
             self,
             *,
+            audio_reference_level: typing.Optional[jsii.Number] = None,
             source_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
+            :param audio_reference_level: The audio reference level of the NDI sender, in dBFS.
             :param source_name: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-ndisourcesettings.html
@@ -5024,15 +5034,28 @@ class CfnFlow(
                 from aws_cdk import aws_mediaconnect as mediaconnect
                 
                 ndi_source_settings_property = mediaconnect.CfnFlow.NdiSourceSettingsProperty(
+                    audio_reference_level=123,
                     source_name="sourceName"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__8496286cb23af6ad3ef222839457ac264adb6da1e797e1b27442a67dc3e6a40d)
+                check_type(argname="argument audio_reference_level", value=audio_reference_level, expected_type=type_hints["audio_reference_level"])
                 check_type(argname="argument source_name", value=source_name, expected_type=type_hints["source_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if audio_reference_level is not None:
+                self._values["audio_reference_level"] = audio_reference_level
             if source_name is not None:
                 self._values["source_name"] = source_name
+
+        @builtins.property
+        def audio_reference_level(self) -> typing.Optional[jsii.Number]:
+            '''The audio reference level of the NDI sender, in dBFS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-flow-ndisourcesettings.html#cfn-mediaconnect-flow-ndisourcesettings-audioreferencelevel
+            '''
+            result = self._values.get("audio_reference_level")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def source_name(self) -> typing.Optional[builtins.str]:
@@ -5523,6 +5546,7 @@ class CfnFlow(
                     min_latency=123,
                     name="name",
                     ndi_source_settings=mediaconnect.CfnFlow.NdiSourceSettingsProperty(
+                        audio_reference_level=123,
                         source_name="sourceName"
                     ),
                     protocol="protocol",
@@ -6344,6 +6368,7 @@ class CfnFlowEntitlement(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6392,7 +6417,7 @@ class CfnFlowEntitlement(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ba5eab3ebe302e351ac5ac0d66029f44599f4749a72395abe65585f0a24955a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="flowArn")
@@ -6405,7 +6430,7 @@ class CfnFlowEntitlement(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e11924d752092913d6e2606c9cde4c9d3a676e93d2cdf59e192e9e6c293bfe35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flowArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -6418,7 +6443,7 @@ class CfnFlowEntitlement(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__916ef20a18bd718e63e193a4bfe9a47ef0a3fa7c7d6eb6a74a9f583ad5834eb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="subscribers")
@@ -6431,7 +6456,7 @@ class CfnFlowEntitlement(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a9ffb421693bf57958756eb013d4d8a721597fcd6b5c4d155ff98a2fc1ee7f4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscribers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subscribers", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataTransferSubscriberFeePercent")
@@ -6447,7 +6472,7 @@ class CfnFlowEntitlement(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__440918e3c472d10f8c3846eeee04790645912cc1f354752fcf74610c24a956dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataTransferSubscriberFeePercent", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataTransferSubscriberFeePercent", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryption")
@@ -6465,7 +6490,7 @@ class CfnFlowEntitlement(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e186a635819e5284e2d58b4d8e7f8c317f8ef3dcaf08d3a66dfe0e4f1b061e89)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryption", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryption", value)
 
     @builtins.property
     @jsii.member(jsii_name="entitlementStatus")
@@ -6478,7 +6503,7 @@ class CfnFlowEntitlement(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bdf1b9a179db4ad86ff23860586d83012068ae1abfca84e5defe29f68556a89a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "entitlementStatus", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "entitlementStatus", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6494,7 +6519,7 @@ class CfnFlowEntitlement(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__046a3a7bbf8b12a3ae8b1d3791ef890b1cd918834a046ea73797b9a101f632c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowEntitlement.EncryptionProperty",
@@ -7053,6 +7078,7 @@ class CfnFlowMediaStream(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7112,7 +7138,7 @@ class CfnFlowMediaStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0daccd9a15efcf6aec7b717e6ab4f48ae24123bf4c3e1bd1c79ccce45af46865)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flowArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="mediaStreamId")
@@ -7125,7 +7151,7 @@ class CfnFlowMediaStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b70a37c746bd7ecd324ed23c812fb2f514398076c1075ce4873b49f9f580d76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mediaStreamId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mediaStreamId", value)
 
     @builtins.property
     @jsii.member(jsii_name="mediaStreamName")
@@ -7138,7 +7164,7 @@ class CfnFlowMediaStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6946091c46515da7495b76e9e1ee7005f2a9803718700a6bad1a8e4555b3ee5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mediaStreamName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mediaStreamName", value)
 
     @builtins.property
     @jsii.member(jsii_name="mediaStreamType")
@@ -7151,7 +7177,7 @@ class CfnFlowMediaStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d4ca12b08bb6922e8aa5669e0fd1c77ed6f8634a00c6b91f1441d1f337b3f02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mediaStreamType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mediaStreamType", value)
 
     @builtins.property
     @jsii.member(jsii_name="attributes")
@@ -7169,7 +7195,7 @@ class CfnFlowMediaStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__338e79bb1161034c195b283f21e9065e9a5de8a5b4a9c48eeff461fe167e0e87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "attributes", value)
 
     @builtins.property
     @jsii.member(jsii_name="clockRate")
@@ -7182,7 +7208,7 @@ class CfnFlowMediaStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__41044b80a81d80c938a42742ee4312d090519a8bf9ca1fdaf830c57b5eb0cf67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clockRate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clockRate", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -7195,7 +7221,7 @@ class CfnFlowMediaStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__53e08b9c3b93af08d5077845dd24782c5d54e88811215ae2844d8616f4fa9283)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7211,7 +7237,7 @@ class CfnFlowMediaStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d1dbdaa7b6578149374cce7ec3e19c7fec326f3a754e96b5886f0efcd52bb3d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="videoFormat")
@@ -7224,7 +7250,7 @@ class CfnFlowMediaStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66250f35104662e765230748b58ea79a983735a32569b34c09330f2c7989c9be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "videoFormat", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "videoFormat", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowMediaStream.FmtpProperty",
@@ -7736,6 +7762,7 @@ class CfnFlowOutput(
             )],
             min_latency=123,
             name="name",
+            ndi_audio_reference_level=123,
             ndi_output_timecode_source="ndiOutputTimecodeSource",
             ndi_program_name="ndiProgramName",
             ndi_speed_hq_quality=123,
@@ -7782,6 +7809,7 @@ class CfnFlowOutput(
         media_stream_output_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.MediaStreamOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         min_latency: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
+        ndi_audio_reference_level: typing.Optional[jsii.Number] = None,
         ndi_output_timecode_source: typing.Optional[builtins.str] = None,
         ndi_program_name: typing.Optional[builtins.str] = None,
         ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
@@ -7809,6 +7837,7 @@ class CfnFlowOutput(
         :param media_stream_output_configurations: The media streams that are associated with the output, and the parameters for those associations.
         :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
         :param name: The name of the bridge's output.
+        :param ndi_audio_reference_level: The audio reference level of the NDI receiver, in dBFS.
         :param ndi_output_timecode_source: The timecode source for the NDI output.
         :param ndi_program_name: A suffix for the names of the NDI sources that the flow creates. If a custom name isn't specified, MediaConnect uses the output name.
         :param ndi_speed_hq_quality: A quality setting for the NDI Speed HQ encoder.
@@ -7837,6 +7866,7 @@ class CfnFlowOutput(
             media_stream_output_configurations=media_stream_output_configurations,
             min_latency=min_latency,
             name=name,
+            ndi_audio_reference_level=ndi_audio_reference_level,
             ndi_output_timecode_source=ndi_output_timecode_source,
             ndi_program_name=ndi_program_name,
             ndi_speed_hq_quality=ndi_speed_hq_quality,
@@ -7892,6 +7922,7 @@ class CfnFlowOutput(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7938,7 +7969,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__15b58a8b918485e48f2bd2cbf5a806a141e4d5ae34f2cf830391b88420333717)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flowArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="cidrAllowList")
@@ -7954,7 +7985,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07f3031245a81d1c4e02553eaeb7fc62e38e625e4d2cfe7b7ff3ecce31ce6ef5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cidrAllowList", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cidrAllowList", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -7967,7 +7998,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__04edd4c6554768eef7ffa49af9bf9fdec351390bdef1d2d14056f7b2afa9b477)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="destination")
@@ -7980,7 +8011,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3f2991cc0ce7b9368aefbf86c1373167ce7a90e3225db313dd6d35540907285)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "destination", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "destination", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryption")
@@ -7998,7 +8029,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__78a7a7ea75faea54e857e52b24703069f4dd92643ca1173b27422c3504eee69b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryption", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryption", value)
 
     @builtins.property
     @jsii.member(jsii_name="maxLatency")
@@ -8011,7 +8042,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9801fdc6b598fc4f2e913edc8984f374a7594553b0a1ef32ea0fa7be05bb61db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxLatency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maxLatency", value)
 
     @builtins.property
     @jsii.member(jsii_name="mediaStreamOutputConfigurations")
@@ -8029,7 +8060,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c99ca24b6208e72328e18819b003e97cbf14fb0f94304256c59924c6e02ae32d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mediaStreamOutputConfigurations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mediaStreamOutputConfigurations", value)
 
     @builtins.property
     @jsii.member(jsii_name="minLatency")
@@ -8042,7 +8073,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ddb7401a37f3ff6ff7dc25a56db1a28806074c96fc3f42a6bd90cc4feab9b693)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "minLatency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "minLatency", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -8055,7 +8086,20 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07b750df47b88518fdf7bc5d1baec396797cb9cc3a0c8bdc7742108d9c93c231)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="ndiAudioReferenceLevel")
+    def ndi_audio_reference_level(self) -> typing.Optional[jsii.Number]:
+        '''The audio reference level of the NDI receiver, in dBFS.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "ndiAudioReferenceLevel"))
+
+    @ndi_audio_reference_level.setter
+    def ndi_audio_reference_level(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7ecf5409ec0a8bb314c6848c5f66a3c58bed97ee1f449cffbb31c5a572ca417f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ndiAudioReferenceLevel", value)
 
     @builtins.property
     @jsii.member(jsii_name="ndiOutputTimecodeSource")
@@ -8068,7 +8112,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__af2b939b9b012e6dcf17cf926a350589ca560617a3a127882859512aa977722d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ndiOutputTimecodeSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ndiOutputTimecodeSource", value)
 
     @builtins.property
     @jsii.member(jsii_name="ndiProgramName")
@@ -8081,7 +8125,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__726c61d1e734fe3825d1f969a727f62f0da47c2684038a9b2dd3b004d823f5a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ndiProgramName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ndiProgramName", value)
 
     @builtins.property
     @jsii.member(jsii_name="ndiSpeedHqQuality")
@@ -8094,7 +8138,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce18d034d798847cffb7feeb7c46dad4031db9cee117a778fb30fb59f6e3cde2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ndiSpeedHqQuality", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ndiSpeedHqQuality", value)
 
     @builtins.property
     @jsii.member(jsii_name="outputStatus")
@@ -8107,7 +8151,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6b4c653e5fd4b3a28c65a69d506d6616ef027aa50bccc2d72a02bc2ff7c57c1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outputStatus", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "outputStatus", value)
 
     @builtins.property
     @jsii.member(jsii_name="port")
@@ -8120,7 +8164,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__082204a6d2f259b91fea6a581b0aa8a534b0e447853734806818dfa91f967458)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "port", value)
 
     @builtins.property
     @jsii.member(jsii_name="protocol")
@@ -8133,7 +8177,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a09f7a6d8ae99d18b6e3bb11284fa5b865ca2146c5efb07536e593ee9a05bc7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "protocol", value)
 
     @builtins.property
     @jsii.member(jsii_name="remoteId")
@@ -8146,7 +8190,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f19d4552e8cf70ccb26264cc49b216d391ddef580a3635679d644bda9f8dabf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "remoteId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "remoteId", value)
 
     @builtins.property
     @jsii.member(jsii_name="routerIntegrationState")
@@ -8158,7 +8202,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a92363a82d416caa03ccab5a501ed2d648ae0c5a5733439e18d20b4fab0532be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routerIntegrationState", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routerIntegrationState", value)
 
     @builtins.property
     @jsii.member(jsii_name="routerIntegrationTransitEncryption")
@@ -8176,7 +8220,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__32b31733a523757f4557ebb20483d8cac01327485a4f5ee9746929dd058f123d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routerIntegrationTransitEncryption", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routerIntegrationTransitEncryption", value)
 
     @builtins.property
     @jsii.member(jsii_name="smoothingLatency")
@@ -8189,7 +8233,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2a7c12acde851480773f720ab16362e6f6dd272465bbe84d6b60322c1bfd207d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "smoothingLatency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "smoothingLatency", value)
 
     @builtins.property
     @jsii.member(jsii_name="streamId")
@@ -8202,7 +8246,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dadac9d58702681fe997f284efaad53e6d5af9dac998dd803277c6ed1ee2a381)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -8218,7 +8262,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__78e728eea1e11ebb731f2d9209f349e83749891383b7b5539cb5de02353fb172)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcInterfaceAttachment")
@@ -8236,7 +8280,7 @@ class CfnFlowOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__65a3e058407bcf8bd6fa065c9fd3cd66a1c54e7edb3b48af25c7893fd72db21d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcInterfaceAttachment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcInterfaceAttachment", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowOutput.DestinationConfigurationProperty",
@@ -9005,6 +9049,7 @@ class CfnFlowOutput(
         "media_stream_output_configurations": "mediaStreamOutputConfigurations",
         "min_latency": "minLatency",
         "name": "name",
+        "ndi_audio_reference_level": "ndiAudioReferenceLevel",
         "ndi_output_timecode_source": "ndiOutputTimecodeSource",
         "ndi_program_name": "ndiProgramName",
         "ndi_speed_hq_quality": "ndiSpeedHqQuality",
@@ -9033,6 +9078,7 @@ class CfnFlowOutputProps:
         media_stream_output_configurations: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFlowOutput.MediaStreamOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         min_latency: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
+        ndi_audio_reference_level: typing.Optional[jsii.Number] = None,
         ndi_output_timecode_source: typing.Optional[builtins.str] = None,
         ndi_program_name: typing.Optional[builtins.str] = None,
         ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
@@ -9058,6 +9104,7 @@ class CfnFlowOutputProps:
         :param media_stream_output_configurations: The media streams that are associated with the output, and the parameters for those associations.
         :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
         :param name: The name of the bridge's output.
+        :param ndi_audio_reference_level: The audio reference level of the NDI receiver, in dBFS.
         :param ndi_output_timecode_source: The timecode source for the NDI output.
         :param ndi_program_name: A suffix for the names of the NDI sources that the flow creates. If a custom name isn't specified, MediaConnect uses the output name.
         :param ndi_speed_hq_quality: A quality setting for the NDI Speed HQ encoder.
@@ -9121,6 +9168,7 @@ class CfnFlowOutputProps:
                 )],
                 min_latency=123,
                 name="name",
+                ndi_audio_reference_level=123,
                 ndi_output_timecode_source="ndiOutputTimecodeSource",
                 ndi_program_name="ndiProgramName",
                 ndi_speed_hq_quality=123,
@@ -9163,6 +9211,7 @@ class CfnFlowOutputProps:
             check_type(argname="argument media_stream_output_configurations", value=media_stream_output_configurations, expected_type=type_hints["media_stream_output_configurations"])
             check_type(argname="argument min_latency", value=min_latency, expected_type=type_hints["min_latency"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument ndi_audio_reference_level", value=ndi_audio_reference_level, expected_type=type_hints["ndi_audio_reference_level"])
             check_type(argname="argument ndi_output_timecode_source", value=ndi_output_timecode_source, expected_type=type_hints["ndi_output_timecode_source"])
             check_type(argname="argument ndi_program_name", value=ndi_program_name, expected_type=type_hints["ndi_program_name"])
             check_type(argname="argument ndi_speed_hq_quality", value=ndi_speed_hq_quality, expected_type=type_hints["ndi_speed_hq_quality"])
@@ -9195,6 +9244,8 @@ class CfnFlowOutputProps:
             self._values["min_latency"] = min_latency
         if name is not None:
             self._values["name"] = name
+        if ndi_audio_reference_level is not None:
+            self._values["ndi_audio_reference_level"] = ndi_audio_reference_level
         if ndi_output_timecode_source is not None:
             self._values["ndi_output_timecode_source"] = ndi_output_timecode_source
         if ndi_program_name is not None:
@@ -9317,6 +9368,15 @@ class CfnFlowOutputProps:
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ndi_audio_reference_level(self) -> typing.Optional[jsii.Number]:
+        '''The audio reference level of the NDI receiver, in dBFS.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-ndiaudioreferencelevel
+        '''
+        result = self._values.get("ndi_audio_reference_level")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def ndi_output_timecode_source(self) -> typing.Optional[builtins.str]:
@@ -9566,6 +9626,7 @@ class CfnFlowProps:
                     min_latency=123,
                     name="name",
                     ndi_source_settings=mediaconnect.CfnFlow.NdiSourceSettingsProperty(
+                        audio_reference_level=123,
                         source_name="sourceName"
                     ),
                     protocol="protocol",
@@ -10061,6 +10122,7 @@ class CfnFlowSource(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -10127,7 +10189,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__169574c8d258397d0753838843606fa3a6f2792dbfbe9f805a3263cc2ce8bf99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="flowArn")
@@ -10140,7 +10202,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a393333c9ad7ce002f047c125d9ee3348efa283a66d9def5950529184e3be294)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flowArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -10153,7 +10215,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__56248647932d6154f5cc0ea3f1df2a2bb25f298ef25872b32e9b4dd6f8e0ff07)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="decryption")
@@ -10171,7 +10233,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__713d2beba8d5285adfd07ee3f7ca737392fb89294806031a6cc288bb72c8f180)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "decryption", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "decryption", value)
 
     @builtins.property
     @jsii.member(jsii_name="entitlementArn")
@@ -10189,7 +10251,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__93ba0fab964dfcf99d0e38ef04172e971ea1753fa1d98e88458675e4386302dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "entitlementArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "entitlementArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="gatewayBridgeSource")
@@ -10207,7 +10269,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d5cf895711559ebd9f3d9816442bc2258d4ed6f493bb32badf0ea76f038dd16a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "gatewayBridgeSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "gatewayBridgeSource", value)
 
     @builtins.property
     @jsii.member(jsii_name="ingestPort")
@@ -10220,7 +10282,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8065f994df3b6b1f35a330146835da3506ebb87915688c1139a725cf72b5f618)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ingestPort", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ingestPort", value)
 
     @builtins.property
     @jsii.member(jsii_name="maxBitrate")
@@ -10233,7 +10295,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e362dd143dad56909dafd2e42bfcb4f36d21b914a7b90872305a01bec7758a1f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxBitrate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maxBitrate", value)
 
     @builtins.property
     @jsii.member(jsii_name="maxLatency")
@@ -10246,7 +10308,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__59ebbbae1ffe64a0b2ace0c589cfc271c5cf5155fb97c05e5866f905264c33c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxLatency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maxLatency", value)
 
     @builtins.property
     @jsii.member(jsii_name="minLatency")
@@ -10259,7 +10321,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__99ef8a4669e860fa72d8e2f4dc3ad3fe414a8d53d7156d84af37cde5562fb88d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "minLatency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "minLatency", value)
 
     @builtins.property
     @jsii.member(jsii_name="protocol")
@@ -10272,7 +10334,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eb57175f10a9dd5a4e263ec48354d53559458e760a13228af2bc8b2d5a738add)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "protocol", value)
 
     @builtins.property
     @jsii.member(jsii_name="senderControlPort")
@@ -10290,7 +10352,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2cb25d08779ab67d6811a557f48cd15bde00000d84c5ba57f8165f13a3f72f99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "senderControlPort", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "senderControlPort", value)
 
     @builtins.property
     @jsii.member(jsii_name="senderIpAddress")
@@ -10308,7 +10370,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce59a08878045e4b8bc6ff139a2307a1a5d3d8b55ad67c907a140517d9fdee00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "senderIpAddress", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "senderIpAddress", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceListenerAddress")
@@ -10321,7 +10383,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f71f744022b312b3b4bc69179b8e4ce2cdb7fdeb46c179d7c72e3db30ac42e6c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceListenerAddress", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceListenerAddress", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceListenerPort")
@@ -10334,7 +10396,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc08edbf9070870e3f4ff641570a5fbe7bd92875ead1c75b9697e32c94084f4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceListenerPort", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceListenerPort", value)
 
     @builtins.property
     @jsii.member(jsii_name="streamId")
@@ -10347,7 +10409,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f3b58b86420e937edcb73256eccae2a94f77b56863e967c6b79430f30f5ae00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -10363,7 +10425,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2e9946d61de71a38c1122339d8a4258432efc90270d33bdde17c7686513d4306)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcInterfaceName")
@@ -10376,7 +10438,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aaca9be06dd26e302844cbceb849d87c083af662bbe659afe5a1819fd6ac9f7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcInterfaceName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcInterfaceName", value)
 
     @builtins.property
     @jsii.member(jsii_name="whitelistCidr")
@@ -10389,7 +10451,7 @@ class CfnFlowSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__45499d5b323bea3d710e7e2165d62c80e1951ab949967a5138abfc7e37f673dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "whitelistCidr", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "whitelistCidr", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnFlowSource.EncryptionProperty",
@@ -11262,6 +11324,7 @@ class CfnFlowVpcInterface(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -11310,7 +11373,7 @@ class CfnFlowVpcInterface(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__01b2ebce5fcf204059015d9ab2acd7dd1255fb422e85ba46d8372e7ed14634e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flowArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -11323,7 +11386,7 @@ class CfnFlowVpcInterface(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__315756aca1be9462393133e8a1bd030c6830be9cd62201141209ba92bca00733)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -11336,7 +11399,7 @@ class CfnFlowVpcInterface(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25d1a6f274a5840002030ca9431469bb3346277b4320449fb605700060689db4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupIds")
@@ -11349,7 +11412,7 @@ class CfnFlowVpcInterface(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__22fe25e82013a9b0baddbe815abf51918a6107457c49b594041bb09b37e6db29)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "securityGroupIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnetId")
@@ -11362,7 +11425,7 @@ class CfnFlowVpcInterface(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__21ff66cbd4857ab742f4461a355254e9a8da4cf04f8543fbb07ab7e6bde77b87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnetId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -11378,7 +11441,7 @@ class CfnFlowVpcInterface(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b14898260fc48c84c1553f87a750c29ee21320a91fe595d73c465cbc49346fdf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -11639,6 +11702,7 @@ class CfnGateway(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -11690,7 +11754,7 @@ class CfnGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c756c6472ede1cbb1eb656c10e07629e0cf818e434b2e8f9c94de41e295b332e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "egressCidrBlocks", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "egressCidrBlocks", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -11703,7 +11767,7 @@ class CfnGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f455f9a25731428a340c77bb14b2965a474f55740a64090450ee7dee16709ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="networks")
@@ -11721,7 +11785,7 @@ class CfnGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__87886ff9eadfa80377e79911ce74141941af595ecff54249e0b94a2aa4f4fdb6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networks", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networks", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnGateway.GatewayNetworkProperty",
@@ -12216,6 +12280,7 @@ class CfnRouterInput(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -12347,7 +12412,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dc19a3af1b324b171b747b68112c85cb261bd6957bab7764b849ca52d9245142)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="maximumBitrate")
@@ -12360,7 +12425,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a9b9c8e82a356b3f89719f6bbfe30b90040f8129a03f8ce150ad2a8b87ed8246)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maximumBitrate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maximumBitrate", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -12373,7 +12438,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8cad73940b17fe84f1f0b506b19a2f76e3972f6d1b1a71c747442330ba7cdd4b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="routingScope")
@@ -12386,7 +12451,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__00684f4fd383ed48bfa0345b412a77ecbdd623ac32a218fb0294e30e4ed401bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingScope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routingScope", value)
 
     @builtins.property
     @jsii.member(jsii_name="tier")
@@ -12399,7 +12464,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__84d00c9475e25cd260ddceb328a82f02a2cb361571f2a5fd671818fb15dd8cd3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tier", value)
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZone")
@@ -12412,7 +12477,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1d3dc1a9f3d38364d1ad15584e3cfaccae3ba843735b9a10bd75fa94a9736e60)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZone", value)
 
     @builtins.property
     @jsii.member(jsii_name="contentQualityAnalysisConfiguration")
@@ -12430,7 +12495,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d8381b95a45e53c50dc01b45d78adad0f5f3f247cde271d4cd6f13de8a298ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contentQualityAnalysisConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contentQualityAnalysisConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="maintenanceConfiguration")
@@ -12448,7 +12513,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c1170f7ba129480fda3e3b9954bf9b3bab26579ad56ca54217519dd369f2de8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maintenanceConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maintenanceConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="regionName")
@@ -12461,7 +12526,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__74fded60926c739a4b66f4bd6fdd901f417bee400d49f669f01a8545de0e3052)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "regionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -12477,7 +12542,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5a824b54cbbdf5489ae89810bc583b0c20d4cfb25aeb8745e7f408d889b008ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="transitEncryption")
@@ -12495,7 +12560,7 @@ class CfnRouterInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b52cf5469dfc840d14b0db5fb2454e8064b964427f444c618452b6c06465337)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transitEncryption", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "transitEncryption", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterInput.BlackFramesConfigurationProperty",
@@ -15807,6 +15872,7 @@ class CfnRouterNetworkInterface(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -15923,7 +15989,7 @@ class CfnRouterNetworkInterface(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ada01cdf0843f372e2358efd8825753add57ec0a85c656d8730df8fe11d675f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -15936,7 +16002,7 @@ class CfnRouterNetworkInterface(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__43e368d1cada7b7c423f1301292b045fe35c167df6909c271c310814e384d2f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="regionName")
@@ -15949,7 +16015,7 @@ class CfnRouterNetworkInterface(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__640023b56bd3332877d359f440c6fc815950e5fd32985dc6f11c1892bd7cfaaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "regionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -15965,7 +16031,7 @@ class CfnRouterNetworkInterface(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__70255a3ae365875252abf102dc0c10255d13f5d5552ee11bd61363fcd195a6d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterNetworkInterface.PublicRouterNetworkInterfaceConfigurationProperty",
@@ -16609,6 +16675,7 @@ class CfnRouterOutput(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -16732,7 +16799,7 @@ class CfnRouterOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7f147da00aaf1cdc7014a62b08d8cdc0f9cfce3df5d377973424d2f11377219c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="maximumBitrate")
@@ -16745,7 +16812,7 @@ class CfnRouterOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6343c02a4b0b9d5d865add8c4d996a26f8389b83b214b7350ac7818a31991557)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maximumBitrate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maximumBitrate", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -16758,7 +16825,7 @@ class CfnRouterOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4216c7d780d8fb5794084f06923c5c5b6e06951c7c74d95e570b19c17f16c07d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="routingScope")
@@ -16771,7 +16838,7 @@ class CfnRouterOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__31256d5031051647600a9f3e6d4c7348c96db2131b170cbb3b84d03cb08508d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingScope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routingScope", value)
 
     @builtins.property
     @jsii.member(jsii_name="tier")
@@ -16784,7 +16851,7 @@ class CfnRouterOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e1241eacdcaad6a0aadee10ac0ca9c13dd7f59cf1e7f5d785c7c1fc63190e220)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tier", value)
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZone")
@@ -16797,7 +16864,7 @@ class CfnRouterOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8b8371a3dd1aa326607abab281477f883dfadb45d27717b05bafb937c2ca7c31)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZone", value)
 
     @builtins.property
     @jsii.member(jsii_name="fabricConfiguration")
@@ -16815,7 +16882,7 @@ class CfnRouterOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__06d9e791367a30697b42cbe238effd386b1af741cf2747eb12997407b51ddf7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fabricConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fabricConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="maintenanceConfiguration")
@@ -16833,7 +16900,7 @@ class CfnRouterOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e2d9d66ea8cc6f7fb9f2d963cee39b38487405038346bed562a4282d170af87a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maintenanceConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maintenanceConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="regionName")
@@ -16846,7 +16913,7 @@ class CfnRouterOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f23a2bac43b9e1bd96cf5c900f5ae7d229b5b15428c990a76f5392b3623edc92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "regionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -16862,7 +16929,7 @@ class CfnRouterOutput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb6937ae740be264a96755b4785a6121ef85f3be99b91fb48ef0d32ab567b808)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.FabricConfigurationProperty",
@@ -19913,6 +19980,7 @@ def _typecheckingstub__cbd4bce903dd6a95ae93f0b2ca90f98d0d48bb24eebe475acf326160c
 
 def _typecheckingstub__8496286cb23af6ad3ef222839457ac264adb6da1e797e1b27442a67dc3e6a40d(
     *,
+    audio_reference_level: typing.Optional[jsii.Number] = None,
     source_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -20266,6 +20334,7 @@ def _typecheckingstub__50a855342b002f2aaf180af2a85e45ce23346b4a5b582c00ee1a8474e
     media_stream_output_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     min_latency: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
+    ndi_audio_reference_level: typing.Optional[jsii.Number] = None,
     ndi_output_timecode_source: typing.Optional[builtins.str] = None,
     ndi_program_name: typing.Optional[builtins.str] = None,
     ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
@@ -20351,6 +20420,12 @@ def _typecheckingstub__ddb7401a37f3ff6ff7dc25a56db1a28806074c96fc3f42a6bd90cc4fe
 
 def _typecheckingstub__07b750df47b88518fdf7bc5d1baec396797cb9cc3a0c8bdc7742108d9c93c231(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ecf5409ec0a8bb314c6848c5f66a3c58bed97ee1f449cffbb31c5a572ca417f(
+    value: typing.Optional[jsii.Number],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20519,6 +20594,7 @@ def _typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda525
     media_stream_output_configurations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     min_latency: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
+    ndi_audio_reference_level: typing.Optional[jsii.Number] = None,
     ndi_output_timecode_source: typing.Optional[builtins.str] = None,
     ndi_program_name: typing.Optional[builtins.str] = None,
     ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,

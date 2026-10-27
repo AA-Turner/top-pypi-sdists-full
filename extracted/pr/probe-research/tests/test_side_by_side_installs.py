@@ -32,8 +32,10 @@ esac
 """
 
 
-def _fake_env(env: Path, version: str, *, broken: bool = False) -> Path:
+def _fake_env(env: Path, version: str, *, broken: bool = False, receipt: bool = True) -> Path:
     (env / "bin").mkdir(parents=True, exist_ok=True)
+    if receipt:  # uv writes it last: an install without it is unfinished
+        (env / installs.RECEIPT).write_text("[tool]\n")
     python = env / "bin" / "python"
     python.write_text(_FAKE_PYTHON)
     python.chmod(0o755)
@@ -52,14 +54,14 @@ def tools(tmp_path, monkeypatch) -> Path:
     return folder
 
 
-def _uv(version: str, *, broken: bool = False):
+def _uv(version: str, *, broken: bool = False, exit_code: int = 0, receipt: bool = True):
     """A stand-in `uv tool install`: makes `<UV_TOOL_DIR>/probe-research` at `version`."""
     calls = []
 
     def run(argv, env, **_kw):
         calls.append((argv, env["UV_TOOL_DIR"], env["UV_TOOL_BIN_DIR"]))
-        _fake_env(Path(env["UV_TOOL_DIR"]) / installs.DIST, version, broken=broken)
-        return subprocess.CompletedProcess(argv, 0, "", "")
+        _fake_env(Path(env["UV_TOOL_DIR"]) / installs.DIST, version, broken=broken, receipt=receipt)
+        return subprocess.CompletedProcess(argv, exit_code, "", "error: something failed" if exit_code else "")
 
     run.calls = calls
     return run
@@ -83,6 +85,18 @@ def test_an_install_that_lands_another_version_changes_nothing(tools):
         installs.install("0.2.0", "probe-research[all]==0.2.0", tools=tools, run=_uv("0.1.9"))
     assert not (tools.parent / "probe-versions" / "0.2.0").exists()
     assert installs.env_version(tools / installs.DIST) == "0.1.0"
+
+
+@pytest.mark.parametrize("uv, why", [
+    (dict(exit_code=1), "exited 1"),
+    (dict(receipt=False), "no uv receipt"),
+])
+def test_only_a_finished_install_uv_says_worked_counts(tools, uv, why):
+    """uv exiting non-zero, or an env without the receipt uv writes last, is
+    not an install: nothing is left behind to be switched to."""
+    with pytest.raises(RuntimeError, match=why):
+        installs.install("0.2.0", "probe-research[all]==0.2.0", tools=tools, run=_uv("0.2.0", **uv))
+    assert not (tools.parent / "probe-versions" / "0.2.0").exists()
 
 
 def test_the_first_switch_keeps_today_s_install_to_switch_back_to(tools):
@@ -132,6 +146,99 @@ def test_a_rejected_version_is_remembered(tools):
     installs.reject("0.2.0", "the new service did not answer within 45 s", tools)
     assert "0.2.0" in installs.rejected(tools)
     assert installs.rejected(tools)["0.2.0"]["reason"].startswith("the new service")
+
+
+def test_a_rejection_lasts_24_hours_and_reads_the_old_format(tools):
+    """A ban on one version expires (plan A5, I1): a release whose check failed
+    once (a slow first start) is tried again the next day. The record of the
+    releases before this one (`{version: when}`) still reads."""
+    import json
+
+    now = time.time()
+    root = tools.parent / installs.VERSIONS_DIRNAME
+    root.mkdir(parents=True, exist_ok=True)
+    (root / installs.ACTIVE_NAME).write_text(json.dumps({"rejected": {
+        "0.2.0": now - 3600, "0.3.0": {"at": now - 25 * 3600, "reason": "old"}, "0.4.0": "garbage"}}))
+    assert installs.rejected(tools) == {"0.2.0": {"at": now - 3600, "reason": ""}}
+    assert installs.rejected(tools, now=now + 24 * 3600) == {}
+    installs.reject("0.5.0", "no answer", tools)  # the expired and unreadable entries go
+    assert set(json.loads((root / installs.ACTIVE_NAME).read_text())["rejected"]) == {"0.2.0", "0.5.0"}
+
+
+def test_a_rejected_version_is_skipped_only_until_it_expires(tools, monkeypatch):
+    """Through the update: today's rejection holds the target off; one past
+    24 h does not, and a newer release is never held off by an older ban."""
+    import json
+
+    from probe.cli import updater
+    from probe.core import adopt
+
+    adopt.reset()
+    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall())
+    installed: list[str] = []
+
+    def install(version, *_args, **_kwargs):
+        installed.append(version)
+        raise RuntimeError("stop here")
+
+    monkeypatch.setattr(installs, "install", install)
+    installs.reject("0.2.0", "no answer", tools)
+    assert "switched back" in updater.upgrade_side_by_side("0.1.0", "0.2.0").message and installed == []
+    assert "stop here" in updater.upgrade_side_by_side("0.1.0", "0.3.0").message and installed == ["0.3.0"]
+    record = installs.versions_root(tools) / installs.ACTIVE_NAME
+    record.write_text(json.dumps({"rejected": {"0.2.0": {"at": time.time() - 25 * 3600, "reason": "no answer"}}}))
+    assert "stop here" in updater.upgrade_side_by_side("0.1.0", "0.2.0").message and installed[-1] == "0.2.0"
+
+
+def test_the_guards_switch_back_waits_out_another_updates_lock(monkeypatch):
+    """A switch back must not be lost to an install that happens to hold the
+    lock: asked again SWITCH_BACK_TRIES times; the last refusal rises."""
+    from probe._shared import handoff
+    from probe.service import guard
+
+    monkeypatch.setattr(guard, "SWITCH_BACK_RETRY_S", 0)
+    answers = [handoff.LockBusy("held"), handoff.LockBusy("held"), {"active": "/v/0.1.0"}]
+
+    class Installs:
+        @staticmethod
+        def switch_back():
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+
+    assert guard._switch_back_when_free(Installs) == {"active": "/v/0.1.0"}
+    answers[:] = [handoff.LockBusy("held")] * 3
+    with pytest.raises(handoff.LockBusy):
+        guard._switch_back_when_free(Installs)
+
+
+def test_installs_and_switches_take_the_install_lock(tools, monkeypatch):
+    """One lock for every install and switch (plan I8): while another update
+    holds it, a switch waits and then refuses, changing nothing; the holder
+    itself goes through (re-entrant)."""
+    from probe._shared import handoff
+
+    new = installs.install("0.2.0", "x", tools=tools, run=_uv("0.2.0"))
+    root = installs.versions_root(tools)
+    holder = subprocess.Popen(
+        [sys.executable, "-c",
+         f"import fcntl, os, time\nfd = os.open({str(handoff.lock_path(root))!r}, os.O_RDWR | os.O_CREAT)\n"
+         "fcntl.flock(fd, fcntl.LOCK_EX)\nprint('held', flush=True)\ntime.sleep(60)\n"],
+        stdout=subprocess.PIPE, text=True,
+    )
+    try:
+        assert holder.stdout.readline().strip() == "held"
+        monkeypatch.setattr(installs, "LOCK_WAIT_S", 0.3)
+        with pytest.raises(handoff.LockBusy):
+            installs.activate(new, tools=tools)
+        assert not (tools / installs.DIST).is_symlink()
+    finally:
+        holder.kill()
+        holder.wait(5)
+    with handoff.install_lock(root, wait_s=1):
+        installs.activate(new, tools=tools)  # inside the holder's own block: no second flock
+    assert installs.active(tools) == new.resolve()
 
 
 def test_pruning_keeps_the_active_the_previous_and_young_versions(tools, monkeypatch):

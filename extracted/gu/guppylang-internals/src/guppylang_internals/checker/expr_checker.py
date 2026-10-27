@@ -62,6 +62,7 @@ from guppylang_internals.checker.errors.comptime_errors import (
     ComptimeExprNotCPythonError,
     ComptimeExprNotStaticError,
     ComptimeExprTypeVarError,
+    ComptimeExprUnboundGenericError,
     ComptimeGuppyObjectError,
     ComptimeUnknownError,
     UnsupportedPythonValueError,
@@ -108,6 +109,7 @@ from guppylang_internals.error import (
     saved_exception_hook,
 )
 from guppylang_internals.experimental import (
+    are_capturing_closures_enabled,
     check_function_tensors_enabled,
     check_lists_enabled,
 )
@@ -152,6 +154,7 @@ from guppylang_internals.tys.builtin import (
 )
 from guppylang_internals.tys.const import (
     BoundConstVar,
+    ComptimeConstValue,
     Const,
     ConstValue,
     ExistentialConstVar,
@@ -258,10 +261,6 @@ def record_function_load(node: ast.expr, ty: Type, ctx: Context) -> None:
     assert ctx.current_caller is not None
 
     match node:
-        case PlaceNode(place=place) if isinstance(place.ty, NestedFunctionDefType):
-            # Nested functions are local values stored in a PlaceNode
-            assert isinstance(ENGINE.get_parsed(place.ty.def_id), CallableDef)
-            ENGINE.register_load(ctx.current_caller, (place.ty.def_id, place.ty.args))
         case GlobalName(def_id=def_id):
             # Function-valued constants also have FunctionType, but their definition
             # IDs identify constants rather than callable load targets.
@@ -571,7 +570,7 @@ class ExprSynthesizer(AstVisitor[tuple[ast.expr, Type]]):
         *,
         use: ExprUse = ExprUse.VALUE,
     ) -> tuple[ast.expr, Type]:
-        """Tries to synthesise a type for the given expression.
+        """Tries to synthesize a type for the given expression.
 
         Also returns a new desugared expression with type annotations.
         """
@@ -617,6 +616,10 @@ class ExprSynthesizer(AstVisitor[tuple[ast.expr, Type]]):
                         # that it won't be emitted when checking the actual monomorphic
                         # instantiations later.
                         return with_loc(node, DummyGenericParamValue(name, var)), ty
+                    case ComptimeConstValue():
+                        raise InternalGuppyError(
+                            "Comptime consts should have been resolved at this point"
+                        )
                     case ExistentialConstVar():
                         raise InternalGuppyError("Unexpected existential variable")
             case TypeArg():
@@ -1104,7 +1107,7 @@ class ExprSynthesizer(AstVisitor[tuple[ast.expr, Type]]):
         """Helper method for expressions that are implemented via instance methods.
 
         Raises a `GuppyTypeError` if the given instance method is not defined. The error
-        message can be customised by passing an `err` string and an optional error
+        message can be customized by passing an `err` string and an optional error
         reason can be printed.
 
         Optionally, the signature of the instance function can also be checked against a
@@ -1416,7 +1419,7 @@ def check_type_against(
 
     Returns a substitution for the free variables the expected type and an instantiation
     for the parameters in the actual type. Note that the expected type may not be
-    parametrised and the actual type may not contain free unification variables.
+    parameterized and the actual type may not contain free unification variables.
     """
     assert not isinstance(exp, FunctionType) or not exp.parametrized
     assert not act.unsolved_vars
@@ -1544,12 +1547,14 @@ def function_def_value_to_function_value(
     """Coerces a definition-specific function value to its opaque function type.
 
     Global function items can be replaced by a `GlobalName` since the definition id
-    uniquely identifies them. Nested functions are materialised as local values, so
+    uniquely identifies them. Nested functions are materialized as local values, so
     their expression must be preserved to retain a possible closure.
     """
-    if isinstance(ty, NestedFunctionDefType):
+    if isinstance(ty, NestedFunctionDefType) and are_capturing_closures_enabled():
+        # We don't record whether individual nested functions capture anything,
+        # so conservatively assume it might.
         return with_type(ty.sig, expr)
-    name = DEF_STORE.raw_defs[ty.def_id].name
+    name = ENGINE.get_parsed(ty.def_id).name
     return with_type(ty.sig, with_loc(expr, make_global_name(name, ty.def_id)))
 
 
@@ -2038,7 +2043,7 @@ def to_bool(node: ast.expr, node_ty: Type, ctx: Context) -> tuple[ast.expr, Type
 def synthesize_comprehension(
     node: AstNode, gens: list[DesugaredGenerator], elt: ast.expr, ctx: Context
 ) -> tuple[list[DesugaredGenerator], ast.expr, Type]:
-    """Helper function to synthesise the element type of a list comprehension."""
+    """Helper function to synthesize the element type of a list comprehension."""
     # If there are no more generators left, we can check the list element
     if not gens:
         elt, elt_ty = ExprSynthesizer(ctx).synthesize(elt)
@@ -2115,6 +2120,10 @@ def eval_comptime_expr(node: ComptimeExpr, ctx: Context) -> Any:
         raise GuppyError(ComptimeExprNotStaticError(e.node or node, e.var)) from None
     except DummyEvalDict.GuppyTypeVarUsedError as e:
         raise GuppyError(ComptimeExprTypeVarError(e.node or node, e.var)) from None
+    except DummyEvalDict.UnboundGenericVarUsedError as e:
+        raise GuppyError(
+            ComptimeExprUnboundGenericError(e.node or node, e.var)
+        ) from None
     except GuppyComptimeError as e:
         raise GuppyError(ComptimeGuppyObjectError(node.value, str(e))) from e
     except RequiresMonomorphizationError:

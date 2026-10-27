@@ -236,6 +236,11 @@ class DOK(SparseArray, NDArrayOperatorsMixin):
         """
         ar = cls(x.shape, dtype=x.dtype)
 
+        if x.ndim == 0:
+            if x != ar.fill_value:
+                ar.data[()] = x[()]
+            return ar
+
         coords = np.nonzero(x)
         data = x[coords]
 
@@ -295,6 +300,13 @@ class DOK(SparseArray, NDArrayOperatorsMixin):
         'coo'
         """
         return "dok"
+
+    def get_nodes(self):
+        raise TypeError("DOK arrays cannot be serialized to npz format.")
+
+    @classmethod
+    def from_nodes(cls, nodes):
+        raise TypeError("DOK arrays cannot be loaded from npz format.")
 
     @property
     def nbytes(self):

@@ -1,25 +1,114 @@
 from __future__ import annotations
 
 import codecs
+import functools
 import re
 
 from itertools import islice
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar, cast
 
 if TYPE_CHECKING:
-    from pikepdf import Object
-    from pymupdf import Page
+    from pikepdf import Object, Pdf
+    from pymupdf import Document, TextPage
     from pypdf.generic import EncodedStreamObject
 
 from refinery.lib import json
-from refinery.lib.mime import get_cached_file_magic_info
+from refinery.lib.meta import MV
 from refinery.lib.structures import MemoryFile
-from refinery.lib.tools import NoLogging
+from refinery.lib.tools import NoLogging, exception_to_string
 from refinery.units.formats.archive import ArchiveUnit, UnpackResult
+
+_T = TypeVar('_T')
 
 
 def isdict(object):
     return isinstance(object, dict) or all(hasattr(object, method) for method in ['items', 'values', 'keys'])
+
+
+class _Deferred(Generic[_T]):
+    """
+    Reads a value from an open PDF document when it is first asked for and keeps it, so that the
+    outputs which share it read it only once. It holds on to the given document, which has to stay
+    open until then.
+    """
+    __slots__ = '_document', '_read', '_value'
+
+    def __init__(self, document: object, read: Callable[[], _T]):
+        self._document = document
+        self._read = read
+        self._value: _T | None = None
+
+    def __call__(self) -> _T:
+        if (value := self._value) is None:
+            value = self._value = self._read()
+        return value
+
+
+def _stream_contents(stream: Object) -> bytearray:
+    """
+    The decoded data of the given PDF stream, or its raw data if it cannot be decoded.
+    """
+    with NoLogging():
+        try:
+            buffer = stream.get_stream_buffer()
+        except Exception:
+            buffer = stream.get_raw_stream_buffer()
+    return bytearray(buffer)
+
+
+def _text_page(document: Document, page: int) -> TextPage:
+    """
+    The text of the given page of the given document, as pymupdf lays it out.
+    """
+    with NoLogging(NoLogging.Mode.ALL):
+        return document[page].get_textpage()
+
+
+_PDF_NAME_OR_REFERENCE = re.compile(r'/([^\s/\[\]<>(){}%]+)|(\d+)\s+\d+\s+R')
+
+
+def _image_filters(document: Document, xref: int) -> list[str]:
+    """
+    The names of the compression filters of the image with the given cross-reference number, in
+    the order in which they apply, read as mupdf reads them: the abbreviation `F` takes precedence
+    over the key `Filter`, references are resolved, and a reference to an object that does not exist
+    is null. An item of the filter array that is not a name gives an empty name.
+    """
+    def resolved(number: str) -> str:
+        if not 0 < (n := int(number)) < document.xref_length():
+            return 'null'
+        return document.xref_object(n, compressed=True)
+
+    def resolved_name(number: str) -> str:
+        if (item := resolved(number)).startswith('/'):
+            return item[1:]
+        return ''
+
+    for key in ('F', 'Filter'):
+        kind, value = document.xref_get_key(xref, key)
+        if kind != 'null':
+            break
+    if kind == 'xref':
+        value = resolved(value.split()[0])
+    elif kind not in ('name', 'array'):
+        return []
+    if not value.startswith(('/', '[')):
+        return []
+    return [name or resolved_name(number) for name, number in _PDF_NAME_OR_REFERENCE.findall(value)]
+
+
+def _image_extension(document: Document, xref: int) -> str:
+    """
+    The file extension of the image with the given cross-reference number as pymupdf extracts it:
+    an image with a JPEG 2000 filter anywhere among its filters comes out as JPEG 2000, one whose
+    last filter is JPEG comes out as JPEG, and every other image is converted to PNG.
+    """
+    filters = _image_filters(document, xref)
+    if 'JPXDecode' in filters:
+        return 'jp2'
+    if filters and filters[-1] in ('DCTDecode', 'DCT'):
+        return 'jpg'
+    return 'png'
 
 
 class xtpdf(ArchiveUnit):
@@ -79,14 +168,18 @@ class xtpdf(ArchiveUnit):
         except AttributeError:
             pass
         else:
-            yield UnpackResult(''.join(path), extract, kind='object')
+            yield UnpackResult(''.join(path), extract, **{MV.TYPE: 'object'})
             return
 
         if isinstance(blob, lib.generic.ByteStringObject):
-            yield UnpackResult(''.join(path), blob, kind='bytes')
+            yield UnpackResult(''.join(path), blob, **{MV.TYPE: 'bytes'})
             return
         if isinstance(blob, lib.generic.TextStringObject):
-            yield UnpackResult(''.join(path), blob.encode(self.codec), kind='string')
+            yield UnpackResult(
+                ''.join(path),
+                blob.encode(self.codec),
+                **{MV.TYPE: 'string'}
+            )
             return
 
         if isinstance(blob, (
@@ -130,17 +223,35 @@ class xtpdf(ArchiveUnit):
                 key = F'/{key}'
             yield from self._walk_pypdf2(value, memo, *path, key)
 
-    def _walk_pike(self, blob: Object, memo: list[Object] | None = None, *keys):
-        if memo is None:
-            memo = [blob]
-        elif blob in memo:
-            return
-        else:
-            memo.append(blob)
+    def _walk_pike(
+        self,
+        document: Pdf,
+        blob: Object,
+        memo: dict[tuple[int, int], _Deferred[bytearray] | None],
+        *keys,
+    ):
+        """
+        Walks the given object of the given PDF document and hands out what it contains below the
+        given path; a stream is decoded only when it is extracted. The memo maps every indirect
+        object that was walked to the reader of its stream, or to `None` if it has none: An object
+        reached a second time is not walked again, but a stream that a file specification embeds
+        comes out under every name that embeds it, decoded only once.
+        """
+        pike = self._pikepdf
+
+        def indirect(node) -> tuple[int, int] | None:
+            if isinstance(node, pike.Object) and node.is_indirect:
+                return node.objgen
+            return None
+
+        if (objgen := indirect(blob)) is not None:
+            if objgen in memo:
+                return
+            memo[objgen] = None
 
         try:
             name = blob['/F']
-            blob = blob['/EF']['/F']
+            embedded = blob['/EF']['/F']
         except Exception:
             pass
         else:
@@ -148,47 +259,33 @@ class xtpdf(ArchiveUnit):
                 return bytes.fromhex(match[1]).decode('latin1')
             name = re.sub('#([0-9a-fA-F]{2})', unhex, str(name))
             keys = *keys, F'/{name}'
+            if (objgen := indirect(embedded)) is not None:
+                if objgen in memo:
+                    if (contents := memo[objgen]) is not None:
+                        yield UnpackResult(''.join(keys), contents)
+                    return
+                memo[objgen] = None
+            blob = embedded
 
-        pike = self._pikepdf
-        meta = {}
         path = ''.join(keys)
-        done = set()
 
-        if isinstance(blob, pike.Dictionary):
-            nested = {}
-            for key, value in blob.items():
-                if isinstance(value, pike.Name):
-                    value = str(value)
-                if isinstance(value, (int, float, str, bool)):
-                    key = key.lstrip('/')
-                    meta[key] = value
-                    continue
-                nested[key] = value
-                done.add(key)
-            for key, value in nested.items():
-                yield from self._walk_pike(value, memo, *keys, key)
-            if meta:
-                yield UnpackResult(path, blob.to_json(dereference=True))
-                return
-        elif isinstance(blob, pike.Array):
+        if isinstance(blob, pike.Array):
             for key, value in enumerate(iter(blob)):
                 if isinstance(value, pike.Object):
-                    yield from self._walk_pike(value, memo, *keys, F'/{key}')
-            return
-
-        try:
-            buffer = blob.get_stream_buffer()
-        except Exception:
-            try:
-                buffer = blob.get_raw_stream_buffer()
-            except Exception:
-                buffer = None
-        if buffer or buffer:
-            yield UnpackResult(path, bytearray(buffer))
+                    yield from self._walk_pike(document, value, memo, *keys, F'/{key}')
+        elif isinstance(blob, pike.Stream):
+            contents = _Deferred(document, lambda b=blob: _stream_contents(b))
+            if (objgen := indirect(blob)) is not None:
+                memo[objgen] = contents
+            yield UnpackResult(path, contents)
         elif isinstance(blob, pike.String):
             yield UnpackResult(path, bytes(blob))
         elif isinstance(blob, pike.Object):
-            yield UnpackResult(path, blob.to_json())
+            if isinstance(blob, pike.Dictionary):
+                for key, value in blob.items():
+                    if isinstance(value, pike.Object) and not isinstance(value, pike.Name):
+                        yield from self._walk_pike(document, value, memo, *keys, key)
+            yield UnpackResult(F'{path}.json', blob.to_json(dereference=True))
 
     def unpack(self, data):
         if not (password := self.args.pwd):
@@ -225,7 +322,7 @@ class xtpdf(ArchiveUnit):
         with MemoryFile(data, output=bytes) as stream, NoLogging():
             try:
                 pdf = self._pikepdf.open(stream, password=password_raw)
-                yield from self._walk_pike(pdf.trailer, None, 'raw')
+                yield from self._walk_pike(pdf, pdf.trailer, {}, 'raw')
             except Exception:
                 raise
                 pdf = self._pypdf2.PdfReader(stream, password=password)
@@ -237,22 +334,29 @@ class xtpdf(ArchiveUnit):
         if (md := mu.metadata) and (md := {k: v for k, v in md.items() if v}):
             yield UnpackResult('parsed/meta.json', lambda m=md: json.dumps(m))
 
+        codec = self.codec
+        extractors: list[tuple[str, Callable[[TextPage], str]]] = [
+            ('html', lambda t: t.extractHTML()),
+            ('json', lambda t: t.extractJSON()),
+            ('txt', lambda t: t.extractText()),
+        ]
+        layout = functools.lru_cache(maxsize=1)(functools.partial(_text_page, mu))
+
         for k in range(len(mu)):
-            with NoLogging(NoLogging.Mode.ALL):
-                try:
-                    page: Page = mu[k]
-                    text = page.get_textpage()
-                except Exception:
-                    continue
-            yield UnpackResult(F'parsed/page{k}.html', text.extractHTML().encode(self.codec))
-            yield UnpackResult(F'parsed/page{k}.json', text.extractJSON().encode(self.codec))
-            yield UnpackResult(F'parsed/page{k}.txt', text.extractText().encode(self.codec))
-            for j, image in enumerate(page.get_images(), 1):
-                xref = image[0]
-                base = mu.extract_image(xref)
-                data = base['image']
-                info = get_cached_file_magic_info(data)
-                yield UnpackResult(F'parsed/page{k}/img{j}.{info.extension}', data)
+            for extension, extract in extractors:
+                yield UnpackResult(
+                    F'parsed/page{k}.{extension}', lambda e=extract, k=k: e(layout(k)).encode(codec)
+                )
+            try:
+                with NoLogging(NoLogging.Mode.ALL):
+                    images = [(xref, _image_extension(mu, xref)) for xref, *_ in mu.get_page_images(k)]
+            except Exception as error:
+                self.log_warn(F'failed to list the images of page {k}: {exception_to_string(error)}')
+                continue
+            for j, (xref, extension) in enumerate(images, 1):
+                yield UnpackResult(
+                    F'parsed/page{k}/img{j}.{extension}', lambda x=xref: mu.extract_image(x)['image']
+                )
 
     @classmethod
     def handles(cls, data) -> bool | None:

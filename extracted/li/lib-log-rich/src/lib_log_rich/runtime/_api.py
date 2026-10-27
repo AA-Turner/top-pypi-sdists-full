@@ -17,23 +17,27 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from lib_log_rich.domain import DumpFilter, DumpFormat, LogLevel, build_dump_filter
+from lib_log_rich.domain.enums import ConsoleTheme, FormatPreset, require_enum_member
 
-from ._composition import LoggerProxy, build_runtime, coerce_level
-from ._settings import RuntimeConfig, build_runtime_settings
+from ._composition import build_runtime
+from ._factories import LoggerProxy
 from ._state import (
     LoggingRuntime,
     clear_runtime,
     current_runtime,
     runtime_initialisation,
 )
+from .settings import RuntimeConfig, build_runtime_settings
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Generator, Mapping, Sequence
 
     from lib_log_rich.adapters import QueueAdapter
+    from lib_log_rich.domain.context import LogContext
     from lib_log_rich.domain.dump_filter import FilterSpecValue
+    from lib_log_rich.domain.enums import DropReason
 
-    from ._settings import RuntimeSettings
+    from .settings import RuntimeSettings
 
 TKey = TypeVar("TKey")
 TValue = TypeVar("TValue")
@@ -49,7 +53,7 @@ class RuntimeSnapshot:
     backend_level: LogLevel
     graylog_level: LogLevel
     queue_present: bool
-    theme: str | None
+    theme: ConsoleTheme | None
     console_styles: Mapping[str, str] | None
 
 
@@ -62,9 +66,9 @@ class SeveritySnapshot:
     counts: Mapping[LogLevel, int]
     thresholds: Mapping[LogLevel, int]
     dropped_total: int
-    drops_by_reason: Mapping[str, int]
+    drops_by_reason: Mapping[DropReason, int]
     drops_by_level: Mapping[LogLevel, int]
-    drops_by_reason_and_level: Mapping[tuple[str, LogLevel], int]
+    drops_by_reason_and_level: Mapping[tuple[DropReason, LogLevel], int]
 
 
 @dataclass(frozen=True)
@@ -74,9 +78,9 @@ class _DumpRequest:
     format: DumpFormat
     target: Path | None
     minimum: LogLevel | None
-    preset: str | None
+    preset: FormatPreset | None
     template: str | None
-    theme: str | None
+    theme: ConsoleTheme | None
     styles: Mapping[str, str] | None
     dump_filter: DumpFilter | None
     colorize: bool
@@ -125,9 +129,11 @@ def validate_config(config: RuntimeConfig) -> None:
     verdict holds for an ``init`` call made in the same environment. A running
     runtime is neither consulted nor touched.
 
-    It never calls ``console_adapter_factory``, so it cannot see the one
-    refusal made while adapters are built: :func:`init` raises ``TypeError``
-    when the factory returns an object missing a ``ConsolePort`` method.
+    It builds no adapters and reads no files, so it cannot see the two
+    refusals made while the runtime is built: :func:`init` raises ``TypeError``
+    when ``console_adapter_factory`` returns an object missing a ``ConsolePort``
+    method, and ``ValueError`` when the ``ring_buffer_checkpoint`` file holds a
+    record it cannot load.
 
     Args:
         config: The configuration to judge.
@@ -203,10 +209,59 @@ def reset_severity_metrics() -> None:
 
 
 @contextmanager
-def bind(**fields: Any):
-    """Bind structured metadata for the current execution scope."""
+def bind(
+    *,
+    service: str | None = None,
+    environment: str | None = None,
+    job_id: str | None = None,
+    request_id: str | None = None,
+    user_id: str | None = None,
+    user_name: str | None = None,
+    hostname: str | None = None,
+    process_id: int | None = None,
+    process_id_chain: Sequence[int] | None = None,
+    trace_id: str | None = None,
+    span_id: str | None = None,
+    extra: Mapping[str, Any] | None = None,
+) -> Generator[LogContext, None, None]:
+    """Bind structured metadata for the current execution scope.
+
+    The fields repeat :meth:`ContextBinder.bind` one for one, so a misspelt or
+    mistyped field is a type error at the call site rather than a runtime
+    ``TypeError``. ``None`` inherits the parent frame's value.
+
+    Args:
+        service: Service identifier.
+        environment: Deployment environment.
+        job_id: Job or task identifier.
+        request_id: Request correlation identifier.
+        user_id: Acting user's identifier.
+        user_name: Acting user's name.
+        hostname: Host name to record.
+        process_id: Process id to record.
+        process_id_chain: Ancestor process ids, oldest first.
+        trace_id: Distributed trace identifier.
+        span_id: Distributed span identifier.
+        extra: Free-form metadata merged into the frame.
+
+    Yields:
+        The bound :class:`LogContext`.
+    """
     runtime = current_runtime()
-    with runtime.binder.bind(**fields) as ctx:
+    with runtime.binder.bind(
+        service=service,
+        environment=environment,
+        job_id=job_id,
+        request_id=request_id,
+        user_id=user_id,
+        user_name=user_name,
+        hostname=hostname,
+        process_id=process_id,
+        process_id_chain=process_id_chain,
+        trace_id=trace_id,
+        span_id=span_id,
+        extra=extra,
+    ) as ctx:
         yield ctx
 
 
@@ -215,16 +270,26 @@ def dump(
     dump_format: str | DumpFormat = "text",
     path: str | Path | None = None,
     level: str | LogLevel | None = None,
-    console_format_preset: str | None = None,
+    console_format_preset: FormatPreset | None = None,
     console_format_template: str | None = None,
-    theme: str | None = None,
+    theme: ConsoleTheme | None = None,
     console_styles: Mapping[str, str] | None = None,
     context_filters: Mapping[str, FilterSpecValue] | None = None,
     context_extra_filters: Mapping[str, FilterSpecValue] | None = None,
     extra_filters: Mapping[str, FilterSpecValue] | None = None,
     color: bool = False,
 ) -> str:
-    """Render the in-memory ring buffer into a textual artefact."""
+    """Render the in-memory ring buffer into a textual artefact.
+
+    Raises:
+        TypeError: If ``theme`` or ``console_format_preset`` is not a member of its enum
+            (a plain string included); ``dump_format`` and ``level`` also take value strings.
+
+    """
+    if theme is not None:
+        require_enum_member(theme, ConsoleTheme, parameter="theme")
+    if console_format_preset is not None:
+        require_enum_member(console_format_preset, FormatPreset, parameter="console_format_preset")
     runtime = current_runtime()
     request = _build_dump_request(
         runtime=runtime,
@@ -249,9 +314,9 @@ def _build_dump_request(
     dump_format: str | DumpFormat,
     path: str | Path | None,
     level: str | LogLevel | None,
-    console_format_preset: str | None,
+    console_format_preset: FormatPreset | None,
     console_format_template: str | None,
-    theme: str | None,
+    theme: ConsoleTheme | None,
     console_styles: Mapping[str, str] | None,
     context_filters: Mapping[str, FilterSpecValue] | None,
     context_extra_filters: Mapping[str, FilterSpecValue] | None,
@@ -294,10 +359,10 @@ def _resolve_minimum_level(level: str | LogLevel | None) -> LogLevel | None:
     """Normalise the optional minimum level to the domain enum."""
     if level is None:
         return None
-    return coerce_level(level)
+    return LogLevel.coerce(level)
 
 
-def _select_theme(runtime: LoggingRuntime, override: str | None) -> str | None:
+def _select_theme(runtime: LoggingRuntime, override: ConsoleTheme | None) -> ConsoleTheme | None:
     """Return the theme override or the runtime default."""
     return override if override is not None else runtime.theme
 
@@ -306,8 +371,12 @@ def _select_console_styles(
     runtime: LoggingRuntime,
     override: Mapping[str, str] | None,
 ) -> Mapping[str, str] | None:
-    """Return console styles provided by the caller or runtime defaults."""
-    return override if override is not None else runtime.console_styles
+    """Return the caller's console styles, else the ones the user configured.
+
+    Never the runtime's theme-filled styles: those would beat the dump's theme
+    for every level and leave ``dump(theme=...)`` without effect.
+    """
+    return override if override is not None else runtime.configured_console_styles
 
 
 def _compose_dump_filter(
@@ -341,7 +410,6 @@ def _render_dump(runtime: LoggingRuntime, request: _DumpRequest) -> str:
         min_level=request.minimum,
         format_preset=request.preset,
         format_template=request.template,
-        text_template=request.template,
         theme=request.theme,
         console_styles=request.styles,
         dump_filter=request.dump_filter,
@@ -381,7 +449,9 @@ async def _shutdown_runtime(runtime: LoggingRuntime) -> None:
 
 async def _perform_shutdown(runtime: LoggingRuntime) -> None:
     """Coordinate shutdown hooks across adapters and use cases."""
-    _stop_queue(runtime.queue)
+    # Joining the worker on the loop's thread would stall the loop for up to the stop
+    # timeout, and deadlock a diagnostic hook that hands its work to this loop.
+    await asyncio.to_thread(_stop_queue, runtime.queue)
     await _await_shutdown_result(runtime.shutdown_async())
 
 

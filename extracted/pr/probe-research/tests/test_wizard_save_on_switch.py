@@ -20,6 +20,9 @@ def isolate(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "home" / ".claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "home" / ".codex"))
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "home" / ".pi" / "agent"))
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config" / "probe" / "config.json"))
     for name in ("PROBE_SESSION_STATE", "PROBE_SESSION_TRACKING"):
         monkeypatch.delenv(name, raising=False)
@@ -53,6 +56,24 @@ def test_a_failed_save_keeps_the_row_on_what_is_saved_and_says_why(monkeypatch):
 
     assert switch.shown == switch.saved == start
     assert switch.error is not None and "read-only config" in switch.error
+
+
+def test_a_press_while_another_setup_holds_the_device_saves_nothing():
+    """The menu holds no run lock while it waits on a person (plan C1), so the
+    one write it makes itself takes the lock: a press while another setup (the
+    desktop app) holds the device leaves the row on what is saved, and says why."""
+    from probe._shared import oscompat
+    from probe.cli import wizard_lock
+
+    switch = setup._DefaultSwitch([_Row()])
+    start = switch.saved
+    wizard_lock.lock_path().parent.mkdir(parents=True, exist_ok=True)
+    with open(wizard_lock.lock_path(), "a+") as other:
+        oscompat.flock(other.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+        switch.step(1)
+
+    assert switch.shown == switch.saved == setup.setting_state(session_marker.default_session_state()) == start
+    assert switch.error is not None and wizard_lock.BUSY_MESSAGE in switch.error
 
 
 class _Control:

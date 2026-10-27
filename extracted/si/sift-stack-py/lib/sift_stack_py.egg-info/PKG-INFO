@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sift_stack_py
-Version: 0.24.0
+Version: 0.25.0
 Summary: Python client library for the Sift API
 Maintainer-email: Sift Software Engineers <engineering@siftstack.com>
 License: Copyright (c) 2026 Sift Stack, Inc.
@@ -46,21 +46,18 @@ Requires-Dist: typing-extensions~=4.6
 Requires-Dist: types-requests~=2.25
 Requires-Dist: googleapis-common-protos>=1.60
 Requires-Dist: protoc-gen-openapiv2>=0.0.1
-Requires-Dist: filelock~=3.15
+Requires-Dist: filelock<5,>=3.15
 Requires-Dist: tomli~=2.0; python_version < "3.11"
 Provides-Extra: all
-Requires-Dist: cffi~=1.14; extra == "all"
 Requires-Dist: h5py~=3.11; extra == "all"
 Requires-Dist: mcap-ros2-support~=0.5.7; extra == "all"
 Requires-Dist: mcap~=1.4; extra == "all"
 Requires-Dist: npTDMS~=1.9; extra == "all"
 Requires-Dist: polars~=1.8; extra == "all"
-Requires-Dist: pyOpenSSL<24.0.0; extra == "all"
 Requires-Dist: pyarrow>=17.0.0; extra == "all"
 Requires-Dist: pyulog~=1.2.2; extra == "all"
 Requires-Dist: rosbags~=0.0; python_full_version >= "3.8.2" and extra == "all"
-Requires-Dist: sift-stream-bindings==0.5.2; extra == "all"
-Requires-Dist: types-pyOpenSSL<24.0.0; extra == "all"
+Requires-Dist: sift-stream-bindings==0.6.1; extra == "all"
 Provides-Extra: build
 Requires-Dist: build==1.2.1; extra == "build"
 Requires-Dist: pdoc==14.5.0; extra == "build"
@@ -81,7 +78,6 @@ Requires-Dist: ruff~=0.12.10; extra == "dev"
 Requires-Dist: tomlkit~=0.13.3; extra == "dev"
 Provides-Extra: dev-all
 Requires-Dist: build==1.2.1; extra == "dev-all"
-Requires-Dist: cffi~=1.14; extra == "dev-all"
 Requires-Dist: grpcio-testing~=1.13; extra == "dev-all"
 Requires-Dist: h5py~=3.11; extra == "dev-all"
 Requires-Dist: mcap-ros2-support~=0.5.7; extra == "dev-all"
@@ -91,7 +87,6 @@ Requires-Dist: npTDMS~=1.9; extra == "dev-all"
 Requires-Dist: pdoc==14.5.0; extra == "dev-all"
 Requires-Dist: polars~=1.8; extra == "dev-all"
 Requires-Dist: pre-commit~=4.0; python_version >= "3.9" and extra == "dev-all"
-Requires-Dist: pyOpenSSL<24.0.0; extra == "dev-all"
 Requires-Dist: pyarrow>=17.0.0; extra == "dev-all"
 Requires-Dist: pyright==1.1.386; extra == "dev-all"
 Requires-Dist: pytest-asyncio==0.23.7; extra == "dev-all"
@@ -103,9 +98,8 @@ Requires-Dist: pytest==8.2.2; extra == "dev-all"
 Requires-Dist: pyulog~=1.2.2; extra == "dev-all"
 Requires-Dist: rosbags~=0.0; python_full_version >= "3.8.2" and extra == "dev-all"
 Requires-Dist: ruff~=0.12.10; extra == "dev-all"
-Requires-Dist: sift-stream-bindings==0.5.2; extra == "dev-all"
+Requires-Dist: sift-stream-bindings==0.6.1; extra == "dev-all"
 Requires-Dist: tomlkit~=0.13.3; extra == "dev-all"
-Requires-Dist: types-pyOpenSSL<24.0.0; extra == "dev-all"
 Provides-Extra: development
 Requires-Dist: grpcio-testing~=1.13; extra == "development"
 Requires-Dist: mypy==1.10.0; extra == "development"
@@ -130,7 +124,6 @@ Requires-Dist: mkdocs==1.6.1; python_version >= "3.10" and extra == "docs"
 Requires-Dist: mkdocstrings[python]==1.0.3; python_version >= "3.10" and extra == "docs"
 Provides-Extra: docs-build
 Requires-Dist: build==1.2.1; extra == "docs-build"
-Requires-Dist: cffi~=1.14; extra == "docs-build"
 Requires-Dist: griffe-pydantic==1.3.1; python_version >= "3.10" and extra == "docs-build"
 Requires-Dist: grpcio-testing~=1.13; extra == "docs-build"
 Requires-Dist: h5py~=3.11; extra == "docs-build"
@@ -148,7 +141,6 @@ Requires-Dist: npTDMS~=1.9; extra == "docs-build"
 Requires-Dist: pdoc==14.5.0; extra == "docs-build"
 Requires-Dist: polars~=1.8; extra == "docs-build"
 Requires-Dist: pre-commit~=4.0; python_version >= "3.9" and extra == "docs-build"
-Requires-Dist: pyOpenSSL<24.0.0; extra == "docs-build"
 Requires-Dist: pyarrow>=17.0.0; extra == "docs-build"
 Requires-Dist: pyright==1.1.386; extra == "docs-build"
 Requires-Dist: pytest-asyncio==0.23.7; extra == "docs-build"
@@ -160,15 +152,15 @@ Requires-Dist: pytest==8.2.2; extra == "docs-build"
 Requires-Dist: pyulog~=1.2.2; extra == "docs-build"
 Requires-Dist: rosbags~=0.0; python_full_version >= "3.8.2" and extra == "docs-build"
 Requires-Dist: ruff~=0.12.10; extra == "docs-build"
-Requires-Dist: sift-stream-bindings==0.5.2; extra == "docs-build"
+Requires-Dist: sift-stream-bindings==0.6.1; extra == "docs-build"
 Requires-Dist: tomlkit~=0.13.3; extra == "docs-build"
-Requires-Dist: types-pyOpenSSL<24.0.0; extra == "docs-build"
 Provides-Extra: file-imports
 Requires-Dist: h5py~=3.11; extra == "file-imports"
 Requires-Dist: mcap-ros2-support~=0.5.7; extra == "file-imports"
 Requires-Dist: mcap~=1.4; extra == "file-imports"
 Requires-Dist: npTDMS~=1.9; extra == "file-imports"
 Requires-Dist: polars~=1.8; extra == "file-imports"
+Requires-Dist: pyarrow>=17.0.0; extra == "file-imports"
 Requires-Dist: pyulog~=1.2.2; extra == "file-imports"
 Requires-Dist: rosbags~=0.0; python_full_version >= "3.8.2" and extra == "file-imports"
 Provides-Extra: hdf5
@@ -177,16 +169,14 @@ Requires-Dist: polars~=1.8; extra == "hdf5"
 Provides-Extra: mcap
 Requires-Dist: mcap-ros2-support~=0.5.7; extra == "mcap"
 Requires-Dist: mcap~=1.4; extra == "mcap"
-Provides-Extra: openssl
-Requires-Dist: cffi~=1.14; extra == "openssl"
-Requires-Dist: pyOpenSSL<24.0.0; extra == "openssl"
-Requires-Dist: types-pyOpenSSL<24.0.0; extra == "openssl"
+Provides-Extra: parquet
+Requires-Dist: pyarrow>=17.0.0; extra == "parquet"
 Provides-Extra: rosbags
 Requires-Dist: rosbags~=0.0; python_full_version >= "3.8.2" and extra == "rosbags"
 Provides-Extra: sift-stream
-Requires-Dist: sift-stream-bindings==0.5.2; extra == "sift-stream"
+Requires-Dist: sift-stream-bindings==0.6.1; extra == "sift-stream"
 Provides-Extra: sift-stream-bindings
-Requires-Dist: sift-stream-bindings==0.5.2; extra == "sift-stream-bindings"
+Requires-Dist: sift-stream-bindings==0.6.1; extra == "sift-stream-bindings"
 Provides-Extra: tdms
 Requires-Dist: npTDMS~=1.9; extra == "tdms"
 Provides-Extra: ulog

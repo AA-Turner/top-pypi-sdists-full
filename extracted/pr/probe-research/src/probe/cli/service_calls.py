@@ -180,6 +180,7 @@ def _blank(reach: Reach, error: str | None = None) -> dict:
         "harnesses": [],
         "recorders": [],
         "hook_hosts": [],
+        "hints_unreached": [],
         "runs": [],
         "imports": [],
         "update": dict.fromkeys(
@@ -303,6 +304,7 @@ def _filled(status: dict, listing: object) -> dict:
         hook_hosts=_rows(status.get("hook_hosts"), {"root": str, "pid": int}),
         runs=_rows(status.get("runs"), {"run": str, "pid": int, "since": number}),
         imports=_rows(status.get("imports"), {"job_id": str, "pid": int, "since": number}),
+        hints_unreached=hints_unreached(),
     )
     update = status.get("update")
     if isinstance(update, dict):
@@ -465,6 +467,30 @@ def _count(n: int, word: str) -> str:
     return f"{n} {word}" + ("" if n == 1 else "s")
 
 
+#: A hint lane's receipt file older than this is no longer its word on the
+#: session (it stopped following it): it rewrites a followed one every beat.
+HINTS_RECEIPT_FRESH_S = 600.0
+
+
+def hints_unreached(now: "float | None" = None) -> list[dict]:
+    """The sessions whose hints the Probe service's hint lane finds are not
+    reaching the agent (`service.hints.delivery_receipt` UNDELIVERABLE), from
+    the files it leaves beside each session's hint marker, written within
+    HINTS_RECEIPT_FRESH_S. Never raises."""
+    now = time.time() if now is None else now
+    try:
+        from probe.daemon import mailbox
+        from probe.service.hints import DeliveryState
+
+        found = mailbox.read_hints_deliveries()
+    except Exception:  # noqa: BLE001 -- a status read never raises
+        return []
+    return [{"sid": sid, "harness": r.get("harness"), "deliverer": r.get("deliverer"), "missed": r.get("missed")}
+            for sid, r in sorted(found.items())
+            if r.get("state") == DeliveryState.UNDELIVERABLE and isinstance(r.get("at"), (int, float))
+            and now - r["at"] <= HINTS_RECEIPT_FRESH_S]
+
+
 def summary(view_: dict | None) -> str:
     """One line for a person (`probe status`)."""
     if not isinstance(view_, dict):
@@ -496,6 +522,9 @@ def summary(view_: dict | None) -> str:
     imports = view_.get("imports") or []
     if imports:
         parts.append(_count(len(imports), "import") + " running")
+    unreached = view_.get("hints_unreached") or []
+    if unreached:
+        parts.append(_count(len(unreached), "session") + " its hints do not reach (probe doctor)")
     update = view_.get("update") or {}
     if update.get("in_progress"):
         parts.append(f"updating now ({update.get('step') or 'starting'})")

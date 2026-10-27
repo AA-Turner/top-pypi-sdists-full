@@ -53,6 +53,8 @@ from .datadog_api_key_credential import DatadogApiKeyCredential
 from .datadog_application_key_credential import DatadogApplicationKeyCredential
 from .defender_credential import DefenderCredential
 from .defender_easm_credential import DefenderEasmCredential
+from .drata_credential import DrataCredential
+from .drata_region import DrataRegion
 from .duo_security_credential import DuoSecurityCredential
 from .edr_crowd_strike_dataset import EdrCrowdStrikeDataset
 from .elasticsearch_auth_options import ElasticsearchAuthOptions
@@ -1259,6 +1261,20 @@ class ProviderConfig_EndpointmanagementNinjaone(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_GrcDrata(UncheckedBaseModel):
+    type: typing.Literal["grc_drata"] = "grc_drata"
+    credential: DrataCredential
+    region: DrataRegion
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_GrcSecureframe(UncheckedBaseModel):
     type: typing.Literal["grc_secureframe"] = "grc_secureframe"
     credential: SecureframeCredential
@@ -1390,6 +1406,7 @@ class ProviderConfig_IdentityGoogle(UncheckedBaseModel):
     client_email: str
     credential: GoogleCredential
     delegate: str
+    url: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
@@ -2972,6 +2989,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_EndpointmanagementIru,
         ProviderConfig_EndpointmanagementJamf,
         ProviderConfig_EndpointmanagementNinjaone,
+        ProviderConfig_GrcDrata,
         ProviderConfig_GrcSecureframe,
         ProviderConfig_IdentityAshby,
         ProviderConfig_IdentityAwsIam,

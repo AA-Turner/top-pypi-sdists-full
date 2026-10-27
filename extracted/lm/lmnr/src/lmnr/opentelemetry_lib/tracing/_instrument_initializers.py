@@ -150,10 +150,8 @@ class CohereInstrumentorInitializer(InstrumentorInitializer):
     def init_instrumentor(self, *args: Any, **kwargs: Any) -> BaseInstrumentor | None:
         if not is_package_installed("cohere"):
             return None
-        if not is_package_installed("opentelemetry-instrumentation-cohere"):
-            return None
 
-        from opentelemetry.instrumentation.cohere import CohereInstrumentor
+        from ..opentelemetry.instrumentation.cohere import CohereInstrumentor
 
         return CohereInstrumentor()
 
@@ -232,6 +230,19 @@ class GoogleADKInstrumentorInitializer(InstrumentorInitializer):
         return GoogleAdkInstrumentor()
 
 
+class GoogleAIPlatformInstrumentorInitializer(InstrumentorInitializer):
+    @override
+    def init_instrumentor(self, *args: Any, **kwargs: Any) -> BaseInstrumentor | None:
+        if not is_package_installed("google-cloud-aiplatform"):
+            return None
+
+        from ..opentelemetry.instrumentation.google_aiplatform import (
+            GoogleAIPlatformInstrumentor,
+        )
+
+        return GoogleAIPlatformInstrumentor()
+
+
 class GoogleGenAIInstrumentorInitializer(InstrumentorInitializer):
     @override
     def init_instrumentor(self, *args: Any, **kwargs: Any) -> BaseInstrumentor | None:
@@ -296,12 +307,10 @@ class LanceDBInstrumentorInitializer(InstrumentorInitializer):
 class LangchainInstrumentorInitializer(InstrumentorInitializer):
     @override
     def init_instrumentor(self, *args: Any, **kwargs: Any) -> BaseInstrumentor | None:
-        if not is_package_installed("langchain"):
-            return None
-        if not is_package_installed("opentelemetry-instrumentation-langchain"):
+        if not is_package_installed("langchain-core"):
             return None
 
-        from opentelemetry.instrumentation.langchain import LangchainInstrumentor
+        from ..opentelemetry.instrumentation.langchain import LangchainInstrumentor
 
         return LangchainInstrumentor()
 
@@ -407,10 +416,8 @@ class MCPInstrumentorInitializer(InstrumentorInitializer):
     def init_instrumentor(self, *args: Any, **kwargs: Any) -> BaseInstrumentor | None:
         if not is_package_installed("mcp"):
             return None
-        if not is_package_installed("opentelemetry-instrumentation-mcp"):
-            return None
 
-        from opentelemetry.instrumentation.mcp import McpInstrumentor
+        from ..opentelemetry.instrumentation.mcp import McpInstrumentor
 
         return McpInstrumentor()
 
@@ -647,19 +654,6 @@ class TypeSafeInstrumentorInitializer(InstrumentorInitializer):
         )
 
         return TypeSafeInstrumentor()
-
-
-class VertexAIInstrumentorInitializer(InstrumentorInitializer):
-    @override
-    def init_instrumentor(self, *args: Any, **kwargs: Any) -> BaseInstrumentor | None:
-        if not is_package_installed("vertexai"):
-            return None
-        if not is_package_installed("opentelemetry-instrumentation-vertexai"):
-            return None
-
-        from opentelemetry.instrumentation.vertexai import VertexAIInstrumentor
-
-        return VertexAIInstrumentor()
 
 
 class WatsonxInstrumentorInitializer(InstrumentorInitializer):

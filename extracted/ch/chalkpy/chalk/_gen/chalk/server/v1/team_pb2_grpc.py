@@ -145,6 +145,11 @@ class TeamServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ListTeamInvitesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ListTeamInvitesResponse.FromString,
         )
+        self.ListTeamMembers = channel.unary_unary(
+            "/chalk.server.v1.TeamService/ListTeamMembers",
+            request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ListTeamMembersRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ListTeamMembersResponse.FromString,
+        )
         self.UpsertFeaturePermissions = channel.unary_unary(
             "/chalk.server.v1.TeamService/UpsertFeaturePermissions",
             request_serializer=chalk_dot_server_dot_v1_dot_team__pb2.UpsertFeaturePermissionsRequest.SerializeToString,
@@ -386,6 +391,12 @@ class TeamServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ListTeamInvites(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListTeamMembers(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -636,6 +647,11 @@ def add_TeamServiceServicer_to_server(servicer, server):
             servicer.ListTeamInvites,
             request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ListTeamInvitesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ListTeamInvitesResponse.SerializeToString,
+        ),
+        "ListTeamMembers": grpc.unary_unary_rpc_method_handler(
+            servicer.ListTeamMembers,
+            request_deserializer=chalk_dot_server_dot_v1_dot_team__pb2.ListTeamMembersRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_team__pb2.ListTeamMembersResponse.SerializeToString,
         ),
         "UpsertFeaturePermissions": grpc.unary_unary_rpc_method_handler(
             servicer.UpsertFeaturePermissions,
@@ -1475,6 +1491,35 @@ class TeamService(object):
             "/chalk.server.v1.TeamService/ListTeamInvites",
             chalk_dot_server_dot_v1_dot_team__pb2.ListTeamInvitesRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_team__pb2.ListTeamInvitesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListTeamMembers(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TeamService/ListTeamMembers",
+            chalk_dot_server_dot_v1_dot_team__pb2.ListTeamMembersRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_team__pb2.ListTeamMembersResponse.FromString,
             options,
             channel_credentials,
             insecure,

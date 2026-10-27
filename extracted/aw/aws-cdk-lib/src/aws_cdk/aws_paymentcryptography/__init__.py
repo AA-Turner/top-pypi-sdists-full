@@ -179,6 +179,7 @@ class CfnAlias(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -213,7 +214,7 @@ class CfnAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dbda40ab380bdefcb4b1f97fbdfb383ed08815fcaf1d136e881314e872f7e42b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "aliasName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "aliasName", value)
 
     @builtins.property
     @jsii.member(jsii_name="keyArn")
@@ -226,7 +227,7 @@ class CfnAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fbafef3a7fe6a4ee77cdd86bde1df29b8df0e985f7099527ccce1ce9c0fb18d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyArn", value)
 
 
 @jsii.data_type(
@@ -460,6 +461,7 @@ class CfnKey(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -538,7 +540,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f21c25b942e06e9156561ac93e6371242b5b4ddbcb85077df885feaa89b2b2a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "exportable", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "exportable", value)
 
     @builtins.property
     @jsii.member(jsii_name="keyAttributes")
@@ -556,7 +558,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__509385bb900abd87d7e9680c46b008a76766e5f51864d21972df261f9db73156)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyAttributes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyAttributes", value)
 
     @builtins.property
     @jsii.member(jsii_name="deriveKeyUsage")
@@ -569,7 +571,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__656be50ed219aff27971e773805f3ea7068f9738b74cc7d35f92f017614b969e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deriveKeyUsage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deriveKeyUsage", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -587,7 +589,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1defb803536cf97ac83055a5760a6073dfc007fbfe2b34f9a774538091a30ef3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="keyCheckValueAlgorithm")
@@ -600,7 +602,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__197ab67a28372d3c264e1414d929d0c2287a028faf7915197718c789307d1350)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyCheckValueAlgorithm", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyCheckValueAlgorithm", value)
 
     @builtins.property
     @jsii.member(jsii_name="policy")
@@ -613,7 +615,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__868580814ba43661ae6b57fce945c6240344e1666181c3478d34333fee153fc7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policy", value)
 
     @builtins.property
     @jsii.member(jsii_name="replicationRegions")
@@ -629,7 +631,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f6737ec7c6dc52de6a998e922706b7479f62a7e2b4a5e50ef7fede37a4ce1776)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicationRegions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replicationRegions", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -644,7 +646,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__78d5368ca44b0ca5acba26b914716e9d9e8bb1acb0511f4f2a701cf6fcdd968d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_paymentcryptography.CfnKey.KeyAttributesProperty",
@@ -993,13 +995,20 @@ class CfnKey(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_paymentcryptography.CfnKey.ReplicationStatusTypeProperty",
         jsii_struct_bases=[],
-        name_mapping={"status": "status", "status_message": "statusMessage"},
+        name_mapping={
+            "status": "status",
+            "kms_key_arn": "kmsKeyArn",
+            "kms_key_id": "kmsKeyId",
+            "status_message": "statusMessage",
+        },
     )
     class ReplicationStatusTypeProperty:
         def __init__(
             self,
             *,
             status: builtins.str,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+            kms_key_id: typing.Optional[builtins.str] = None,
             status_message: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Represents the replication status information for a key in a replication region for `Multi-Region key replication <https://docs.aws.amazon.com/payment-cryptography/latest/userguide/keys-multi-region-replication.html>`_ .
@@ -1007,6 +1016,8 @@ class CfnKey(
             This structure contains details about the current state of key replication, including any status messages and operational information about the replication process.
 
             :param status: The current status of key replication in this AWS Region . This field indicates whether the key replication is in progress, completed successfully, or has encountered an error. Possible values include states such as ``SYNCRHONIZED`` , ``IN_PROGRESS`` , ``DELETE_IN_PROGRESS`` , or ``FAILED`` . This provides visibility into the replication process for monitoring and troubleshooting purposes.
+            :param kms_key_arn: The ARN of the AWS KMS key that protects the replica in this region.
+            :param kms_key_id: The AWS KMS key requested for this region, when replication failed before its ARN was known.
             :param status_message: A message that provides additional information about the current replication status of the key. This field contains details about any issues or progress updates related to key replication operations. It may include information about replication failures, synchronization status, or other operational details.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-replicationstatustype.html
@@ -1022,16 +1033,24 @@ class CfnKey(
                     status="status",
                 
                     # the properties below are optional
+                    kms_key_arn="kmsKeyArn",
+                    kms_key_id="kmsKeyId",
                     status_message="statusMessage"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__04dc32e9896c99b8bbd4055bd1aa79b5781435e781cfe41e6d7532befcb03b03)
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+                check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
                 check_type(argname="argument status_message", value=status_message, expected_type=type_hints["status_message"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "status": status,
             }
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+            if kms_key_id is not None:
+                self._values["kms_key_id"] = kms_key_id
             if status_message is not None:
                 self._values["status_message"] = status_message
 
@@ -1046,6 +1065,24 @@ class CfnKey(
             result = self._values.get("status")
             assert result is not None, "Required property 'status' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the AWS KMS key that protects the replica in this region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-replicationstatustype.html#cfn-paymentcryptography-key-replicationstatustype-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def kms_key_id(self) -> typing.Optional[builtins.str]:
+            '''The AWS KMS key requested for this region, when replication failed before its ARN was known.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-paymentcryptography-key-replicationstatustype.html#cfn-paymentcryptography-key-replicationstatustype-kmskeyid
+            '''
+            result = self._values.get("kms_key_id")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def status_message(self) -> typing.Optional[builtins.str]:
@@ -1444,6 +1481,8 @@ def _typecheckingstub__19bb5a67c0e2112fa91ea214bcd53a4406d0b3e006c09d38e9c0cd851
 def _typecheckingstub__04dc32e9896c99b8bbd4055bd1aa79b5781435e781cfe41e6d7532befcb03b03(
     *,
     status: builtins.str,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
     status_message: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

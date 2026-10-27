@@ -123,6 +123,8 @@ OWNERS: dict[str, str] = {
     "run expect": RESEARCHER, "run fork": SDK, "run get": READ,
     "run list": READ, "run metrics": READ, "run move": DAEMON, "run reproduce": READ, "run series": READ,
     "run set": DAEMON, "run start": SDK, "run tag": DAEMON,
+    # A remote job's one-run token: minted at launch, extended when it nears expiry.
+    "run token": SDK,
     "series latest": READ,
     "session default": SWITCH, "session initialize": SWITCH, "session state": SWITCH, "session status": READ,
     # `.probe.config`: testing a path is a local read; the answer about files
@@ -134,6 +136,8 @@ OWNERS: dict[str, str] = {
     # orchestrator's, never the daemon's (it would speak into another session).
     "session send": RESEARCHER,
     "setup": SETUP, "wizard": SETUP, "update": SETUP,
+    # `probe repair`: the install pipeline in repair mode -- the machine's plumbing.
+    "repair": SETUP,
     "shared add": RESEARCHER, "shared delete": RESEARCHER, "shared download": RESEARCHER, "shared list": READ,
     "shared share": RESEARCHER, "shared unshare": RESEARCHER,
     "snapshot": SDK, "snapshot-prune-refs": RESEARCHER, "snapshot-restore": RESEARCHER,
@@ -152,6 +156,10 @@ OWNERS: dict[str, str] = {
     # (writer-owns-summary): the recorder's. A checkout and `visuals options`
     # write a local draft, like `notes checkout`.
     "summary checkout": DAEMON, "summary push": DAEMON,
+    # One-command edits with no draft, for a caller with no files between
+    # commands (the dashboard assistant, acting for the researcher). The
+    # daemon keeps the draft flow its summaries-owed bookkeeping reads.
+    "summary append": RESEARCHER, "summary edit": RESEARCHER,
     "visuals options": DAEMON, "visuals set": DAEMON,
     "statusline install": SETUP, "statusline show": READ, "statusline status": READ, "statusline uninstall": SETUP,
     "token create": SETUP, "token list": SETUP, "token revoke": SETUP,

@@ -12,14 +12,22 @@ import base64
 import gzip
 import zlib
 
-from refinery.lib.scripts import Expression, Transformer, _replace_in_parent
-from refinery.lib.scripts.ps1.deobfuscation.data import ENCODING_MAP
-from refinery.lib.scripts.ps1.deobfuscation.helpers import (
-    collect_byte_array,
-    extract_foreach_scriptblock,
+from refinery.lib.scripts import Expression, Transformer
+from refinery.lib.scripts.ps1.analysis.cache import model_cache
+from refinery.lib.scripts.ps1.analysis.values import collect_byte_array
+from refinery.lib.scripts.ps1.ast import (
+    extract_new_object,
     get_body,
+    is_scriptblock_create,
     normalize_dotnet_type_name,
     string_value,
+)
+from refinery.lib.scripts.ps1.data import ENCODING_MAP, is_type
+from refinery.lib.scripts.ps1.deobfuscation.helpers import extract_foreach_scriptblock
+from refinery.lib.scripts.ps1.deobfuscation.substitution import (
+    substitute,
+    substitute_field,
+    substitute_statement,
 )
 from refinery.lib.scripts.ps1.model import (
     Ps1AccessKind,
@@ -65,6 +73,11 @@ def _try_extract_invoke_command_body(cmd: Ps1CommandInvocation) -> list | None:
     """
     If `cmd` is `Invoke-Command -ScriptBlock { ... }` without remoting parameters, return the
     scriptblock body statements.
+
+    An empty block resolves to no statements, which is not code to inline but a statement to delete,
+    and deleting one is `refinery.lib.scripts.ps1.deobfuscation.removal`'s question rather than this
+    pass's. It is reported as nothing resolved, the same answer `_try_parse` gives for a string that
+    parses to an empty script.
     """
     if not isinstance(cmd.name, Ps1StringLiteral):
         return None
@@ -89,7 +102,7 @@ def _try_extract_invoke_command_body(cmd: Ps1CommandInvocation) -> list | None:
         if isinstance(value, Ps1ScriptBlock):
             scriptblock = value
         index += 2
-    if scriptblock is None:
+    if scriptblock is None or not scriptblock.body:
         return None
     return list(scriptblock.body)
 
@@ -136,70 +149,18 @@ def _extract_iex_value(cmd: Ps1CommandInvocation) -> Expression | None:
     return arg
 
 
-_SCRIPTBLOCK_TYPE_NAMES = frozenset({
-    'scriptblock',
-    'management.automation.scriptblock',
-})
-
-
 def _try_extract_scriptblock_create_arg(expr: Expression) -> Expression | None:
     """
-    If `expr` is `[scriptblock]::Create(arg)`, return the single argument.
+    If `expr` is `[scriptblock]::Create(arg)` with a single argument, return that argument. The
+    recognition is shared with the closed-world predicate through
+    `refinery.lib.scripts.ps1.ast.is_scriptblock_create`; the arity check stays local, because
+    inlining needs the one argument the predicate, which only classifies, does not.
     """
-    if not isinstance(expr, Ps1InvokeMember):
-        return None
-    if expr.access != Ps1AccessKind.STATIC:
-        return None
-    if not isinstance(expr.object, Ps1TypeExpression):
-        return None
-    tn = normalize_dotnet_type_name(expr.object.name)
-    if tn not in _SCRIPTBLOCK_TYPE_NAMES:
-        return None
-    if not isinstance(expr.member, str) or expr.member.lower() != 'create':
+    if not is_scriptblock_create(expr):
         return None
     if len(expr.arguments) != 1:
         return None
     return expr.arguments[0]
-
-
-def _extract_new_object_args(cmd: Ps1CommandInvocation) -> tuple[str, list[Expression]] | None:
-    """
-    Extract type name and constructor arguments from a `New-Object` invocation.
-
-    Returns `(type_name, [arg_expressions])` or `None`.
-    """
-    if not isinstance(cmd.name, Ps1StringLiteral):
-        return None
-    if cmd.name.value.lower() != 'new-object':
-        return None
-    positional: list[Expression] = []
-    for arg in cmd.arguments:
-        if isinstance(arg, Ps1CommandArgument):
-            if arg.kind != Ps1CommandArgumentKind.POSITIONAL or arg.value is None:
-                return None
-            positional.append(arg.value)
-        elif isinstance(arg, Expression):
-            positional.append(arg)
-        else:
-            return None
-    if not positional:
-        return None
-    type_name_expr = positional[0]
-    if not isinstance(type_name_expr, Ps1StringLiteral):
-        return None
-    type_name = type_name_expr.value
-    ctor_args: list[Expression] = []
-    if len(positional) >= 2:
-        second = positional[1]
-        if isinstance(second, Ps1ParenExpression) and second.expression is not None:
-            inner = second.expression
-            if isinstance(inner, Ps1ArrayLiteral):
-                ctor_args = list(inner.elements)
-            else:
-                ctor_args = [inner]
-        else:
-            ctor_args = [second]
-    return type_name, ctor_args
 
 
 def _resolve_encoding(expr: Expression) -> str | None:
@@ -212,7 +173,7 @@ def _resolve_encoding(expr: Expression) -> str | None:
         return None
     if not isinstance(expr.object, Ps1TypeExpression):
         return None
-    if normalize_dotnet_type_name(expr.object.name) != 'text.encoding':
+    if not is_type(expr.object.name, 'System.Text.Encoding'):
         return None
     if not isinstance(expr.member, str):
         return None
@@ -222,6 +183,7 @@ def _resolve_encoding(expr: Expression) -> str | None:
 def _try_evaluate(
     expr: Expression,
     bindings: dict[str, str | bytes] | None = None,
+    shadowed: frozenset[str] = frozenset(),
 ) -> str | bytes | None:
     """
     Recursively evaluate a .NET expression chain to `str` or `bytes`. Handles the pattern:
@@ -237,18 +199,22 @@ def _try_evaluate(
         expr | %{ body } | %{ body }
 
     where the `ForEach-Object` stage receives the previous result via `$_`.
+
+    *shadowed* is the whole-run set of command names the script has taken over. A pipeline stage
+    reads it so a `%` the script has redefined runs its own body rather than the cmdlet, and the
+    chain refuses rather than decode what 5.1 never decodes — see `extract_foreach_scriptblock`.
     """
     if isinstance(expr, Ps1StringLiteral):
         return expr.value
 
     if isinstance(expr, Ps1ParenExpression) and expr.expression is not None:
-        return _try_evaluate(expr.expression, bindings)
+        return _try_evaluate(expr.expression, bindings, shadowed)
 
     if isinstance(expr, Ps1SubExpression):
         if len(expr.body) == 1:
             stmt = expr.body[0]
             if isinstance(stmt, Ps1ExpressionStatement) and stmt.expression is not None:
-                return _try_evaluate(stmt.expression, bindings)
+                return _try_evaluate(stmt.expression, bindings, shadowed)
         return None
 
     if isinstance(expr, Ps1Variable):
@@ -261,8 +227,8 @@ def _try_evaluate(
 
     if isinstance(expr, Ps1BinaryExpression) and expr.operator == '+':
         if expr.left is not None and expr.right is not None:
-            left = _try_evaluate(expr.left, bindings)
-            right = _try_evaluate(expr.right, bindings)
+            left = _try_evaluate(expr.left, bindings, shadowed)
+            right = _try_evaluate(expr.right, bindings, shadowed)
             if isinstance(left, str) and isinstance(right, str):
                 return left + right
 
@@ -270,7 +236,7 @@ def _try_evaluate(
         if (
             expr.access == Ps1AccessKind.STATIC
             and isinstance(expr.object, Ps1TypeExpression)
-            and normalize_dotnet_type_name(expr.object.name) == 'convert'
+            and is_type(expr.object.name, 'System.Convert')
             and isinstance(expr.member, str)
             and expr.member.lower() == 'frombase64string'
             and len(expr.arguments) == 1
@@ -289,25 +255,25 @@ def _try_evaluate(
             and len(expr.arguments) == 0
             and expr.object is not None
         ):
-            return _try_evaluate(expr.object, bindings)
+            return _try_evaluate(expr.object, bindings, shadowed)
 
     if isinstance(expr, Ps1CastExpression) and expr.operand is not None:
         tn = normalize_dotnet_type_name(expr.type_name)
         if tn == 'io.memorystream':
-            return _try_evaluate(expr.operand, bindings)
+            return _try_evaluate(expr.operand, bindings, shadowed)
 
     if isinstance(expr, Ps1CommandInvocation):
-        result = _extract_new_object_args(expr)
+        result = extract_new_object(expr)
         if result is None:
             return None
         type_name, ctor_args = result
         tn = normalize_dotnet_type_name(type_name)
 
         if tn == 'io.memorystream' and len(ctor_args) >= 1:
-            return _try_evaluate(ctor_args[0], bindings)
+            return _try_evaluate(ctor_args[0], bindings, shadowed)
 
         if tn == 'io.compression.deflatestream' and len(ctor_args) >= 1:
-            data = _try_evaluate(ctor_args[0], bindings)
+            data = _try_evaluate(ctor_args[0], bindings, shadowed)
             if isinstance(data, bytes):
                 try:
                     return zlib.decompress(data, -15)
@@ -315,7 +281,7 @@ def _try_evaluate(
                     return None
 
         if tn == 'io.compression.gzipstream' and len(ctor_args) >= 1:
-            data = _try_evaluate(ctor_args[0], bindings)
+            data = _try_evaluate(ctor_args[0], bindings, shadowed)
             if isinstance(data, bytes):
                 try:
                     return gzip.decompress(data)
@@ -323,7 +289,7 @@ def _try_evaluate(
                     return None
 
         if tn == 'io.streamreader' and len(ctor_args) >= 1:
-            data = _try_evaluate(ctor_args[0], bindings)
+            data = _try_evaluate(ctor_args[0], bindings, shadowed)
             if not isinstance(data, bytes):
                 return None
             codec = 'utf-8'
@@ -337,7 +303,7 @@ def _try_evaluate(
                 return None
 
     if isinstance(expr, Ps1Pipeline):
-        return _try_evaluate_pipeline(expr, bindings)
+        return _try_evaluate_pipeline(expr, bindings, shadowed)
 
     return None
 
@@ -345,10 +311,12 @@ def _try_evaluate(
 def _try_evaluate_pipeline(
     node: Ps1Pipeline,
     bindings: dict[str, str | bytes] | None = None,
+    shadowed: frozenset[str] = frozenset(),
 ) -> str | bytes | None:
     """
     Evaluate a pipeline `expr | %{ body } | %{ body }` by threading the result of each stage into
-    the next via `$_` bindings.
+    the next via `$_` bindings. *shadowed* refuses a stage whose `ForEach-Object` the script has
+    redefined — see `extract_foreach_scriptblock`.
     """
     if not node.elements:
         return None
@@ -357,7 +325,7 @@ def _try_evaluate_pipeline(
         return None
     if first.expression is None:
         return None
-    value = _try_evaluate(first.expression, bindings)
+    value = _try_evaluate(first.expression, bindings, shadowed)
     if value is None:
         return None
     for elem in node.elements[1:]:
@@ -365,7 +333,7 @@ def _try_evaluate_pipeline(
             return None
         if elem.expression is None:
             return None
-        script_block = extract_foreach_scriptblock(elem.expression)
+        script_block = extract_foreach_scriptblock(elem.expression, shadowed)
         if script_block is None:
             return None
         if len(script_block.body) != 1:
@@ -380,20 +348,22 @@ def _try_evaluate_pipeline(
         if inner_expr is None:
             return None
         stage_bindings: dict[str, str | bytes] = {**(bindings or {}), '_': value}
-        value = _try_evaluate(inner_expr, stage_bindings)
+        value = _try_evaluate(inner_expr, stage_bindings, shadowed)
         if value is None:
             return None
     return value
 
 
-def _resolve_to_string(expr: Expression) -> str | None:
+def _resolve_to_string(expr: Expression, shadowed: frozenset[str] = frozenset()) -> str | None:
     """
-    Try to resolve an expression to a string: first as a literal, then via evaluation.
+    Try to resolve an expression to a string: first as a literal, then via evaluation. *shadowed* is
+    the whole-run set of command names the script has taken over, threaded to `_try_evaluate` so a
+    redefined `ForEach-Object` in a decode pipeline is not read as the cmdlet.
     """
     s = string_value(expr)
     if s is not None:
         return s
-    result = _try_evaluate(expr)
+    result = _try_evaluate(expr, shadowed=shadowed)
     if isinstance(result, str):
         return result
     return None
@@ -444,6 +414,16 @@ class Ps1IexInlining(Transformer):
         self._inline_expressions(node)
         return None
 
+    def _shadowed_at(self, node) -> frozenset[str]:
+        """
+        The whole-run set of command names the script has taken over, read fresh at *node* rather
+        than snapshotted once for the pass. An `Invoke-Expression` this pass has already inlined can
+        install a `function ForEach-Object`, and a decode pipeline folded later in the same pass
+        must see it or it inlines what 5.1 never runs — the folding and emulator recognizers read
+        the set at the fold point for this reason too. See `extract_foreach_scriptblock`.
+        """
+        return model_cache(self, node).closed_world.shadowed_names
+
     def _inline_statements(self, node):
         for container in list(node.walk()):
             body = get_body(container)
@@ -451,50 +431,56 @@ class Ps1IexInlining(Transformer):
                 continue
             i = 0
             while i < len(body):
-                parsed = self._try_resolve_inline(body[i])
-                if parsed is None:
+                statement = body[i]
+                parsed = self._try_resolve_inline(statement)
+                installed = None
+                if parsed is not None:
+                    installed = self._install(container, statement, parsed)
+                if installed is None:
                     i += 1
                     continue
-                parsed = self._preserve_assignment_target(body[i], parsed)
-                if parsed is None:
-                    i += 1
-                    continue
-                for stmt in parsed:
-                    stmt.parent = container
-                body[i:i + 1] = parsed
                 self.mark_changed()
-                i += len(parsed)
+                i += installed
 
     @staticmethod
-    def _preserve_assignment_target(stmt, parsed: list) -> list | None:
+    def _install(container, stmt, parsed: list) -> int | None:
         """
-        When the statement being inlined assigns the (piped) `Invoke-Expression` result to a
-        target, keep the assignment by binding the inlined expression to it. If the resolved code is
-        not a single expression, return `None` so the statement is left untouched rather than
-        silently discarding the assignment target.
+        Put the parsed code where `stmt` stands and report how many statements now sit in its place,
+        or `None` when nothing was installed.
+
+        When the statement assigns the (piped) `Invoke-Expression` result to a target, the
+        assignment is kept and the inlined expression bound to it. Resolved code that is not a
+        single expression cannot be bound to one, so the statement is left untouched rather than the
+        assignment target silently discarded.
+
+        A refused substitution is reported the same way as nothing to install, and the caller must
+        not advance the mutation counter for it:
+        `refinery.lib.scripts.ps1.deobfuscation.deobfuscate` runs its passes to a fixpoint, so a
+        pass that reports a change it did not make never converges.
         """
-        if not (
-            isinstance(stmt, Ps1ExpressionStatement)
-            and isinstance(stmt.expression, Ps1AssignmentExpression)
-        ):
-            return parsed
-        assignment = stmt.expression
         if (
-            len(parsed) == 1
-            and isinstance(parsed[0], Ps1ExpressionStatement)
-            and parsed[0].expression is not None
+            isinstance(stmt, Ps1ExpressionStatement)
+            and isinstance(assignment := stmt.expression, Ps1AssignmentExpression)
         ):
-            assignment.value = parsed[0].expression
-            parsed[0].expression.parent = assignment
-            return [stmt]
-        return None
+            if len(parsed) != 1:
+                return None
+            inlined = parsed[0]
+            if not isinstance(inlined, Ps1ExpressionStatement) or inlined.expression is None:
+                return None
+            if not substitute_field(assignment, 'value', inlined.expression):
+                return None
+            return 1
+        if not substitute_statement(container, stmt, parsed):
+            return None
+        return len(parsed)
 
     def _try_resolve_inline(self, stmt) -> list | None:
-        code = self._try_extract_iex_string(stmt)
+        shadowed = self._shadowed_at(stmt)
+        code = self._try_extract_iex_string(stmt, shadowed)
         if code is None:
-            code = self._try_extract_piped_iex_string(stmt)
+            code = self._try_extract_piped_iex_string(stmt, shadowed)
         if code is None:
-            code = self._try_extract_scriptblock_create_string(stmt)
+            code = self._try_extract_scriptblock_create_string(stmt, shadowed)
         if code is not None:
             return self._try_parse(code)
         return self._try_extract_invoke_command(stmt)
@@ -513,13 +499,14 @@ class Ps1IexInlining(Transformer):
                 continue
             if replacement is None:
                 continue
-            _replace_in_parent(expr, replacement)
+            if not substitute(expr, replacement):
+                continue
             self.mark_changed()
 
     def _try_inline_expression(self, node: Ps1CommandInvocation) -> Expression | None:
         sb_arg = _try_extract_scriptblock_create_from_statement(node)
         if sb_arg is not None:
-            code = _resolve_to_string(sb_arg)
+            code = _resolve_to_string(sb_arg, self._shadowed_at(node))
         else:
             if not isinstance(node.name, Ps1StringLiteral):
                 return None
@@ -528,7 +515,7 @@ class Ps1IexInlining(Transformer):
             val = _extract_iex_value(node)
             if val is None:
                 return None
-            code = _resolve_to_string(val)
+            code = _resolve_to_string(val, self._shadowed_at(node))
         if code is None:
             return None
         parsed = self._try_parse(code)
@@ -559,7 +546,7 @@ class Ps1IexInlining(Transformer):
             return None
         if sb_arg is None:
             return None
-        code = _resolve_to_string(sb_arg)
+        code = _resolve_to_string(sb_arg, self._shadowed_at(node))
         if code is None:
             return None
         parsed = self._try_parse(code)
@@ -583,7 +570,7 @@ class Ps1IexInlining(Transformer):
         return len(cmd.arguments) == 1 and _is_command_switch(cmd.arguments[0])
 
     @staticmethod
-    def _try_extract_iex_string(stmt) -> str | None:
+    def _try_extract_iex_string(stmt, shadowed: frozenset[str] = frozenset()) -> str | None:
         if not isinstance(stmt, Ps1ExpressionStatement):
             return None
         cmd = stmt.expression
@@ -596,10 +583,12 @@ class Ps1IexInlining(Transformer):
         val = _extract_iex_value(cmd)
         if val is None:
             return None
-        return _resolve_to_string(val)
+        return _resolve_to_string(val, shadowed)
 
     @classmethod
-    def _try_extract_piped_iex_string(cls, stmt) -> str | None:
+    def _try_extract_piped_iex_string(
+        cls, stmt, shadowed: frozenset[str] = frozenset()
+    ) -> str | None:
         if not isinstance(stmt, Ps1ExpressionStatement):
             return None
         pipeline = stmt.expression
@@ -617,10 +606,12 @@ class Ps1IexInlining(Transformer):
         source = pipeline.elements[0].expression
         if source is None:
             return None
-        return _resolve_to_string(source)
+        return _resolve_to_string(source, shadowed)
 
     @staticmethod
-    def _try_extract_scriptblock_create_string(stmt) -> str | None:
+    def _try_extract_scriptblock_create_string(
+        stmt, shadowed: frozenset[str] = frozenset()
+    ) -> str | None:
         """
         Match `&([scriptblock]::Create(expr))` and
         `[scriptblock]::Create(expr).Invoke()` at the statement level.
@@ -633,7 +624,7 @@ class Ps1IexInlining(Transformer):
         sb_arg = _try_extract_scriptblock_create_from_statement(expr)
         if sb_arg is None:
             return None
-        return _resolve_to_string(sb_arg)
+        return _resolve_to_string(sb_arg, shadowed)
 
     @staticmethod
     def _try_extract_invoke_command(stmt) -> list | None:

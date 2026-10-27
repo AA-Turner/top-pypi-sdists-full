@@ -13,7 +13,7 @@ from .decoder import LinknetDecoder
 
 
 class Linknet(SegmentationModel):
-    """Linknet_ is a fully convolution neural network for image semantic segmentation. Consist of *encoder*
+    """`Linknet`__ is a fully convolution neural network for image semantic segmentation. Consist of *encoder*
     and *decoder* parts connected with *skip connections*. Encoder extract features of different spatial
     resolution (skip connections) which are used by decoder to define accurate segmentation mask. Use *sum*
     for fusing decoder blocks with skip connections.
@@ -29,9 +29,12 @@ class Linknet(SegmentationModel):
             with shapes [(N, C, H, W),], for depth 1 - [(N, C, H, W), (N, C, H // 2, W // 2)] and so on).
             Default is 5
         encoder_weights: One of **None** (random initialization), **"imagenet"** (pre-training on ImageNet) and
-            other pretrained weights (see table with available weights for each encoder_name)
+            other pretrained weights (see table with available weights for each encoder_name).
+            For ``tu-`` encoders, set to **True** to download pretrained weights or **None** for
+            random initialization. The pretrained variant is defined in the encoder name
         decoder_use_norm:     Specifies normalization between Conv2D and activation.
             Accepts the following types:
+
             - **True**: Defaults to `"batchnorm"`.
             - **False**: No normalization (`nn.Identity`).
             - **str**: Specifies normalization type using default parameters. Available values:
@@ -53,18 +56,18 @@ class Linknet(SegmentationModel):
             **callable** and **None**. Default is **None**.
         aux_params: Dictionary with parameters of the auxiliary output (classification head). Auxiliary output is build
             on top of encoder if **aux_params** is not **None** (default). Supported params:
-                - classes (int): A number of classes
-                - pooling (str): One of "max", "avg". Default is "avg"
-                - dropout (float): Dropout factor in [0, 1)
-                - activation (str): An activation function to apply "sigmoid"/"softmax"
-                    (could be **None** to return logits)
+
+            - classes (int): A number of classes
+            - pooling (str): One of "max", "avg". Default is "avg"
+            - dropout (float): Dropout factor in [0, 1)
+            - activation (str): An activation function to apply "sigmoid"/"softmax"
+              (could be **None** to return logits)
         kwargs: Arguments passed to the encoder class ``__init__()`` function. Applies only to ``timm`` models. Keys with ``None`` values are pruned before passing.
 
     Returns:
         ``torch.nn.Module``: **Linknet**
 
-    .. _Linknet:
-        https://arxiv.org/abs/1707.03718
+    .. __: https://arxiv.org/abs/1707.03718
     """
 
     @supports_config_loading

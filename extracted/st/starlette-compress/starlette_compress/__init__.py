@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from operator import index
 
 from starlette.datastructures import MutableHeaders
 
@@ -13,9 +14,24 @@ from starlette_compress._utils import (
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from starlette.types import ASGIApp, Receive, Scope, Send
 
-__version__ = '1.8.0'
+
+def _validate_level(name: str, value: int, maximum: int) -> int:
+    try:
+        level = index(value)
+    except TypeError as error:
+        raise TypeError(
+            f'{name} must be an integer, got {type(value).__name__}'
+        ) from error
+    if not 0 <= level <= maximum:
+        raise ValueError(f'{name} must be between 0 and {maximum}, got {level}')
+    return level
+
+
+__version__ = '2.0.0'
 
 
 class CompressMiddleware:
@@ -43,30 +59,42 @@ class CompressMiddleware:
     ) -> None:
         """Compression middleware supporting multiple algorithms.
 
-        The middleware automatically selects the best available compression method
-        based on the client's Accept-Encoding header. Compression methods are tried
-        in order: Zstandard, Brotli, Gzip, and finally no compression (identity).
+        Positive Accept-Encoding qualities make methods eligible, then server
+        priority selects Zstandard, Brotli, Gzip, or no compression (identity).
+        Relative quality values do not reorder that priority. Missing/unsupported
+        encodings fall back to identity, without a 406 response.
 
         :param app: ASGI application to wrap.
-        :param minimum_size: Minimum response size in bytes to apply compression.
-            Streaming content types (e.g. ``text/event-stream``) bypass this threshold.
+        :param minimum_size: Minimum ordinary one-shot body size in bytes.
+            Multi-message responses begin compression without buffering to this
+            threshold. Streaming content types (e.g. ``text/event-stream``) also
+            bypass it for one-shot bodies and flush each non-empty continuing
+            body message.
         :param zstd: Enable Zstandard compression.
         :param zstd_level: Zstandard compression level. Valid values are all negative integers (faster) to 22 (best).
         :param brotli: Enable Brotli compression.
-        :param brotli_quality: Brotli quality level, 0 (fastest) to 11 (best).
+        :param brotli_quality: Brotli quality level, 0 (fastest) to 11 (best). Checked when enabled.
         :param gzip: Enable Gzip compression.
-        :param gzip_level: Gzip compression level, 0 (fastest) to 9 (best).
+        :param gzip_level: Gzip compression level, 0 (fastest) to 9 (best). Checked when enabled.
         :param remove_accept_encoding: Remove request Accept-Encoding after reading it.
+
+        :raises TypeError: An enabled Brotli quality or Gzip level is not an integer.
+        :raises ValueError: An enabled Brotli quality or Gzip level is outside its valid range.
         """
+        if brotli:
+            brotli_quality = _validate_level('brotli_quality', brotli_quality, 11)
+        if gzip:
+            gzip_level = _validate_level('gzip_level', gzip_level, 9)
+
         self.app = app
         self._identity = IdentityResponder(app, minimum_size)
         self._remove_accept_encoding = remove_accept_encoding
 
         if zstd:
-            if sys.version_info < (3, 14):
-                from starlette_compress._zstd_legacy import ZstdResponder
-            else:
+            if sys.version_info >= (3, 14):
                 from starlette_compress._zstd import ZstdResponder
+            else:
+                from starlette_compress._zstd_legacy import ZstdResponder
 
             self._zstd = ZstdResponder(app, minimum_size, zstd_level)
         else:
@@ -90,7 +118,7 @@ class CompressMiddleware:
         if scope['type'] != 'http':
             return await self.app(scope, receive, send)
 
-        raw_headers = scope['headers']
+        raw_headers: Iterable[tuple[bytes, bytes]] = scope['headers']
         if not isinstance(raw_headers, list):
             raw_headers = scope['headers'] = list(raw_headers)
 

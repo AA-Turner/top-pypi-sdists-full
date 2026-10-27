@@ -68,10 +68,10 @@ from bitfab.mock_override import (
 from bitfab.organization_members import OrganizationMembersClient
 from bitfab.payload_budget import MAX_COMPRESSIBLE_SPAN_CARRIER_BYTES
 from bitfab.replay import (  # noqa: F401 - re-export
-    _CODE_CHANGE_UNSET,
     _CONCURRENCY_UNSET,
     AdaptContext,
     CodeChangeFile,
+    CodeChangeType,
     MockStrategy,
     ProcessLauncher,
     ReplayConcurrency,
@@ -82,7 +82,6 @@ from bitfab.replay import (  # noqa: F401 - re-export
     ReplayProgress,
     ReplayResult,
     ReseedResult,
-    _CodeChangeUnset,
     _ConcurrencyUnset,
     _deserialize_inputs,
     _in_replay_item,
@@ -2051,12 +2050,9 @@ class Bitfab:
         notes: str | None = None,
         metadata: dict[str, str] | None = None,
         max_concurrency: int | _ConcurrencyUnset | None = _CONCURRENCY_UNSET,
-        code_change_description: Union[str, _CodeChangeUnset, None] = (
-            _CODE_CHANGE_UNSET
-        ),
-        code_change_files: Union[
-            list[CodeChangeFile], _CodeChangeUnset, None
-        ] = _CODE_CHANGE_UNSET,
+        code_change: CodeChangeType | None = None,
+        code_change_description: str | None = None,
+        code_change_files: list[CodeChangeFile] | None = None,
         experiment_group_id: str | None = None,
         experiment_group_name: str | None = None,
         dataset_id: str | None = None,
@@ -2126,16 +2122,32 @@ class Bitfab:
                 ``client.experiments``.
             max_concurrency: Maximum number of items to process in parallel.
                 Set to 1 for sequential execution, or None for unlimited. Defaults to 10.
-            code_change_description: Optional rationale for the code change being
-                tested in this replay. Stored on the resulting experiment. When
-                supplied without ``code_change_files``, this text is preserved
-                while the SDK automatically captures the files. Pass ``None``
-                when the replay should have no description; use
-                ``code_change_files=None`` to suppress automatic file capture.
-            code_change_files: Optional list of files edited as part of this code
-                change. Each entry is ``{"path", "before", "after"}``. Omit
-                this argument to capture automatically, or pass ``None`` to
-                suppress file capture for this replay.
+            code_change: Required. Which code change this replay tests, stored
+                on the resulting experiment so it can be reviewed alongside the
+                results. A replay without it is refused before any request is
+                sent.
+
+                - ``"working-tree"``: the uncommitted changes in the git
+                  working tree, vs HEAD
+                - ``"last-branch"``: the diff against the branch this one was
+                  cut from, such as the branch below it in a stack, else the
+                  default branch
+                - ``"default-branch"``: the diff against where HEAD split from
+                  the default branch (``origin/HEAD``, else ``origin/main``,
+                  ``origin/master``, ``main``, ``master``)
+                - ``"skip"``: no code change, such as for a baseline run
+                - ``"manual"``: the files passed in ``code_change_files``
+
+                The three git choices include uncommitted edits and untracked
+                files, and warn and attach nothing when they find no changed
+                files.
+            code_change_description: Description of the code change being
+                tested in this replay. Defaults to one generated from the
+                captured files. Not accepted with ``"skip"``.
+            code_change_files: The edited files when ``code_change`` is
+                ``"manual"``, and only then. Each entry is
+                ``{"path", "before", "after"}``. Use ``""`` for newly created
+                (``before``) or deleted (``after``) files.
             experiment_group_id: Optional UUID that groups multiple replay runs
                 into a single experiment batch. The run joins that group, and an
                 ID no group has yet creates it.
@@ -2290,6 +2302,7 @@ class Bitfab:
             notes=notes,
             metadata=metadata,
             max_concurrency=max_concurrency,
+            code_change=code_change,
             code_change_description=code_change_description,
             code_change_files=code_change_files,
             experiment_group_id=experiment_group_id,

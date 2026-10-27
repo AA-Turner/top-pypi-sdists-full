@@ -196,7 +196,48 @@ def _public_job(job, *, identity=None, summary=False):
             "reportTruncated": not summary and (len(report) > REPORT_LINES or any(
                 len(str(x)) > REPORT_LINE_CHARS for x in report[-REPORT_LINES:])),
             "activity": activity, "activityTruncated": activity_truncated,
+            **({"skipped": skipped}
+               if not summary and (skipped := _job_skipped(job)) is not None else {}),
             **({"scope": _scope(identity)} if identity is not None else {})}
+
+
+def _job_skipped(job):
+    """A folder job's rule-skipped folders (`backfill.Census.skipped_json`), as the
+    worker recorded them, re-bounded here: the record is a local file. None when
+    the job recorded none (a transcripts job, or a CLI older than the field)."""
+    from ..sdk.redaction import scrub_string
+    from . import import_jobs
+    raw = job.get("skipped")
+    if not isinstance(raw, dict):
+        return None
+
+    def display(value, limit):
+        try:
+            return import_jobs._clean(scrub_string(value[:8192]), limit)
+        except (ValueError, RecursionError):
+            return "(omitted)"
+
+    def count(key):
+        value = raw.get(key)
+        return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
+
+    def rows(key):
+        items = raw.get(key)
+        items = items if isinstance(items, list) else []
+        return [{"path": display(str(item["path"]), 1024), "files": item["files"]}
+                for item in items[:50]
+                if isinstance(item, dict) and isinstance(item.get("path"), str)
+                and isinstance(item.get("files"), int) and not isinstance(item["files"], bool)]
+
+    included = raw.get("includedHidden")
+    return {
+        "hiddenFolders": rows("hiddenFolders"), "hiddenFolderCount": count("hiddenFolderCount"),
+        "hiddenFiles": count("hiddenFiles"),
+        "worktrees": rows("worktrees"), "worktreeCount": count("worktreeCount"),
+        "worktreeFiles": count("worktreeFiles"),
+        "includedHidden": [display(name, 256) for name in included[:50] if isinstance(name, str)]
+        if isinstance(included, list) else [],
+    }
 
 
 def _history(identity, cursor=None):
@@ -382,7 +423,6 @@ def _live_sessions():
     """(sessions or None, ServiceState, the reason's text or None for the
     state's own), fail-soft: the listing, then `service.status` for what the
     service is doing (an update, its discovery window) when it answers at all."""
-    import os
     from probe import __version__
     from probe.service import client
     from probe.service.protocol import Method, State
@@ -520,7 +560,116 @@ FIELDS = {
     "delivery": {}, "profile": {}, "analytics_policy": {}, "set_capture": {"source": str, "enabled": bool},
     "onboarding_complete": {"userId": str, "customerId": str},
     "workspaces": {},
+    "computer_workspace": {},
+    "set_computer_workspace": {"workspaceId": str, "userId": str, "customerId": str},
+    "create_computer_workspace": {"name": str, "requestId": str, "userId": str, "customerId": str},
+    "setup_options": {},
+    "set_setup_option": {"setting": str, "enabled": bool, "userId": str, "customerId": str},
 }
+
+
+def setup_options(client, request=None):
+    """Expose the wizard's settings-only options through its own readers/writers."""
+    from . import setup, doctor
+    from .capabilities import agent_target
+    from probe.sdk import workspace_limit as wl
+
+    with wl.without_limit():
+        identity = _scope(_identity(client))
+    caps = {}
+    for source in setup.INSTALLABLE_AGENT_SOURCES:
+        with agent_target(source):
+            snapshot = doctor.collect(local=True)
+        if snapshot.agent_configured:
+            caps[source] = snapshot
+    # The wizard owns this inventory. Future settings-only rows reach the app
+    # without another desktop allowlist; capabilities keep their install/grant path.
+    keys = tuple(key for _, group in (*setup.SETTINGS_GROUPS, *setup.DAEMON_GROUPS)
+                 for key in group if key not in setup.CAPABILITY_SETTINGS)
+    warnings = []
+    if request is not None:
+        expected = {key: request.get(key) for key in ("userId", "customerId")}
+        if expected != identity:
+            raise ValueError("The account changed. Read the settings again.")
+        if request.get("setting") not in keys or type(request.get("enabled")) is not bool:
+            raise ValueError("Unknown setup setting or value.")
+        setting = setup.Setting(request["setting"])
+        lines = setup.apply_settings({setting: request["enabled"]}, caps_by_source=caps)
+        actual = setup.read_settings(caps)
+        if actual[setting] != request["enabled"]:
+            raise ValueError("The setting could not be fully saved. Refresh its current value and try again.")
+        if any(line.startswith("!") for line in lines):
+            warnings = ["The preference was saved. Some agent configuration could not be updated; run checks in Installation for details."]
+    current = setup.read_settings(caps)
+    return {"scope": identity, "warnings": warnings, "settings": [
+        {"id": str(key), "title": setup.SETTINGS_COPY[key][0],
+         "description": " ".join(line for line in setup.SETTINGS_COPY[key][1] if line),
+         "enabled": current[key],
+         "available": key is not setup.Setting.REASONING_SUMMARIES or bool(setup.reasoning_sources(caps))}
+        for key in keys
+    ]}
+
+
+def computer_workspace(client):
+    """The wizard's filing picker and preselection, separate from the read limit."""
+    from . import computer_workspace as cw, workspace_limit_cmd
+    from probe.sdk import workspace_limit as wl
+
+    with wl.without_limit():
+        identity = _identity(client)
+    rows = workspace_limit_cmd.list_workspaces(client)
+    pinned = cw._saved_pin()
+    return {
+        "workspaces": [{key: row.get(key) for key in
+                        ("id", "name", "slug", "project_count", "writable")} for row in rows],
+        "selected": cw.preselect([r for r in rows if r.get("writable") is not False],
+                                 pinned=pinned, user_id=identity["user_id"]),
+        "pinned": pinned,
+        "workspace_limit": (limit.as_json() if (limit := workspace_limit_cmd.stored_limit()) else None),
+        "scope": _scope(identity),
+    }
+
+
+def set_computer_workspace(client, request):
+    from . import computer_workspace as cw, workspace_limit_cmd
+    from probe.sdk import errors, workspace_limit as wl
+
+    expected = {key: request.get(key) for key in ("userId", "customerId")}
+    with wl.without_limit():
+        identity = _scope(_identity(client))
+    if not all(expected.values()) or expected != identity:
+        raise ValueError("The account or destination changed. Review the workspaces again.")
+    rows = workspace_limit_cmd.list_workspaces(client)
+    if request["op"] == "create_computer_workspace":
+        name = request.get("name", "").strip()
+        if not name or len(name) > 120:
+            raise ValueError("Enter a workspace name of 1 to 120 characters.")
+        try:
+            nonce = uuid.UUID(request.get("requestId", "")).hex
+        except ValueError as exc:
+            raise ValueError("Invalid workspace creation request.") from exc
+        if workspace_limit_cmd.stored_limit() is not None:
+            raise ValueError("Change this computer's workspace limit before creating another workspace.")
+        # A lost response retries the same create, including after app/service restart.
+        # The random request id is retained by the app for this name, never a display-name upsert.
+        slug = f"{cw._slug(name)[:31]}-{nonce}"
+        row = next((row for row in rows if row.get("slug") == slug), None)
+        if row is None:
+            with wl.without_limit():
+                try:
+                    row = client.create_workspace(slug, name)
+                except errors.ConflictError:
+                    row = next((row for row in workspace_limit_cmd.list_workspaces(client)
+                                if row.get("slug") == slug), None)
+                    if row is None:
+                        raise
+    else:
+        row = next((row for row in rows if str(row.get("id")) == request.get("workspaceId")), None)
+        if row is None:
+            raise ValueError("That workspace is no longer available. Refresh the list and choose again.")
+    cw._pin(row, pinned=cw._saved_pin())
+    return {"workspace": {key: row.get(key) for key in ("id", "name", "slug")},
+            "scope": expected, "warnings": cw._env_note(row)}
 
 
 def workspaces(client):
@@ -582,6 +731,12 @@ def _dispatch(request):
                 return client.transport.get("/v1/desktop/profile")
         if op == "workspaces":
             return workspaces(client)
+        if op == "computer_workspace":
+            return computer_workspace(client)
+        if op in ("set_computer_workspace", "create_computer_workspace"):
+            return set_computer_workspace(client, request)
+        if op in ("setup_options", "set_setup_option"):
+            return setup_options(client, request if op == "set_setup_option" else None)
         identity = _identity(client)
         if op == "delivery":
             return snapshot_delivery(identity)
@@ -597,7 +752,8 @@ def _dispatch(request):
 
 
 #: The ops that take the setup lock (`dispatch`): admission and job lifecycle.
-LOCKED = frozenset({"start_backfill", "resume_job", "cancel_job", "onboarding_complete"})
+LOCKED = frozenset({"start_backfill", "resume_job", "cancel_job", "onboarding_complete",
+                    "set_computer_workspace", "create_computer_workspace", "set_setup_option"})
 
 
 def dispatch(request):

@@ -203,6 +203,7 @@ class CfnMonitor(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -281,7 +282,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6233cbd9810e0b715510025cae76f9402639117e6b198d1734d70f117483cc34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "localResources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "localResources", value)
 
     @builtins.property
     @jsii.member(jsii_name="monitorName")
@@ -294,7 +295,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a962683b28941b0269643216e55bc7b4ed15136dc2a2a56b71973930ce0a2b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitorName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitorName", value)
 
     @builtins.property
     @jsii.member(jsii_name="remoteResources")
@@ -312,7 +313,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fe55d218c1a3e1060b77730feb2fe5ee6972eecd325005a96d6ea585ba365082)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "remoteResources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "remoteResources", value)
 
     @builtins.property
     @jsii.member(jsii_name="scopeArn")
@@ -325,7 +326,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05b8ae09fc15f836ebbb6f8bb4d42b88d6a06c63659ceaef56a4dc98da1cf02b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scopeArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scopeArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -341,7 +342,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__75a6ab8f7d617cdcd7f3478b8338d995b686397bdca099639734e5a38bca9b08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkflowmonitor.CfnMonitor.MonitorLocalResourceProperty",
@@ -730,6 +731,7 @@ class CfnScope(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -799,7 +801,7 @@ class CfnScope(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bbf6606bfaba1b18e072cde1af4217f25ea4696e754d35ce9fe6a6247d2dcd9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targets", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targets", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -815,7 +817,7 @@ class CfnScope(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c4dcbae5a5109fbaa3520c62631ac2b7b2a956d8fde01a74890684675a1392cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkflowmonitor.CfnScope.TargetIdProperty",

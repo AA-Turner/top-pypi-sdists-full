@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from probe.service import keeper, paths, recorders
+from probe.service import keeper, lifeboat, paths, recorders
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 
 WINDOWS = os.name == "nt"
@@ -62,6 +62,14 @@ def fake_tools(tmp_path, monkeypatch):
     monkeypatch.setattr(keeper, "_own_home", lambda: True)
     monkeypatch.setattr(keeper, "_python", lambda: "/opt/probe/bin/python")
 
+    def boat(login=None) -> str:
+        """The lifeboat's install, its wrapper only (`test_lifeboat.py` covers the rest)."""
+        lifeboat.wrapper_path().parent.mkdir(parents=True, exist_ok=True)
+        lifeboat.wrapper_path().write_text("#!/bin/sh\nexit 0\n")
+        return "current"
+
+    monkeypatch.setattr(lifeboat, "install", boat)
+
     def read():
         try:
             return [json.loads(line) for line in calls.read_text().splitlines()]
@@ -77,8 +85,11 @@ def test_linux_gets_a_user_timer_written_once(fake_tools, monkeypatch, tmp_path)
     assert keeper.install() == "installed"
     unit = (tmp_path / "home" / ".config" / "systemd" / "user" / "probe-service-keeper.service").read_text()
     timer = (tmp_path / "home" / ".config" / "systemd" / "user" / "probe-service-keeper.timer").read_text()
-    assert 'ExecStart="/opt/probe/bin/python" -I -m probe.service.keeper' in unit
+    wrapper = tmp_path / "home" / ".local" / "state" / "probe" / "lifeboat" / "lifeboat.sh"
+    assert f'ExecStart=/bin/sh "{wrapper}" keeper' in unit, "the lifeboat's wrapper, by its fixed path (B2)"
+    assert "python" not in unit, "no release's interpreter is named: the wrapper finds it"
     assert "KillMode=process" in unit, "the service it starts outlives the oneshot"
+    assert f"TimeoutStartSec={keeper.START_TIMEOUT_S}" in unit, "a stuck run never holds the timer off for good"
     assert "OnUnitActiveSec=60s" in timer and "WantedBy=timers.target" in timer
     assert ["systemctl", "--user", "enable", "--now", "probe-service-keeper.timer"] in fake_tools()
     before = len(fake_tools())
@@ -94,10 +105,58 @@ def test_macos_gets_a_launch_agent(fake_tools, monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "platform", "darwin")
     assert keeper.install() == "installed"
     plist = plistlib.loads((tmp_path / "home" / "Library" / "LaunchAgents" / f"{keeper.LABEL}.plist").read_bytes())
-    assert plist["ProgramArguments"] == ["/opt/probe/bin/python", "-I", "-m", "probe.service.keeper"]
+    wrapper = tmp_path / "home" / ".local" / "state" / "probe" / "lifeboat" / "lifeboat.sh"
+    assert plist["ProgramArguments"] == ["/bin/sh", str(wrapper), "keeper"]
     assert plist["StartInterval"] == 60 and plist["RunAtLoad"] is False
     assert plist["AbandonProcessGroup"] is True
     assert any(c[:2] == ["launchctl", "bootstrap"] for c in fake_tools())
+
+
+@POSIX_UNITS
+def test_no_unit_names_a_wrapper_that_is_not_there(fake_tools, monkeypatch, tmp_path):
+    """A lifeboat that could not be installed leaves the units as they were
+    (an older release's keep working): a unit never names a missing file."""
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(lifeboat, "install", lambda login=None: "failed: OSError('disk full')")
+    assert keeper.install() == "no lifeboat (lifeboat: failed: OSError('disk full'))"
+    assert not (tmp_path / "home" / ".config" / "systemd" / "user" / "probe-service-keeper.service").exists()
+    assert fake_tools() == []
+
+
+@POSIX_UNITS
+def test_an_uninstall_removes_the_lifeboat_too(fake_tools, monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "platform", "linux")
+    assert keeper.install() == "installed"
+    (lifeboat.root() / "current").mkdir()
+    (lifeboat.root() / "current" / "handoff.py").write_text("HANDOFF_VERSION = 1\n")
+    keeper.remove()
+    assert not lifeboat.root().exists(), "no session start runs a lifeboat Probe was uninstalled from"
+
+
+@pytest.mark.skipif(WINDOWS, reason="passwd entries are POSIX's")
+def test_a_uid_with_no_passwd_entry_takes_an_owned_home_outside_every_temp_folder(monkeypatch, tmp_path):
+    """A pod's uid is often the runtime's, with no passwd entry: `_own_home`
+    used to say no, and no lifeboat was ever installed there. $HOME counts
+    when it is an existing folder the uid owns, never under a temp folder (a
+    test's or a sandbox's HOME, which this suite's is)."""
+    import pwd
+
+    def no_entry(uid):
+        raise KeyError(f"getpwuid(): uid not found: {uid}")
+
+    monkeypatch.setattr(pwd, "getpwuid", no_entry)
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    assert keeper._own_home() is False, "under the temp folder: a test's HOME"
+    monkeypatch.setattr(keeper, "_temp_roots", lambda: ["/nonexistent-temp-root"])
+    assert keeper._own_home() is True
+    for bad in (str(tmp_path / "missing"), "relative/home", "/"):
+        monkeypatch.setenv("HOME", bad)
+        assert keeper._own_home() is False, bad
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(keeper.os, "getuid", lambda: os.stat(home).st_uid + 1)
+    assert keeper._own_home() is False, "a folder another uid owns"
 
 
 def test_never_for_a_home_that_is_not_the_accounts_own(monkeypatch, tmp_path):

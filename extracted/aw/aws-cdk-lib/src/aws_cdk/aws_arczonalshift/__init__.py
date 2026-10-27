@@ -162,6 +162,7 @@ class CfnAutoshiftObserverNotificationStatus(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -212,7 +213,7 @@ class CfnAutoshiftObserverNotificationStatus(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ef429db68210cb2d5549e51165dc50e2f32e0d65575831ef012354037d1bcfd0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
 
 @jsii.data_type(
@@ -378,6 +379,7 @@ class CfnZonalAutoshiftConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -411,7 +413,7 @@ class CfnZonalAutoshiftConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0172f855e8c8e45fb028b84c5b6c061a5bab422e24d02655056a950949eb68fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="practiceRunConfiguration")
@@ -429,7 +431,7 @@ class CfnZonalAutoshiftConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__deabf71a3e0015b91f35f23b96354f1d2feeb19a3f783edd9e6c4be281a4d00a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "practiceRunConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "practiceRunConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="zonalAutoshiftStatus")
@@ -442,7 +444,7 @@ class CfnZonalAutoshiftConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__38043ab0659274c5d49e518db7e7a8d1c6e2ecac6e3e25ff03a10aec470be875)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "zonalAutoshiftStatus", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "zonalAutoshiftStatus", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_arczonalshift.CfnZonalAutoshiftConfiguration.ControlConditionProperty",

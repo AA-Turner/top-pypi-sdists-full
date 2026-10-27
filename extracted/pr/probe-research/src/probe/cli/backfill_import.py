@@ -19,9 +19,11 @@ from . import backfill_github as github
 from . import backfill_legacy as legacy
 from ..sdk import agent_session
 from . import backfill_plan as plans
+from . import backfill_projects as projects_mod
+from . import backfill_structure as structure
 from . import backfill_wandb as wandb
 from . import backfill_ledger as ledger_mod
-from .backfill_coverage import Coverage, CoverageError, Scope
+from .backfill_coverage import Coverage, CoverageError, Scope, skipped_folders
 from .backfill_ledger import Ledger, Unit, UnitKind, UnitState
 
 
@@ -331,7 +333,7 @@ def run_background_job(payload, *, progress, meter=None):
     settings, read here once per attempt (`import_agent_settings.resolve`)."""
     from . import backfill as bf
     from . import backfill_run as runner
-    from . import import_agent_settings
+    from . import import_agent_settings, import_jobs
     from .import_jobs import RetryableJobError, UnitRetryJobError, is_retryable_error
 
     if payload.get("schema") == AUTO_BACKGROUND_SCHEMA:
@@ -375,9 +377,11 @@ def run_background_job(payload, *, progress, meter=None):
                     for item in payload["records"]
                 ]
                 paths = [item["path"] for item in payload["records"]]
+                census = bf.Census(**payload["census"])
                 coverage.observe(
                     folder, paths,
                     progress=_census_progress(progress, "Verifying approved file contents", phase="importing"),
+                    skipped=skipped_folders(census, root_name=Path(folder).resolve().name),
                 )
                 coverage.reconcile(client)
                 targets = set(payload["targets"])
@@ -391,10 +395,17 @@ def run_background_job(payload, *, progress, meter=None):
                     for items in payload["reviewed_sources"].values() for item in items
                 ])
                 report = runner.Report()
+                # The reviewed plan said what was skipped; this job's own report
+                # and record say it again, because they are what the desktop reads.
+                report.add(*runner.skipped_lines(census))
+                try:
+                    import_jobs.remember_skipped(census.skipped_json())
+                except (import_jobs.JobError, OSError):
+                    pass
                 lines, _, _ = _deliver_approved(
                     client, coverage, folder, agent=bf.Agent(payload["agent"]),
                     interactive=False, yes=False, concurrency=payload["concurrency"],
-                    records=records, paths=paths, census=bf.Census(**payload["census"]),
+                    records=records, paths=paths, census=census,
                     ledger=ledger, work_dir=directory / "manifests",
                     git=git, report=report, stats=stats, selected=set(),
                     previously_complete=coverage.meta("last_verified_complete", False),
@@ -645,6 +656,7 @@ def execute(
     back_to_selection=False,
     wandb_source=None,
     offer_wandb=True,
+    include_hidden=(),
 ):
     from . import backfill_run as runner
     from . import import_agent_settings
@@ -695,7 +707,7 @@ def execute(
                     background=background,
                     back_to_selection=back_to_selection,
                     wandb_source=wandb_source, offer_wandb=offer_wandb,
-                    agents=agents,
+                    agents=agents, include_hidden=include_hidden,
                 )
                 outcome = stats.pop("_outcome", None) or (
                     tm.BackfillOutcome.SUCCESS if complete else tm.BackfillOutcome.PARTIAL
@@ -819,30 +831,22 @@ def _choose_source(candidates, *, interactive, yes):
     return chosen or None, lines
 
 
-def _existing(client, workspace_id):
-    """Bounded suggestion list. Missing names are resolved exactly before writes."""
-    names = []
-    cursor = None
-    seen = set()
-    for _ in range(10):
-        page = client.list_projects(
-            workspace_id=workspace_id, limit=200, **({"cursor": cursor} if cursor else {})
-        )
-        rows = page if isinstance(page, list) else page.items
-        names.extend(row["slug"] for row in rows if row.get("slug"))
-        cursor = getattr(page, "next_cursor", None)
-        if not cursor or cursor in seen:
-            break
-        seen.add(cursor)
-    return names
-
-
 def _review(
-    folder, records, *, agent, work_dir, existing, fixed_project, census, interactive, yes, git,
+    folder, records, *, agent, work_dir, known, fixed_project, census, interactive, yes, git,
     tel, stats, classification_identity=None, background=False, progress=None, auto_approve=False,
-    agents=None,
+    agents=None, imported=None, plan_file=None,
 ):
-    """The existing classification conversation, limited to the selected delta."""
+    """The existing classification conversation, limited to the selected delta.
+
+    `imported` (path -> project slug) are files delivered before this folder's
+    plans named experiments and runs: classified again so they can be
+    organized, never re-assigned or re-uploaded. `plan_file` receives the plan
+    as JSON (`backfill_structure.plan_json`) each time it is shown.
+
+    `known` is the workspace's projects (`backfill_projects.load`). Every plan
+    is settled against it before it is shown: new projects by default, this
+    folder's own ones reused, and one the classifier chose to reuse marked
+    EXISTING -- or, when nobody reviews this plan, given a new project."""
     from . import backfill_run as runner
     from . import tui
     from . import telemetry as tm
@@ -863,7 +867,8 @@ def _review(
     with (runner.classification_context(classification_identity, **context_options)
           if classification_identity else nullcontext()):
         plan, detail, session = runner.classify(
-            folder, ev, agent=agent, existing=existing, work_dir=work_dir, agents=agents,
+            folder, ev, agent=agent, existing=known.others, work_dir=work_dir, agents=agents,
+            fixed=imported or None, own=list(known.own.values()),
         )
     if plan is None:
         raise _Stopped(
@@ -875,11 +880,31 @@ def _review(
     note = ""
     revisions = 0
     initial = True
+    attended = interactive and not yes
+
+    def settle(plan):
+        if fixed_project:
+            # Pointed at one project: every file goes there, whatever was named.
+            own = known.own.get(fixed_project)
+            if own is not None:
+                plan.projects = [own]
+            return projects_mod.Settled()
+        settled = projects_mod.settle(plan, known, attended=attended, folder=Path(folder))
+        projects_mod.fill_counts(plan, known)
+        return settled
+
     while True:
+        settled = settle(plan)
         left_out: dict[str, str] = {}
         assigned, discrepancy = plans.resolve(ev, plan, left_out=left_out)
         if fixed_project:
             assigned = dict.fromkeys(assigned, fixed_project)
+        resolved = structure.resolve(plan, assigned, fixed_project=fixed_project)
+        if plan_file is not None:
+            write_text_atomic(plan_file, json.dumps(structure.plan_json(
+                assigned, resolved, left_out=len(left_out),
+                fixed=sum(1 for path in (imported or {}) if path in assigned),
+                skipped=census.skipped_json(), projects=plan.projects), indent=2))
         if initial:
             # The plan is built from validated selections, so `trustworthy` is
             # an invariant on OUR code; a false one is reported here and the
@@ -887,15 +912,29 @@ def _review(
             # classification was thrown away over two typos on 2026-10-25).
             stats.update(plan.stats)
             stats["unclassified_files"] = len(plan.excluded)
+            # Metadata only: how many projects are new, reused by code's rule,
+            # or reused because the classifier chose them (and how many such
+            # choices became new projects because nobody reviews this plan).
+            project_counts = {**projects_mod.counts(plan, assigned),
+                              "projects_reuse_declined": settled.declined}
+            stats.update(project_counts)
             tel.emit(
                 tm.EVENT_BACKFILL_PLAN_READY,
                 projects_count=len(set(assigned.values())), trustworthy=discrepancy.trustworthy,
-                left_out_files=len(left_out), **plan.stats,
+                left_out_files=len(left_out), experiments_proposed=len(resolved.experiments),
+                runs_proposed=len(resolved.runs), already_imported_files=len(imported or {}),
+                **project_counts, **plan.stats,
             )
             initial = False
+        stats.update(experiments_proposed=len(resolved.experiments),
+                     runs_proposed=len(resolved.runs))
         body = runner.describe_plan(
-            ev, plan, assigned, discrepancy, left_out=left_out
+            ev, plan, assigned, discrepancy, left_out=left_out, structure=resolved
         )
+        if settled.notes:
+            body += ["", *settled.notes]
+        if plan_file is not None:
+            body += ["", f"Plan as JSON: {plan_file}"]
         if git.evidence:
             body += [
                 "",
@@ -913,7 +952,8 @@ def _review(
             "Review the import plan",
             ["Reading is complete. Approve this plan to start importing"
              + (" in the background." if background else "."),
-             "", *runner.incomplete_lines(census), *body, *([note] if note else [])],
+             "", *runner.incomplete_lines(census), *runner.skipped_lines(census), *body,
+             *([note] if note else [])],
             [("Import files", "import"), ("Change the plan", "revise"),
              ("Cancel import", "cancel")],
         )
@@ -942,7 +982,7 @@ def _review(
               if revision_identity else nullcontext()):
             revised, detail, session = runner.revise(
                 folder, ev, feedback, agent=agent, session_id=session, work_dir=work_dir,
-                plan=plan, existing=existing, agents=agents,
+                plan=plan, existing=known.others, agents=agents, own=list(known.own.values()),
             )
         if revised is None:
             note = f"Could not revise: {detail[-512:] or 'the agent failed'}. The plan is unchanged."
@@ -953,7 +993,6 @@ def _review(
 
 def _finish_approved_request(coverage, client, ledger) -> list[str]:
     """Resume project resolution from the saved reviewed proposal, without a model."""
-    from ..sdk import errors
     from . import telemetry as tm
 
     request = coverage.meta("approved_request")
@@ -981,31 +1020,36 @@ def _finish_approved_request(coverage, client, ledger) -> list[str]:
     )
     destinations = {}
     specs = {spec["slug"]: spec for spec in request["projects"]}
+    # What this request created, saved before anything else happens, so a
+    # resumed run finds its own new project instead of making another.
+    created = request.setdefault("created", {})
     for slug in sorted(set(request["assigned"].values())):
         try:
-            project = client.resolve_project(slug, strict=True)
-            if project is None:
-                spec = specs.get(slug, {})
-                try:
-                    project = client.create_project(
-                        slug,
-                        spec.get("name") or slug,
-                        kind="general",
-                        # The spec file may carry a name a person wrote, but the
-                        # `or slug` fallback means this cannot tell which -- and
-                        # composing a name out of a file is what `authorship.py`
-                        # calls a template. Pinned `agent` so an import from a
-                        # bare terminal leaves it enhanceable instead of locking
-                        # a slug; guessing `human` here is the unrecoverable
-                        # direction.
-                        authored_by=agent_session.AUTHORSHIP_AGENT,
-                        description=spec.get("description") or None,
-                        workspace_id=coverage.scope.workspace_id,
-                    )
-                except errors.ConflictError:
-                    project = client.resolve_project(slug, strict=True)
-                    if project is None:
-                        raise
+            project = projects_mod.destination(
+                client, slug, specs.get(slug, {}),
+                workspace_id=coverage.scope.workspace_id, created=created,
+                remember=lambda: coverage.put_meta("approved_request", request),
+                # The spec file may carry a name a person wrote, but the `or
+                # slug` fallback means this cannot tell which -- and composing
+                # a name out of a file is what `authorship.py` calls a
+                # template. Pinned `agent` so an import from a bare terminal
+                # leaves it enhanceable instead of locking a slug; guessing
+                # `human` here is the unrecoverable direction.
+                authored_by=agent_session.AUTHORSHIP_AGENT,
+            )
+        except projects_mod.ExistingGone as exc:
+            # Nothing was filed into it. The approval named a project that no
+            # longer exists, so it cannot be completed: set aside, and the next
+            # run reviews these files again instead of failing here for good.
+            coverage.put_meta("superseded_request", request)
+            coverage.put_meta("approved_request", None)
+            raise _Stopped(
+                tm.BackfillOutcome.PROJECT_CREATE_FAILED,
+                f"The existing project {exc.slug} was deleted after the plan was approved; "
+                "nothing was imported into it.",
+                "Re-running reviews these files again.",
+                projects_failed=1,
+            ) from exc
         except Exception as exc:
             raise _Stopped(
                 tm.BackfillOutcome.PROJECT_CREATE_FAILED,
@@ -1014,6 +1058,11 @@ def _finish_approved_request(coverage, client, ledger) -> list[str]:
                 projects_failed=1,
             ) from exc
         destinations[slug] = project
+    # A new project whose slug someone took after the review got the next
+    # free one: the saved experiments and runs follow it.
+    projects_mod.retarget_structure(request.get("structure"), {
+        slug: project["slug"] for slug, project in destinations.items()
+        if project.get("slug") and project["slug"] != slug})
     coverage.approve(
         {path: destinations[slug] for path, slug in request["assigned"].items()},
         changed=request["import_changed"],
@@ -1043,8 +1092,14 @@ def _finish_approved_request(coverage, client, ledger) -> list[str]:
     if additional:
         ledger.record_plan(additional, sorted(destinations), append=True)
         ledger.record_approval()
+    # Before the request is cleared, so a crash here re-runs it. The records
+    # themselves are created by `structure.build`, which every later pass
+    # retries until they exist.
+    if request.get("structure") is not None:  # absent from an older CLI's saved request
+        structure.remember(coverage, request["structure"],
+                           [*request["assigned"], *(request.get("imported") or [])])
     coverage.put_meta("approved_request", None)
-    return list(destinations)
+    return [project.get("slug") or slug for slug, project in destinations.items()]
 
 
 def _source_choice(item):
@@ -1072,6 +1127,16 @@ def _save_reviewed_sources(coverage, git, folder, assignments):
         by_choice = {_source_choice(item): item for item in previous + subset.evidence}
         reviewed[project_id] = [asdict(item) for item in by_choice.values()]
     coverage.put_meta("reviewed_sources", reviewed)
+
+
+def _skip_counts(census) -> dict[str, int]:
+    """`backfill.scanned`'s skip counts. Numbers only: folder names are paths."""
+    return {
+        "skipped_hidden_dirs": len(census.skipped_hidden),
+        "skipped_hidden_files": census.skipped_hidden_files,
+        "skipped_worktrees": len(census.skipped_worktrees),
+        "skipped_worktree_files": census.skipped_worktree_files,
+    }
 
 
 def _census_progress(progress, label: str, *, phase="scanning"):
@@ -1122,8 +1187,10 @@ def _run(
     wandb_source=None,
     offer_wandb=True,
     agents=None,
+    include_hidden=(),
 ):
     from . import backfill_run as runner
+    from . import import_jobs
     from . import telemetry as tm
     from . import tui
 
@@ -1139,14 +1206,22 @@ def _run(
     # This marker only categorizes telemetry AFTER the fresh census and
     # receipt join succeed; it never authorizes a no-op or avoids rehashing.
     previously_complete = coverage.meta("last_verified_complete", False)
+    report.add(*runner.refused_includes(include_hidden))
     with _phase(stats, "walk"):
-        census, records, warn, _, _ = runner._index(folder, report)
+        census, records, warn, _, _ = runner._index(folder, report, include_hidden=include_hidden)
     stats.update(files=census.files, bytes=census.bytes)
     tel.emit(
         tm.EVENT_BACKFILL_SCANNED,
         files=census.files, bytes=census.bytes,
         linked_dirs=len(census.linked_dirs), unreadable_dirs=len(census.unreadable_dirs),
+        **_skip_counts(census),
     )
+    # The desktop's view of a background import: a no-op in a foreground run,
+    # and never a reason for the import to stop.
+    try:
+        import_jobs.remember_skipped(census.skipped_json())
+    except (import_jobs.JobError, OSError):
+        pass
     if warn.root_unreadable:
         stats["_outcome"] = tm.BackfillOutcome.UNREADABLE_ROOT
         return report.lines + [f"{folder} could not be read; coverage was not advanced."], stats, False
@@ -1154,21 +1229,29 @@ def _run(
         if not census.incomplete:
             # An actually empty folder is still a new observation: retain old
             # remote identities while marking their local paths absent.
-            coverage.observe(folder, [])
+            coverage.observe(folder, [], skipped=skipped_folders(
+                census, root_name=Path(folder).resolve().name))
             coverage.write_report()
+            known = coverage.report()
+            stats.update(absent_files=len(known["vanished"]),
+                         absent_skipped_files=len(coverage.skipped_rules(on_disk=False)),
+                         skipped_by_rule_files=len(known["skipped"]))
         coverage.put_meta("last_verified_complete", False)
         stats["_outcome"] = (
             tm.BackfillOutcome.PARTIAL if census.incomplete else tm.BackfillOutcome.EMPTY_FOLDER
         )
         return [*report.lines, f"{folder}: no files to import."], stats, not census.incomplete
-    report.add(f"{census.files:,} files found on disk in {folder}.")
+    skipped = census.skipped_hidden_files + census.skipped_worktree_files
+    report.add(f"{census.files:,} files found on disk in {folder}"
+               + (f", and {skipped:,} more skipped (listed above)." if skipped else "."))
     paths = [str(Path(record.path).relative_to(folder)) for record in records]
     tui.page(["Verifying current file contents against delivery receipts."])
     if progress is not None:
         progress("Verifying selected file contents", phase="scanning")
     with _phase(stats, "census"):
         coverage.observe(folder, paths,
-                         progress=_census_progress(progress, "Verifying file contents"))
+                         progress=_census_progress(progress, "Verifying file contents"),
+                         skipped=skipped_folders(census, root_name=Path(folder).resolve().name))
     stats.update(**{f"census_{key}": value
                     for key, value in (coverage.meta("last_census") or {}).items()
                     if key in ("hashed", "reused")})
@@ -1254,34 +1337,72 @@ def _run(
             raise KeyboardInterrupt
         import_changed = answer is True
     selected = new | (changed if import_changed else set())
-    if selected:
-        selected_records = [record for record, path in zip(records, paths) if path in selected]
+    # Files delivered before this folder's plans named experiments and runs are
+    # organized once: classified with the rest, kept in their project, moved
+    # (never re-uploaded) into the runs and experiments the plan names.
+    imported = structure.restructure_candidates(coverage)
+    imported = {path: slug for path, slug in imported.items() if path not in selected}
+    if imported and interactive and not yes:
+        answer = tui.review(
+            "Organize imported files",
+            [f"{len(imported):,} files were imported before experiments and runs could be.",
+             "Your agent reads them again to name their experiments and runs; you review the "
+             "plan first. They stay in their projects and are not uploaded again."],
+            [("Organize them into experiments and runs", True), ("Leave them as they are", False)],
+        )
+        if answer is tui.BACK:
+            raise _BackToImport
+        if answer is None:
+            raise KeyboardInterrupt
+        if answer is not True:
+            coverage.put_meta(structure.REVIEWED_KEY, "declined")
+            imported = {}
+    reviewed_plan = None
+    if selected or imported:
+        selected_records = [record for record, path in zip(records, paths)
+                            if path in selected or path in imported]
         fixed = (
             client.get_project(coverage.scope.project_id)["slug"]
             if coverage.scope.project_id
             else None
         )
-        plan, assigned, ev, body = _review(
-            folder,
-            selected_records,
-            agent=agent,
-            work_dir=work_dir,
-            existing=_existing(client, coverage.scope.workspace_id),
-            fixed_project=fixed,
-            census=census,
-            interactive=interactive,
-            yes=yes,
-            git=git,
-            tel=tel,
-            stats=stats,
-            classification_identity=classification_identity,
-            background=background,
-            progress=progress,
-            auto_approve=auto_approve,
-            agents=agents,
-        )
+        try:
+            reviewed_plan = _review(
+                folder,
+                selected_records,
+                agent=agent,
+                work_dir=work_dir,
+                known=projects_mod.load(client, coverage, folder),
+                fixed_project=fixed,
+                census=census,
+                interactive=interactive,
+                yes=yes,
+                git=git,
+                tel=tel,
+                stats=stats,
+                classification_identity=classification_identity,
+                background=background,
+                progress=progress,
+                auto_approve=auto_approve,
+                agents=agents,
+                imported=imported,
+                plan_file=coverage.directory / "plan.json",
+            )
+        except _Stopped as exc:
+            # Organizing files imported before is a bonus on a re-import with
+            # nothing new: its classification failing must not fail the import.
+            if selected or exc.outcome != tm.BackfillOutcome.NO_PLAN:
+                raise
+            report.add("The imported files could not be organized into experiments and runs "
+                       "this time; re-running tries again.", *exc.lines[1:2])
+            reviewed_plan = None
+    if reviewed_plan is not None:
+        plan, assigned, ev, body = reviewed_plan
         # The review includes Code sources before attachment occurs.
         report.add(*body)
+        resolved = structure.resolve(plan, assigned, fixed_project=fixed)
+        # Imported files are organized, never re-approved or re-uploaded.
+        assigned = {path: slug for path, slug in assigned.items() if path not in imported}
         units = plans.pack(ev, assigned) + plans.pack_tails(ev, assigned)
         # Settled as `excluded` rather than left `new` (re-classified every run).
         # Hashed SEPARATELY: an edit to product code before project resolution
@@ -1302,11 +1423,21 @@ def _run(
                 "import_changed": import_changed,
                 "git": [asdict(item) for item in git.evidence],
                 "folder": str(folder),
+                # Copy-like mtimes are judged over the WHOLE folder's walk: this
+                # plan's files alone (one new run, say) are often one burst.
+                "structure": resolved.planned(times=not evidence.Evidence(
+                    root=str(folder), files=records, clusters=[], sampled_files=0,
+                    sampled_bytes=0).mtime_uninformative),
+                # Files imported before that this plan organizes (never re-approved).
+                "imported": sorted(imported),
             },
         )
+        stats.update(experiments_approved=len(resolved.experiments),
+                     runs_approved=len(resolved.runs))
         tel.emit(
             tm.EVENT_BACKFILL_APPROVED,
             revision_count=stats.get("revision_count", 0), units_total=len(units),
+            experiments_approved=len(resolved.experiments), runs_approved=len(resolved.runs),
         )
         report.projects.extend(_finish_approved_request(coverage, client, ledger))
 
@@ -1496,6 +1627,14 @@ def _deliver_approved(
             replacements, sorted({unit.project for unit in replacements}), append=True
         )
         ledger.record_approval()
+    # The approved experiments and runs, before any file is read for upload, so
+    # each file can be filed at its run as soon as its receipt lands. Retried on
+    # every pass; a record that cannot be created leaves its files at their
+    # project and says so.
+    with _phase(stats, "structure"):
+        built = structure.build(client, coverage, Path(folder), report=report)
+    for key, value in built.stats().items():
+        stats[key] = stats.get(key, 0) + value
     if background:
         stats["_background_payload"] = _background_payload(
             coverage, client, folder, agent, concurrency, records, census
@@ -1725,6 +1864,8 @@ def _deliver_approved(
         _flush_uploads(client, retry_network=retry_network, report=report,
                        progress=progress, on_delivered=on_delivered if progress else None)
         coverage.reconcile(client)
+    with _phase(stats, "file"):
+        stats.update(structure.file_delivered(coverage, client, report=report))
 
     # A failed agent can still leave valid manifest rows. Only the files
     # without receipts after draining remain given up on.
@@ -1743,12 +1884,18 @@ def _deliver_approved(
     # unreviewed delta in THIS result, even if every original path has a receipt.
     final_warn = evidence.WalkWarnings()
     with _phase(stats, "rewalk"):
-        final_records = list(evidence.walk(folder, final_warn))
+        # The SAME admissions as the first walk, or a folder `--include-hidden`
+        # admitted would read as deleted here.
+        final_records = list(evidence.walk(folder, final_warn,
+                                           include_hidden=census.include_hidden,
+                                           legacy=census.walk_rules < 1))
         final_paths = [str(Path(record.path).relative_to(folder)) for record in final_records]
         coverage.observe(
             folder, final_paths,
             progress=_census_progress(report_progress if progress else None,
                                       "Re-checking file contents", phase="importing"),
+            skipped=skipped_folders(final_warn, census=census,
+                                    root_name=Path(folder).resolve().name),
         )
         coverage.reconcile(client)
     for key, value in (coverage.meta("last_census") or {}).items():
@@ -1791,6 +1938,11 @@ def _deliver_approved(
     stats.update(
         files=final_count,
         enqueued=enqueued,
+        # Files seen by an earlier census and not by this one: gone from disk,
+        # or now outside the walk by a rule (`SkipRule`) and still there.
+        absent_files=len(known["vanished"]),
+        absent_skipped_files=len(coverage.skipped_rules(on_disk=False)),
+        skipped_by_rule_files=len(known["skipped"]),
         # Over what the import is FOR: a monorepo whose product was left out
         # otherwise reads as 3% covered when every research file landed.
         coverage_pct=(round(100 * len(known["delivered"]) / (final_count - len(known["excluded"])), 1)

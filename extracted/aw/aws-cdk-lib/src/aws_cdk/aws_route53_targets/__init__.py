@@ -682,6 +682,7 @@ class CloudFrontTarget(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDFRONT_ZONE_ID")
+    @builtins.classmethod
     def CLOUDFRONT_ZONE_ID(cls) -> builtins.str:
         '''The hosted zone Id if using an alias record in Route53.
 
@@ -806,6 +807,7 @@ class GlobalAcceleratorDomainTarget(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GLOBAL_ACCELERATOR_ZONE_ID")
+    @builtins.classmethod
     def GLOBAL_ACCELERATOR_ZONE_ID(cls) -> builtins.str:
         '''The hosted zone Id if using an alias record in Route53.
 

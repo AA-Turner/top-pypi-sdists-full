@@ -14,6 +14,7 @@ Usage::
         IVSClient,
         ListAdConfigurationsPaginator,
         ListChannelsPaginator,
+        ListFailoverSlateConfigurationsPaginator,
         ListPlaybackKeyPairsPaginator,
         ListRecordingConfigurationsPaginator,
         ListStreamKeysPaginator,
@@ -25,6 +26,7 @@ Usage::
 
     list_ad_configurations_paginator: ListAdConfigurationsPaginator = client.get_paginator("list_ad_configurations")
     list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
+    list_failover_slate_configurations_paginator: ListFailoverSlateConfigurationsPaginator = client.get_paginator("list_failover_slate_configurations")
     list_playback_key_pairs_paginator: ListPlaybackKeyPairsPaginator = client.get_paginator("list_playback_key_pairs")
     list_recording_configurations_paginator: ListRecordingConfigurationsPaginator = client.get_paginator("list_recording_configurations")
     list_stream_keys_paginator: ListStreamKeysPaginator = client.get_paginator("list_stream_keys")
@@ -36,6 +38,7 @@ from .client import IVSClient
 from .paginator import (
     ListAdConfigurationsPaginator,
     ListChannelsPaginator,
+    ListFailoverSlateConfigurationsPaginator,
     ListPlaybackKeyPairsPaginator,
     ListRecordingConfigurationsPaginator,
     ListStreamKeysPaginator,
@@ -49,6 +52,7 @@ __all__ = (
     "IVSClient",
     "ListAdConfigurationsPaginator",
     "ListChannelsPaginator",
+    "ListFailoverSlateConfigurationsPaginator",
     "ListPlaybackKeyPairsPaginator",
     "ListRecordingConfigurationsPaginator",
     "ListStreamKeysPaginator",

@@ -158,6 +158,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     CreateServiceTokenResponse,
     ListServiceTokensRequest,
     ListServiceTokensResponse,
+    ListTeamMembersFilters,
+    ListTeamMembersRequest,
 )
 from chalk._gen.chalk.server.v1.team_pb2_grpc import TeamServiceStub
 from chalk._gen.chalk.server.v1.training_runs_pb2 import (
@@ -243,6 +245,7 @@ from chalk.client.models import (
     ScheduledQueryRun,
     StreamResolverTestResponse,
     StreamResolverTestStatus,
+    TeamMember,
     UploadFeaturesResponse,
     WorkflowExecutionInfo,
     resolve_multi_query_query_name,
@@ -2756,6 +2759,59 @@ class ChalkGRPCClient:
             if table.table_name == table_name:
                 return table
         return None
+
+    def _iter_team_members(self, include_deactivated: bool):
+        page_token = ""
+        seen_page_tokens: set[str] = set()
+        while True:
+            resp = self._stub_refresher.call_team_stub(
+                lambda x: x.ListTeamMembers(
+                    ListTeamMembersRequest(
+                        page_token=page_token, filters=ListTeamMembersFilters(include_deactivated=include_deactivated)
+                    )
+                )
+            )
+
+            for member in resp.members:
+                yield TeamMember.from_proto(member)
+            page_token = _advance_cursor(
+                seen_page_tokens, resp.next_page_token if resp.HasField("next_page_token") else None
+            )
+            if page_token is None:
+                break
+
+    def list_team_members(self, include_deactivated: bool = False) -> "list[TeamMember]":
+        """List the members of your Chalk team.
+
+        Only active members are returned by default. Pass ``include_deactivated=True`` to
+        also return deactivated members, and check ``deactivated_at`` to tell them apart.
+        Results are fetched page by page behind the scenes, so the returned list is always
+        complete.
+
+        Requires the ``PERMISSION_TEAM_LIST`` permission. When creating a service token
+        in the Chalk dashboard, this is the "See the team members in your organization"
+        permission.
+
+        Parameters
+        ----------
+        include_deactivated
+            If ``True``, deactivated members are also returned. Defaults to ``False``,
+            which returns only active members.
+
+        Returns
+        -------
+        list[TeamMember]
+            One entry per team member, each with ``id``, ``name``, ``email``, and
+            ``deactivated_at``.
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> client = ChalkGRPCClient()
+        >>> active = client.list_team_members()
+        >>> everyone = client.list_team_members(include_deactivated=True)
+        """
+        return list(self._iter_team_members(include_deactivated=include_deactivated))
 
     def cancel_offline_query(
         self,

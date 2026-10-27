@@ -1,12 +1,17 @@
 [project]
 name = "lib_log_rich"
-version = "6.5.7"
+version = "8.0.1"
 description = "Rich-powered logging runtime with contextual metadata, multi-sink fan-out, and ring-buffer dumps"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "lib_cli_exit_tools>=2.4.1",
-  "orjson>=3.13.0",
+  # orjson has no free-threaded build (its source build refuses one) and no marker tells a
+  # free-threaded 3.14 from a normal one, so from 3.14, the first release that supports
+  # free-threading, it is the optional "orjson" extra; lib_log_rich.domain.json_codec falls
+  # back to stdlib json without it. Make it unconditional again once orjson ships
+  # free-threaded wheels.
+  "orjson>=3.13.0; python_version < \"3.14\"",
   "pydantic>=2.14.1",
   "rich-click>=1.9.9",
   "rich>=15.0.0",
@@ -24,6 +29,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Free Threading :: 2 - Beta",
   "License :: OSI Approved :: MIT License",
   "Environment :: Console",
   "Operating System :: OS Independent",
@@ -38,6 +44,7 @@ system-dependencies-macos = []
 system-dependencies-windows-pip = []
 system-dependencies-windows-choco = []
 os = ["ubuntu-latest", "windows-latest", "macos-latest"]
+free-threaded = ["3.14", "3.15"]
 
 [project.urls]
 Homepage = "https://github.com/bitranox/lib_log_rich"
@@ -45,6 +52,9 @@ Repository = "https://github.com/bitranox/lib_log_rich.git"
 Issues = "https://github.com/bitranox/lib_log_rich/issues"
 
 [project.optional-dependencies]
+orjson = [
+  "orjson>=3.13.0",
+]
 journald = [
   "systemd-python>=235; sys_platform == 'linux'",
 ]
@@ -52,6 +62,10 @@ eventlog = [
   "pywin32>=312; sys_platform == 'win32'",
 ]
 dev = [
+  # orjson has no free-threaded build and no marker tells 3.14t from 3.14, so the dev
+  # install leaves it out from 3.14 on, or the free-threaded CI cells could not install:
+  # 3.10-3.13 test both JSON backends, 3.14 and later the stdlib one.
+  "orjson>=3.13.0; python_version < \"3.14\"",
   "rtoml>=0.14.0",
   "pytest>=9.1.1",
   "pytest-asyncio>=1.4.0",
@@ -75,7 +89,7 @@ dev = [
   "textual>=8.2.8",
   "import-linter>=2.15",
   "hypothesis>=6.168.5",
-  "httpx2>=2.13.1",
+  "httpx2>=2.14.0",
   "certifi>=2026.10.19",         # PYSEC-2026-4320
 ]
 
@@ -149,7 +163,10 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 
 [tool.ruff.lint.per-file-ignores]
 # ignore the "unused import sys" in the jupyter notebook - which we need (it is a linter hickup)
-"notebooks/*.ipynb" = ["F401"]
+# A `!cmd` never raises, so CI sees a failing shell command only through
+# `assert _exit_code == N` after it: IPython injects `_exit_code` at run time (F821)
+# and those asserts are the gate (S101).
+"notebooks/*.ipynb" = ["F401", "F821", "S101"]
 # Tests: assert is standard, test fixtures have passwords/tokens, magic values are clearer inline,
 # and temp paths are fine. PLC0415: local/deferred imports are a deliberate test idiom - several
 # tests import inside the test body to exercise import-time and cache behaviour. A002/N803: test
@@ -171,9 +188,9 @@ runtime-evaluated-base-classes = ["pydantic.BaseModel"]
 # _text_utils.py documents/exercises literal emoji and Unicode-symbol ranges (comments describing
 # regex ranges, doctests demonstrating the actual glyphs) - not typos to "fix" to ASCII lookalikes.
 "src/lib_log_rich/adapters/_text_utils.py" = ["RUF002", "RUF003"]
-# cli_stresstest.py is a standalone Textual TUI dev/diagnostic tool (already excluded from strict
-# pyright above), not part of the public library API. FBT001/FBT003: Textual widgets and the
-# SettingSpec table are inherently boolean-flag-heavy. PLC0415/N806: Textual classes are imported
+# cli_stresstest.py is a standalone Textual TUI dev/diagnostic tool, not part of the public library
+# API. FBT001/FBT003: Textual widgets and the SettingSpec table are inherently boolean-flag-heavy.
+# PLC0415/N806: Textual classes are imported
 # lazily and rebound to their original PascalCase names as local base classes. RUF012: BINDINGS is
 # the standard Textual class-attribute idiom. PLR0911/PLR0912/PERF203/T201: pre-existing complexity
 # and console output in this large, isolated UI module - not touched to avoid destabilising it.
@@ -190,7 +207,6 @@ exclude = [
   "scripts/menu.py",
   "scripts/dependencies.py",
   "examples/*",
-  "src/lib_log_rich/cli_stresstest.py",
   "tests/analytics/*",
   "LLM-CONTEXT/*",
   ".venv*",
@@ -277,4 +293,4 @@ ignore-vulns = []
 
 [tool.uv]
 exclude-newer = "7 days"
-exclude-newer-package = {lib-cli-exit-tools = false, ruff = "2026-10-15T15:23:19Z", certifi = "2026-10-20T02:24:17Z"}
+exclude-newer-package = {lib-cli-exit-tools = false, certifi = "2026-10-20T02:24:17Z"}

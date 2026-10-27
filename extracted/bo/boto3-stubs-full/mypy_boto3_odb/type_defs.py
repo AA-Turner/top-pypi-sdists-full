@@ -45,6 +45,7 @@ from .literals import (
     DiskRedundancyType,
     EncryptionKeyProviderInputType,
     EncryptionKeyProviderType,
+    ExascaleDbStorageVaultTypeType,
     ExternalIdTypeType,
     GridImageTypeType,
     HardwareTypeType,
@@ -71,7 +72,9 @@ from .literals import (
     ShapeTypeType,
     SourceTypeType,
     StandbyAllowlistedIpsSourceType,
+    StorageManagementTypeType,
     UpdateActionType,
+    VmStorageTypeType,
     WalletPasswordSourceType,
     WalletTypeType,
 )
@@ -172,11 +175,13 @@ __all__ = (
     "ExadbVmClusterStorageDetailsTypeDef",
     "ExadbVmClusterSummaryTypeDef",
     "ExadbVmClusterTypeDef",
+    "ExascaleConfigurationTypeDef",
     "ExascaleDbStorageDetailsTypeDef",
     "ExascaleDbStorageVaultSummaryTypeDef",
     "ExascaleDbStorageVaultTypeDef",
     "FailoverAutonomousDatabaseInputTypeDef",
     "FailoverAutonomousDatabaseOutputTypeDef",
+    "FileSystemConfigurationDetailsTypeDef",
     "FlexComponentSummaryTypeDef",
     "GetAutonomousDatabaseBackupInputTypeDef",
     "GetAutonomousDatabaseBackupOutputTypeDef",
@@ -335,6 +340,8 @@ __all__ = (
     "UpdateCloudExadataInfrastructureOutputTypeDef",
     "UpdateExadbVmClusterInputTypeDef",
     "UpdateExadbVmClusterOutputTypeDef",
+    "UpdateExascaleCloudExadataInfrastructureInputTypeDef",
+    "UpdateExascaleCloudExadataInfrastructureOutputTypeDef",
     "UpdateExascaleDbStorageVaultInputTypeDef",
     "UpdateExascaleDbStorageVaultOutputTypeDef",
     "UpdateOdbNetworkInputTypeDef",
@@ -560,10 +567,22 @@ class IamRoleTypeDef(TypedDict):
     awsIntegration: NotRequired[Literal["KmsTde"]]
 
 
+class ExascaleConfigurationTypeDef(TypedDict):
+    totalStorageSizeInGBs: NotRequired[int]
+    availableStorageSizeInGBs: NotRequired[int]
+    totalVmStorageSizeInGBs: NotRequired[int]
+    availableVmStorageSizeInGBs: NotRequired[int]
+
+
 class DataCollectionOptionsTypeDef(TypedDict):
     isDiagnosticsEventsEnabled: NotRequired[bool]
     isHealthMonitoringEnabled: NotRequired[bool]
     isIncidentLogsEnabled: NotRequired[bool]
+
+
+class FileSystemConfigurationDetailsTypeDef(TypedDict):
+    mountPoint: NotRequired[str]
+    fileSystemSizeInGBs: NotRequired[int]
 
 
 class CreateAutonomousDatabaseBackupInputTypeDef(TypedDict):
@@ -583,6 +602,7 @@ class CreateExascaleDbStorageVaultInputTypeDef(TypedDict):
     highCapacityDatabaseStorageTotalSizeInGBs: int
     additionalFlashCacheInPercent: NotRequired[int]
     autoscaleLimitInGBs: NotRequired[int]
+    cloudExadataInfrastructureId: NotRequired[str]
     availabilityZoneId: NotRequired[str]
     availabilityZone: NotRequired[str]
     description: NotRequired[str]
@@ -1048,6 +1068,8 @@ class ListExadbVmClustersInputTypeDef(TypedDict):
 class ListExascaleDbStorageVaultsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    cloudExadataInfrastructureId: NotRequired[str]
+    vaultType: NotRequired[ExascaleDbStorageVaultTypeType]
 
 
 class ListFlexComponentsInputTypeDef(TypedDict):
@@ -1210,6 +1232,12 @@ class UntagResourceRequestTypeDef(TypedDict):
 class UpdateAutonomousDatabaseBackupInputTypeDef(TypedDict):
     autonomousDatabaseBackupId: str
     retentionPeriodInDays: NotRequired[int]
+
+
+class UpdateExascaleCloudExadataInfrastructureInputTypeDef(TypedDict):
+    cloudExadataInfrastructureId: str
+    totalStorageSizeInGBs: int
+    totalVmStorageSizeInGBs: NotRequired[int]
 
 
 class UpdateExascaleDbStorageVaultInputTypeDef(TypedDict):
@@ -1468,6 +1496,14 @@ class UpdateExadbVmClusterOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateExascaleCloudExadataInfrastructureOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    cloudExadataInfrastructureId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateExascaleDbStorageVaultOutputTypeDef(TypedDict):
     displayName: str
     status: ResourceStatusType
@@ -1580,30 +1616,6 @@ class CloudExadataInfrastructureUnallocatedResourcesTypeDef(TypedDict):
     ocpus: NotRequired[int]
 
 
-class CreateCloudVmClusterInputTypeDef(TypedDict):
-    cloudExadataInfrastructureId: str
-    cpuCoreCount: int
-    displayName: str
-    giVersion: str
-    hostname: str
-    sshPublicKeys: Sequence[str]
-    odbNetworkId: str
-    clusterName: NotRequired[str]
-    dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
-    dataStorageSizeInTBs: NotRequired[float]
-    dbNodeStorageSizeInGBs: NotRequired[int]
-    dbServers: NotRequired[Sequence[str]]
-    tags: NotRequired[Mapping[str, str]]
-    isLocalBackupEnabled: NotRequired[bool]
-    isSparseDiskgroupEnabled: NotRequired[bool]
-    licenseModel: NotRequired[LicenseModelType]
-    memorySizeInGBs: NotRequired[int]
-    systemVersion: NotRequired[str]
-    timeZone: NotRequired[str]
-    clientToken: NotRequired[str]
-    scanListenerPortTcp: NotRequired[int]
-
-
 class CreateExadbVmClusterInputTypeDef(TypedDict):
     displayName: str
     enabledEcpuCount: int
@@ -1640,6 +1652,34 @@ class UpdateExadbVmClusterInputTypeDef(TypedDict):
     totalEcpuCount: NotRequired[int]
     updateAction: NotRequired[UpdateActionType]
     vmFileSystemStorageTotalSizeInGBs: NotRequired[int]
+
+
+class CreateCloudVmClusterInputTypeDef(TypedDict):
+    cloudExadataInfrastructureId: str
+    cpuCoreCount: int
+    displayName: str
+    giVersion: str
+    hostname: str
+    sshPublicKeys: Sequence[str]
+    odbNetworkId: str
+    exascaleDbStorageVaultId: NotRequired[str]
+    vmFileSystemStorageType: NotRequired[VmStorageTypeType]
+    vmBackupStorageType: NotRequired[VmStorageTypeType]
+    fileSystemConfigurationDetails: NotRequired[Sequence[FileSystemConfigurationDetailsTypeDef]]
+    clusterName: NotRequired[str]
+    dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
+    dataStorageSizeInTBs: NotRequired[float]
+    dbNodeStorageSizeInGBs: NotRequired[int]
+    dbServers: NotRequired[Sequence[str]]
+    tags: NotRequired[Mapping[str, str]]
+    isLocalBackupEnabled: NotRequired[bool]
+    isSparseDiskgroupEnabled: NotRequired[bool]
+    licenseModel: NotRequired[LicenseModelType]
+    memorySizeInGBs: NotRequired[int]
+    systemVersion: NotRequired[str]
+    timeZone: NotRequired[str]
+    clientToken: NotRequired[str]
+    scanListenerPortTcp: NotRequired[int]
 
 
 class ScheduledOperationDetailsTypeDef(TypedDict):
@@ -1731,6 +1771,8 @@ class ExascaleDbStorageVaultSummaryTypeDef(TypedDict):
     autoscaleLimitInGBs: NotRequired[int]
     availabilityZone: NotRequired[str]
     availabilityZoneId: NotRequired[str]
+    cloudExadataInfrastructureArn: NotRequired[str]
+    cloudExadataInfrastructureId: NotRequired[str]
     createdAt: NotRequired[datetime]
     description: NotRequired[str]
     displayName: NotRequired[str]
@@ -1747,6 +1789,7 @@ class ExascaleDbStorageVaultSummaryTypeDef(TypedDict):
     status: NotRequired[ResourceStatusType]
     statusReason: NotRequired[str]
     timeZone: NotRequired[str]
+    vaultType: NotRequired[ExascaleDbStorageVaultTypeType]
 
 
 class ExascaleDbStorageVaultTypeDef(TypedDict):
@@ -1756,6 +1799,8 @@ class ExascaleDbStorageVaultTypeDef(TypedDict):
     autoscaleLimitInGBs: NotRequired[int]
     availabilityZone: NotRequired[str]
     availabilityZoneId: NotRequired[str]
+    cloudExadataInfrastructureArn: NotRequired[str]
+    cloudExadataInfrastructureId: NotRequired[str]
     createdAt: NotRequired[datetime]
     description: NotRequired[str]
     displayName: NotRequired[str]
@@ -1772,6 +1817,7 @@ class ExascaleDbStorageVaultTypeDef(TypedDict):
     status: NotRequired[ResourceStatusType]
     statusReason: NotRequired[str]
     timeZone: NotRequired[str]
+    vaultType: NotRequired[ExascaleDbStorageVaultTypeType]
 
 
 class ListFlexComponentsOutputTypeDef(TypedDict):
@@ -1887,6 +1933,8 @@ class ListExadbVmClustersInputPaginateTypeDef(TypedDict):
 
 
 class ListExascaleDbStorageVaultsInputPaginateTypeDef(TypedDict):
+    cloudExadataInfrastructureId: NotRequired[str]
+    vaultType: NotRequired[ExascaleDbStorageVaultTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2022,6 +2070,12 @@ class CloudVmClusterSummaryTypeDef(TypedDict):
     cloudVmClusterArn: NotRequired[str]
     cloudExadataInfrastructureId: NotRequired[str]
     cloudExadataInfrastructureArn: NotRequired[str]
+    exascaleDbStorageVaultId: NotRequired[str]
+    exascaleDbStorageVaultArn: NotRequired[str]
+    storageManagementType: NotRequired[StorageManagementTypeType]
+    vmFileSystemStorageType: NotRequired[VmStorageTypeType]
+    vmBackupStorageType: NotRequired[VmStorageTypeType]
+    fileSystemConfigurationDetails: NotRequired[list[FileSystemConfigurationDetailsTypeDef]]
     clusterName: NotRequired[str]
     cpuCoreCount: NotRequired[int]
     dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
@@ -2068,6 +2122,12 @@ class CloudVmClusterTypeDef(TypedDict):
     cloudVmClusterArn: NotRequired[str]
     cloudExadataInfrastructureId: NotRequired[str]
     cloudExadataInfrastructureArn: NotRequired[str]
+    exascaleDbStorageVaultId: NotRequired[str]
+    exascaleDbStorageVaultArn: NotRequired[str]
+    storageManagementType: NotRequired[StorageManagementTypeType]
+    vmFileSystemStorageType: NotRequired[VmStorageTypeType]
+    vmBackupStorageType: NotRequired[VmStorageTypeType]
+    fileSystemConfigurationDetails: NotRequired[list[FileSystemConfigurationDetailsTypeDef]]
     clusterName: NotRequired[str]
     cpuCoreCount: NotRequired[int]
     dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
@@ -2376,6 +2436,7 @@ class CloudExadataInfrastructureSummaryTypeDef(TypedDict):
     databaseServerType: NotRequired[str]
     storageServerType: NotRequired[str]
     computeModel: NotRequired[ComputeModelType]
+    exascaleConfiguration: NotRequired[ExascaleConfigurationTypeDef]
 
 
 class CloudExadataInfrastructureTypeDef(TypedDict):
@@ -2417,6 +2478,7 @@ class CloudExadataInfrastructureTypeDef(TypedDict):
     databaseServerType: NotRequired[str]
     storageServerType: NotRequired[str]
     computeModel: NotRequired[ComputeModelType]
+    exascaleConfiguration: NotRequired[ExascaleConfigurationTypeDef]
 
 
 MaintenanceWindowUnionTypeDef = Union[MaintenanceWindowTypeDef, MaintenanceWindowOutputTypeDef]

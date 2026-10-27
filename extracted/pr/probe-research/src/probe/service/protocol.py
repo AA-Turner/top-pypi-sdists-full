@@ -187,6 +187,11 @@ class DesktopOp:
     #: Every workspace on the team (`{id, name, slug, kind}`), fetched WITHOUT this
     #: computer's workspace limit, and that limit: the Settings picker's list.
     WORKSPACES = "workspaces"
+    COMPUTER_WORKSPACE = "computer_workspace"
+    SET_COMPUTER_WORKSPACE = "set_computer_workspace"
+    CREATE_COMPUTER_WORKSPACE = "create_computer_workspace"
+    SETUP_OPTIONS = "setup_options"
+    SET_SETUP_OPTION = "set_setup_option"
 
 
 #: The ops that change nothing a stopped child could leave half-written (a
@@ -203,6 +208,8 @@ DESKTOP_READS = frozenset(
         DesktopOp.PROFILE,
         DesktopOp.ANALYTICS_POLICY,
         DesktopOp.WORKSPACES,
+        DesktopOp.COMPUTER_WORKSPACE,
+        DesktopOp.SETUP_OPTIONS,
     }
 )
 #: `action.run`'s and `desktop.request`'s `origin`: a person asked, in the app.
@@ -325,9 +332,14 @@ class CheckTrigger:
     CLI = "cli"  # the CLI on its own: the every-command check, a run's end
     SESSION = "session"  # a coding agent's session start (the plugin hook, pi)
     SCHEDULE = "schedule"  # the service's own 6-hourly check
+    #: The lifeboat, from the keeper unit, when no check ran for 6 h: a machine
+    #: with no session (and so no service) is still checked (plan fool-proof-updates B2).
+    KEEPER = "keeper"
 
 
-CHECK_TRIGGERS = frozenset({CheckTrigger.APP, CheckTrigger.CLI, CheckTrigger.SESSION, CheckTrigger.SCHEDULE})
+CHECK_TRIGGERS = frozenset(
+    {CheckTrigger.APP, CheckTrigger.CLI, CheckTrigger.SESSION, CheckTrigger.SCHEDULE, CheckTrigger.KEEPER}
+)
 
 
 class ReportTrigger:
@@ -344,12 +356,13 @@ class ReportTrigger:
 REPORT_TRIGGERS = frozenset({ReportTrigger.SESSION_START, ReportTrigger.CLI, ReportTrigger.MANUAL})
 
 #: A cycle's trigger as the server's report names it, until the server learns
-#: `app` and `schedule`: both are automatic and tied to no agent session.
+#: `app`, `schedule` and `keeper`: all automatic and tied to no agent session.
 REPORT_FOR_CHECK = {
     CheckTrigger.APP: ReportTrigger.CLI,
     CheckTrigger.CLI: ReportTrigger.CLI,
     CheckTrigger.SESSION: ReportTrigger.SESSION_START,
     CheckTrigger.SCHEDULE: ReportTrigger.CLI,
+    CheckTrigger.KEEPER: ReportTrigger.CLI,
 }
 
 

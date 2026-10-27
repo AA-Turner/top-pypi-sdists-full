@@ -189,8 +189,24 @@ def _wait(predicate, seconds: float):
         time.sleep(POLL_S)
 
 
-def check(to_version: str, *, watch_s: float, old_pid: int | None = None, old_start: str | None = None) -> str | None:
-    """None when `to_version` started and kept answering; else why not."""
+def _other_env(hello: dict, to_env: str | None) -> str | None:
+    """The env a service says it runs from, when it is not `to_env` (a
+    rebuild of the same version is told apart only by it); None when it is,
+    or either is unknown (a service from before `env` in its hello)."""
+    found = hello.get("env")
+    if not to_env or not isinstance(found, str) or not found:
+        return None
+    try:
+        same = os.path.realpath(found) == os.path.realpath(to_env)
+    except OSError:
+        same = found == to_env
+    return None if same else found
+
+
+def check(to_version: str, *, watch_s: float, old_pid: int | None = None, old_start: str | None = None,
+          to_env: str | None = None) -> str | None:
+    """None when `to_version` (from `to_env`, when given) started and kept
+    answering; else why not."""
     if client.no_new_privs():
         # From here `ensure` starts no service (it would have no_new_privs and
         # serve no one): there is nothing to watch, and that says nothing
@@ -216,6 +232,9 @@ def check(to_version: str, *, watch_s: float, old_pid: int | None = None, old_st
     try:
         if first.get("service_version") != to_version:
             return f"the service answered as {first.get('service_version')}, not {to_version}"
+        elsewhere = _other_env(first, to_env)
+        if elsewhere:
+            return f"the service runs from {elsewhere}, not {to_env}"
         pid = first.get("pid")
         restarts = 0
         deadline = time.monotonic() + watch_s
@@ -243,8 +262,9 @@ def check(to_version: str, *, watch_s: float, old_pid: int | None = None, old_st
                 if found is None:
                     return f"the new service did not come back after it stopped ({reason})"
                 conn, again = found
-                if again.get("service_version") != to_version:
-                    return f"after it stopped ({reason}) the service answered as {again.get('service_version')}"
+                if again.get("service_version") != to_version or _other_env(again, to_env):
+                    return (f"after it stopped ({reason}) the service answered as {again.get('service_version')} "
+                            f"from {again.get('env') or '?'}")
                 pid = again.get("pid")
                 log(f"the new service restarted on purpose ({reason}); watching pid {pid}")
                 continue
@@ -300,12 +320,35 @@ def _hand_over_workers() -> None:
         log(f"could not ask the daemon workers to move: {exc!r}")
 
 
+#: Another update holding the install lock (`installs.activate` waits
+#: `installs.LOCK_WAIT_S` each time): asked again this many times, this far apart.
+SWITCH_BACK_TRIES = 3
+SWITCH_BACK_RETRY_S = 30.0
+
+
+def _switch_back_when_free(installs) -> dict | None:
+    """`installs.switch_back`, asked again while another update holds the
+    install lock (`handoff.LockBusy`): a switch back must not be lost to an
+    install that happens to run. The last refusal rises."""
+    from probe._shared import handoff
+
+    for attempt in range(SWITCH_BACK_TRIES):
+        try:
+            return installs.switch_back()
+        except handoff.LockBusy as exc:
+            if attempt + 1 >= SWITCH_BACK_TRIES:
+                raise
+            log(f"switch back waits: {exc}; trying again in {SWITCH_BACK_RETRY_S:g} s")
+            time.sleep(SWITCH_BACK_RETRY_S)
+    return None
+
+
 def switch_back(from_version: str, to_version: str, old_python: str, why: str) -> dict:
     from probe._shared import installs
 
     record: dict = {"at": time.time(), "from": from_version, "to": to_version, "ok": False, "reason": why}
     try:
-        done = installs.switch_back()
+        done = _switch_back_when_free(installs)
     except Exception as exc:  # noqa: BLE001 -- say so; nothing else can be done here
         record["rollback"] = f"failed: {exc!r}"[:500]
         log(f"switch back failed: {exc!r}")
@@ -338,6 +381,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--old-python", required=True)
     parser.add_argument("--old-pid", type=int, default=None)
     parser.add_argument("--old-start", default=None)
+    #: The env switched to: a rebuild of the same version is told apart by it (plan R-T3).
+    parser.add_argument("--to-env", default=None)
     args = parser.parse_args(argv)
     raw = os.environ.get(WATCH_ENV)
     try:
@@ -345,7 +390,8 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError:
         watch_s = WATCH_S
     write({"at": time.time(), "from": args.from_version, "to": args.to_version, "ok": None, "state": "watching"})
-    why = check(args.to_version, watch_s=watch_s, old_pid=args.old_pid, old_start=args.old_start)
+    why = check(args.to_version, watch_s=watch_s, old_pid=args.old_pid, old_start=args.old_start,
+                to_env=args.to_env)
     if why is None:
         write({"at": time.time(), "from": args.from_version, "to": args.to_version, "ok": True})
         log(f"{args.to_version} runs")

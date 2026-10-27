@@ -8,8 +8,9 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
+	lossless::TokenKind,
 	node::inline::link::scheme,
-	span::{Span, TraceOk, TraceParse},
+	span::{Span, TraceOk, TraceParse, WithToken},
 	util::iter_alt,
 };
 use nom::{
@@ -147,7 +148,7 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = Link<S, Element<'data, S>>;
+	type Output = (Link<S, Element<'data, S>>, S::Syntax);
 	type Error = E;
 
 	#[tracing::instrument(name = "detection_parser", level = Level::TRACE, fields(ok, output))]
@@ -157,11 +158,17 @@ where
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
 		nom::error::context(
 			"link::parse_url",
-			map(url(self.context), |url| Link {
-				text: None,
-				url,
-				title: None,
-			}),
+			map(
+				url(self.context).with_token::<S>(TokenKind::Url),
+				|(url, syntax)| {
+					let link = Link {
+						text: None,
+						url,
+						title: None,
+					};
+					(link, syntax)
+				},
+			),
 		)
 		.trace_parse()
 		.process::<OM>(input)
@@ -179,7 +186,7 @@ where
 #[must_use]
 pub fn detection<'ctx, 'data, S, E>(
 	context: &'ctx Context,
-) -> impl Parser<Input<'data>, Output = Link<S, Element<'data, S>>, Error = E> + 'ctx
+) -> impl Parser<Input<'data>, Output = (Link<S, Element<'data, S>>, S::Syntax), Error = E> + 'ctx
 where
 	S: Span,
 	E: ParseError<'data> + 'ctx,
@@ -204,11 +211,12 @@ mod test {
 
 	/// Parse `s` as a detected link, expecting it to succeed.
 	fn parse(s: &str) -> (crate::Input<'_>, Link<(), Element<'_, ()>>) {
-		detection::<(), _>(&Context::default())
+		let (rem, (link, ())) = detection::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
-			.expect("unable to parse")
+			.expect("unable to parse");
+		(rem, link)
 	}
 
 	/// Build the expectation for a text-less link.
@@ -314,7 +322,7 @@ mod test {
 	#[test]
 	fn complex_url() {
 		let s = "https://en.wikipedia.org/wiki/Endemic_(epidemiology)";
-		let (rem, res) = detection::<(), _>(&Context::default())
+		let (rem, (res, ())) = detection::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -333,7 +341,7 @@ mod test {
 	#[test]
 	fn url_with_terminal() {
 		let s = "https://wnelson.dev.";
-		let (rem, res) = detection::<(), _>(&Context::default())
+		let (rem, (res, ())) = detection::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -411,7 +419,7 @@ mod test {
 	#[test]
 	fn url_avoids_including_unmatched_terminal_parenthesis() {
 		let s = "https://google.com)";
-		let (rem, res) = detection::<(), _>(&Context::default())
+		let (rem, (res, ())) = detection::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -430,7 +438,7 @@ mod test {
 	#[test]
 	fn allows_terminal_parenthesis_when_matched() {
 		let s = "https://google.com/search?q=cat(s)";
-		let (rem, res) = detection::<(), _>(&Context::default())
+		let (rem, (res, ())) = detection::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -516,7 +524,7 @@ mod test {
 	fn deeply_nested_parens_in_query_string() {
 		// URLs with many nested paren groups (e.g. Datadog qson params) must parse in O(n) time.
 		let s = "https://example.com/?a=qson:(data:(x:1,y:2),v:0)&b=qson:(data:(p:(selected:count),q:(selected:count),r:(selected:p95),topN:5),v:0)&c=qson:(data:(visible:true,hits:(selected:total),errors:(selected:total),latency:(selected:p95)),v:1)";
-		let (rem, res) = detection::<(), _>(&Context::default())
+		let (rem, (res, ())) = detection::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))

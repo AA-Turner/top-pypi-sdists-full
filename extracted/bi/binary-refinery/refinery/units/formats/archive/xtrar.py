@@ -55,41 +55,48 @@ class xtrar(ArchiveUnit, docs='{0}{p}{PathExtractorUnit}'):
         rar = RarFile(view, password=password)
         if rar.is_encrypted and not password and not rar.entries:
             raise RarMissingPassword
-        if not self.args.list:
-            has_encrypted = any(e.is_encrypted for e in rar.entries)
-            if has_encrypted and not password:
-                first_encrypted = next(
-                    (e for e in rar.entries if e.is_encrypted and not e.is_dir), None)
-                if first_encrypted is not None:
-                    for pwd in self.CommonPasswords:
-                        try:
-                            rar.read(first_encrypted, pwd)
-                        except (
-                            RarMissingPassword,
-                            RarInvalidPassword,
-                            RarInvalidChecksum,
-                        ):
-                            continue
-                        except Exception:
-                            break
-                        else:
-                            password = pwd
-                            self.log_info(F'using password: {pwd}')
-                            break
-        for entry in rar.entries:
-            def extract(r=rar, e=entry, p=password):
+        files = [entry for entry in rar.entries if not entry.is_dir]
+        extractors = [rar.extractor(entry, password) for entry in files]
+        probed = None
+        if not self.args.list and not password:
+            encrypted = next((k for k, entry in enumerate(files) if entry.is_encrypted and entry.size != 0), None)
+            if encrypted is not None:
+                for pwd in self.CommonPasswords:
+                    trial = [rar.extractor(entry, pwd) for entry in files]
+                    try:
+                        data = trial[encrypted]()
+                    except (
+                        RarMissingPassword,
+                        RarInvalidPassword,
+                        RarInvalidChecksum,
+                        RarCorruptArchive,
+                    ):
+                        continue
+                    except Exception:
+                        break
+                    else:
+                        self.log_info(F'using password: {pwd}')
+                        extractors = trial
+                        probed = encrypted, data
+                        break
+        for k, (entry, read) in enumerate(zip(files, extractors)):
+            if probed is not None and probed[0] == k:
+                yield self._pack(entry.name, entry.date, probed[1])
+                continue
+
+            def extract(read=read, entry=entry):
                 try:
-                    return r.read(e, p)
+                    return read()
                 except RarInvalidChecksum as check:
                     raise RefineryPartialResult(str(check), check.data) from check
                 except RarCorruptArchive as exc:
-                    raise RefineryPartialResult(str(exc), exc.partial or b'') from exc
+                    if exc.partial is None:
+                        raise
+                    raise RefineryPartialResult(str(exc), exc.partial) from exc
                 except RarInvalidPassword as E:
                     raise ValueError(F'invalid password: {entry.name}') from E
                 except RarMissingPassword as E:
                     raise ValueError(F'missing password: {entry.name}') from E
-            if entry.is_dir:
-                continue
             yield self._pack(entry.name, entry.date, extract)
 
     @classmethod

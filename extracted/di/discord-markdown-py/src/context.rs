@@ -304,12 +304,13 @@ impl Context {
 		}
 	}
 
-	/// Parse any allowed inline syntax in the current context. Modifiers are not among them: they
-	/// are recorded as delimiters and resolved afterwards; see [`crate::range`].
+	/// Parse any allowed inline syntax in the current context, with the syntax it was written with
+	/// outside its children. Modifiers are not among them: they are recorded as delimiters and
+	/// resolved afterwards; see [`crate::range`].
 	#[must_use]
 	pub fn allowed_inline_syntax<'data, 'ctx, S, E>(
 		&'ctx self,
-	) -> impl Parser<Input<'data>, Output = Element<'data, S>, Error = E> + 'ctx
+	) -> impl Parser<Input<'data>, Output = (Element<'data, S>, S::Syntax), Error = E> + 'ctx
 	where
 		S: Span,
 		E: ParseError<'data> + 'ctx,
@@ -317,11 +318,11 @@ impl Context {
 		ContextualSyntaxes::from_context(self, self.syntaxes & Syntax::INLINE)
 	}
 
-	/// Parse any allowed block syntax in the current context.
+	/// Parse any allowed block syntax in the current context, as [`Self::allowed_inline_syntax`].
 	#[must_use]
 	pub fn allowed_block_syntax<'data, 'ctx, S, E>(
 		&'ctx self,
-	) -> impl Parser<Input<'data>, Output = Element<'data, S>, Error = E> + 'ctx
+	) -> impl Parser<Input<'data>, Output = (Element<'data, S>, S::Syntax), Error = E> + 'ctx
 	where
 		S: Span,
 		E: ParseError<'data> + 'ctx,

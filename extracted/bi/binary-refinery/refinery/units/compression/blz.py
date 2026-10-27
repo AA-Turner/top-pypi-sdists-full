@@ -72,6 +72,8 @@ class blz(Unit):
         remaining = total_size
         self.log_debug(F'total size: 0x{total_size:016X}')
         self.log_debug(F'chunk size: 0x{chunk_size:016X}')
+        if not chunk_size:
+            raise ValueError('The chunk size of the modified BriefLZ header is zero.')
         while remaining > chunk_size:
             self._decompress_chunk(chunk_size)
             remaining -= chunk_size
@@ -209,7 +211,7 @@ class blz(Unit):
             return self._decompress()
         except ValueError as error:
             if isinstance(error, RefineryPartialResult):
-                partial = error
+                partial = error.message, error.partial
             self.log_warn(F'Reverting to modified BriefLZ after decompression error: {error!s}')
             self._reset()
 
@@ -220,7 +222,7 @@ class blz(Unit):
         except Exception as error:
             if not partial:
                 raise
-            raise partial from error
+            raise RefineryPartialResult(*partial) from error
 
     def reverse(self, data):
         return self._begin(data)._compress()

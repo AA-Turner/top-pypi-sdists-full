@@ -16,6 +16,7 @@ from chalk.utils.notebook import is_notebook
 if TYPE_CHECKING:
     from chalk.features.feature_field import Feature
     from chalk.features.dataframe import DataFrame
+    from chalk.features.underscore import Underscore
 
 T = TypeVar("T")
 
@@ -337,6 +338,12 @@ class FeatureWrapper:
         if item.startswith("__") and not item.startswith("__chalk"):
             # Short-circuiting on the dunders to be compatible with copy.copy
             raise AttributeError(item)
+        LSPErrorBuilder.save_node(self, item)
+        return self._chalk_get_attribute(item)
+
+    def _chalk_get_attribute(self, item: str) -> FeatureWrapper:
+        """The feature `item` of this has-one or has-many's feature class, resolved lazily. The caller records the
+        user's source node with `LSPErrorBuilder.save_node`, so that resolution errors point at the user's code."""
 
         def fn():
             from chalk.features.feature_field import Feature
@@ -386,8 +393,39 @@ class FeatureWrapper:
                 saved_frame=self,
             )
             assert False, "unreachable"
-        LSPErrorBuilder.save_node(self, item)
         return FeatureWrapper(_MarkedUnderlyingFeature(fn, ("__getattr__", item)))
+
+    @property
+    def alias(self) -> _AliasAttribute:
+        """Return this feature as a query output column with a different name.
+
+        Supported for scalar features, including scalars reached through has-one
+        relationships, in `NamedQuery(output=...)` and in the `output` of online
+        queries. The aliased column is an output expression that references the
+        feature, so the feature itself is still computed, persisted, and logged
+        under its own name.
+
+        Parameters
+        ----------
+        name
+            The column name the query returns this feature under. It may not
+            contain a `.`, so it can never be mistaken for a feature name.
+
+        Examples
+        --------
+        >>> from chalk import NamedQuery
+        >>> NamedQuery(
+        ...     name="user_txns",
+        ...     input=[User.id],
+        ...     output=[User.transaction_count["1d"].alias("tc_1d")],
+        ... )
+
+        A related feature class's own feature named `alias` stays reachable:
+        `User.profile.alias` is that feature wherever a feature is expected.
+        """
+        # Recorded here, not in `_chalk_get_attribute`, so that `save_node` finds the user's frame.
+        LSPErrorBuilder.save_node(self, "alias")
+        return _AliasAttribute(self)
 
     def is_near(self, item: Any, metric: Literal["l2", "cos", "ip"] = "l2") -> Filter:
         if metric not in ("l2", "cos", "ip"):
@@ -416,6 +454,94 @@ class FeatureWrapper:
                 )
             )
         return Filter(underlying, f"is_near_{metric}", other)
+
+
+class _AliasAttribute(FeatureWrapper):
+    """`FeatureWrapper.alias`: called with a column name, it aliases the parent feature. Anywhere else, it is the
+    parent relationship's feature named `alias`, resolved lazily as `__getattr__` would."""
+
+    def __init__(self, parent: FeatureWrapper):
+        super().__init__(parent._chalk_get_attribute("alias"))  # pyright: ignore[reportPrivateUsage]
+        self._chalk_alias_parent = parent
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        # Calling a related feature named `alias` (to choose a window) keeps working; this check runs only at call
+        # time, after the feature classes exist.
+        if _has_related_feature(self._chalk_alias_parent, "alias"):
+            return super().__call__(*args, **kwargs)
+        return AliasedFeature(self._chalk_alias_parent, *args, **kwargs)
+
+
+def _has_related_feature(wrapper: FeatureWrapper, attribute_name: str) -> bool:
+    """Whether `wrapper` is a has-one or has-many whose feature class has a feature with this attribute name."""
+    from chalk.features.feature_field import Feature
+
+    try:
+        underlying = wrapper._chalk_get_underlying()  # pyright: ignore[reportPrivateUsage]
+        if not isinstance(underlying, Feature):
+            return False
+        joined_class = underlying.joined_class
+        if joined_class is None:
+            underlying_df = underlying.typ.as_dataframe()
+            joined_class = underlying_df.references_feature_set if underlying_df is not None else None
+    except Exception:
+        # An unresolvable parent cannot have the feature; `AliasedFeature.resolve` reports the parent's error.
+        return False
+    return joined_class is not None and any(f.attribute_name == attribute_name for f in joined_class.features)
+
+
+class AliasedFeature:
+    """A feature paired with the column name a query returns it under.
+
+    Created by `FeatureWrapper.alias`. It is deliberately not a `FeatureWrapper`:
+    anything other than a query output that receives one fails loudly instead of
+    silently dropping the alias.
+    """
+
+    __slots__ = ("feature", "name")
+
+    def __init__(self, feature: FeatureWrapper, name: str):
+        super().__init__()
+        validate_output_column_name(name)
+        self.feature = feature
+        self.name = name
+
+    def resolve(self) -> Feature:
+        """Resolve the aliased feature, which must be returned as exactly one scalar column."""
+        f = unwrap_feature(self.feature)
+        if not f.is_scalar:
+            raise TypeError(f"Cannot alias '{f.root_fqn}': only scalar features can be aliased.")
+        if f.is_windowed:
+            raise TypeError(
+                f"Cannot alias windowed feature '{f.root_fqn}' without choosing a window: it expands to one "
+                + f"column per window. Alias a specific window instead, e.g. `<Feature>['1d'].alias({self.name!r})`."
+            )
+        return f
+
+    def to_underscore(self) -> Underscore:
+        """The underscore expression, rooted at the feature's root namespace, that references the feature."""
+        from chalk.features.feature_field import parse_versioned_name
+        from chalk.features.underscore import UnderscoreAttr, UnderscoreRoot
+
+        f = self.resolve()
+        expr: Underscore = UnderscoreRoot()
+        # Attribute names are the segments of the feature's root fqn after the namespace. A `name@N`
+        # segment is a pinned version, which underscore attributes carry separately.
+        for segment in (*(p.parent.name for p in f.path), f.name):
+            attr, version = parse_versioned_name(segment)
+            expr = UnderscoreAttr(expr, attr, version=version)
+        return expr
+
+    def __repr__(self):
+        return f"AliasedFeature({self.feature!r}, {self.name!r})"
+
+
+def validate_output_column_name(name: str) -> None:
+    """Validate a column name that a query output expression is returned under."""
+    if not isinstance(name, str) or name == "":  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise ValueError(f"Output column name must be a non-empty string, got {name!r}")
+    if "." in name:
+        raise ValueError(f"Output column name {name!r} may not contain '.', which is reserved for feature names")
 
 
 @overload
@@ -480,6 +606,10 @@ def feature_to_query_str(feature: Union[str, Feature, FeatureWrapper, Any]) -> s
         # deploy-time preplanning. Resolving here would force chalkpy to replicate the
         # server's resolution rules and reject previously-valid strings whenever they drift.
         return feature
+    if isinstance(feature, AliasedFeature):
+        raise TypeError(
+            f"{feature!r}: feature aliases are only supported as query outputs"
+        )
     f = unwrap_feature(feature, raise_error=False)
     if isinstance(f, Feature) and f._typ is not None and f.is_has_many:  # pyright: ignore[reportPrivateUsage]
         df = f.typ.as_dataframe()
@@ -500,4 +630,4 @@ def ensure_feature(feature: Union[str, Feature, FeatureWrapper, Any]) -> Feature
     raise TypeError(f"Feature identifier {feature} of type {type(feature).__name__} is not supported.")
 
 
-__all__ = ["FeatureWrapper", "unwrap_feature", "ensure_feature"]
+__all__ = ["AliasedFeature", "FeatureWrapper", "unwrap_feature", "ensure_feature", "validate_output_column_name"]

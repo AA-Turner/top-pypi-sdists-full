@@ -177,6 +177,7 @@ class CfnFleet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -223,7 +224,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fb2b0f115fd155ec1867ebdfab524eabaa919c39920655bedef657815f3fe35b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -239,7 +240,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a4a9d74f73ceaf3ae033517a44602efdc6fd84668be6992907ba5276fd26df0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -442,6 +443,7 @@ class CfnRobot(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -488,7 +490,7 @@ class CfnRobot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f36dbab08fea8dace0765ee7ba8b7d3ff9ee4c48d947b5303f3631f8a0369b5e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "architecture", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "architecture", value)
 
     @builtins.property
     @jsii.member(jsii_name="greengrassGroupId")
@@ -501,7 +503,7 @@ class CfnRobot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__50de460acfd3a8dbfb6259513c1df0e835e46e80422bd7d50197066f46adcf42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "greengrassGroupId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "greengrassGroupId", value)
 
     @builtins.property
     @jsii.member(jsii_name="fleet")
@@ -514,7 +516,7 @@ class CfnRobot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8da9d8bd6e5845fb5ae85a5c0ecb127eb3120f33b979743f160cc5912ff26766)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fleet", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fleet", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -527,7 +529,7 @@ class CfnRobot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db28cc7abf10f25ceb48539af3bff17364e26eb389639b29457ab05b7d152425)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -543,7 +545,7 @@ class CfnRobot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__197f65220e7c1b22bb2750ecd4cf89b82125f1abad27a9e9cc4881b988b6ba6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_robomaker_00266520.IRobotApplicationRef, _aws_cdk_0cae9daa.ITaggable)
@@ -677,6 +679,7 @@ class CfnRobotApplication(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -739,7 +742,7 @@ class CfnRobotApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3a0183b45e0172b50d6049b802258f5f54543ee36f6ff14d04a41472f312ff04)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "robotSoftwareSuite", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "robotSoftwareSuite", value)
 
     @builtins.property
     @jsii.member(jsii_name="currentRevisionId")
@@ -752,7 +755,7 @@ class CfnRobotApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a68af59eeb167d0c020946ad9c700418dc6f280bb64690a231f2609770e55ce2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "currentRevisionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "currentRevisionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="environment")
@@ -765,7 +768,7 @@ class CfnRobotApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8346429cd042f143075e82bff1b46a5acd3b5c22740614aae1093279051fdea9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "environment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "environment", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -778,7 +781,7 @@ class CfnRobotApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__69012b559357369e35caab49e8a89325e4bc8994f10edb7261ac37badc83f089)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="sources")
@@ -796,7 +799,7 @@ class CfnRobotApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__921f41fab15ec19f628942a860f0c537326ffdf47bee9bc67baf283fbf524254)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sources", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -812,7 +815,7 @@ class CfnRobotApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__edcc90e709ec9cc68d63a3735570140617851fcd19e7a37393d2056e644b8f64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_robomaker.CfnRobotApplication.RobotSoftwareSuiteProperty",
@@ -1241,6 +1244,7 @@ class CfnRobotApplicationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1292,7 +1296,7 @@ class CfnRobotApplicationVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d3b0a1f324aaccd7abc5e6810329e257f4a7cd3179c5afcaf2b8abd6f7990af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "application", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "application", value)
 
     @builtins.property
     @jsii.member(jsii_name="currentRevisionId")
@@ -1305,7 +1309,7 @@ class CfnRobotApplicationVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4a12b8570cf31b8187dcb0dd326c52f7ca4075a70971d81e139f25383d48acad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "currentRevisionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "currentRevisionId", value)
 
 
 @jsii.data_type(
@@ -1665,6 +1669,7 @@ class CfnSimulationApplication(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1727,7 +1732,7 @@ class CfnSimulationApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c5eddba1cd6f8159da95d199756aece7189ac992724326ee1649fe22981dd1e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "robotSoftwareSuite", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "robotSoftwareSuite", value)
 
     @builtins.property
     @jsii.member(jsii_name="simulationSoftwareSuite")
@@ -1745,7 +1750,7 @@ class CfnSimulationApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__003dd21a203873e85f6980fecd86a94b0531507d8242c4a61748ccddd022255b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "simulationSoftwareSuite", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "simulationSoftwareSuite", value)
 
     @builtins.property
     @jsii.member(jsii_name="currentRevisionId")
@@ -1758,7 +1763,7 @@ class CfnSimulationApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__068a8613a5e63c82ab19c78d5802a5b6611d12defd9ede2d2533997b03d365e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "currentRevisionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "currentRevisionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="environment")
@@ -1771,7 +1776,7 @@ class CfnSimulationApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__69efbbc8b0b296d56da5d877f246f08f0fb859b0450a0b5284f1318fae1eca2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "environment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "environment", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1784,7 +1789,7 @@ class CfnSimulationApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c61e246fbb83f216937d12b47511a45dd9e3bbb9db8340e1bc7fc1b0134da507)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="renderingEngine")
@@ -1802,7 +1807,7 @@ class CfnSimulationApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c52139e81e980013fe63c79055c9c5a430c7b60d4f73dab46a912bb62fccda4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "renderingEngine", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "renderingEngine", value)
 
     @builtins.property
     @jsii.member(jsii_name="sources")
@@ -1820,7 +1825,7 @@ class CfnSimulationApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__351059f5bb1169ead5062e07e9d73fd8ac37f0cbad54a1d4e8e137cf716e9fae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sources", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1836,7 +1841,7 @@ class CfnSimulationApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf0913d8e33389ea9f4a231680314b73532bf04cbe505a502315b25accf25846)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_robomaker.CfnSimulationApplication.RenderingEngineProperty",
@@ -2452,6 +2457,7 @@ class CfnSimulationApplicationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2503,7 +2509,7 @@ class CfnSimulationApplicationVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a9b594cec8275a90b1fc93b7ade9da7c6565f24e659e6aed511135526226f540)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "application", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "application", value)
 
     @builtins.property
     @jsii.member(jsii_name="currentRevisionId")
@@ -2516,7 +2522,7 @@ class CfnSimulationApplicationVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b4436c869d1e97db1310a07c8709c1c39527703571128932c8cdb4b5bea7f3ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "currentRevisionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "currentRevisionId", value)
 
 
 @jsii.data_type(

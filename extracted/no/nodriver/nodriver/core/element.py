@@ -17,6 +17,7 @@ from . import util
 from ._contradict import ContraDict
 from .config import PathLike
 
+
 logger = logging.getLogger(__name__)
 
 if typing.TYPE_CHECKING:
@@ -1005,14 +1006,20 @@ class Element:
         :return:
         :rtype:
         """
-
+        from .connection import ProtocolException
         if getattr(self, "_is_highlighted", False):
             del self._is_highlighted
             await self.tab.send(cdp.overlay.hide_highlight())
             await self.tab.send(cdp.dom.disable())
             await self.tab.send(cdp.overlay.disable())
             return
-        await self.tab.send(cdp.dom.enable())
+        try:
+            await self.send(cdp.dom.enable(), True)
+        except ProtocolException:
+            logger.debug(
+                "call to dom.enable() failed. but is not critical", exc_info=True
+            )
+
         await self.tab.send(cdp.overlay.enable())
         conf = cdp.overlay.HighlightConfig(
             show_info=True, show_extension_lines=True, show_styles=True

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-replay
-Version: 1.7.1
+Version: 1.8.0
 Summary: Saves previous test runs and allow re-execute previous pytest runs to reproduce crashes or flaky tests
 Author-email: ESSS <foss@esss.co>
 License: MIT
@@ -11,8 +11,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Testing
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -20,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pytest

@@ -174,6 +174,7 @@ class CfnAnomalyMonitor(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -256,7 +257,7 @@ class CfnAnomalyMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cfeecbe9441840f2127a89ea3c6dcac344dda1d52a4499f3590067d9fff9ddb7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitorName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitorName", value)
 
     @builtins.property
     @jsii.member(jsii_name="monitorType")
@@ -269,7 +270,7 @@ class CfnAnomalyMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e5bea89fd492e9706efb91eaa83153a8dbfa7897ada18db8817750d506e8b35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitorType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitorType", value)
 
     @builtins.property
     @jsii.member(jsii_name="monitorDimension")
@@ -282,7 +283,7 @@ class CfnAnomalyMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__081fb13a76df355e897fe83b300dc3c3b7b314dd67c85a0848b5ad8edf04af7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitorDimension", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitorDimension", value)
 
     @builtins.property
     @jsii.member(jsii_name="monitorSpecification")
@@ -295,7 +296,7 @@ class CfnAnomalyMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__defe54ffa1f8d0ba42e79c23d33cf33a974c7edb52b847d17428227cd77608f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitorSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitorSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceTags")
@@ -313,7 +314,7 @@ class CfnAnomalyMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ba083795f73cd6c7f4640bfcb9887f75331ec7dd734bce22e3485bbd80c7ad10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceTags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ce.CfnAnomalyMonitor.ResourceTagProperty",
@@ -651,6 +652,7 @@ class CfnAnomalySubscription(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -708,7 +710,7 @@ class CfnAnomalySubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f65afcf3186751c82f39cbede0dcab6ddc80f7d9c0b422c5b129658eaab61559)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "frequency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "frequency", value)
 
     @builtins.property
     @jsii.member(jsii_name="monitorArnList")
@@ -721,7 +723,7 @@ class CfnAnomalySubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f4d8eb48da6a9844668f539149825f89478d1e3e3ed4e1afcd927a288c88922)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitorArnList", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitorArnList", value)
 
     @builtins.property
     @jsii.member(jsii_name="subscribers")
@@ -739,7 +741,7 @@ class CfnAnomalySubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5656753df5f64fe42e45494608ada7acc3f3ea8f09a108fc5083bce855ae7242)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscribers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subscribers", value)
 
     @builtins.property
     @jsii.member(jsii_name="subscriptionName")
@@ -752,7 +754,7 @@ class CfnAnomalySubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3f1c77a5656251a1b2332edd8152e7fb9ac370a8031e07485ff8e8b8927e8804)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscriptionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subscriptionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceTags")
@@ -770,7 +772,7 @@ class CfnAnomalySubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96793ef54afc05012d539871c866a4c4cbe5b328c47be446ea5408e64a1f523a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="threshold")
@@ -783,7 +785,7 @@ class CfnAnomalySubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d2ca78f072bfc658750298a3034ad4215f682bc5042b1decb8a002cf443b518e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "threshold", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "threshold", value)
 
     @builtins.property
     @jsii.member(jsii_name="thresholdExpression")
@@ -796,7 +798,7 @@ class CfnAnomalySubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b7af5c240cdcab7ad56cf11aac1adeb1e136f2fd4b10b281e21e29b1ef870583)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "thresholdExpression", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "thresholdExpression", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ce.CfnAnomalySubscription.ResourceTagProperty",
@@ -1266,6 +1268,7 @@ class CfnCostCategory(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1321,7 +1324,7 @@ class CfnCostCategory(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1c70a6a6b30c7629cbf9648d7cb87767c0abcdca421a37e18c362abd473958d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="rules")
@@ -1334,7 +1337,7 @@ class CfnCostCategory(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9949839e9bb2a9a8c66eb12f61f2ab9292a938d8843dde18183b57639dde8109)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rules", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleVersion")
@@ -1347,7 +1350,7 @@ class CfnCostCategory(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__329b7ef9b522a04c5bcb415a88b90570cf2a6fa953de9bc5006b25fb356691ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="defaultValue")
@@ -1360,7 +1363,7 @@ class CfnCostCategory(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fa6f1a5d75da4f48510e6e623a48160929ac48b171d83bf2f8ea5f74c5c47828)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultValue", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "defaultValue", value)
 
     @builtins.property
     @jsii.member(jsii_name="splitChargeRules")
@@ -1373,7 +1376,7 @@ class CfnCostCategory(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ae51b4a5cd7f6e8738ed01709064f1d42c9cdd90e02dfe56151acb9345ff50db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "splitChargeRules", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "splitChargeRules", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1391,7 +1394,7 @@ class CfnCostCategory(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__382ee3f151d322b779bace915dc422d549fbc43498f542c3117781ec44cbb469)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ce.CfnCostCategory.ResourceTagProperty",

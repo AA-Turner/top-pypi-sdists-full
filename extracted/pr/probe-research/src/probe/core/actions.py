@@ -117,8 +117,70 @@ def uninstall(sink: events.EventSink | None = None) -> int:
 def update(sink: events.EventSink | None = None) -> int:
     """`probe wizard --action update --yes --json`. What asked for it is read
     from the environment, as the wizard reads it (`update_report.TRIGGER_ENV`:
-    the app sets `manual`)."""
+    the app sets `manual`).
+
+    The hand-off first (`probe.core.adopt.begin`), before any wizard code
+    reads anything: when a newer release exists it is installed beside this
+    one and this process BECOMES its `python -I -m probe.core.run update`
+    (same pid, same stdio: the service's barrier and its time limit still name
+    it), so everything after the download runs in the newest code. In that
+    new release (PROBE_UPDATE_ADOPT) it switches the CLI and goes on."""
+    import os
+
+    from probe.core import adopt
+
+    # Not in a session the Probe daemon records (refused below as before,
+    # nothing installed first), nor when the service asked for the plugins
+    # only (PROBE_UPDATE_SKIP_CLI: daemon workers run from the CLI's env).
+    if not _in_daemon_session() and os.environ.get(adopt.SKIP_CLI_ENV) != "1":
+        ending = adopt.begin(_update_trigger())
+        if ending is not None:
+            return _ended(sink, ending)
     return _wizard(sink, wizard_flags(ActionName.UPDATE))
+
+
+def _in_daemon_session() -> bool:
+    """Would `_refuse_from_daemon_session` refuse this run (a session the Probe
+    daemon records)? Read without refusing; unknown reads as no."""
+    try:
+        from probe.sdk import agent_session, session_marker
+
+        session_id = agent_session.session_id_from_env()
+        return bool(session_id) and session_marker.session_profile(session_id) == session_marker.RECORDER_DAEMON
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _update_trigger() -> str:
+    """What asked for this update, as the wizard would read it for a run with
+    no terminal (`main._update_action_trigger(yes=True)`): the spawner's
+    `PROBE_AUTOUPDATE_TRIGGER`, else a session start."""
+    import os
+
+    from probe._shared import autoupdate
+
+    named = os.environ.get(autoupdate.TRIGGER_ENV, "")
+    return named if named in {trigger.value for trigger in autoupdate.Trigger} else autoupdate.Trigger.SESSION_START.value
+
+
+def _ended(sink: events.EventSink | None, ending) -> int:
+    """An update that ended at its first step (`adopt.Ending`): said on
+    stderr, then `error` + `done` with its exit status (75: try again later)."""
+    print(f"probe update: {ending.message}", file=sys.stderr)
+    code = events.ErrorCode.BUSY if ending.status == 75 else events.ErrorCode.FAILED
+    if sink is None:
+        events.done_events(code=code, message=ending.message, exit_code=ending.status)
+        return ending.status
+
+    import typer
+
+    try:
+        with events.session(True, sink=sink):
+            events.error(code, ending.message)
+            raise typer.Exit(ending.status)
+    except typer.Exit:
+        pass
+    return ending.status
 
 
 def session_default(

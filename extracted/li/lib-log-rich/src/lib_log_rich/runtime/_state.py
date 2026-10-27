@@ -11,10 +11,12 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine, Generator, Mapping
 
     from lib_log_rich.adapters.queue import QueueAdapter
-    from lib_log_rich.application.use_cases._types import ProcessResult
+    from lib_log_rich.application.use_cases._types import ProcessCallable
+    from lib_log_rich.application.use_cases.dump import CaptureDump
     from lib_log_rich.domain import ContextBinder, LogLevel, SeverityMonitor
+    from lib_log_rich.domain.enums import ConsoleTheme
 
-    from ._settings import PayloadLimits
+    from .settings import PayloadLimits
 
 _DUPLICATE_INIT_ERROR = "lib_log_rich.init() cannot be called twice without shutdown(); call lib_log_rich.shutdown() first"
 
@@ -26,8 +28,8 @@ class LoggingRuntime:
     """Aggregate of live collaborators assembled by the composition root."""
 
     binder: ContextBinder
-    process: Callable[..., ProcessResult]
-    capture_dump: Callable[..., str]
+    process: ProcessCallable
+    capture_dump: CaptureDump
     shutdown_async: Callable[[], Awaitable[None] | None]
     flush_async: Callable[[float | None, bool], Coroutine[Any, Any, None]]
     queue: QueueAdapter | None
@@ -39,9 +41,12 @@ class LoggingRuntime:
     graylog_level: LogLevel
     graylog_enabled: bool
     severity_monitor: SeverityMonitor
-    theme: str | None
+    theme: ConsoleTheme | None
     console_styles: Mapping[str, str] | None
     limits: PayloadLimits
+    # The styles the user configured, without the theme palette ``console_styles``
+    # carries; a dump layers its own theme under these.
+    configured_console_styles: Mapping[str, str] | None = None
 
 
 _runtime_state: LoggingRuntime | None = None

@@ -33,6 +33,7 @@ from .literals import (
     PrincipalTypeType,
     ProvisioningStatusType,
     ProvisionTargetTypeType,
+    RegionScopeType,
     RegionStatusType,
     SignInOriginType,
     StatusValuesType,
@@ -672,6 +673,7 @@ class ListCustomerManagedPolicyReferencesInPermissionSetRequestTypeDef(TypedDict
 class ListInstancesRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    RegionScope: NotRequired[RegionScopeType]
 
 
 class ListManagedPoliciesInPermissionSetRequestTypeDef(TypedDict):
@@ -1167,6 +1169,7 @@ class ListCustomerManagedPolicyReferencesInPermissionSetRequestPaginateTypeDef(T
 
 
 class ListInstancesRequestPaginateTypeDef(TypedDict):
+    RegionScope: NotRequired[RegionScopeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

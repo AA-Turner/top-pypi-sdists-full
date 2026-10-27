@@ -288,9 +288,16 @@ def _read_detail(job_id: str) -> tuple[dict | None, list[str]]:
     lines = [*_summary(job), "", f"Started: {job.get('started_at') or 'Waiting'}"]
     if job.get("finished_at"):
         lines.append(f"Finished: {job['finished_at']}")
-    if job.get("report"):
-        lines.extend(["", "Result", *job["report"]])
-    lines.extend(["", f"Job: {job['id']}", f"Log: {job['log_path']}"])
+    # The worker's own output (its last 20 lines) only when the import did not
+    # finish; a finished one keeps its warnings, else its closing sentence
+    # ("All sessions imported."). No job id or log path: `c` copies the path.
+    report = list(job.get("report") or [])
+    if report and job["state"] == import_jobs.State.SUCCEEDED:
+        from probe.cli import setup as wizard
+
+        report = [line for line in report if wizard.needs_attention(line)] or report[-1:]
+    if report:
+        lines.extend(["", "Result", *report])
     return job, lines
 
 

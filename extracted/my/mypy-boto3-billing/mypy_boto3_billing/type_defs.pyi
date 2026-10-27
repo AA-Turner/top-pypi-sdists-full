@@ -23,13 +23,18 @@ from typing import Union
 
 from .literals import (
     ApplicationTypeType,
+    AssociationStatusType,
     BillingDomainType,
     BillingFeatureType,
     BillingViewStatusReasonType,
     BillingViewStatusType,
     BillingViewTypeType,
+    ContractTypeType,
     CreditSharingTypeType,
     CreditStatusType,
+    InvestmentAttestationStatusType,
+    InvestmentTypeType,
+    MultiplierTypeType,
     PreferenceValueType,
 )
 
@@ -41,9 +46,15 @@ else:
 __all__ = (
     "ActiveTimeRangeTypeDef",
     "AdditionalChargeTypeDef",
+    "AdditionalRecipientTypeDef",
     "AmountTypeDef",
+    "ApproverDetailsTypeDef",
+    "AssociateContractRequestTypeDef",
     "AssociateSourceViewsRequestTypeDef",
     "AssociateSourceViewsResponseTypeDef",
+    "AttestationDetailsTypeDef",
+    "AttestationQuantityTypeDef",
+    "AttestationValueTypeDef",
     "BillingFeatureFilterTypeDef",
     "BillingPeriodTypeDef",
     "BillingPreferenceForKeyTypeDef",
@@ -60,18 +71,24 @@ __all__ = (
     "BusinessSupportServiceSpendTypeDef",
     "BusinessSupportSubscriptionContractTypeDef",
     "BusinessSupportTierChargeTypeDef",
+    "CancelContractualInvestmentAttestationRequestTypeDef",
     "ChargeAccountTypeDef",
     "ContractAccountTypeDef",
+    "ContractDetailsTypeDef",
+    "ContractSummaryTypeDef",
     "CostCategoryValuesOutputTypeDef",
     "CostCategoryValuesTypeDef",
     "CreateBillingViewRequestTypeDef",
     "CreateBillingViewResponseTypeDef",
+    "CreateContractualInvestmentAttestationRequestTypeDef",
+    "CreateContractualInvestmentAttestationResponseTypeDef",
     "CreditAllocationHistoryEntryTypeDef",
     "CreditDataTypeDef",
     "DeleteBillingViewRequestTypeDef",
     "DeleteBillingViewResponseTypeDef",
     "DimensionValuesOutputTypeDef",
     "DimensionValuesTypeDef",
+    "DisassociateContractRequestTypeDef",
     "DisassociateSourceViewsRequestTypeDef",
     "DisassociateSourceViewsResponseTypeDef",
     "EnterpriseSupportTimePeriodTypeDef",
@@ -82,6 +99,8 @@ __all__ = (
     "GetBillingPreferencesResponseTypeDef",
     "GetBillingViewRequestTypeDef",
     "GetBillingViewResponseTypeDef",
+    "GetContractInformationRequestTypeDef",
+    "GetContractInformationResponseTypeDef",
     "GetCreditAllocationHistoryRequestPaginateTypeDef",
     "GetCreditAllocationHistoryRequestTypeDef",
     "GetCreditAllocationHistoryResponseTypeDef",
@@ -93,6 +112,14 @@ __all__ = (
     "GetEnterpriseSupportContractDetailsResponseTypeDef",
     "GetResourcePolicyRequestTypeDef",
     "GetResourcePolicyResponseTypeDef",
+    "IntervalTypeDef",
+    "InvestmentAttestationTypeDef",
+    "InvestmentDistributionTypeDef",
+    "InvestmentMultiplierTypeDef",
+    "InvestmentRestrictionTypeDef",
+    "InvestmentSummaryTypeDef",
+    "InvestmentTypeDef",
+    "LegalEntityTypeDef",
     "LinkedAccountChargeTypeDef",
     "ListBillingViewSegmentsRequestPaginateTypeDef",
     "ListBillingViewSegmentsRequestTypeDef",
@@ -106,6 +133,18 @@ __all__ = (
     "ListBusinessSupportSubscriptionHistoryRequestPaginateTypeDef",
     "ListBusinessSupportSubscriptionHistoryRequestTypeDef",
     "ListBusinessSupportSubscriptionHistoryResponseTypeDef",
+    "ListContractsRequestPaginateTypeDef",
+    "ListContractsRequestTypeDef",
+    "ListContractsResponseTypeDef",
+    "ListContractualInvestmentAttestationsRequestPaginateTypeDef",
+    "ListContractualInvestmentAttestationsRequestTypeDef",
+    "ListContractualInvestmentAttestationsResponseTypeDef",
+    "ListContractualInvestmentSummariesRequestPaginateTypeDef",
+    "ListContractualInvestmentSummariesRequestTypeDef",
+    "ListContractualInvestmentSummariesResponseTypeDef",
+    "ListContractualInvestmentsRequestPaginateTypeDef",
+    "ListContractualInvestmentsRequestTypeDef",
+    "ListContractualInvestmentsResponseTypeDef",
     "ListEnterpriseSupportLinkedAccountChargesRequestPaginateTypeDef",
     "ListEnterpriseSupportLinkedAccountChargesRequestTypeDef",
     "ListEnterpriseSupportLinkedAccountChargesResponseTypeDef",
@@ -114,9 +153,12 @@ __all__ = (
     "ListSourceViewsForBillingViewResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "MilestoneBasedInvestmentTypeDef",
+    "OutcomeBasedInvestmentTypeDef",
     "PaginatorConfigTypeDef",
     "PricingPlanTierTypeDef",
     "PricingPlanTypeDef",
+    "PrivatePricingAddendumTypeDef",
     "RedeemCreditsRequestTypeDef",
     "ResourceTagTypeDef",
     "ResponseMetadataTypeDef",
@@ -141,9 +183,21 @@ class AdditionalChargeTypeDef(TypedDict):
     amount: NotRequired[str]
     chargeType: NotRequired[str]
 
+class AdditionalRecipientTypeDef(TypedDict):
+    email: str
+
 class AmountTypeDef(TypedDict):
     currencyCode: str
     currencyAmount: str
+
+class ApproverDetailsTypeDef(TypedDict):
+    name: str
+    title: str
+    email: str
+
+class AssociateContractRequestTypeDef(TypedDict):
+    contractArn: str
+    contractDocumentId: str
 
 class AssociateSourceViewsRequestTypeDef(TypedDict):
     arn: str
@@ -155,6 +209,10 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+class AttestationQuantityTypeDef(TypedDict):
+    attestationVolume: str
+    attestationUnit: str
 
 class BillingFeatureFilterTypeDef(TypedDict):
     name: NotRequired[Literal["PREFERENCE_KEY"]]
@@ -203,6 +261,11 @@ class BusinessSupportSubscriptionContractTypeDef(TypedDict):
     contractStartDate: datetime
     contractEndDate: datetime
 
+class CancelContractualInvestmentAttestationRequestTypeDef(TypedDict):
+    attestationId: str
+    contractArn: str
+    reason: str
+
 class ChargeAccountTypeDef(TypedDict):
     accountId: str
     chargePercentage: str
@@ -210,6 +273,10 @@ class ChargeAccountTypeDef(TypedDict):
 class ContractAccountTypeDef(TypedDict):
     accountId: str
     isGdn: bool
+
+class IntervalTypeDef(TypedDict):
+    startDateInclusive: datetime
+    endDateInclusive: datetime
 
 class CostCategoryValuesOutputTypeDef(TypedDict):
     key: str
@@ -235,6 +302,9 @@ class DimensionValuesTypeDef(TypedDict):
     key: Literal["LINKED_ACCOUNT"]
     values: Sequence[str]
 
+class DisassociateContractRequestTypeDef(TypedDict):
+    contractArn: str
+
 class DisassociateSourceViewsRequestTypeDef(TypedDict):
     arn: str
     sourceViews: Sequence[str]
@@ -258,6 +328,9 @@ class TagValuesTypeDef(TypedDict):
 class GetBillingViewRequestTypeDef(TypedDict):
     arn: str
 
+class GetContractInformationRequestTypeDef(TypedDict):
+    contractArn: str
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -272,6 +345,14 @@ class GetEnterpriseSupportContractDetailsRequestTypeDef(TypedDict):
 class GetResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
 
+class InvestmentMultiplierTypeDef(TypedDict):
+    value: str
+    investmentAttestationInputUnit: str
+    multiplierType: MultiplierTypeType
+
+class LegalEntityTypeDef(TypedDict):
+    legalEntityName: str
+
 class ServiceLevelAccountUsageTypeDef(TypedDict):
     serviceCode: NotRequired[str]
     totalSupportEligibleSpend: NotRequired[str]
@@ -285,6 +366,27 @@ class ListBusinessSupportAccountChargesRequestTypeDef(TypedDict):
     accountId: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+class ListContractsRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListContractualInvestmentAttestationsRequestTypeDef(TypedDict):
+    contractArn: str
+    investmentSummaryId: NotRequired[str]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListContractualInvestmentSummariesRequestTypeDef(TypedDict):
+    contractArn: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListContractualInvestmentsRequestTypeDef(TypedDict):
+    contractArn: str
+    investmentSummaryId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class ListEnterpriseSupportLinkedAccountChargesRequestTypeDef(TypedDict):
     billingMonth: str
@@ -382,6 +484,24 @@ class CreditDataTypeDef(TypedDict):
     creditStatus: NotRequired[CreditStatusType]
     purchaseTypeApplications: NotRequired[list[str]]
 
+class InvestmentDistributionTypeDef(TypedDict):
+    accountId: str
+    investmentAmount: AmountTypeDef
+
+class InvestmentRestrictionTypeDef(TypedDict):
+    amount: AmountTypeDef
+
+class InvestmentSummaryTypeDef(TypedDict):
+    investmentSummaryId: str
+    investmentName: str
+    investmentType: InvestmentTypeType
+    maxAllowedInvestmentDisbursementValue: NotRequired[AmountTypeDef]
+
+class MilestoneBasedInvestmentTypeDef(TypedDict):
+    investmentId: str
+    investmentValue: AmountTypeDef
+    investmentDisbursedAt: datetime
+
 class AssociateSourceViewsResponseTypeDef(TypedDict):
     arn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -389,6 +509,10 @@ class AssociateSourceViewsResponseTypeDef(TypedDict):
 class CreateBillingViewResponseTypeDef(TypedDict):
     arn: str
     createdAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateContractualInvestmentAttestationResponseTypeDef(TypedDict):
+    attestationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteBillingViewResponseTypeDef(TypedDict):
@@ -413,6 +537,10 @@ class UpdateBillingViewResponseTypeDef(TypedDict):
     arn: str
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+class AttestationValueTypeDef(TypedDict):
+    attestationAmount: NotRequired[AmountTypeDef]
+    attestationQuantities: NotRequired[Sequence[AttestationQuantityTypeDef]]
 
 class GetBillingPreferencesRequestTypeDef(TypedDict):
     features: Sequence[BillingFeatureType]
@@ -462,6 +590,13 @@ class ListBusinessSupportSubscriptionHistoryResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ContractSummaryTypeDef(TypedDict):
+    contractArn: str
+    contractTerm: IntervalTypeDef
+    associationStatus: AssociationStatusType
+    contractType: NotRequired[ContractTypeType]
+    lastUpdatedAt: NotRequired[datetime]
+
 class ListTagsForResourceResponseTypeDef(TypedDict):
     resourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -495,6 +630,23 @@ class ListBusinessSupportSubscriptionHistoryRequestPaginateTypeDef(TypedDict):
     endDate: NotRequired[TimestampTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListContractsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListContractualInvestmentAttestationsRequestPaginateTypeDef(TypedDict):
+    contractArn: str
+    investmentSummaryId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListContractualInvestmentSummariesRequestPaginateTypeDef(TypedDict):
+    contractArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListContractualInvestmentsRequestPaginateTypeDef(TypedDict):
+    contractArn: str
+    investmentSummaryId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListEnterpriseSupportLinkedAccountChargesRequestPaginateTypeDef(TypedDict):
     billingMonth: str
     accountId: NotRequired[str]
@@ -503,6 +655,14 @@ class ListEnterpriseSupportLinkedAccountChargesRequestPaginateTypeDef(TypedDict)
 class ListSourceViewsForBillingViewRequestPaginateTypeDef(TypedDict):
     arn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class PrivatePricingAddendumTypeDef(TypedDict):
+    contractArn: str
+    contractTerm: IntervalTypeDef
+    eligiblePayerAccounts: list[str]
+    investmentAccounts: list[str]
+    legalEntities: list[LegalEntityTypeDef]
+    contractRestrictions: NotRequired[list[Literal["ATTESTATION_SELF_SERVICE_BLOCKED"]]]
 
 class LinkedAccountChargeTypeDef(TypedDict):
     accountId: str
@@ -574,6 +734,38 @@ GetCreditsResponseTypeDef = TypedDict(
     },
 )
 
+class InvestmentAttestationTypeDef(TypedDict):
+    attestationId: str
+    investmentName: str
+    outcomeDescription: str
+    investmentSummaryId: str
+    investmentId: str
+    attestedAt: datetime
+    updatedAt: datetime
+    attestationStatus: InvestmentAttestationStatusType
+    investmentDisbursedAt: NotRequired[datetime]
+    attestedValue: NotRequired[AmountTypeDef]
+    investmentDistributions: NotRequired[list[InvestmentDistributionTypeDef]]
+    rejectionReasons: NotRequired[list[str]]
+    isCancellable: NotRequired[bool]
+
+class OutcomeBasedInvestmentTypeDef(TypedDict):
+    investmentId: str
+    outcomeDescription: str
+    attestationWindow: IntervalTypeDef
+    disbursedValue: AmountTypeDef
+    investmentRestrictions: NotRequired[list[InvestmentRestrictionTypeDef]]
+    investmentMultipliers: NotRequired[list[InvestmentMultiplierTypeDef]]
+
+class ListContractualInvestmentSummariesResponseTypeDef(TypedDict):
+    items: list[InvestmentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class AttestationDetailsTypeDef(TypedDict):
+    attestationValue: AttestationValueTypeDef
+    investmentDistributions: NotRequired[Sequence[InvestmentDistributionTypeDef]]
+
 class GetBillingPreferencesResponseTypeDef(TypedDict):
     billingPreferences: list[BillingPreferenceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -599,6 +791,11 @@ class ListBusinessSupportAccountChargesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ListContractsResponseTypeDef(TypedDict):
+    items: list[ContractSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class BillingViewElementTypeDef(TypedDict):
     arn: NotRequired[str]
     name: NotRequired[str]
@@ -613,6 +810,9 @@ class BillingViewElementTypeDef(TypedDict):
     sourceViewCount: NotRequired[int]
     viewDefinitionLastUpdatedAt: NotRequired[datetime]
     healthStatus: NotRequired[BillingViewHealthStatusTypeDef]
+
+class ContractDetailsTypeDef(TypedDict):
+    privatePricingAddendum: NotRequired[PrivatePricingAddendumTypeDef]
 
 class ListEnterpriseSupportLinkedAccountChargesResponseTypeDef(TypedDict):
     linkedAccount: list[LinkedAccountChargeTypeDef]
@@ -665,8 +865,32 @@ class ListBillingViewSegmentsRequestTypeDef(TypedDict):
 
 ExpressionUnionTypeDef = Union[ExpressionTypeDef, ExpressionOutputTypeDef]
 
+class ListContractualInvestmentAttestationsResponseTypeDef(TypedDict):
+    items: list[InvestmentAttestationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class InvestmentTypeDef(TypedDict):
+    milestoneBasedInvestment: NotRequired[MilestoneBasedInvestmentTypeDef]
+    outcomeBasedInvestment: NotRequired[OutcomeBasedInvestmentTypeDef]
+
+class CreateContractualInvestmentAttestationRequestTypeDef(TypedDict):
+    contractArn: str
+    investmentSummaryId: str
+    investmentId: str
+    contractDocumentId: str
+    approverDetails: ApproverDetailsTypeDef
+    attestationDetails: AttestationDetailsTypeDef
+    investmentDisbursedAt: NotRequired[TimestampTypeDef]
+    additionalRecipients: NotRequired[Sequence[AdditionalRecipientTypeDef]]
+    clientToken: NotRequired[str]
+
 class GetBillingViewResponseTypeDef(TypedDict):
     billingView: BillingViewElementTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetContractInformationResponseTypeDef(TypedDict):
+    contract: ContractDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateBillingViewRequestTypeDef(TypedDict):
@@ -682,3 +906,8 @@ class UpdateBillingViewRequestTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
     dataFilterExpression: NotRequired[ExpressionUnionTypeDef]
+
+class ListContractualInvestmentsResponseTypeDef(TypedDict):
+    items: list[InvestmentTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]

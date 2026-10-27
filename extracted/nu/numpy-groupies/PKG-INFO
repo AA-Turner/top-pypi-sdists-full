@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpy-groupies
-Version: 0.15.0
+Version: 0.16.0
 Summary: Optimised tools for group-indexing operations: aggregated sum and more.
 Author-email: Michael Löffler <ml@occam.com.ua>, Daniel Manson <danielmanson.uk@gmail.com>
 Maintainer-email: Deepak Cherian <dcherian@ucar.edu>
@@ -126,26 +126,37 @@ npg.aggregate(np.array([0, 1, 0, 1, 0]), np.array([1, 2, 3, 4, 5]), func="cumsum
 **Custom functions.** Any callable works. Non-numeric output needs `dtype=object`, and since the default fill value of a custom function cannot be guessed, give one explicitly. Use the NumPy implementation for this: Numba can only compile numeric functions, so with Numba installed the plain `aggregate` fails on the string example below — and it compiles *functions*, so a callable object (a `functools.partial`, a dataclass with `__call__`) is for the NumPy implementation as well.
 
 ```python
+import numpy_groupies.aggregate_numpy as npg
+
 group_idx = np.array([1, 0, 1, 4, 1])
 a = np.array([12.0, 3.2, -15, 88, 12.9])
-npg.aggregate_np(group_idx, a, func=lambda x: " or ".join(map(str, x)), fill_value="", dtype=object)
+npg.aggregate(group_idx, a, func=lambda x: " or ".join(map(str, x)), fill_value="", dtype=object)
 # array(['3.2', '12.0 or -15.0 or 12.9', '', '', '88.0'], dtype=object)
 ```
 
-**Integration into own jitted functions.** Every kernel is `@njit`-callable, so group statistics can sit inside a compiled loop of your own:
+**Integration into own jitted functions.** Every kernel is `@njit`-callable, so group statistics can sit inside a compiled loop of your own. The Numba module carries the kernels as its attributes — they are the one thing jitted code can reach, since Numba cannot reach the attributes of a Python object:
 
 ```python
 import numba as nb
 import numpy as np
-from numpy_groupies.aggregate_numba import kernels
+import numpy_groupies.aggregate_numba as npg
 
 @nb.njit
 def zscore(group_idx, a):
-    mean = kernels.aggregate_mean(group_idx, a)
-    std = kernels.aggregate_std(group_idx, a)
+    mean = npg.mean(group_idx, a)
+    std = npg.std(group_idx, a)
     scale = np.where(std > 0, std, 1.0)
     return (a - mean[group_idx]) / scale[group_idx]
 ```
+
+The same call from Python reaches the very same compiled driver — the same arguments, the same result, only no jitted caller around it:
+
+```python
+npg.mean(group_idx, a)              # the mean of every group
+npg.std(group_idx, a, ddof=1)       # the argument the function has of its own, by its own name
+```
+
+A kernel is a lean thing: it takes flat 1-D input with integer indices and runs none of the validation and dtype resolution of `aggregate()` — the narrow integer sum always widens to `int64`, and `dtype`/`order`/`axis`/`out` are not its business. `aggregate()` — `npg.aggregate` of the Numba module, or `npg.aggregate` of the package once Numba is installed — is the one that knows all of that.
 
 **Multi-dimensional output.** Give `group_idx` one row per output dimension — here, 1000 values binned into a 15×15×15 cube:
 
@@ -215,6 +226,22 @@ Output size defaults to `max(group_idx) + 1` per dimension; pass `size=` to fix 
 
 Not every implementation supports every function — the [function reference](https://github.com/ml31415/numpy-groupies/blob/master/docs/functions.md) has the exact semantics, default fill values, complex-number behaviour and a function × implementation matrix.
 
+Every function is also a name of its own, with the function in the name instead of in the `func` argument. The name takes the arguments of its function — the `ddof` of the variance, the `q` of the quantile, the `dx` of the trapezoid, the `reverse` of the sort — and the rest like `aggregate` itself:
+
+```python
+npg.mean(group_idx, a)              # the best implementation available
+npg.quantile(group_idx, a, q=0.9)   # the same as func="quantile", q=0.9
+```
+
+The same names are the attributes of the module of every implementation, so an implementation can be chosen and used the same way:
+
+```python
+import numpy_groupies.aggregate_numpy as npg
+npg.mean(group_idx, a)              # the numpy implementation
+```
+
+The Numba module carries the kernels there, and a kernel is a leaner thing than the aggregate of the module (see [above](#quickstart)).
+
 ## Helper tools
 
 `uaggregate(group_idx, a, ...)` takes the same arguments as `aggregate` but broadcasts the result back to the size of `a`, so every element carries the result of its own group — `aggregate(...)[group_idx]` in one call:
@@ -229,17 +256,29 @@ npg.uaggregate(group_idx, a, func="mean")
 a - npg.uaggregate(group_idx, a, func="mean")  # demean within each group
 ```
 
-The rest of the exports are small and situational: `unpack` and `unpack_into` (broadcast a per-group result back, optionally into a preallocated array), `step_count` and `step_indices` (runs of equal labels, Numba only), `multi_arange`, `label_contiguous_1d`, `relabel_groups_unique` and `relabel_groups_masked` (close gaps in sparse labels), and `default_fill_value`. All of them are described in the [reference](https://github.com/ml31415/numpy-groupies/blob/master/docs/functions.md#helper-functions).
+The rest of the exports are small and situational: `unpack` (broadcast a per-group result back) and `unpack_into` (the same, into a preallocated array — Numba only), `step_count` and `step_indices` (runs of equal labels), `multi_arange`, `label_contiguous_1d`, `relabel_groups_unique` and `relabel_groups_masked` (close gaps in sparse labels), and `default_fill_value`. All of them are described in the [reference](https://github.com/ml31415/numpy-groupies/blob/master/docs/functions.md#helper-functions).
 
 ## Implementations
 
-`from numpy_groupies import aggregate` picks the best available implementation: **numba** if installed, otherwise **numpy**. To choose explicitly:
+`from numpy_groupies import aggregate` picks the best available implementation: **numba** if installed, otherwise **numpy**. Every implementation is a module of its own, and it is called through its `aggregate` — its functions are its attributes as well:
+
+```python
+import numpy_groupies.aggregate_numba as npg   # numba
+import numpy_groupies.aggregate_numpy as npg   # numpy
+import numpy_groupies.aggregate_purepy as npg  # pure python
+
+npg.aggregate(group_idx, a, func="mean")  # the aggregate of that implementation
+npg.mean(group_idx, a)                    # one of its functions
+```
+
+In the Numba module, the functions are the kernels — the compiled drivers, which are leaner than the aggregate of the module and are the ones jitted code can reach.
+
+The names the package has always carried name the same implementations directly: `aggregate_np` is the aggregate of the numpy implementation, `aggregate_nb` the one of the numba implementation (`None` where numba is not installed) and `aggregate_py` the one of the pure python implementation.
 
 ```python
 from numpy_groupies import aggregate_nb as aggregate  # numba
 from numpy_groupies import aggregate_np as aggregate  # numpy
 from numpy_groupies import aggregate_py as aggregate  # pure python
-from numpy_groupies.aggregate_numpy import aggregate  # same, via the module
 ```
 
 All implementations share the calling syntax and produce the same results up to floating-point error, but some support only a subset of functions and raise `NotImplementedError` otherwise.
@@ -253,30 +292,32 @@ All implementations share the calling syntax and produce the same results up to 
 | pandas         | numpy, pandas | For benchmarking only: wraps `groupby` (in `numpy_groupies.benchmarks`). Skips NaN even in the plain functions (except `median`, `quantile`, `cumsum`). |
 | polars         | numpy, polars | For benchmarking only: wraps `group_by` (in `numpy_groupies.benchmarks`). |
 
-> **Gotchas:** with Numba installed, custom callables must be Numba-compilable (numeric code). For the cases that are not, call the NumPy implementation: `npg.aggregate_np(group_idx, a, func=my_callable)`.
+> **Gotchas:** with Numba installed, custom callables must be Numba-compilable (numeric code). For the cases that are not, call the NumPy implementation: `import numpy_groupies.aggregate_numpy as npg`, then `npg.aggregate(group_idx, a, func=my_callable)`.
 
 ## Performance
 
-Best of three passes of five timed runs each, in milliseconds, for 500,000 values in 1,000 groups (lower is better):
+Best of three passes, every cell measured in one block of five runs, in milliseconds, for 500,000 values in 1,000 groups (lower is better):
 
-| function        | numpy  | numba  | numbagg | polars | pandas |
-| --------------- | -----: | -----: | ------: | -----: | -----: |
-| `sum`            |  0.917 |  0.454 |  0.463 |  2.421 |  6.960 |
-| `mean`           |  1.512 |  0.491 |  0.531 |  2.665 |  7.430 |
-| `max`            |  1.681 |  0.608 |  0.858 |  3.337 |  6.718 |
-| `std`            |  3.060 |  0.653 |  0.680 |  2.481 |  7.676 |
-| `nansum`         |  4.099 |  0.429 |  1.754 |  5.915 |  8.288 |
-| `median`         | 11.730 |  9.345 |   ---- |  3.675 | 16.229 |
-| `skew`            |  5.578 |  2.577 |   ---- |  3.349 |  9.642 |
-| `kurt`            |  5.591 |  2.434 |   ---- |  4.125 | 10.717 |
-| `quantile`       | 14.050 |  9.469 |   ---- |  4.180 | 22.721 |
-| `nunique`        | 14.921 |  8.296 |   ---- | 11.896 | 58.062 |
-| `sort`           | 70.184 | 24.658 |   ---- |   ---- |   ---- |
-| `cumsum`         | 14.042 |  0.551 |   ---- |  8.483 |  7.283 |
-| `array`          |  7.358 |  1.958 |   ---- |   ---- |   ---- |
-| custom callable  | 111.000 |  5.961 |   ---- | 79.490 | 95.918 |
+| function        | numpy  |  numba  | numbagg | polars | pandas |
+| --------------- | -----: | ------: | ------: | -----: | ------: |
+| `sum`           |  0.912 |  0.253 |  0.483 |  3.102 |  6.486 |
+| `mean`          |  1.548 |  0.281 |  0.548 |  2.818 |  7.163 |
+| `max`           |  1.741 |  0.305 |  0.908 |  3.751 |  6.240 |
+| `std`           |  3.168 |  0.418 |  0.741 |  2.357 |  7.778 |
+| `nansum`        |  4.202 |  0.273 |  1.813 |  6.504 |  8.058 |
+| `median`        | 14.083 |  2.887 |   ---- |  4.460 | 15.915 |
+| `skew`          |  5.581 |  2.636 |   ---- |  4.265 |  9.668 |
+| `kurt`          |  5.638 |  2.562 |   ---- |  3.872 | 10.630 |
+| `quantile`      | 15.486 |  2.750 |   ---- |  4.095 | 23.809 |
+| `nunique`       | 15.796 |  3.838 |   ---- | 14.059 | 59.548 |
+| `sort`          | 72.128 |  7.192 |   ---- |   ---- |   ---- |
+| `cumsum`        | 15.371 |  0.572 |   ---- | 10.231 |  6.954 |
+| `array`         |  7.445 |  1.947 |   ---- |   ---- |   ---- |
+| custom callable | 114.729 |  6.023 |   ---- | 85.638 | 97.647 |
 
-The `polars` column uses all the cores of the machine, the `numpy` and `numba` columns are single-threaded - the Numba kernels of this package do not use `prange`. That matters most for the order statistics: with a single thread polars needs 9.7ms for the quantile, against 4.0ms with six, which puts it level with the single-threaded Numba kernel (9.3ms).
+The `numba` column is the backend of this package, optimized as far as we could get it: it uses the threads of the machine where that pays for itself. The operations that can be reduced in chunks - the sums, the products, the counts, the extremes and the mean - split their data into chunks that are reduced separately and folded afterwards. The operations that cannot - the order statistics (the median, the quantile, the sort, the number of the distinct values) - cut their *groups* into ranges instead and let the threads work on the ranges one after another; every group belongs to one range, so nothing is folded afterwards and the result is the one of the sequential kernel bit for bit. The chunks and the ranges are more than the threads, so that a core that is busy with something else does not hold up the whole call - the threads that are done take the pieces that are left. The operations that give an output per value (the cumulatives) stay single-threaded.
+
+Every participant gets the same data, the same arguments and the same machine, and the threads of the machine are as much theirs as ours - the comparison is meant to be a fair one.
 
 Absolute numbers depend on your machine, so compare the columns against each other rather than reading a single one as the price of the operation.
 
@@ -285,6 +326,8 @@ The complete table and the benchmark setup are in [docs/benchmarks.md](https://g
 ```sh
 python -m numpy_groupies.benchmarks --numbagg --pandas --polars
 ```
+
+Which calls take the parallel path is decided by a cost model, and the model is fitted on the machine it runs on — `python -m numpy_groupies.benchmarks.mt` measures the parallel kernels against the sequential ones and prints the constants and the crossovers it finds.
 
 The `numpy` and `numba` columns above are not the whole story: NumPy 1.25 brought major [speed improvements to ufuncs](https://numpy.org/doc/stable/release/1.25.0-notes.html), which narrowed the gap between the NumPy and Numba implementations considerably. The authors hope that `ufunc.at` or an equivalent in NumPy or SciPy will eventually become fast enough to make this package redundant.
 

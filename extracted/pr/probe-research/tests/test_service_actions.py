@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import signal
+import subprocess
 import sys
 import tempfile
 import time
@@ -128,6 +129,107 @@ def test_one_mutating_action_at_a_time(service_home, core):
         _wait_done(conn, second)
     (later,) = core.calls("session_default")
     assert later["at"] > core.calls("logout")[0]["at"]
+
+
+#: An action child that hangs; with `done`, one that writes its own `done` as
+#: SIGTERM stops it, as `probe.core.events`' handler does.
+_HANG = """
+import json, os, signal, sys, time
+open(sys.argv[1], "w").write(str(os.getpid()))
+if sys.argv[2] == "done":
+    def stopped(*_):
+        print(json.dumps({"v": 1, "event": "done", "ok": False, "complete": False, "exit_code": 143, "steps": []}),
+              flush=True)
+        sys.exit(143)
+    signal.signal(signal.SIGTERM, stopped)
+time.sleep(120)
+"""
+
+
+def _in_process_actions(tmp_path, monkeypatch):
+    from probe.service import actions, loginenv
+
+    for name, sub in (("HOME", "home"), ("XDG_STATE_HOME", "state"), ("XDG_CONFIG_HOME", "config"),
+                      ("CLAUDE_CONFIG_DIR", "claude"), ("CODEX_HOME", "codex"), ("PI_CODING_AGENT_DIR", "pi")):
+        monkeypatch.setenv(name, str(tmp_path / sub))
+    monkeypatch.setenv(actions.ACTION_TIMEOUT_ENV, "1")
+    monkeypatch.setenv(actions.ACTION_STOP_GRACE_ENV, "5")
+
+    async def no_login_shell(**_kw):
+        return {}
+
+    monkeypatch.setattr(loginenv, "child_env", no_login_shell)
+    (tmp_path / "home").mkdir()
+    return actions
+
+
+@pytest.mark.parametrize("child", ["hangs", "done"])
+def test_an_action_past_its_time_limit_is_stopped_and_fails(tmp_path, monkeypatch, child):
+    """An action child that never returned held the one mutating slot -- and
+    every update, which defers on a running action -- for good (plan C1). Past
+    its limit its process group is stopped, the action fails saying why (also
+    when the child writes its own `done` as it stops), and the slot is free for
+    the next one. In process: a service `ensure` starts gets no test override
+    (`client.ENV_ALLOWLIST`)."""
+    import asyncio
+
+    from probe.service import children
+
+    actions = _in_process_actions(tmp_path, monkeypatch)
+    pidfile = tmp_path / "child.pid"
+    monkeypatch.setattr(children, "core_argv", lambda _action: [sys.executable, "-c", _HANG, str(pidfile), child])
+
+    async def run_one():
+        manager = actions.ActionManager(emit=lambda *_a: None, changed=lambda: None, holder=lambda: None)
+        action_id = manager.run({"action": "logout", "params": {}, "client_request_id": "a"}, {})["action_id"]
+        record = manager.records[action_id]
+        while record.state != "done":
+            await asyncio.sleep(0.05)
+        return record, manager.busy_holder()
+
+    record, holder = asyncio.run(asyncio.wait_for(run_one(), 30.0))
+    status = record.public()
+    assert (status["done"]["ok"], status["done"]["exit_code"], holder) == (False, 143, None)
+    assert status["error"]["message"] == "the action ran past 1 s and was stopped (SIGTERM)"
+    assert not pid_running(int(pidfile.read_text()))
+
+
+def test_a_child_an_earlier_service_left_running_gets_the_time_limit_too(tmp_path, monkeypatch):
+    """A service stopped under its action leaves the child running; the next
+    one watches it to the end and holds the slot meanwhile. Past the same
+    limit, counted from the action's acceptance, that child is stopped too."""
+    import asyncio
+
+    from probe.service import paths, procid
+
+    actions = _in_process_actions(tmp_path, monkeypatch)
+    child = subprocess.Popen([sys.executable, "-c", _HANG, str(tmp_path / "child.pid"), "hangs"],
+                             start_new_session=True)
+    action_id = "act_" + "0" * 16
+    try:
+        paths.private_dir(paths.actions_dir())
+        lines = [
+            {"type": "accepted", "v": 1, "action_id": action_id, "action": "logout", "params": {},
+             "client_request_id": "a", "accepted_at": time.time() - 5, "service_pid": 1},
+            {"type": "child", "pid": child.pid, "start_time": procid.start_time(child.pid), "at": time.time() - 5},
+        ]
+        (paths.actions_dir() / f"{action_id}.jsonl").write_text("".join(json.dumps(line) + "\n" for line in lines))
+
+        async def recover():
+            manager = actions.ActionManager(emit=lambda *_a: None, changed=lambda: None, holder=lambda: None)
+            manager.load(lambda *_a: None)  # the service's pid watcher: this test waits itself
+            record = manager.records[action_id]
+            assert record.orphan and manager.busy_holder() is not None
+            while record.state != "done":
+                await asyncio.sleep(0.05)
+            return record.public(), manager.busy_holder()
+
+        status, holder = asyncio.run(asyncio.wait_for(recover(), 30.0))
+        assert child.wait(timeout=10) is not None
+    finally:
+        child.kill()
+        child.wait(timeout=10)
+    assert (status["error"]["message"], holder) == ("the action ran past 1 s and was stopped", None)
 
 
 def test_cancel_is_refused_while_writing_and_interrupts_an_approval_wait(service_home, core):

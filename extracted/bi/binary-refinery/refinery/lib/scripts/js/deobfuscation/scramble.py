@@ -13,11 +13,14 @@ from typing import NamedTuple, Sequence
 
 from refinery.lib.fast.scramble import decrypt_round as _decrypt_round
 from refinery.lib.scripts import Node, _remove_from_parent, _replace_in_parent
+from refinery.lib.scripts.js.analysis.cache import model_cache
+from refinery.lib.scripts.js.analysis.model import SemanticModel
 from refinery.lib.scripts.js.deobfuscation.helpers import (
-    GLOBAL_OBJECT_ALIASES,
     ScriptLevelTransformer,
     access_key,
     make_string_literal,
+    names_this_realms_global_object,
+    nothing_still_names,
     remove_declarator,
 )
 from refinery.lib.scripts.js.model import (
@@ -40,10 +43,22 @@ from refinery.lib.scripts.js.model import (
     JsThisExpression,
     JsVariableDeclaration,
     JsVariableDeclarator,
+    wraps_return,
 )
+from refinery.lib.scripts.js.numbers import exact_integer
 
 _DEFAULT_ROUNDS = 3
 _DEFAULT_ITERATIONS = 200000
+_MAX_ROUNDS = 64
+_MAX_ITERATIONS = 1000000
+"""
+The largest round and iteration counts a constructor may declare and still describe this cipher.
+Both are read out of the program and both buy work directly: an iteration count is spent inside a
+single `hashlib.pbkdf2_hmac` call that no timeout in this codebase can interrupt, and a round count
+is a loop per decoded string. A sample naming `1e12` iterations is not configuring Scramble, it is
+asking for a week of hashing, and taking the number at face value is what turns recognizing the
+pattern into that.
+"""
 
 
 class ScrambleCipher:
@@ -84,20 +99,28 @@ def _method_name(method: JsMethodDefinition) -> str | None:
 
 
 def _is_scramble_class(node: Node) -> bool:
+    """
+    Whether *node* is a class an instance of which decodes a string through a key its constructor
+    derives. Only members an instance call reaches are read: a static member of either name is
+    reached through the class and never through `instance.decode(x)`, and where two members answer
+    to one name the later one is the member the instance has.
+    """
     body: JsClassBody | None = getattr(node, 'body', None)
     if body is None:
         return False
-    has_decode = False
-    has_pbkdf2 = False
+    decode: JsMethodDefinition | None = None
+    constructor: JsMethodDefinition | None = None
     for method in body.body:
-        if not isinstance(method, JsMethodDefinition):
+        if not isinstance(method, JsMethodDefinition) or method.is_static:
             continue
         name = _method_name(method)
-        if name == 'decode':
-            has_decode = True
+        if name == 'decode' and method.kind is JsMethodKind.METHOD:
+            decode = method
         elif name == 'constructor':
-            has_pbkdf2 = _constructor_has_pbkdf2(method)
-    return has_decode and has_pbkdf2
+            constructor = method
+    if decode is None or decode.value is None or wraps_return(decode.value):
+        return False
+    return constructor is not None and _constructor_has_pbkdf2(constructor)
 
 
 def _constructor_has_pbkdf2(method: JsMethodDefinition) -> bool:
@@ -125,7 +148,28 @@ def _is_this_member(node: Node | None, name: str) -> bool:
     )
 
 
-def _extract_constructor_params(method: JsMethodDefinition) -> tuple[int, int]:
+def _declared_count(node: Node | None, largest: int) -> int | None:
+    """
+    A repetition count written into the constructor: a positive integer no larger than *largest*, or
+    `None` when what is written there is something else. The lower bound is `hashlib.pbkdf2_hmac`'s
+    own, which rejects a count below one by raising; the upper bound is what keeps the recognition
+    itself bounded, since both counts are spent as work the moment they are believed.
+    """
+    if not isinstance(node, JsNumericLiteral):
+        return None
+    count = exact_integer(node.value)
+    if count is None or not (1 <= count <= largest):
+        return None
+    return count
+
+
+def _extract_constructor_params(method: JsMethodDefinition) -> tuple[int, int] | None:
+    """
+    The round and iteration counts the constructor configures, or `None` when it writes one this
+    pass cannot honour. Refusing is the whole answer there and a default is not: the counts decide
+    the key, so decoding with three rounds a class that declares some other number does not fail
+    loudly, it prints a plausible string that the program never produces.
+    """
     fn = method.value
     rounds = _DEFAULT_ROUNDS
     iterations = _DEFAULT_ITERATIONS
@@ -135,18 +179,21 @@ def _extract_constructor_params(method: JsMethodDefinition) -> tuple[int, int]:
         if not isinstance(node, JsAssignmentExpression):
             continue
         if _is_this_member(node.left, 'rounds'):
-            if isinstance(node.right, JsNumericLiteral) and isinstance(node.right.value, int):
-                rounds = node.right.value
+            declared = _declared_count(node.right, _MAX_ROUNDS)
+            if declared is None:
+                return None
+            rounds = declared
         elif _is_this_member(node.left, 'masterKey'):
             if not isinstance(node.right, JsCallExpression) or len(node.right.arguments) < 5:
                 continue
-            iters_arg = node.right.arguments[2]
-            if isinstance(iters_arg, JsNumericLiteral) and isinstance(iters_arg.value, int):
-                iterations = iters_arg.value
+            declared = _declared_count(node.right.arguments[2], _MAX_ITERATIONS)
+            if declared is None:
+                return None
+            iterations = declared
     return rounds, iterations
 
 
-def _get_class_params(class_node: JsClassDeclaration) -> tuple[int, int]:
+def _get_class_params(class_node: JsClassDeclaration) -> tuple[int, int] | None:
     if class_node.body is None:
         return _DEFAULT_ROUNDS, _DEFAULT_ITERATIONS
     for method in class_node.body.body:
@@ -198,7 +245,8 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
         instance = self._find_instance(body, class_node.id.name, class_node)
         if instance is None:
             return
-        decode_names = self._find_decode_functions(body, instance.name)
+        model = model_cache(self, node).model
+        decode_names = self._find_decode_functions(model, body, instance.name)
         if not decode_names:
             return
         cipher = ScrambleCipher(
@@ -208,9 +256,10 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
             instance.rounds,
         )
         count = self._substitute_calls(node, decode_names, cipher)
-        if count > 0:
-            self._remove_infrastructure(body, class_node, instance, decode_names)
-            self.mark_changed()
+        if count <= 0:
+            return
+        self.mark_changed()
+        self._remove_infrastructure(node, body, class_node, instance, decode_names)
 
     def _find_scramble_class(self, body: Sequence[Node]) -> JsClassDeclaration | None:
         for stmt in body:
@@ -247,7 +296,10 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
                 salt = _resolve_string(init.arguments[1], body)
                 if password is None or salt is None:
                     continue
-                rounds, iterations = _get_class_params(class_node)
+                params = _get_class_params(class_node)
+                if params is None:
+                    continue
+                rounds, iterations = params
                 return _InstanceInfo(
                     name=decl.id.name,
                     password=password,
@@ -257,7 +309,9 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
                 )
         return None
 
-    def _find_decode_functions(self, body: Sequence[Node], instance_name: str) -> set[str]:
+    def _find_decode_functions(
+        self, model: SemanticModel, body: Sequence[Node], instance_name: str,
+    ) -> set[str]:
         names: set[str] = set()
         for stmt in body:
             if isinstance(stmt, JsFunctionDeclaration):
@@ -273,13 +327,15 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
                         continue
                     if self._is_decode_wrapper(decl.init, instance_name):
                         names.add(decl.id.name)
-        aliases = self._find_aliases(body, names)
+        aliases = self._find_aliases(model, body, names)
         names.update(aliases)
         return names
 
     def _is_decode_wrapper(
         self, fn: JsFunctionDeclaration | JsFunctionExpression, instance_name: str,
     ) -> bool:
+        if wraps_return(fn):
+            return False
         if fn.body is None or len(fn.body.body) != 1:
             return False
         stmt = fn.body.body[0]
@@ -296,7 +352,9 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
             and access_key(callee) == 'decode'
         )
 
-    def _find_aliases(self, body: Sequence[Node], known: set[str]) -> set[str]:
+    def _find_aliases(
+        self, model: SemanticModel, body: Sequence[Node], known: set[str],
+    ) -> set[str]:
         aliases: set[str] = set()
         for stmt in body:
             if not isinstance(stmt, JsExpressionStatement):
@@ -309,18 +367,23 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
             if isinstance(expr.left, JsIdentifier):
                 aliases.add(expr.left.name)
             elif isinstance(expr.left, JsMemberExpression):
-                name = self._resolve_global_property_name(expr.left, body)
+                name = self._resolve_global_property_name(model, expr.left, body)
                 if name is not None:
                     aliases.add(name)
         return aliases
 
     @staticmethod
     def _resolve_global_property_name(
-        member: JsMemberExpression, body: Sequence[Node],
+        model: SemanticModel, member: JsMemberExpression, body: Sequence[Node],
     ) -> str | None:
-        if not isinstance(member.object, JsIdentifier):
-            return None
-        if member.object.name not in GLOBAL_OBJECT_ALIASES:
+        """
+        The global name *member* installs the decoder under, or `None` where it installs nothing:
+        the base has to denote this realm's global object where it stands, which a declaration of
+        the alias name takes away. A `self.d = decode` beneath a `var self = {}` puts the decoder on
+        an ordinary object a later `self.d(...)` reads back, and taking it for a global installation
+        deletes machinery that call still needs.
+        """
+        if not names_this_realms_global_object(model, member.object):
             return None
         key = access_key(member)
         if key is not None:
@@ -343,7 +406,7 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
             if len(node.arguments) != 1:
                 continue
             arg = node.arguments[0]
-            if not isinstance(arg, JsStringLiteral):
+            if not isinstance(arg, JsStringLiteral) or arg.value is None:
                 continue
             try:
                 decoded = cipher.decode(arg.value)
@@ -355,11 +418,19 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
 
     def _remove_infrastructure(
         self,
+        root: JsScript,
         body: Sequence[Node],
         class_node: JsClassDeclaration,
         instance: _InstanceInfo,
         decode_names: set[str],
     ) -> None:
+        """
+        Delete the cipher class, the instance it is constructed into, and every decode function and
+        alias that reaches it — but only once nothing outside them names any of it. A call whose
+        argument the pass could not read is left standing, and deleting the function that call names
+        would hand back a program throwing where it ran.
+        """
+        model = model_cache(self, root).model
         removals: list[Node] = [class_node]
         declarator_removals: list[JsVariableDeclarator] = []
         global_name_vars: set[str] = set()
@@ -373,7 +444,7 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
                 continue
             if not isinstance(expr.right, JsIdentifier) or expr.right.name not in decode_names:
                 continue
-            name = self._resolve_global_property_name(expr.left, body)
+            name = self._resolve_global_property_name(model, expr.left, body)
             if name is not None and name in decode_names:
                 removals.append(stmt)
                 if isinstance(expr.left.property, JsIdentifier) and expr.left.computed:
@@ -401,6 +472,8 @@ class JsScrambleStringDecoder(ScriptLevelTransformer):
                     and expr.left.name in decode_names
                 ):
                     removals.append(stmt)
+        if not nothing_still_names(model, [*removals, *declarator_removals]):
+            return
         for decl in declarator_removals:
             remove_declarator(decl)
         for stmt in removals:

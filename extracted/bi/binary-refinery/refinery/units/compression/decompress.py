@@ -5,6 +5,7 @@ from enum import IntFlag
 import colorama
 
 from refinery.lib.id import get_structured_data_type
+from refinery.lib.meta import MV
 from refinery.lib.tools import normalize_to_display
 from refinery.lib.types import INF, NamedTuple, Param, bounds, buf
 from refinery.units import Arg, RefineryPartialResult, Unit
@@ -83,6 +84,47 @@ class _R(IntFlag):
                 'K': _R.HadNoErrors
             }.items()
         )
+
+
+class _Decompression(NamedTuple):
+    """
+    The outcome of one attempt to decompress an input of the given size.
+    """
+    method: str
+    engine: Unit
+    rating: _R
+    size: int
+    result: buf | None = None
+    cutoff: int = 0
+    prefix: int | None = None
+    magic: str | None = None
+
+    def __str__(self):
+        status = self.rating.summary
+        method = self.method
+        prefix = self.prefix
+        if prefix is not None:
+            prefix = F'{_COLOR_WARNING}0x{prefix:02X}{_CR}'
+        if cutoff := self.cutoff:
+            cutoff = F'{_COLOR_WARNING}0x{cutoff:02X}{_CR}'
+        else:
+            cutoff = R'0x00'
+        return F'prefix={prefix}, cutoff={cutoff}, [{status}] method={method}'
+
+    def __len__(self):
+        if not self.result:
+            return 0
+        return len(self.result)
+
+    @property
+    def ratio(self):
+        if not self.result:
+            return INF()
+        return (self.size + int(self.prefix is not None) - self.cutoff) / len(self)
+
+    @property
+    def unmodified(self):
+        return self.prefix is None and self.cutoff == 0
 
 
 class decompress(Unit):
@@ -194,49 +236,13 @@ class decompress(Unit):
         data = memoryview(data)
         tiny = bounds[self.args.expand_limits]
 
-        class Decompression(NamedTuple):
-            method: str
-            engine: Unit
-            rating: _R
-            result: buf | None = None
-            cutoff: int = 0
-            prefix: int | None = None
-            magic: str | None = None
-
-            def __str__(self):
-                status = self.rating.summary
-                method = self.method
-                prefix = self.prefix
-                if prefix is not None:
-                    prefix = F'{_COLOR_WARNING}0x{prefix:02X}{_CR}'
-                if cutoff := self.cutoff:
-                    cutoff = F'{_COLOR_WARNING}0x{cutoff:02X}{_CR}'
-                else:
-                    cutoff = R'0x00'
-                return F'prefix={prefix}, cutoff={cutoff}, [{status}] method={method}'
-
-            def __len__(self):
-                if not self.result:
-                    return 0
-                return len(self.result)
-
-            @property
-            def ratio(self):
-                if not self.result:
-                    return INF()
-                return (len(data) + int(bool(self.prefix)) - self.cutoff) / len(self)
-
-            @property
-            def unmodified(self):
-                return self.prefix is None and self.cutoff == 0
-
         if self.args.prepend:
             buffer = bytearray(1 + len(data))
             buffer[1:] = data
         else:
             buffer = None
 
-        best_by_rating: dict[_R, Decompression] = {}
+        best_by_rating: dict[_R, _Decompression] = {}
 
         def best_current_rating():
             return max(best_by_rating, default=_R.InvalidData)
@@ -254,7 +260,7 @@ class decompress(Unit):
             if is_handled is True:
                 rating |= _R.KnownFormat
             if is_handled is False:
-                return Decompression(method, engine, _R.InvalidData, None, cutoff, prefix)
+                return _Decompression(method, engine, _R.InvalidData, len(data), None, cutoff, prefix)
             try:
                 result = next(engine.act(ingest))
             except RefineryPartialResult as pr:
@@ -269,9 +275,9 @@ class decompress(Unit):
                     magic = magic.mnemonic
                     rating |= _R.KnownFormatOut
 
-            return Decompression(method, engine, rating, result, cutoff, prefix, magic)
+            return _Decompression(method, engine, rating, len(data), result, cutoff, prefix, magic)
 
-        def update(new: Decompression, discard_if_too_good=False):
+        def update(new: _Decompression, discard_if_too_good=False):
             if not new.result:
                 return
             ratio = new.ratio
@@ -369,6 +375,6 @@ class decompress(Unit):
                     self.log_info('the only decompression with result returned only a partial result.')
                 if dc.rating & _R.KnownFormatOut and (magic := dc.magic):
                     self.log_info(F'the decompressed result had a known format: {magic}')
-                return self.labelled(dc.result, method=dc.method)
+                return self.labelled(dc.result, **{MV.METHOD: dc.method})
 
         raise ValueError('no compression engine worked')

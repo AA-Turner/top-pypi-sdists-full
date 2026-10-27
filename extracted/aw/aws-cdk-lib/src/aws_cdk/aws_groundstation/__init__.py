@@ -249,6 +249,7 @@ class CfnConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -318,7 +319,7 @@ class CfnConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1563feeaa37deb3f7ed7d57717d9cfb0c9d0d00d4203ece4f573e5ceaf951329)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configData", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configData", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -331,7 +332,7 @@ class CfnConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e45ad42a1b16a7ac4346df0c4eb4ef210effbe14d6f3a655aeb196609bb41609)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -347,7 +348,7 @@ class CfnConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5239786ac786ccdad1f55bd40cbcac2fd2c846b2a7de2861dbb7b912f8c930a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_groundstation.CfnConfig.AntennaDownlinkConfigProperty",
@@ -2287,6 +2288,7 @@ class CfnDataflowEndpointGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2349,7 +2351,7 @@ class CfnDataflowEndpointGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__605270fdb212e4afd622fd5047d2f46f173b44dc28a4370f48d78fa181366952)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "endpointDetails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "endpointDetails", value)
 
     @builtins.property
     @jsii.member(jsii_name="contactPostPassDurationSeconds")
@@ -2365,7 +2367,7 @@ class CfnDataflowEndpointGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25ef1c7229baacb918baea79312842d531006cf929111fa27c27bd2a0f2730f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contactPostPassDurationSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contactPostPassDurationSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="contactPrePassDurationSeconds")
@@ -2381,7 +2383,7 @@ class CfnDataflowEndpointGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4d824833236777cd2417ffad0f69012adcf6aab076829d4fc012bb6bf35c092f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contactPrePassDurationSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contactPrePassDurationSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2397,7 +2399,7 @@ class CfnDataflowEndpointGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d91f97011b987224f8e61448ddca1df20f67e7b2188ee8ce55208bdeb4bbc53a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_groundstation.CfnDataflowEndpointGroup.AwsGroundStationAgentEndpointProperty",
@@ -3554,6 +3556,7 @@ class CfnDataflowEndpointGroupV2(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3621,7 +3624,7 @@ class CfnDataflowEndpointGroupV2(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c131a8656742ea4977e6718d582f7038b2a15ecdcab7f29050c11b410c0499f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contactPostPassDurationSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contactPostPassDurationSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="contactPrePassDurationSeconds")
@@ -3637,7 +3640,7 @@ class CfnDataflowEndpointGroupV2(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f6961a5a542de3095fba90b602069436ed50bb4f8cfc750302285cbb8090f749)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contactPrePassDurationSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contactPrePassDurationSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="endpoints")
@@ -3655,7 +3658,7 @@ class CfnDataflowEndpointGroupV2(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e750ec1e3e40870deb06f4e079867b08b391d8caaae5b4430bdd8982e8f6e6fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "endpoints", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "endpoints", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3671,7 +3674,7 @@ class CfnDataflowEndpointGroupV2(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d5dd88f1acaa27720877cdd3c9681eb01e73c2667c52f00e1c830b3852587ff6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_groundstation.CfnDataflowEndpointGroupV2.ConnectionDetailsProperty",
@@ -5464,6 +5467,7 @@ class CfnMissionProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5535,7 +5539,7 @@ class CfnMissionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f43bc20ed2a3d495db8c8b44a4e70f977393b7a6c9733040eeb7509592d7adda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataflowEdges", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataflowEdges", value)
 
     @builtins.property
     @jsii.member(jsii_name="minimumViableContactDurationSeconds")
@@ -5548,7 +5552,7 @@ class CfnMissionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__03a884cd9e5b04447dbd311900e4a2d4bdc5e38d5b2b0e125c3aba5bcec92ff5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "minimumViableContactDurationSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "minimumViableContactDurationSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -5561,7 +5565,7 @@ class CfnMissionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__da85a08a8a0b9b15f9e752862bd4dbbc57a69e050e2333199e52b7ac4fe113f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="trackingConfigArn")
@@ -5574,7 +5578,7 @@ class CfnMissionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__28aebc57aca2f7c9aa21bd709cd68a9bffcc22e5b67419f3b600315cf8fd2903)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "trackingConfigArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "trackingConfigArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="contactPostPassDurationSeconds")
@@ -5590,7 +5594,7 @@ class CfnMissionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13ce886f0dccbdf43268a4de6f9502652f9fffeed67b564a8ba59a7f63fbc913)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contactPostPassDurationSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contactPostPassDurationSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="contactPrePassDurationSeconds")
@@ -5606,7 +5610,7 @@ class CfnMissionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d03eb5a896813d3d91f9b9192b83e7419b6393d8563a899e8cca36e8e4612f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contactPrePassDurationSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contactPrePassDurationSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="streamsKmsKey")
@@ -5624,7 +5628,7 @@ class CfnMissionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__207e70bf5d230a887fe9bbaff20bf2acd3b70bbddcaee80fc84f715f95423e2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamsKmsKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamsKmsKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="streamsKmsRole")
@@ -5637,7 +5641,7 @@ class CfnMissionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd9fad80bfcf5d543fced97a8013a1b93e5d432d78e5d48475d6a2eb1a0eae70)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamsKmsRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamsKmsRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -5653,7 +5657,7 @@ class CfnMissionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b63fbf7e02cfd3cabb495b47d8b525e2d0166b8195e578f79a444bec82c3b76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="telemetrySinkConfigArn")
@@ -5666,7 +5670,7 @@ class CfnMissionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__53a78164b0fde66230a941eaa17c2e247680de90b8a8b2f4cb37555cbe6ce81d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "telemetrySinkConfigArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "telemetrySinkConfigArn", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_groundstation.CfnMissionProfile.DataflowEdgeProperty",

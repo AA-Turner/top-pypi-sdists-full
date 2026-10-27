@@ -8,7 +8,7 @@ import datetime
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from reflex_base.components.component import MemoizationLeaf, NoSSRComponent
+from reflex_base.components.component import Component, MemoizationLeaf, NoSSRComponent
 from reflex_base.event import EventType, PointerEventInfo
 from reflex_base.utils.imports import ImportDict
 from reflex_base.vars.base import Var
@@ -26,8 +26,96 @@ class MomentDelta:
     seconds: int | None
     milliseconds: int | None
 
+class MomentProvider(Component):
+    def add_imports(self) -> ImportDict: ...
+    def add_custom_code(self) -> list[str]: ...
+    @classmethod
+    def create(
+        cls,
+        *children,
+        pool: Var[bool] | bool | None = None,
+        interval: Var[int] | int | None = None,
+        locale: Var[str] | str | None = None,
+        local: Var[bool] | bool | None = None,
+        format: Var[str] | str | None = None,
+        parse: Var[list[str] | str] | list[str] | str | None = None,
+        filters: Var[list[Any | Var[Any]]] | list[Any | Var[Any]] | None = None,
+        renderers: Var[list[Any | Var[Any]]] | list[Any | Var[Any]] | None = None,
+        element: Var[str] | str | None = None,
+        timezone: Var[str] | str | None = None,
+        style: Sequence[Mapping[str, Any]]
+        | Mapping[str, Any]
+        | Var[Mapping[str, Any]]
+        | Breakpoints
+        | None = None,
+        key: Any | None = None,
+        id: Any | None = None,
+        ref: Var | None = None,
+        class_name: Any | None = None,
+        custom_attrs: dict[str, Any | Var] | None = None,
+        on_blur: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_focus: EventType[()] | None = None,
+        on_mount: EventType[()] | None = None,
+        on_mouse_down: EventType[()] | None = None,
+        on_mouse_enter: EventType[()] | None = None,
+        on_mouse_leave: EventType[()] | None = None,
+        on_mouse_move: EventType[()] | None = None,
+        on_mouse_out: EventType[()] | None = None,
+        on_mouse_over: EventType[()] | None = None,
+        on_mouse_up: EventType[()] | None = None,
+        on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
+        on_unmount: EventType[()] | None = None,
+        **props,
+    ) -> MomentProvider:
+        """Create the component.
+
+        Args:
+            *children: The children of the component.
+            pool: Use one timer for all descendant Moment components.
+            interval: The interval in milliseconds for the pooled timer.
+            locale: The default locale for descendant Moment components.
+            local: Display descendant dates in local time by default.
+            format: The default date format for descendants.
+            parse: The default date parse format for descendants.
+            filters: JavaScript content filters applied to descendant Moment components.
+            renderers: JavaScript content renderers tried for descendant Moment components.
+            element: The default HTML element for descendant components.
+            timezone: The default timezone for descendant components.
+            style: The style of the component.
+            key: A unique key for the component.
+            id: The id for the component.
+            ref: The Var to pass as the ref to the component.
+            class_name: The class name for the component.
+            custom_attrs: Attributes passed directly to the component.
+            on_focus: Fired when the element (or some element inside of it) receives focus. For example, it is called when the user clicks on a text input.
+            on_blur: Fired when focus has left the element (or left some element inside of it). For example, it is called when the user clicks outside of a focused text input.
+            on_click: Fired when the user clicks on an element. For example, it's called when the user clicks on a button.
+            on_context_menu: Fired when the user right-clicks on an element.
+            on_double_click: Fired when the user double-clicks on an element.
+            on_mouse_down: Fired when the user presses a mouse button on an element.
+            on_mouse_enter: Fired when the mouse pointer enters the element.
+            on_mouse_leave: Fired when the mouse pointer leaves the element.
+            on_mouse_move: Fired when the mouse pointer moves over the element.
+            on_mouse_out: Fired when the mouse pointer moves out of the element.
+            on_mouse_over: Fired when the mouse pointer moves onto the element.
+            on_mouse_up: Fired when the user releases a mouse button on an element.
+            on_scroll: Fired when the user scrolls the element.
+            on_scroll_end: Fired when scrolling ends on the element.
+            on_mount: Fired when the component is mounted to the page.
+            on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+            **props: The props of the component.
+
+        Returns:
+            The component.
+        """
+
 class Moment(NoSSRComponent, MemoizationLeaf):
     def add_imports(self) -> ImportDict: ...
+    def add_custom_code(self) -> list[str]: ...
     @classmethod
     def create(
         cls,
@@ -36,6 +124,31 @@ class Moment(NoSSRComponent, MemoizationLeaf):
         format: Var[str] | str | None = None,
         trim: Var[bool | str] | bool | str | None = None,
         parse: Var[list[str] | str] | list[str] | str | None = None,
+        utc: Var[bool] | bool | None = None,
+        calendar: Var[bool | dict[str, str]] | bool | dict[str, str] | None = None,
+        from_: Var[
+            datetime.date | datetime.datetime | datetime.time | datetime.timedelta | str
+        ]
+        | datetime.date
+        | datetime.datetime
+        | datetime.time
+        | datetime.timedelta
+        | str
+        | None = None,
+        to: Var[
+            datetime.date | datetime.datetime | datetime.time | datetime.timedelta | str
+        ]
+        | datetime.date
+        | datetime.datetime
+        | datetime.time
+        | datetime.timedelta
+        | str
+        | None = None,
+        ago: Var[bool] | bool | None = None,
+        element: Var[str] | str | None = None,
+        fallback: Var[int | str] | int | str | None = None,
+        filters: Var[list[Any | Var[Any]]] | list[Any | Var[Any]] | None = None,
+        renderers: Var[list[Any | Var[Any]]] | list[Any | Var[Any]] | None = None,
         add: MomentDelta | Var[MomentDelta] | None = None,
         subtract: MomentDelta | Var[MomentDelta] | None = None,
         from_now: Var[bool] | bool | None = None,
@@ -99,6 +212,15 @@ class Moment(NoSSRComponent, MemoizationLeaf):
             format: Formats the date according to the given format string.
             trim: When formatting duration time, the largest-magnitude tokens are automatically trimmed when they have no value. Also accepts a trim template: "large", "small", "both", "all", "final", "left" or "right".
             parse:  Use the parse attribute to tell moment how to parse the given date when non-standard. Accepts a single format string or a list of formats to try.
+            utc: Parses and displays the date in UTC.
+            calendar: Displays the date using Moment's calendar format, optionally with custom calendar strings.
+            from_: Displays the interval from this date to the component's date.
+            to: Displays the interval from the component's date to this date.
+            ago: Omits the "ago" or "in" suffix from relative-time output.
+            element: The HTML element used to render the formatted date (defaults to time).
+            fallback: Content to render when the date input is invalid.
+            filters: JavaScript functions applied in order to the rendered content.
+            renderers: JavaScript renderer functions tried before the built-in output modes.
             add: Add a delta to the base date (keys are "years", "quarters", "months", "weeks", "days", "hours", "minutes", "seconds")
             subtract: Subtract a delta to the base date (keys are "years", "quarters", "months", "weeks", "days", "hours", "minutes", "seconds")
             from_now: Displays the date as the time from now, e.g. "5 minutes ago".
@@ -116,7 +238,7 @@ class Moment(NoSSRComponent, MemoizationLeaf):
             unix: Tells Moment to parse the given date value as a unix timestamp.
             local: Outputs the result in local time.
             tz: Display the date in the given timezone.
-            locale: The locale for this component. Defaults to English independently of other Moment components.
+            locale: The locale for this component. Defaults to the nearest rx.moment_provider locale, or English.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

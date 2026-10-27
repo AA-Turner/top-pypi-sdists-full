@@ -740,7 +740,7 @@ class _ActualResultProxy(ActualResult):
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0def0e46807bcce5f5541c6cce0db0cd558065170e086f1248e1fbff32e95abd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "result", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "result", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, ActualResult).__jsii_proxy_class__ = lambda : _ActualResultProxy
@@ -1659,7 +1659,7 @@ class _ExpectedResultProxy(ExpectedResult):
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e33010e7c2f43ad7b078d998ca478ef09e6cf76bc2eadeb12407d48e7f8d56d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "result", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "result", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, ExpectedResult).__jsii_proxy_class__ = lambda : _ExpectedResultProxy
@@ -4793,7 +4793,7 @@ class ApiCallBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__97da9bf9b19a18aff40873ddc2b64a140954d8be0edcceff1c3ab02b28f3d0c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flattenResponse", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flattenResponse", value)
 
     @builtins.property
     @jsii.member(jsii_name="expectedResult")
@@ -4808,7 +4808,7 @@ class ApiCallBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4ce4672396c2e9f40d0ddffe2d7e3f1a2da528acea1b0f4629b456ad9d0403be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "expectedResult", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "expectedResult", value)
 
     @builtins.property
     @jsii.member(jsii_name="outputPaths")
@@ -4823,7 +4823,7 @@ class ApiCallBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bdc878677ce52b96189eb1a58fb88ebee73b4b1bd3d713318ed57c1a58847f30)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outputPaths", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "outputPaths", value)
 
     @builtins.property
     @jsii.member(jsii_name="stateMachineArn")
@@ -4838,7 +4838,7 @@ class ApiCallBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f297ccd4c39b554ca2667c46f20d71a417fd6e796a8dc192158240ba2256123b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stateMachineArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "stateMachineArn", value)
 
 
 class _ApiCallBaseProxy(ApiCallBase):
@@ -5085,7 +5085,7 @@ class AwsApiCall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0e978f2b80fc7ca4cf867ebf9e4673daf1582477274721902259a31caf906a43)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "waiterProvider", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "waiterProvider", value)
 
 
 @jsii.data_type(

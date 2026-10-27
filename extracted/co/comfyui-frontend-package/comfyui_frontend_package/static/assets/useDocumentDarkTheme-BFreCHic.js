@@ -1,1 +1,0 @@
-import"./rolldown-runtime-CM1DJQSe.js";import{it as e,nt as t}from"./vendor-vue-core-y4MynkKA.js";var n=`dark-theme`;function useDocumentDarkTheme(){let r=!1;e(()=>{let{classList:e}=document.documentElement;r=!e.contains(n),e.add(n)}),t(()=>{r&&document.documentElement.classList.remove(n)})}export{useDocumentDarkTheme as t};

@@ -186,16 +186,34 @@ def test_a_forced_reinstall_rebuilds_the_environment(uv_tools):
     assert not sentinel.exists()
 
 
-def test_a_receipt_it_cannot_restate_is_left_alone(tmp_path):
-    """An editable `--with` (or constraints) cannot be restated faithfully:
-    reading returns None and the update does not rewrite the receipt."""
-    (tmp_path / "uv-receipt.toml").write_text(
-        '[tool]\nrequirements = [{ name = "probe-research" }, '
-        '{ name = "mine", editable = "/src/mine" }]\n'
+def test_what_a_receipt_cannot_restate_is_left_out_and_named(tmp_path):
+    """An editable `--with`, constraints, a receipt that is not TOML: what
+    cannot be restated faithfully is left out and NAMED (`dropped`), and the
+    rest is restated. It used to make the whole receipt unrestatable, which
+    held every later update on the in-place path for good (plan A4)."""
+    receipt = tmp_path / "uv-receipt.toml"
+    receipt.write_text(
+        '[tool]\nrequirements = [{ name = "probe-research", extras = ["mcp-http"] }, '
+        '{ name = "mine", editable = "/src/mine" }, { name = "wandb", specifier = ">=0.17" }]\n'
     )
-    assert updater.kept_from_uv_receipt(tmp_path) is None
+    kept = updater.kept_from_uv_receipt(tmp_path)
+    assert kept.extras == ("mcp-http",) and kept.with_packages == ("wandb>=0.17",)
+    assert kept.dropped == ("--with mine",)
+    assert "--with mine" in updater.dropped_note(kept)
+    # What reinstalls the running env in place (no version to switch back to)
+    # still leaves such a receipt alone.
+    assert updater.faithful_kept_from_uv_receipt(tmp_path) is None
+    receipt.write_text('[tool]\nrequirements = [{ name = "probe-research" }]\nconstraints = [{ name = "x" }]\n')
+    assert updater.kept_from_uv_receipt(tmp_path).dropped == ("its constraints",)
+    receipt.write_text("[tool\nnot toml")
+    assert updater.kept_from_uv_receipt(tmp_path) == updater.KeptInstall(dropped=("the uv receipt (not valid TOML)",))
+    assert updater.dropped_note(updater.KeptInstall()) == ""
+
+
+def test_probe_itself_from_a_path_is_never_restated(tmp_path):
+    """A checkout's or a build's own probe-research: no update from the index replaces it."""
     (tmp_path / "uv-receipt.toml").write_text(
-        '[tool]\nrequirements = [{ name = "probe-research" }]\nconstraints = [{ name = "x" }]\n'
+        '[tool]\nrequirements = [{ name = "probe-research", directory = "/src/research-os/agent" }]\n'
     )
     assert updater.kept_from_uv_receipt(tmp_path) is None
 

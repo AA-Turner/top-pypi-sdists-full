@@ -526,8 +526,13 @@ def test_what_the_agent_reads_from_the_writer():
     assert receipt.rendered() == "[Probe] The writer recorded: created experiment e1 · moved 3 runs to e1 (a, b, c)"
     failed = _msg(mailbox.Kind.FAILED, ask="w1", reason="Probe is off for this session", origin=mailbox.ORIGIN_WRITER)
     assert failed.rendered() == "[Probe] The writer did not run your request: Probe is off for this session"
-    for msg in (reply, receipt, failed):
+    said = "Tell the researcher: digits-mlp's headline metric is now test/acc (higher is better)."
+    note = _msg(text=said, origin=mailbox.ORIGIN_WRITER)
+    assert note.rendered() == f"[Probe] {said}"
+    for msg in (reply, receipt, failed, note):
         assert mailbox.before_deliveries("hook said\n\n" + msg.rendered()) == "hook said", "never re-read"
+    # Only the writer's receipt gets that label: the same words from the reader stay team context.
+    assert _msg(text=note.text).rendered() == mailbox.TEXT_MESSAGE.format(message=note.text)
 
 
 def test_writer_receipts_and_reader_messages_never_replace_each_other():
@@ -662,6 +667,27 @@ def test_the_sweep_keeps_a_live_worker_s_requests_however_quiet(monkeypatch):
     assert not mailbox.requests_dir(other).exists()
 
 
+def test_the_sweep_keeps_a_live_worker_s_status_and_takes_old_hint_files(monkeypatch):
+    """A worker's start-up sweep once deleted every other live session's status
+    file a week old; the hint lane's markers, receipts and deliverer heartbeats
+    go with their session."""
+    other, dead = "99999999-2222-3333-4444-555555555555", "88888888-2222-3333-4444-555555555555"
+    old = time.time() - mailbox.KEEP_CLAIMED_S - 60
+    files = []
+    for sid in (other, dead):
+        mailbox.touch_alive(sid, by="test")
+        mailbox.write_hints_delivery(sid, {"state": "ok"})
+        mailbox.status_path(sid).parent.mkdir(parents=True, exist_ok=True)
+        mailbox.status_path(sid).write_text("{}")
+        files += [mailbox.alive_path(sid), mailbox.hints_delivery_path(sid), mailbox.status_path(sid)]
+    for path in files:
+        os.utime(path, (old, old))
+    mailbox.mark_worker_accepts(other)
+    mailbox.sweep_stale_sessions(SID)
+    assert all(p.exists() for p in files if p.name.startswith(other)), "its worker is alive"
+    assert not any(p.exists() for p in files if p.name.startswith(dead))
+
+
 def test_ask_writer_files_a_request_when_the_worker_takes_them(daemon_session):
     handle = _hold_lock()
     mailbox.mark_worker_accepts(SID)
@@ -723,3 +749,21 @@ def test_ask_writer_wait_prints_the_writers_reply(daemon_session):
         handle.close()
     assert res.exit_code == 0 and "Recorded: created experiment e1" in res.output
     assert mailbox.waiting(SID) == []
+
+
+def test_a_deliverer_heartbeat_is_written_at_most_every_alive_every_s(tmp_path, monkeypatch):
+    """Plan hints-relevance T1: the Probe service's hint lane reads it as "a
+    deliverer is there"; shown lines say which messages reached the agent."""
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    sid = "11111111-2222-3333-4444-555555555555"
+    mailbox.touch_alive(sid, by="PostToolUse", now=1000.0)
+    path = mailbox.alive_path(sid)
+    os.utime(path, (1000.0, 1000.0))
+    mailbox.touch_alive(sid, by="UserPromptSubmit", now=1000.0 + mailbox.ALIVE_EVERY_S - 1)
+    assert mailbox.read_alive(sid) == {"by": "PostToolUse", "at": 1000.0}
+    mailbox.touch_alive(sid, by="UserPromptSubmit", now=1000.0 + mailbox.ALIVE_EVERY_S)
+    assert mailbox.read_alive(sid)["by"] == "UserPromptSubmit"
+    mailbox.mark_shown(sid, ["m1", "m2"], by="PostToolUse", now=1001.0)
+    mailbox.mark_shown(sid, [], by="PostToolUse")
+    lines = [json.loads(line) for line in mailbox.shown_log_path(sid).read_text().splitlines()]
+    assert lines == [{"id": "m1", "by": "PostToolUse", "at": 1001.0}, {"id": "m2", "by": "PostToolUse", "at": 1001.0}]

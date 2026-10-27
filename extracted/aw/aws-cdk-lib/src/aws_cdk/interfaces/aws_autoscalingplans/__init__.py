@@ -88,13 +88,25 @@ typing.cast(typing.Any, IScalingPlanRef).__jsii_proxy_class__ = lambda : _IScali
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_autoscalingplans.ScalingPlanReference",
     jsii_struct_bases=[],
-    name_mapping={"scaling_plan_id": "scalingPlanId"},
+    name_mapping={
+        "scaling_plan_arn": "scalingPlanArn",
+        "scaling_plan_name": "scalingPlanName",
+        "scaling_plan_version": "scalingPlanVersion",
+    },
 )
 class ScalingPlanReference:
-    def __init__(self, *, scaling_plan_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        scaling_plan_arn: builtins.str,
+        scaling_plan_name: builtins.str,
+        scaling_plan_version: builtins.str,
+    ) -> None:
         '''A reference to a ScalingPlan resource.
 
-        :param scaling_plan_id: The Id of the ScalingPlan resource.
+        :param scaling_plan_arn: The ARN of the ScalingPlan resource.
+        :param scaling_plan_name: The ScalingPlanName of the ScalingPlan resource.
+        :param scaling_plan_version: The ScalingPlanVersion of the ScalingPlan resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -105,21 +117,41 @@ class ScalingPlanReference:
             from aws_cdk.interfaces import aws_autoscalingplans as interfaces_autoscalingplans
             
             scaling_plan_reference = interfaces_autoscalingplans.ScalingPlanReference(
-                scaling_plan_id="scalingPlanId"
+                scaling_plan_arn="scalingPlanArn",
+                scaling_plan_name="scalingPlanName",
+                scaling_plan_version="scalingPlanVersion"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e3f4ae94ec3cbc8d1f487e18fd1852634f2bde6b1dcb4238c6532e9144624c1)
-            check_type(argname="argument scaling_plan_id", value=scaling_plan_id, expected_type=type_hints["scaling_plan_id"])
+            check_type(argname="argument scaling_plan_arn", value=scaling_plan_arn, expected_type=type_hints["scaling_plan_arn"])
+            check_type(argname="argument scaling_plan_name", value=scaling_plan_name, expected_type=type_hints["scaling_plan_name"])
+            check_type(argname="argument scaling_plan_version", value=scaling_plan_version, expected_type=type_hints["scaling_plan_version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "scaling_plan_id": scaling_plan_id,
+            "scaling_plan_arn": scaling_plan_arn,
+            "scaling_plan_name": scaling_plan_name,
+            "scaling_plan_version": scaling_plan_version,
         }
 
     @builtins.property
-    def scaling_plan_id(self) -> builtins.str:
-        '''The Id of the ScalingPlan resource.'''
-        result = self._values.get("scaling_plan_id")
-        assert result is not None, "Required property 'scaling_plan_id' is missing"
+    def scaling_plan_arn(self) -> builtins.str:
+        '''The ARN of the ScalingPlan resource.'''
+        result = self._values.get("scaling_plan_arn")
+        assert result is not None, "Required property 'scaling_plan_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def scaling_plan_name(self) -> builtins.str:
+        '''The ScalingPlanName of the ScalingPlan resource.'''
+        result = self._values.get("scaling_plan_name")
+        assert result is not None, "Required property 'scaling_plan_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def scaling_plan_version(self) -> builtins.str:
+        '''The ScalingPlanVersion of the ScalingPlan resource.'''
+        result = self._values.get("scaling_plan_version")
+        assert result is not None, "Required property 'scaling_plan_version' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -143,7 +175,9 @@ publication.publish()
 
 def _typecheckingstub__9e3f4ae94ec3cbc8d1f487e18fd1852634f2bde6b1dcb4238c6532e9144624c1(
     *,
-    scaling_plan_id: builtins.str,
+    scaling_plan_arn: builtins.str,
+    scaling_plan_name: builtins.str,
+    scaling_plan_version: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

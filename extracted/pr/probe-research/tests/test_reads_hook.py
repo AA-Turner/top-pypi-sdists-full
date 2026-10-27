@@ -783,6 +783,7 @@ def _every_shape() -> list[mailbox.Message]:
 def test_the_hook_mirrors_the_mailbox_constants():
     hook = _load()
     assert hook.HOLD_FRESH_S == mailbox.HOLD_FRESH_S
+    assert hook.ALIVE_EVERY_S == mailbox.ALIVE_EVERY_S
     assert hook.ANSWER_TTL_S == mailbox.ANSWER_TTL_S
     assert hook.LABEL_QUESTION_CHARS == mailbox.LABEL_QUESTION_CHARS
     assert (hook.ORIGIN_HINT, hook.SLOT_UNASKED, hook.SLOT_HINT, hook.HINT_PREFIX) == (
@@ -1106,6 +1107,7 @@ def test_the_pi_extension_mirrors_the_mailbox_texts():
     assert ts("MSG_READS_UNAVAILABLE") == lines[mailbox.Status.READS_UNAVAILABLE]
     assert ts("MSG_BACK_TO_NORMAL") == lines[mailbox.Status.OK]
     assert int(re.search(r"export const HOLD_FRESH_S = (\d+);", source).group(1)) == mailbox.HOLD_FRESH_S
+    assert int(re.search(r"export const ALIVE_EVERY_S = (\d+);", source).group(1)) == mailbox.ALIVE_EVERY_S
     assert int(re.search(r"export const LABEL_QUESTION_CHARS = (\d+);", source).group(1)) == mailbox.LABEL_QUESTION_CHARS
 
 
@@ -1237,6 +1239,7 @@ def test_the_hook_and_pi_mirror_the_writers_labels():
     assert hook.ORIGIN_WRITER == mailbox.ORIGIN_WRITER
     assert (hook.TEXT_WRITER_REPLY, hook.TEXT_WRITER_RECEIPT, hook.TEXT_WRITER_FAILED) == (
         mailbox.TEXT_WRITER_REPLY, mailbox.TEXT_WRITER_RECEIPT, mailbox.TEXT_WRITER_FAILED)
+    assert (hook.WRITER_RELAY_PREFIX, hook.TEXT_WRITER_RELAY) == (mailbox.WRITER_RELAY_PREFIX, mailbox.TEXT_WRITER_RELAY)
     source = (AGENT_ROOT / "plugins" / "probe-research-pi" / "src" / "core" / "reads.ts").read_text()
 
     def ts(name: str) -> str:
@@ -1244,6 +1247,7 @@ def test_the_hook_and_pi_mirror_the_writers_labels():
 
     assert (ts("ORIGIN_WRITER"), ts("TEXT_WRITER_REPLY"), ts("TEXT_WRITER_RECEIPT"), ts("TEXT_WRITER_FAILED")) == (
         mailbox.ORIGIN_WRITER, mailbox.TEXT_WRITER_REPLY, mailbox.TEXT_WRITER_RECEIPT, mailbox.TEXT_WRITER_FAILED)
+    assert (ts("WRITER_RELAY_PREFIX"), ts("TEXT_WRITER_RELAY")) == (mailbox.WRITER_RELAY_PREFIX, mailbox.TEXT_WRITER_RELAY)
     # A hint's slot and origin (plan probe-hints R2), the same in all three.
     assert (ts("ORIGIN_HINT"), ts("SLOT_UNASKED"), ts("SLOT_HINT"), ts("HINT_PREFIX")) == (
         mailbox.ORIGIN_HINT, mailbox.SLOT_UNASKED, mailbox.SLOT_HINT, mailbox.HINT_PREFIX)
@@ -1257,10 +1261,29 @@ def test_writer_messages_render_the_same_through_the_hook():
     now = time.time()
     for m in (_writer(Kind.ANSWER, ask="w1", text="Grouped.\nRecorded: created experiment e1", made_at=now - 3),
               _writer(Kind.FAILED, ask="w2", reason="Probe is off for this session", made_at=now - 2),
-              _writer(text="created experiment e1 · moved 3 runs to e1 (a, b, c)", made_at=now - 1)):
+              _writer(text="created experiment e1 · moved 3 runs to e1 (a, b, c)", made_at=now - 1),
+              _writer(text="Tell the researcher: p's best experiment is now e1 (\"Best acc\").",
+                      made_at=now)):
         mailbox.publish(m)
     theirs = mailbox.waiting(SID)
     assert [hook.rendered(m) for _, m in hook.waiting(SID)] == [m.rendered() for _, m in theirs]
+    assert theirs[-1][1].rendered() == (
+        "[Probe] Tell the researcher: p's best experiment is now e1 (\"Best acc\").")
+
+
+def test_a_note_for_the_researcher_goes_out_like_a_receipt_beside_the_readers_message():
+    """Every one, on the next prompt or tool call, outside the turn's unasked
+    slot, and never a wake (it is a receipt: `origin` writer, kind message)."""
+    now = time.time()
+    reader = _msg(text="The team's sweep covered C in [0.1, 10].", made_at=now - 3)
+    said = "Tell the researcher: p's headline metric is now test/acc (higher is better)."
+    note = _writer(text=said, made_at=now - 2)
+    receipt = _writer(text="created experiment e1", made_at=now - 1)
+    for m in (reader, note, receipt):
+        mailbox.publish(m)
+    got = _context(_run("UserPromptSubmit", prompt="go on"), "UserPromptSubmit")
+    assert got == "\n\n".join(m.rendered() for m in (reader, note, receipt))
+    assert f"[Probe] {said}" in got.split("\n\n")
 
 
 def test_writer_receipts_go_out_beside_the_readers_one_message_never_in_its_slot():
@@ -1579,3 +1602,445 @@ def test_a_lookalike_tag_is_neutralised_like_the_ascii_one(look):
     for text in rendered:
         assert hook.one_label(text) == mailbox.one_label(text) == text
     assert "(Probe" in rendered[0] and "(Probe" in rendered[1] and rendered[1].split("\n")[1].startswith("> ")
+
+
+# ---------------------------------------------------------------------------
+# Delivery receipts (plan hints-relevance T1): what reached the agent, and a heartbeat.
+# ---------------------------------------------------------------------------
+
+
+def _shown(sid: str = SID) -> list[dict]:
+    path = mailbox.shown_log_path(sid)
+    return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+
+def test_a_hint_the_hook_hands_over_is_recorded_as_shown_and_the_hook_beats():
+    hint = _hint()
+    mailbox.publish(hint)
+    assert _context(_run("PostToolUse"), "PostToolUse") == hint.text
+    assert [(e["id"], e["by"]) for e in _shown()] == [(hint.id, "PostToolUse")]
+    alive = mailbox.read_alive(SID)
+    assert alive is not None and alive["by"] == "PostToolUse"
+    # Its claim line says it writes shown lines: the service judges each claim by its claimer.
+    claims = [json.loads(line) for line in mailbox.claim_log_path(SID).read_text().splitlines()]
+    assert [(e["id"], e.get("shows")) for e in claims] == [(hint.id, 1)]
+
+
+def test_a_hook_with_nothing_to_hand_over_beats_and_records_nothing_shown():
+    assert _context(_run("UserPromptSubmit", prompt="benchmark RFD4-Proteina"), "UserPromptSubmit") is None
+    assert _shown() == []
+    assert mailbox.read_alive(SID)["by"] == "UserPromptSubmit"
+
+
+def test_output_that_never_went_out_is_not_recorded_as_shown(monkeypatch):
+    """A claim whose handoff failed must not read as delivered (the receipt's
+    `shown` is the proof the Probe service's hint lane trusts)."""
+    hook = _load()
+
+    class Closed:
+        def write(self, _text):
+            raise OSError("broken pipe")
+
+        def flush(self):
+            pass
+
+    monkeypatch.setattr(hook.sys, "stdout", Closed())
+    hook._hand_over(SID, "PostToolUse", [("m1", "[Probe] a hint")], None)
+    assert _shown() == []
+
+
+# ---------------------------------------------------------------------------
+# Shown, said at once (G7): the hook tells Probe it showed a message Probe held,
+# under the lease holder's name, with the daemon's key, within its budget.
+# ---------------------------------------------------------------------------
+
+RECEIPT = json.loads((AGENT_ROOT / "tests" / "fixtures" / "inbox_receipt.json").read_text(encoding="utf-8"))
+MACHINE_A = "machine-a-" + "a" * 16
+
+
+class LocalProbe:
+    """A Probe API on 127.0.0.1 that records each request; `hang`: it reads the
+    request and never answers (a server that is down but still takes calls)."""
+
+    def __init__(self, *, hang: bool = False, redirect_to: "str | None" = None) -> None:
+        import http.server
+
+        self.requests: list[dict] = []
+        self.release = threading.Event()
+        owner = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):  # noqa: N802 -- http.server's name
+                body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                owner.requests.append({"path": self.path, "headers": dict(self.headers),
+                                       "body": json.loads(body or b"null")})
+                if hang:
+                    owner.release.wait(30)
+                    return
+                if redirect_to:
+                    self.send_response(302)
+                    self.send_header("Location", redirect_to + self.path)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                payload = json.dumps({"state": "delivered"}).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def do_GET(self):  # noqa: N802 -- a followed 302 turns the POST into a GET
+                owner.requests.append({"path": self.path, "headers": dict(self.headers), "body": None})
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def close(self) -> None:
+        self.release.set()
+        self.server.shutdown()
+        self.server.server_close()
+
+
+@pytest.fixture
+def probe_api(tmp_path, monkeypatch):
+    """A recording Probe, and this machine's CLI config naming it with the daemon's key."""
+    server = LocalProbe()
+    config = tmp_path / "cli" / "config.json"
+    config.parent.mkdir(parents=True)
+    config.write_text(json.dumps({"contexts": {"default": {"companion_token": "pk_daemon", "token": "pk_cli",
+                                                           "base_url": server.url}}}))
+    monkeypatch.setenv("PROBE_CONFIG_PATH", str(config))
+    yield server
+    server.close()
+
+
+def _receipt_env() -> dict:
+    return {"PROBE_CONFIG_PATH": os.environ["PROBE_CONFIG_PATH"]}
+
+
+def test_the_hook_tells_probe_it_showed_a_message_under_its_holders_name(probe_api):
+    """A daemon that dies right after its hook showed a message must not leave
+    it for another machine: the hook says it was shown, as the holder."""
+    msg = _inbox("stop the lr=3e-3 run", server_id="0f2c6b4e-9a7d-4c1b-8e3f-5a6b7c8d9e0f", daemon_instance=MACHINE_A)
+    mailbox.publish(msg)
+    mailbox.publish(_alert())
+    got = _context(_run("PostToolUse", env=_receipt_env()), "PostToolUse")
+    assert msg.rendered() in got
+    (sent,) = probe_api.requests
+    assert sent["path"] == f"/v1/sessions/{SID}/messages/0f2c6b4e-9a7d-4c1b-8e3f-5a6b7c8d9e0f/ack"
+    headers = {k.lower(): v for k, v in sent["headers"].items()}
+    assert (headers["authorization"], headers["x-probe-daemon-instance"]) == ("Bearer pk_daemon", MACHINE_A), (
+        "the daemon's own key, under the name of the daemon whose lease it is")
+    assert sent["body"] == {"state": "delivered_to_agent"}
+
+
+def test_the_waiter_tells_probe_it_woke_the_agent_with_a_message(probe_api):
+    holder = _daemon_serves()
+    try:
+        waiter = _start("Stop", env={**ATTENDED, **_receipt_env()}, stop_hook_active=False,
+                        last_assistant_message="waiting")
+        time.sleep(1.0)
+        msg = _inbox("you are idle: start the next arm", daemon_instance=MACHINE_A)
+        mailbox.publish(msg)
+        _stdout, stderr = waiter.communicate(timeout=15)
+    finally:
+        holder.close()
+    assert (waiter.returncode, stderr) == (2, msg.rendered())
+    assert [r["body"] for r in probe_api.requests] == [{"state": "delivered_to_agent"}]
+
+
+def test_the_hook_never_waits_past_its_budget_when_probe_does_not_answer(tmp_path, monkeypatch):
+    hook = _load()
+    server = LocalProbe(hang=True)
+    try:
+        config = tmp_path / "cli" / "config.json"
+        config.parent.mkdir(parents=True)
+        config.write_text(json.dumps({"companion_token": "pk_daemon", "base_url": server.url}))
+        monkeypatch.setenv("PROBE_CONFIG_PATH", str(config))
+        msg = _inbox("from the dashboard", daemon_instance=MACHINE_A)
+        mailbox.publish(msg)
+        started = time.monotonic()
+        result = _run("PostToolUse", env=_receipt_env())
+        took = time.monotonic() - started
+        assert _context(result, "PostToolUse") == msg.rendered(), "shown whatever Probe does"
+        assert len(server.requests) == 1, "it did ask"
+        assert took < hook.REPORT_BUDGET_S + 2.0, f"the hook took {took:.1f}s with Probe silent"
+        assert hook.REPORT_BUDGET_S == RECEIPT["budget_s"] == 1.5
+    finally:
+        server.close()
+
+
+def test_the_hook_asks_probe_only_with_the_daemons_key(tmp_path, monkeypatch):
+    """No daemon key on the machine (the CLI's own token is not it): the hook
+    does nothing new. With it, it says what it showed."""
+    server = LocalProbe()
+    try:
+        config = tmp_path / "cli" / "config.json"
+        config.parent.mkdir(parents=True)
+        config.write_text(json.dumps({"contexts": {"default": {"token": "pk_cli", "base_url": server.url}}}))
+        monkeypatch.setenv("PROBE_CONFIG_PATH", str(config))
+        first = _inbox("from the dashboard", daemon_instance=MACHINE_A)
+        mailbox.publish(first)
+        assert _context(_run("PostToolUse", env=_receipt_env()), "PostToolUse") == first.rendered()
+        assert server.requests == []
+
+        config.write_text(json.dumps({"contexts": {"default": {"token": "pk_cli", "companion_token": "pk_daemon",
+                                                               "base_url": server.url}}}))
+        second = _inbox("and again", daemon_instance=MACHINE_A)
+        mailbox.publish(second)
+        assert _context(_run("PostToolUse", env=_receipt_env()), "PostToolUse") == second.rendered()
+        assert [r["path"].split("/")[-2] for r in server.requests] == [mailbox.inbox_server_id(second.id)]
+    finally:
+        server.close()
+
+
+def _claimed_inbox_file(sid: str, server_id: str, message: dict) -> str:
+    """A claimed message file as a hook leaves it (`message` over an inbox
+    message's fields); its message id."""
+    import uuid
+
+    mid = mailbox.INBOX_ID_PREFIX + uuid.UUID(server_id).hex
+    folder = mailbox.claimed_dir(sid)
+    folder.mkdir(parents=True, exist_ok=True)
+    data = {"id": mid, "session": sid, "text": "[Probe] Message from Richard Wei (dashboard): ship it",
+            "made_at": 1.0, "expires_at": 0.0, "keep": True, **message}
+    (folder / f"{1:020d}-{mid}.json").write_text(json.dumps(data))
+    return mid
+
+
+@pytest.mark.parametrize("case", RECEIPT["cases"], ids=[c["name"] for c in RECEIPT["cases"]])
+def test_the_receipt_is_the_shared_fixtures(case, tmp_path, monkeypatch):
+    """`inbox_receipt.json`: pi's `tests/reads.test.ts` checks the same cases."""
+    hook = _load()
+    for name in ("PROBE_DAEMON_KEY", "PROBE_BASE_URL", "PROBE_TOKEN", "XDG_CONFIG_HOME"):
+        monkeypatch.delenv(name, raising=False)
+    config = tmp_path / "cli" / "config.json"
+    monkeypatch.setenv("PROBE_CONFIG_PATH", str(config))
+    if case["config"] is not None:
+        config.parent.mkdir(parents=True)
+        config.write_text(json.dumps(case["config"]))
+    for name, value in case["env"].items():
+        monkeypatch.setenv(name, value)
+    mid = _claimed_inbox_file(RECEIPT["session"], RECEIPT["server_id"], case["message"])
+    if case.get("shown", True):
+        mailbox.mark_shown(RECEIPT["session"], [mid], by="PostToolUse")
+    got = hook.receipt_requests(RECEIPT["session"], [mid, "m0123abcd"])
+    if case["expect"] is None:
+        assert got == []
+        return
+    (request,) = got
+    expect = case["expect"]
+    assert request["url"] == expect["url"]
+    assert request["headers"]["Authorization"] == expect["authorization"]
+    assert request["headers"][hook.DAEMON_INSTANCE_HEADER] == expect["instance"]
+    assert json.loads(request["body"]) == expect["body"]
+    assert request["redirect"] == RECEIPT["redirect"] == hook.RECEIPT_REDIRECT
+
+
+def test_the_worker_writes_the_holder_the_hook_reads():
+    """`session_messages.inbox_message` names the lease holder in the file, and
+    the mailbox and the hook read the same fields and rules."""
+    from probe.daemon import probe_api as daemon_api
+    from probe.daemon import session_messages
+
+    hook = _load()
+    row = {"id": RECEIPT["server_id"], "body": "ship it", "created_at": None,
+           "sender": {"kind": "person", "name": "Richard Wei"}}
+    msg = session_messages.inbox_message(SID, row, now=time.time(), daemon_instance=MACHINE_A)
+    mailbox.publish(msg)
+    ((path, _),) = mailbox.waiting(SID)
+    assert mailbox.claim(SID, path, by="PostToolUse") is not None
+    assert hook._shown_inbox(SID, msg.id) is None, "claimed, not yet marked shown"
+    mailbox.mark_shown(SID, [msg.id], by="PostToolUse")
+    assert hook._shown_inbox(SID, msg.id) == (RECEIPT["server_id"], MACHINE_A)
+    assert mailbox.inbox_server_id(msg.id) == RECEIPT["server_id"]
+    assert mailbox.shown_inbox_ids(SID) == [RECEIPT["server_id"]]
+    assert (hook.DAEMON_INSTANCE_HEADER, hook.ACK_DELIVERED_TO_AGENT, hook.INBOX_ID_PREFIX) == (
+        daemon_api.DAEMON_INSTANCE_HEADER, daemon_api.ACK_DELIVERED_TO_AGENT, mailbox.INBOX_ID_PREFIX)
+    assert hook.DAEMON_INSTANCE_RE.pattern == mailbox.DAEMON_INSTANCE_RE.pattern
+    from probe.daemon import model
+    from probe.sdk import config as sdk_config
+
+    assert (hook.DAEMON_KEY_ENV, hook.DEFAULT_BASE_URL) == (model.ENV_KEY, sdk_config.DEFAULT_BASE_URL)
+    for bad in ("short", "has space in it here", 7, None):
+        assert mailbox.Message.from_dict({**msg.__dict__, "daemon_instance": bad}).daemon_instance is None
+
+
+def test_the_pi_extension_mirrors_the_receipt():
+    import re
+
+    source = (AGENT_ROOT / "plugins" / "probe-research-pi" / "src" / "core" / "reads.ts").read_text()
+    hook = _load()
+
+    def ts(name: str) -> str:
+        return json.loads(re.search(rf'export const {name} = ("(?:[^"\\]|\\.)*");', source).group(1))
+
+    assert (ts("INBOX_ID_PREFIX"), ts("DAEMON_INSTANCE_HEADER"), ts("ACK_DELIVERED_TO_AGENT"), ts("DAEMON_KEY_ENV"),
+            ts("DEFAULT_BASE_URL")) == (hook.INBOX_ID_PREFIX, hook.DAEMON_INSTANCE_HEADER,
+                                        hook.ACK_DELIVERED_TO_AGENT, hook.DAEMON_KEY_ENV, hook.DEFAULT_BASE_URL)
+    assert int(re.search(r"export const REPORT_BUDGET_MS = (\d+);", source).group(1)) == hook.REPORT_BUDGET_S * 1000
+    assert re.search(r'export const RECEIPT_REDIRECT = "(\w+)" as const;', source).group(1) == hook.RECEIPT_REDIRECT
+    assert "inbox_receipt.json" in (AGENT_ROOT / "plugins" / "probe-research-pi" / "tests" / "reads.test.ts").read_text()
+
+
+def test_a_receipt_never_follows_a_redirect_so_the_key_stays_with_probe(tmp_path, monkeypatch):
+    """urllib follows a 302 to another host (or to plain http) and carries the
+    Authorization header there (review of #3530): the receipt follows none."""
+    elsewhere = LocalProbe()
+    probe = LocalProbe(redirect_to=elsewhere.url)
+    try:
+        config = tmp_path / "cli" / "config.json"
+        config.parent.mkdir(parents=True)
+        config.write_text(json.dumps({"companion_token": "pk_daemon", "base_url": probe.url}))
+        monkeypatch.setenv("PROBE_CONFIG_PATH", str(config))
+        msg = _inbox("from the dashboard", daemon_instance=MACHINE_A)
+        mailbox.publish(msg)
+        assert _context(_run("PostToolUse", env=_receipt_env()), "PostToolUse") == msg.rendered()
+        assert len(probe.requests) == 1, "it asked Probe"
+        assert elsewhere.requests == [], "and never the host the redirect named"
+    finally:
+        probe.close()
+        elsewhere.close()
+
+
+def test_a_claim_whose_output_never_went_out_waits_again_and_is_never_reported(probe_api, monkeypatch):
+    """The claim (the rename) comes before the output: when the output never
+    goes out, the inbox message waits again, Probe is not told it was shown, and
+    the next hook shows it (and only then reports it)."""
+    hook = _load()
+    msg = _inbox("stop the lr=3e-3 run", daemon_instance=MACHINE_A)
+    alert = _alert()
+    mailbox.publish(msg)
+    mailbox.publish(alert)
+    items = hook.deliver_items(SID, hook.current_turn(SID), "PostToolUse")
+    assert {mid for mid, _text in items} == {msg.id, alert.id}
+
+    class Closed:
+        def write(self, _text):
+            raise OSError("broken pipe")
+
+        def flush(self):
+            pass
+
+    monkeypatch.setattr(hook.sys, "stdout", Closed())
+    hook._hand_over(SID, "PostToolUse", items, None)
+    assert _waiting_ids() == [msg.id], "the inbox message waits again (the alert keeps its claim)"
+    assert _shown() == [] and probe_api.requests == []
+
+    got = _context(_run("PostToolUse", env=_receipt_env()), "PostToolUse")
+    assert got == msg.rendered()
+    assert [e["id"] for e in _shown()] == [msg.id]
+    assert [r["body"] for r in probe_api.requests] == [{"state": "delivered_to_agent"}]
+
+
+def test_a_waiter_whose_wake_never_went_out_leaves_the_message_waiting(monkeypatch):
+    hook = _load()
+    msg = _inbox("you are idle: start the next arm", daemon_instance=MACHINE_A)
+    mailbox.publish(msg)
+
+    class Closed:
+        def write(self, _text):
+            raise OSError("broken pipe")
+
+        def flush(self):
+            pass
+
+    monkeypatch.setattr(hook.sys, "stderr", Closed())
+    monkeypatch.setattr(hook, "attended", lambda: True)
+    monkeypatch.setattr(hook, "no_wake", lambda: False)
+    monkeypatch.setattr(hook, "harness_gone", lambda: False)
+    monkeypatch.setattr(hook.ServiceWatch, "open", classmethod(lambda cls, sid: None))
+    holder = _daemon_serves()
+    try:
+        assert hook.on_stop({"session_id": SID}, alert_max_s=5.0, alert_poll_s=0.05) == 2
+    finally:
+        holder.close()
+    assert _waiting_ids() == [msg.id] and _shown() == []
+
+
+DAEMON_HOOK = AGENT_ROOT / "plugins" / "probe-research-daemon" / "hooks" / "reads_hook.py"
+
+
+def _load_from(path: Path):
+    spec = importlib.util.spec_from_file_location(f"_reads_hook_{path.parent.parent.name}", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _claims_of(message_id: str) -> list[dict]:
+    return [e for e in _log() if e.get("id") == message_id]
+
+
+@pytest.mark.parametrize("hook_file", [HOOK, DAEMON_HOOK], ids=["probe-research", "probe-research-daemon"])
+@pytest.mark.parametrize("claim_path", RECEIPT["claim_paths"]["hook"])
+def test_every_claim_a_current_hook_makes_of_an_inbox_message_carries_the_marker(hook_file, claim_path):
+    """(iii) `inbox_receipt.json` `claim_marker`, on each claim path of both
+    plugins' hooks (pi's `tests/reads.test.ts` checks its own): the daemon holds
+    such a claim to its `shown` line, and takes one without it as an older
+    hook's, shown at its claim (`mailbox.InboxClaims`)."""
+    hook = _load_from(hook_file)
+    msg = _inbox("ship it", daemon_instance=MACHINE_A)
+    mailbox.publish(msg)
+    ((path, _),) = mailbox.waiting(SID)
+    if claim_path == "claim":
+        assert hook.claim(SID, path, "PostToolUse") is not None
+    else:
+        token = "%d_abc" % (int((time.time() - 60) * 1000))  # its deadline long past: an orphan
+        if claim_path == "service receipt, its line lost":  # the service died before its line
+            mailbox.claimed_dir(SID).mkdir(parents=True, exist_ok=True)
+            os.rename(path, mailbox.claimed_dir(SID) / f"{path.name[: -len('.json')]}.{token}.json")
+        else:
+            assert mailbox.claim(SID, path, by="mailbox.claim", token=token) is not None
+        (token_file,) = mailbox.claimed_dir(SID).glob(f"*-{msg.id}.{token}.json")
+        if claim_path == "orphan receipt":
+            assert [m["id"] for m in hook.deliver_orphans(SID, "PostToolUse")] == [msg.id]
+        else:
+            assert hook.receive(SID, token_file, "PostToolUse", ledger=claim_path != "service receipt") is not None
+    last = _claims_of(msg.id)[-1]
+    assert {k: last.get(k) for k in RECEIPT["claim_marker"]} == RECEIPT["claim_marker"], _claims_of(msg.id)
+    assert not mailbox.InboxClaims(SID).shown_here(msg.id), "held to its shown line"
+    hook.mark_shown(SID, [msg.id], "PostToolUse")
+    assert mailbox.InboxClaims(SID).shown_here(msg.id)
+
+
+@pytest.mark.parametrize("hook_file", [HOOK, DAEMON_HOOK], ids=["probe-research", "probe-research-daemon"])
+def test_a_hook_killed_between_its_marker_and_the_rename_leaves_a_claim_that_waits_again(hook_file, monkeypatch):
+    """Final review of #3530: the marked line goes in BEFORE the rename. A hook
+    killed between the two leaves its marker beside the service's unmarked
+    line, so the claim counts as unshown (it waits again), never as an older
+    hook's shown claim that the daemon would report unseen."""
+    hook = _load_from(hook_file)
+    msg = _inbox("ship it", daemon_instance=MACHINE_A)
+    mailbox.publish(msg)
+    ((path, _),) = mailbox.waiting(SID)
+    token = "%d_abc" % (int(time.time() * 1000))
+    assert mailbox.claim(SID, path, by="mailbox.claim", token=token) is not None
+    (token_file,) = mailbox.claimed_dir(SID).glob(f"*-{msg.id}.{token}.json")
+    real_rename = os.rename
+
+    def killed(src, dst):
+        if Path(src) == token_file:
+            raise SystemExit("hook killed")
+        return real_rename(src, dst)
+
+    monkeypatch.setattr(hook.os, "rename", killed)
+    with pytest.raises(SystemExit):
+        hook.receive(SID, token_file, "PostToolUse", ledger=False)
+    monkeypatch.setattr(hook.os, "rename", real_rename)
+    assert any(e.get("shows") == 1 for e in _claims_of(msg.id)), _claims_of(msg.id)
+    assert not mailbox.InboxClaims(SID).shown_here(msg.id), "unshown: never reported"
+
+
+def test_both_plugins_ship_the_same_hook():
+    assert HOOK.read_bytes() == DAEMON_HOOK.read_bytes()

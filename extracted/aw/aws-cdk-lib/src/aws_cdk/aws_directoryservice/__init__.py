@@ -217,6 +217,7 @@ class CfnMicrosoftAD(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -277,7 +278,7 @@ class CfnMicrosoftAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__112fb8405e10bbc906f83d73e5b0af5f5a8ae854c04751ac6709698a11f478bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSettings")
@@ -295,7 +296,7 @@ class CfnMicrosoftAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__75297793aadbe4453a84753658d85991f077c5f42c9305cc2731693d29a5901f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="createAlias")
@@ -313,7 +314,7 @@ class CfnMicrosoftAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__62ec978df7e1a1e2437893c2704eb4532e0b65321074386cfb030c8e8a99864c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "createAlias", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "createAlias", value)
 
     @builtins.property
     @jsii.member(jsii_name="edition")
@@ -326,7 +327,7 @@ class CfnMicrosoftAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ced9c598d5743f53d4678f9dfb00a06806c9e1e7c95be7ac578beb7f417c6536)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "edition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "edition", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableSso")
@@ -344,7 +345,7 @@ class CfnMicrosoftAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ce84c71d0f4e6c8581052317cb887db3b1dcb81863f7e39f3f520193f6c5287)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableSso", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableSso", value)
 
     @builtins.property
     @jsii.member(jsii_name="password")
@@ -357,7 +358,7 @@ class CfnMicrosoftAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8cc760b5f2c2b02fc7c50f03f5673177e683887f7f392b34832edb453966e992)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "password", value)
 
     @builtins.property
     @jsii.member(jsii_name="shortName")
@@ -370,7 +371,7 @@ class CfnMicrosoftAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d26767a53bfb3a106209fbda0be0dc95b0dc1f47eccfcf621e2a92ff21477680)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "shortName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "shortName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_directoryservice.CfnMicrosoftAD.VpcSettingsProperty",
@@ -791,6 +792,7 @@ class CfnSimpleAD(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -867,7 +869,7 @@ class CfnSimpleAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a3a78121d492cd58fc500f705f47004309952863836f8d6363c085425d61b5e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="size")
@@ -880,7 +882,7 @@ class CfnSimpleAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c947223df100c39d3ba17f1ff698114d9a307629c47fd70256f83e548f4784ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "size", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "size", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSettings")
@@ -898,7 +900,7 @@ class CfnSimpleAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6428aafed6f7ca93dde6ec0c6f047a3df0f1e0611e08f0e547ace9ba88f2405f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="createAlias")
@@ -916,7 +918,7 @@ class CfnSimpleAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fd6c1eca9f65d5acc1c1fa49fb9c2d7595239e452ab418012abd1a20597b5f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "createAlias", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "createAlias", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -929,7 +931,7 @@ class CfnSimpleAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f523334b45fcfb70dccb3363e6ec46cc38283b1a77028b92e89f62fd48ac31d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableSso")
@@ -947,7 +949,7 @@ class CfnSimpleAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c87bb88b5d4bdf801ed5bb1eff487991cd1104ca7311fda40c4c7666e682d3f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableSso", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableSso", value)
 
     @builtins.property
     @jsii.member(jsii_name="password")
@@ -960,7 +962,7 @@ class CfnSimpleAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__71aba9c326c0546afb2bfadc98225001babe64951c885082746f7d7f8553bf37)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "password", value)
 
     @builtins.property
     @jsii.member(jsii_name="shortName")
@@ -973,7 +975,7 @@ class CfnSimpleAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c28a5ea3ad534ce7feaf34230d92ea3e87c2179d359d490a286a8b1936fcf350)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "shortName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "shortName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -988,7 +990,7 @@ class CfnSimpleAD(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8608a48530e4652b220da217be24d24054a2262d8b47292ff51a7225a5d3754c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_directoryservice.CfnSimpleAD.VpcSettingsProperty",

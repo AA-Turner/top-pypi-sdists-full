@@ -65,7 +65,11 @@ class RecordedRunOptions(BaseModel):
 
   train_batch_size: int | None = None
 
+  group_size: int | None = None
+
   samples_per_instance: int | None = None
+
+  min_samples_per_group: int | None = None
 
   max_active_rollouts: int | None = None
 

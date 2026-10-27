@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metar
-Version: 2.0.1
+Version: 2.0.2
 Summary: Metar - a package to parse METAR-coded weather reports
 Author-email: Tom Pollard <pollard@alum.mit.edu>
 License: Copyright (c) 2004-2018, Tom Pollard
@@ -33,7 +33,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: tests
@@ -147,6 +147,13 @@ setup.py  | installation script
 Example
 ------------------------------------------------------------------------
 
+`obs.runway` retains its four-element records (name, low, high, units).
+`obs.runway_tendencies` has one entry for each of those records, in the same
+order: `"U"` for increasing, `"D"` for decreasing, `"N"` for no distinct
+tendency, or `None` when no unambiguous tendency was reported. These describe
+the reported past tendency; no trend is inferred from the range values.
+`obs.runway_visual_range()` includes the tendency when available.
+
 See the sample.py script for an annonated demonstration of the use
 of this code.  Just as an appetizer, here's an interactive example...
 
@@ -185,7 +192,7 @@ METAR: METAR KEWR 111851Z VRB03G19KT 2SM R04R/3000VP6000FT TSRA BR FEW015 BKN040
 Tests
 ------------------------------------------------------------------------
 
-The library is tested against Python 3.10-3.14.
+The library is tested against Python 3.11-3.15.
 
 A [tox](https://tox.readthedocs.io/en/latest/)
 configuration file is included to easily run tests against each of these

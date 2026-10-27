@@ -41,23 +41,32 @@ def _failure_chain(exc: BaseException) -> str:
     cur: BaseException | None = exc
     while cur is not None and id(cur) not in seen and len(parts) < _MAX_CAUSES:
         seen.add(id(cur))
-        attrs = []
-        # error_code は SDK 自身の例外 (SDK が決まった語を入れる) のときだけ。Agent の例外の属性は文言と同じ扱いで出さない
-        code = _attr(cur, "error_code") if type(cur).__module__.startswith("agenticstar_platform.") else None
-        if isinstance(code, str) and code.isidentifier():
-            attrs.append(f"error_code={code}")
-        status = _attr(cur, "status_code")
-        if isinstance(status, int) and not isinstance(status, bool):
-            attrs.append(f"status={status}")
-        try:
-            host = cur.request.url.host  # httpx の例外 (要求が付いていないと RuntimeError)
-        except Exception:  # noqa: BLE001
-            host = None
-        if isinstance(host, str) and host:
-            attrs.append(f"host={host}")
-        parts.append(type(cur).__name__ + (f"({', '.join(attrs)})" if attrs else ""))
+        parts.append(_describe_exception(cur))
         cur = cur.__cause__ or (None if cur.__suppress_context__ else cur.__context__)
     return " <- ".join(parts)
+
+
+def _describe_exception(exc: BaseException) -> str:
+    """例外 1 件を ``クラス名(error_code=..., status=..., host=...)`` にする (出せる属性が無ければクラス名だけ)。"""
+    attrs = []
+    # error_code は SDK 自身の例外 (SDK が決まった語を入れる) のときだけ。Agent の例外の属性は文言と同じ扱いで出さない
+    code = _attr(exc, "error_code") if type(exc).__module__.startswith("agenticstar_platform.") else None
+    if isinstance(code, str) and code.isidentifier():
+        attrs.append(f"error_code={code}")
+    status = _attr(exc, "status_code")
+    if isinstance(status, int) and not isinstance(status, bool):
+        attrs.append(f"status={status}")
+    host = _request_host(exc)
+    if isinstance(host, str) and host:
+        attrs.append(f"host={host}")
+    return type(exc).__name__ + (f"({', '.join(attrs)})" if attrs else "")
+
+
+def _request_host(exc: BaseException):
+    try:
+        return exc.request.url.host  # httpx の例外 (要求が付いていないと RuntimeError)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _attr(obj: object, name: str):

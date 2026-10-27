@@ -5,10 +5,13 @@ use nom::{
 	branch::alt,
 	bytes::complete::{tag, take_until1},
 	error::ParseError,
-	sequence::delimited,
 };
 
-use crate::Input;
+use crate::{
+	Input,
+	lossless::TokenKind,
+	span::{Span, Syntax, WithToken},
+};
 
 pub const SINGLE_DELIMITER: &str = "`";
 pub const DOUBLE_DELIMITER: &str = "``";
@@ -30,11 +33,13 @@ pub fn unparse(code: &str, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 /// # Errors
 /// If the content does not begin with inline code.
 #[must_use]
-pub fn code<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
+pub fn code<'data, S, E>()
+-> impl Parser<Input<'data>, Output = (Input<'data>, S::Syntax), Error = E>
 where
+	S: Span,
 	E: ParseError<Input<'data>>,
 {
-	alt((single(), double()))
+	alt((single::<S, E>(), double::<S, E>()))
 }
 
 /// Parse inline code delimited by [`SINGLE_DELIMITER`].
@@ -42,15 +47,13 @@ where
 /// # Errors
 /// If the content does not begin with such code.
 #[must_use]
-pub fn single<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
+pub fn single<'data, S, E>()
+-> impl Parser<Input<'data>, Output = (Input<'data>, S::Syntax), Error = E>
 where
+	S: Span,
 	E: ParseError<Input<'data>>,
 {
-	delimited(
-		tag(SINGLE_DELIMITER),
-		take_until1(SINGLE_DELIMITER),
-		tag(SINGLE_DELIMITER),
-	)
+	delimited_by::<S, E>(SINGLE_DELIMITER)
 }
 
 /// Parse inline code delimited by [`DOUBLE_DELIMITER`], which can hold a single backtick.
@@ -58,15 +61,28 @@ where
 /// # Errors
 /// If the content does not begin with such code.
 #[must_use]
-pub fn double<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
+pub fn double<'data, S, E>()
+-> impl Parser<Input<'data>, Output = (Input<'data>, S::Syntax), Error = E>
 where
+	S: Span,
 	E: ParseError<Input<'data>>,
 {
-	delimited(
-		tag(DOUBLE_DELIMITER),
-		take_until1(DOUBLE_DELIMITER),
-		tag(DOUBLE_DELIMITER),
+	delimited_by::<S, E>(DOUBLE_DELIMITER)
+}
+
+fn delimited_by<'data, S, E>(
+	delimiter: &'static str,
+) -> impl Parser<Input<'data>, Output = (Input<'data>, S::Syntax), Error = E>
+where
+	S: Span,
+	E: ParseError<Input<'data>>,
+{
+	(
+		tag(delimiter).token::<S>(TokenKind::CodeDelimiter),
+		take_until1(delimiter).with_token::<S>(TokenKind::CodeContent),
+		tag(delimiter).token::<S>(TokenKind::CodeDelimiter),
 	)
+		.map(|(open, (content, syntax), close)| (content, open.join(syntax).join(close)))
 }
 
 #[cfg(test)]
@@ -80,7 +96,7 @@ mod test {
 	#[test]
 	fn simple_code() {
 		let s = "`foo`";
-		let (rem, res) = code()
+		let (rem, (res, ())) = code::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -92,7 +108,7 @@ mod test {
 	#[test]
 	fn empty_code() {
 		let s = "``";
-		code()
+		code::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -102,7 +118,7 @@ mod test {
 	#[test]
 	fn escaped_code() {
 		let s = r"`foo\`bar`";
-		let (rem, res) = code()
+		let (rem, (res, ())) = code::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -114,7 +130,7 @@ mod test {
 	#[test]
 	fn code_with_italic() {
 		let s = r"`_foobar_`";
-		let (rem, res) = code()
+		let (rem, (res, ())) = code::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -126,7 +142,7 @@ mod test {
 	#[test]
 	fn code_with_link() {
 		let s = r"`foo\nbar`";
-		let (rem, res) = code()
+		let (rem, (res, ())) = code::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -138,7 +154,7 @@ mod test {
 	#[test]
 	fn double_delimiter_contains_single_delimiter() {
 		let s = r"``foo`bar``";
-		let (rem, res) = code()
+		let (rem, (res, ())) = code::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))

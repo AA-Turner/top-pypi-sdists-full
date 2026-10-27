@@ -59,6 +59,7 @@ __all__ = (
     "ProvisionTargetTypeType",
     "ProvisioningStatusType",
     "RegionName",
+    "RegionScopeType",
     "RegionStatusType",
     "ResourceServiceName",
     "SSOAdminServiceName",
@@ -130,6 +131,7 @@ ProvisionTargetTypeType = Literal["ALL_PROVISIONED_ACCOUNTS", "AWS_ACCOUNT"]
 ProvisioningStatusType = Literal[
     "LATEST_PERMISSION_SET_NOT_PROVISIONED", "LATEST_PERMISSION_SET_PROVISIONED"
 ]
+RegionScopeType = Literal["ALL_REGIONS", "CURRENT_REGION"]
 RegionStatusType = Literal["ACTIVE", "ADDING", "REMOVING"]
 SignInOriginType = Literal["APPLICATION", "IDENTITY_CENTER"]
 StatusValuesType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]

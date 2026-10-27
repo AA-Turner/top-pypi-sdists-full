@@ -2144,6 +2144,7 @@ class CustomRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SINGLE_PAGE_APPLICATION_REDIRECT")
+    @builtins.classmethod
     def SINGLE_PAGE_APPLICATION_REDIRECT(cls) -> "CustomRule":
         '''(experimental) Sets up a 200 rewrite for all paths to ``index.html`` except for path containing a file extension.
 
@@ -2412,6 +2413,7 @@ class Domain(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -3675,6 +3677,7 @@ class App(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -3875,6 +3878,7 @@ class Branch(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 

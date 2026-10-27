@@ -427,6 +427,7 @@ def _shown(fields: dict[str, Any]) -> dict[str, Any]:
 def _config_fields(
     *,
     username: str | None = None,
+    login_email: str | None = None,
     mode: str | None = None,
     login_url: str | None = None,
     login_hint: str | None = None,
@@ -438,6 +439,8 @@ def _config_fields(
     fields: dict[str, Any] = {}
     if username is not None:
         fields["username"] = username
+    if login_email is not None:
+        fields["login_email"] = login_email.strip()
     if mode is not None:
         # "" clears the mode (Chronos only); anything else must be a known mode.
         fields["browser_mode"] = "" if mode == "" else translate_mode(mode)
@@ -654,7 +657,11 @@ def create(
     account: AccountArg,
     username: Annotated[str | None, typer.Option("--username", help="The sign-in name (not a secret)")] = None,
     email: Annotated[
-        str | None, typer.Option("--email", help="The account's email; the username when none is given")
+        str | None,
+        typer.Option(
+            "--email",
+            help="The login email: picks the inbox mail codes are read from. Also the username when none is given",
+        ),
     ] = None,
     login_url: LoginUrlArg = None,
     mode: ModeArg = None,
@@ -677,6 +684,7 @@ def create(
             fields.update(read_stdin_creds(typer.get_text_stream("stdin").read(), keep_clears=False))
         flags = _config_fields(
             username=username or (email if not fields.get("username") else None),
+            login_email=email,
             mode=mode,
             login_url=login_url,
             login_hint=login_hint,
@@ -731,6 +739,10 @@ def edit(
     login_key: Annotated[str, typer.Argument(help="Which auth system, e.g. slack")],
     account: AccountArg,
     username: Annotated[str | None, typer.Option("--username", help='The sign-in name ("" clears)')] = None,
+    email: Annotated[
+        str | None,
+        typer.Option("--email", help='The login email: picks the inbox mail codes are read from ("" clears)'),
+    ] = None,
     mode: ModeArg = None,
     login_url: LoginUrlArg = None,
     login_hint: LoginHintArg = None,
@@ -757,6 +769,7 @@ def edit(
         fields.update(
             _config_fields(
                 username=username,
+                login_email=email,
                 mode=mode,
                 login_url=login_url,
                 login_hint=login_hint,
@@ -768,7 +781,7 @@ def edit(
         if not fields:
             raise VaultConsoleError(
                 "nothing to change: pass --mode, --login-url, --login-hint, --proxy-exit, "
-                "--auto-refresh/--seed-only, --max-sessions, --username and/or --creds-stdin"
+                "--auto-refresh/--seed-only, --max-sessions, --username, --email and/or --creds-stdin"
             )
         target = _Target(via, chronos_url, api_key, console_url)
 

@@ -26,9 +26,11 @@ __all__ = (
     "ChannelLatencyModeType",
     "ChannelTypeType",
     "ContainerFormatType",
+    "FailoverSlateConfigurationStateType",
     "IVSServiceName",
     "ListAdConfigurationsPaginatorName",
     "ListChannelsPaginatorName",
+    "ListFailoverSlateConfigurationsPaginatorName",
     "ListPlaybackKeyPairsPaginatorName",
     "ListRecordingConfigurationsPaginatorName",
     "ListStreamKeysPaginatorName",
@@ -54,8 +56,10 @@ __all__ = (
 ChannelLatencyModeType = Literal["LOW", "NORMAL"]
 ChannelTypeType = Literal["ADVANCED_HD", "ADVANCED_SD", "BASIC", "STANDARD"]
 ContainerFormatType = Literal["FRAGMENTED_MP4", "TS"]
+FailoverSlateConfigurationStateType = Literal["CREATED", "CREATE_FAILED", "CREATING", "UPDATING"]
 ListAdConfigurationsPaginatorName = Literal["list_ad_configurations"]
 ListChannelsPaginatorName = Literal["list_channels"]
+ListFailoverSlateConfigurationsPaginatorName = Literal["list_failover_slate_configurations"]
 ListPlaybackKeyPairsPaginatorName = Literal["list_playback_key_pairs"]
 ListRecordingConfigurationsPaginatorName = Literal["list_recording_configurations"]
 ListStreamKeysPaginatorName = Literal["list_stream_keys"]
@@ -75,8 +79,11 @@ IVSServiceName = Literal["ivs"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -149,6 +156,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -176,6 +184,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -221,12 +230,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -251,6 +260,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -293,6 +303,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -345,6 +356,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -381,6 +393,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -425,6 +438,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -475,7 +489,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -505,6 +518,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_ad_configurations",
     "list_channels",
+    "list_failover_slate_configurations",
     "list_playback_key_pairs",
     "list_recording_configurations",
     "list_stream_keys",

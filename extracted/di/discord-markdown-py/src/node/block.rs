@@ -8,9 +8,10 @@ use crate::{
 	Input,
 	context::{Context, fuel::ApplyFuel},
 	error::ParseError,
+	lossless::TokenKind,
 	range::delim,
 	scope::Scope,
-	span::{Span, TraceOk, TraceParse, WithSpan},
+	span::{Span, Syntax, TraceOk, TraceParse, WithSpan, WithToken, attach},
 	unparse::Unparse,
 };
 
@@ -20,13 +21,12 @@ use nom::{
 	Parser,
 	branch::alt,
 	character::complete::line_ending,
-	combinator::{eof, map, value},
-	multi::many0,
-	sequence::{preceded, terminated},
+	combinator::{eof, map},
+	multi::fold_many0,
 };
 use tracing::Level;
 
-use super::{Blocks, Element, Elements, Inline, Inlines, SpannedElement, inline};
+use super::{Blocks, Element, Elements, Inline, Inlines, inline};
 
 /// Markdown headings.
 ///
@@ -139,7 +139,14 @@ where
 	E: ParseError<'data>,
 {
 	let terminal = context.scope.terminal_sequence();
-	terminated(inline::inline(context), terminal)
+	(
+		inline::inline(context),
+		terminal.token::<S>(TokenKind::LineEnding),
+	)
+		.map(|(mut content, line_ending): (Elements<'data, S>, _)| {
+			content.span.attach(line_ending);
+			content
+		})
 }
 
 struct BlockParser<S, E> {
@@ -176,24 +183,38 @@ where
 
 		// A line is one node, or a delimiter run opening before a block rule, as in `*1. foo`.
 		let line = alt((
-			value(Element::Empty, line_ending).span().map(single),
-			self.context.allowed_block_syntax().span().map(single),
+			line_ending
+				.token::<S>(TokenKind::LineEnding)
+				.map(|line_ending| (Element::Empty, line_ending))
+				.span()
+				.map(attach)
+				.map(single),
+			self.context
+				.allowed_block_syntax()
+				.span()
+				.map(attach)
+				.map(single),
 			(
 				delim::opener(allowed, |start| self.context.is_disabled_opener(start))
 					.map(Element::Delim)
 					.span(),
-				self.context.allowed_block_syntax().span(),
+				self.context.allowed_block_syntax().span().map(attach),
 			)
 				.map(|(delim, block)| (Some(delim), block)),
 			// a line of nothing but delimiters, like the `||` around a spoiled list
-			terminated(delim::delim(allowed), alt((line_ending, eof)))
-				.map(|delim| {
-					Element::Delim(delim::Delim {
+			(
+				delim::delim(allowed),
+				alt((line_ending, eof)).token::<S>(TokenKind::LineEnding),
+			)
+				.map(|(delim, line_ending)| {
+					let delim = Element::Delim(delim::Delim {
 						alone: true,
 						..delim
-					})
+					});
+					(delim, line_ending)
 				})
 				.span()
+				.map(attach)
 				.map(single),
 			map(
 				inline_block(self.context.clone().with_scope(Scope::InlineBlock)),
@@ -207,19 +228,26 @@ where
 		// Each iteration begins at the start of a line, so the enclosing container's line prefix
 		// (e.g. `> ` inside a quote) is consumed here. It matches empty when there is no container,
 		// and failing it is what ends the container when a line stops being part of it.
-		many0(preceded(self.context.line_prefix(), line))
-			.map(
-				|lines: Vec<(Option<SpannedElement<'data, S>>, SpannedElement<'data, S>)>| {
-					lines
-						.into_iter()
-						.flat_map(|(delim, node)| delim.into_iter().chain([node]))
-						.collect::<Vec<_>>()
-				},
-			)
-			.span()
-			.trace_parse()
-			.process::<OM>(input)
-			.trace_ok()
+		fold_many0(
+			(
+				self.context
+					.line_prefix()
+					.token::<S>(TokenKind::QuotePrefix),
+				line,
+			),
+			|| (Vec::new(), S::Syntax::default()),
+			|(mut nodes, mut syntax), (prefix, (delim, node))| {
+				syntax.append(prefix);
+				nodes.extend(delim);
+				nodes.push(node);
+				(nodes, syntax)
+			},
+		)
+		.span()
+		.map(attach)
+		.trace_parse()
+		.process::<OM>(input)
+		.trace_ok()
 	}
 }
 

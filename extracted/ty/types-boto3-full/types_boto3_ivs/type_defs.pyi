@@ -25,6 +25,7 @@ from .literals import (
     ChannelLatencyModeType,
     ChannelTypeType,
     ContainerFormatType,
+    FailoverSlateConfigurationStateType,
     MultitrackMaximumResolutionType,
     MultitrackPolicyType,
     RecordingConfigurationStateType,
@@ -62,6 +63,8 @@ __all__ = (
     "CreateAdConfigurationResponseTypeDef",
     "CreateChannelRequestTypeDef",
     "CreateChannelResponseTypeDef",
+    "CreateFailoverSlateConfigurationRequestTypeDef",
+    "CreateFailoverSlateConfigurationResponseTypeDef",
     "CreatePlaybackRestrictionPolicyRequestTypeDef",
     "CreatePlaybackRestrictionPolicyResponseTypeDef",
     "CreateRecordingConfigurationRequestTypeDef",
@@ -70,16 +73,21 @@ __all__ = (
     "CreateStreamKeyResponseTypeDef",
     "DeleteAdConfigurationRequestTypeDef",
     "DeleteChannelRequestTypeDef",
+    "DeleteFailoverSlateConfigurationRequestTypeDef",
     "DeletePlaybackKeyPairRequestTypeDef",
     "DeletePlaybackRestrictionPolicyRequestTypeDef",
     "DeleteRecordingConfigurationRequestTypeDef",
     "DeleteStreamKeyRequestTypeDef",
     "DestinationConfigurationTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "FailoverSlateConfigurationSummaryTypeDef",
+    "FailoverSlateConfigurationTypeDef",
     "GetAdConfigurationRequestTypeDef",
     "GetAdConfigurationResponseTypeDef",
     "GetChannelRequestTypeDef",
     "GetChannelResponseTypeDef",
+    "GetFailoverSlateConfigurationRequestTypeDef",
+    "GetFailoverSlateConfigurationResponseTypeDef",
     "GetPlaybackKeyPairRequestTypeDef",
     "GetPlaybackKeyPairResponseTypeDef",
     "GetPlaybackRestrictionPolicyRequestTypeDef",
@@ -104,6 +112,9 @@ __all__ = (
     "ListChannelsRequestPaginateTypeDef",
     "ListChannelsRequestTypeDef",
     "ListChannelsResponseTypeDef",
+    "ListFailoverSlateConfigurationsRequestPaginateTypeDef",
+    "ListFailoverSlateConfigurationsRequestTypeDef",
+    "ListFailoverSlateConfigurationsResponseTypeDef",
     "ListPlaybackKeyPairsRequestPaginateTypeDef",
     "ListPlaybackKeyPairsRequestTypeDef",
     "ListPlaybackKeyPairsResponseTypeDef",
@@ -158,6 +169,8 @@ __all__ = (
     "UpdateAdConfigurationResponseTypeDef",
     "UpdateChannelRequestTypeDef",
     "UpdateChannelResponseTypeDef",
+    "UpdateFailoverSlateConfigurationRequestTypeDef",
+    "UpdateFailoverSlateConfigurationResponseTypeDef",
     "UpdatePlaybackRestrictionPolicyRequestTypeDef",
     "UpdatePlaybackRestrictionPolicyResponseTypeDef",
     "VideoConfigurationTypeDef",
@@ -226,6 +239,7 @@ ChannelSummaryTypeDef = TypedDict(
         "preset": NotRequired[TranscodePresetType],
         "playbackRestrictionPolicyArn": NotRequired[str],
         "adConfigurationArn": NotRequired[str],
+        "failoverSlateConfigurationArn": NotRequired[str],
     },
 )
 
@@ -237,6 +251,22 @@ class MultitrackInputConfigurationTypeDef(TypedDict):
 class SrtTypeDef(TypedDict):
     endpoint: NotRequired[str]
     passphrase: NotRequired[str]
+
+class CreateFailoverSlateConfigurationRequestTypeDef(TypedDict):
+    name: NotRequired[str]
+    activationThresholdSeconds: NotRequired[int]
+    minSlateDisplaySeconds: NotRequired[int]
+    maxSlateDisplaySeconds: NotRequired[int]
+    tags: NotRequired[Mapping[str, str]]
+
+class FailoverSlateConfigurationTypeDef(TypedDict):
+    arn: str
+    state: FailoverSlateConfigurationStateType
+    name: NotRequired[str]
+    activationThresholdSeconds: NotRequired[int]
+    minSlateDisplaySeconds: NotRequired[int]
+    maxSlateDisplaySeconds: NotRequired[int]
+    tags: NotRequired[dict[str, str]]
 
 class CreatePlaybackRestrictionPolicyRequestTypeDef(TypedDict):
     allowedCountries: NotRequired[Sequence[str]]
@@ -263,6 +293,9 @@ class DeleteAdConfigurationRequestTypeDef(TypedDict):
 class DeleteChannelRequestTypeDef(TypedDict):
     arn: str
 
+class DeleteFailoverSlateConfigurationRequestTypeDef(TypedDict):
+    arn: str
+
 class DeletePlaybackKeyPairRequestTypeDef(TypedDict):
     arn: str
 
@@ -278,10 +311,22 @@ class DeleteStreamKeyRequestTypeDef(TypedDict):
 class S3DestinationConfigurationTypeDef(TypedDict):
     bucketName: str
 
+class FailoverSlateConfigurationSummaryTypeDef(TypedDict):
+    arn: str
+    state: FailoverSlateConfigurationStateType
+    name: NotRequired[str]
+    activationThresholdSeconds: NotRequired[int]
+    minSlateDisplaySeconds: NotRequired[int]
+    maxSlateDisplaySeconds: NotRequired[int]
+    tags: NotRequired[dict[str, str]]
+
 class GetAdConfigurationRequestTypeDef(TypedDict):
     arn: str
 
 class GetChannelRequestTypeDef(TypedDict):
+    arn: str
+
+class GetFailoverSlateConfigurationRequestTypeDef(TypedDict):
     arn: str
 
 class GetPlaybackKeyPairRequestTypeDef(TypedDict):
@@ -354,6 +399,11 @@ class ListChannelsRequestTypeDef(TypedDict):
     filterByRecordingConfigurationArn: NotRequired[str]
     filterByPlaybackRestrictionPolicyArn: NotRequired[str]
     filterByAdConfigurationArn: NotRequired[str]
+    filterByFailoverSlateConfigurationArn: NotRequired[str]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListFailoverSlateConfigurationsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
@@ -467,6 +517,13 @@ class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
 
+class UpdateFailoverSlateConfigurationRequestTypeDef(TypedDict):
+    arn: str
+    name: NotRequired[str]
+    activationThresholdSeconds: NotRequired[int]
+    minSlateDisplaySeconds: NotRequired[int]
+    maxSlateDisplaySeconds: NotRequired[int]
+
 class UpdatePlaybackRestrictionPolicyRequestTypeDef(TypedDict):
     arn: str
     allowedCountries: NotRequired[Sequence[str]]
@@ -567,6 +624,7 @@ CreateChannelRequestTypeDef = TypedDict(
         "multitrackInputConfiguration": NotRequired[MultitrackInputConfigurationTypeDef],
         "containerFormat": NotRequired[ContainerFormatType],
         "adConfigurationArn": NotRequired[str],
+        "failoverSlateConfigurationArn": NotRequired[str],
     },
 )
 UpdateChannelRequestTypeDef = TypedDict(
@@ -584,6 +642,7 @@ UpdateChannelRequestTypeDef = TypedDict(
         "multitrackInputConfiguration": NotRequired[MultitrackInputConfigurationTypeDef],
         "containerFormat": NotRequired[ContainerFormatType],
         "adConfigurationArn": NotRequired[str],
+        "failoverSlateConfigurationArn": NotRequired[str],
     },
 )
 ChannelTypeDef = TypedDict(
@@ -605,8 +664,21 @@ ChannelTypeDef = TypedDict(
         "multitrackInputConfiguration": NotRequired[MultitrackInputConfigurationTypeDef],
         "containerFormat": NotRequired[ContainerFormatType],
         "adConfigurationArn": NotRequired[str],
+        "failoverSlateConfigurationArn": NotRequired[str],
     },
 )
+
+class CreateFailoverSlateConfigurationResponseTypeDef(TypedDict):
+    failoverSlateConfiguration: FailoverSlateConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetFailoverSlateConfigurationResponseTypeDef(TypedDict):
+    failoverSlateConfiguration: FailoverSlateConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateFailoverSlateConfigurationResponseTypeDef(TypedDict):
+    failoverSlateConfiguration: FailoverSlateConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePlaybackRestrictionPolicyResponseTypeDef(TypedDict):
     playbackRestrictionPolicy: PlaybackRestrictionPolicyTypeDef
@@ -622,6 +694,11 @@ class UpdatePlaybackRestrictionPolicyResponseTypeDef(TypedDict):
 
 class DestinationConfigurationTypeDef(TypedDict):
     s3: NotRequired[S3DestinationConfigurationTypeDef]
+
+class ListFailoverSlateConfigurationsResponseTypeDef(TypedDict):
+    failoverSlateConfigurations: list[FailoverSlateConfigurationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class GetPlaybackKeyPairResponseTypeDef(TypedDict):
     keyPair: PlaybackKeyPairTypeDef
@@ -651,6 +728,10 @@ class ListChannelsRequestPaginateTypeDef(TypedDict):
     filterByRecordingConfigurationArn: NotRequired[str]
     filterByPlaybackRestrictionPolicyArn: NotRequired[str]
     filterByAdConfigurationArn: NotRequired[str]
+    filterByFailoverSlateConfigurationArn: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListFailoverSlateConfigurationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPlaybackKeyPairsRequestPaginateTypeDef(TypedDict):
@@ -793,6 +874,7 @@ class StreamSessionTypeDef(TypedDict):
     ingestConfigurations: NotRequired[IngestConfigurationsTypeDef]
     recordingConfiguration: NotRequired[RecordingConfigurationTypeDef]
     truncatedEvents: NotRequired[list[StreamEventTypeDef]]
+    failoverSlateConfiguration: NotRequired[FailoverSlateConfigurationTypeDef]
 
 class GetStreamSessionResponseTypeDef(TypedDict):
     streamSession: StreamSessionTypeDef

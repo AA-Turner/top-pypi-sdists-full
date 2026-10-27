@@ -61,13 +61,13 @@ class UnscentedKalmanFilter(object):
 
 
 
-    hx : function(x)
+    hx : function(x,**hx_args)
         Measurement function. Converts state vector x into a measurement
         vector of shape (dim_z).
 
-    fx : function(x,dt)
+    fx : function(x,dt,**fx_args)
         function that returns the state x transformed by the
-        state transistion function. dt is the time step in seconds.
+        state transition function. dt is the time step in seconds.
 
     points : class
         Class which computes the sigma points and weights for a UKF
@@ -133,8 +133,14 @@ class UnscentedKalmanFilter(object):
                 if y > np.pi:
                     y -= 2*np.pi
                 if y < -np.pi:
-                    y = 2*np.pi
+                    y += 2*np.pi
                 return y
+
+    state_add: callable (x, y), optional, default np.add
+        Function that subtracts two state vectors, returning a new
+        state vector. Used during update to compute `x + K@y`
+        You will have to supply this if your state variable does not
+        suport addition, such as it contains angles.
 
     Attributes
     ----------
@@ -278,7 +284,8 @@ class UnscentedKalmanFilter(object):
     def __init__(self, dim_x, dim_z, dt, hx, fx, points,
                  sqrt_fn=None, x_mean_fn=None, z_mean_fn=None,
                  residual_x=None,
-                 residual_z=None):
+                 residual_z=None,
+                 state_add=None):
         """
         Create a Kalman filter. You are responsible for setting the
         various state variables to reasonable values; the defaults below will
@@ -327,6 +334,11 @@ class UnscentedKalmanFilter(object):
         else:
             self.residual_z = residual_z
 
+        if state_add is None:
+            self.state_add = np.add
+        else:
+            self.state_add = state_add
+
         # sigma points transformed through f(x) and h(x)
         # variables for efficiency so we don't recreate every update
 
@@ -364,7 +376,7 @@ class UnscentedKalmanFilter(object):
             If specified, the time step to be used for this prediction.
             self._dt is used if this is not provided.
 
-        fx : callable f(x, **fx_args), optional
+        fx : callable f(x, dt, **fx_args), optional
             State transition function. If not provided, the default
             function passed in during construction will be used.
 
@@ -391,6 +403,9 @@ class UnscentedKalmanFilter(object):
         self.x, self.P = UT(self.sigmas_f, self.Wm, self.Wc, self.Q,
                             self.x_mean, self.residual_x)
 
+        # update sigma points to reflect the new variance of the points
+        self.sigmas_f = self.points_fn.sigma_points(self.x, self.P)
+
         # save prior
         self.x_prior = np.copy(self.x)
         self.P_prior = np.copy(self.P)
@@ -415,6 +430,10 @@ class UnscentedKalmanFilter(object):
             points passed through hx. Typically the default function will
             work - you can use x_mean_fn and z_mean_fn to alter the behavior
             of the unscented transform.
+
+        hx : callable h(x, **hx_args), optional
+            Measurement function. If not provided, the default
+            function passed in during construction will be used.
 
         **hx_args : keyword argument
             arguments to be passed into h(x) after x -> h(x, **hx_args)
@@ -458,7 +477,7 @@ class UnscentedKalmanFilter(object):
         self.y = self.residual_z(z, zp)   # residual
 
         # update Gaussian state estimate (x, P)
-        self.x = self.x + dot(self.K, self.y)
+        self.x = self.state_add(self.x, dot(self.K, self.y))
         self.P = self.P - dot(self.K, dot(self.S, self.K.T))
 
         # save measurement and posterior state
@@ -584,7 +603,8 @@ class UnscentedKalmanFilter(object):
                 raise TypeError(
                     'each element in zs must be a 1D array of length {}'.format(self._dim_z))
 
-        z_n = np.size(zs, 0)
+        z_n = len(zs)
+
         if Rs is None:
             Rs = [self.R] * z_n
 
@@ -613,7 +633,7 @@ class UnscentedKalmanFilter(object):
 
     def rts_smoother(self, Xs, Ps, Qs=None, dts=None, UT=None):
         """
-        Runs the Rauch-Tung-Striebal Kalman smoother on a set of
+        Runs the Rauch-Tung-Striebel Kalman smoother on a set of
         means and covariances computed by the UKF. The usual input
         would come from the output of `batch_filter()`.
 
@@ -753,7 +773,7 @@ class UnscentedKalmanFilter(object):
         mahalanobis : float
         """
         if self._mahalanobis is None:
-            self._mahalanobis = sqrt(float(dot(dot(self.y.T, self.SI), self.y)))
+            self._mahalanobis = sqrt(dot(dot(self.y.T, self.SI), self.y).item())
         return self._mahalanobis
 
     def __repr__(self):

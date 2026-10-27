@@ -198,6 +198,7 @@ class CfnSpendingLimit(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -280,7 +281,7 @@ class CfnSpendingLimit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5f6d466fba6fb5cff7f993a0ed644bfbb81208b7620fe51c2805da61528eccaa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deviceArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deviceArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="spendingLimit")
@@ -293,7 +294,7 @@ class CfnSpendingLimit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__592d36586a0598b3a37d4c9242bce72e812df6669395ff61be0ccabc55ae48b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "spendingLimit", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "spendingLimit", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -309,7 +310,7 @@ class CfnSpendingLimit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__577fd669a8435ef4fb18677e0b0ac3cc393d2c2a53b237359eb2fcf5ff4ab3ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="timePeriod")
@@ -327,7 +328,7 @@ class CfnSpendingLimit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f35f17e99f158d6d3f7600fabad60df67dbe994b5dc8fdaa2d5674aa0a1b4270)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timePeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "timePeriod", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_braket.CfnSpendingLimit.TimePeriodProperty",

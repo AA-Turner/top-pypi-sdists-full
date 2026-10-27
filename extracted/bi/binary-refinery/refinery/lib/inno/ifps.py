@@ -8,10 +8,11 @@ import abc
 import enum
 import io
 import itertools
+import math
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from functools import WRAPPER_ASSIGNMENTS, update_wrapper
+from fractions import Fraction
 from typing import (
     Callable,
     Generator,
@@ -21,40 +22,33 @@ from typing import (
 from uuid import UUID
 
 from refinery.lib.inno import CaseInsensitiveDict
-from refinery.lib.inno.symbols import IFPSAPI, IFPSClasses, IFPSEvents
+from refinery.lib.inno.delphi import numbers, variants, x87
+from refinery.lib.inno.delphi.runtime import Platform
+from refinery.lib.inno.symbols import IFPSAPI, IFPSClasses, IFPSEvents, IFPSSignature
 from refinery.lib.structures import Struct, StructReader
 
 _E = TypeVar('_E', bound=type[enum.Enum])
-_C = TypeVar('_C', bound=type)
 
 _TAB = '\x20\x20'
 
 
-def extended(_data: bytes):
+def extended(_data: bytes) -> x87.Real:
     """
-    A helper function to parse 10 bytes into an extended type float value within the IFPS runtime.
+    Parses the 10 bytes of an x87 extended-precision float into its exact value.
     """
     if len(_data) != 10:
         raise ValueError
     data = int.from_bytes(_data, 'little')
-    sign = data >> 79
-    data = data ^ (sign << 79)
-    sign = -1.0 if sign else +1.0
-    exponent = data >> 64
-    data = data ^ (exponent << 64)
-    if exponent == 0:
-        if data == 0:
-            return sign * 0
-        exponent = -16382
-    elif exponent == 0b111111111111111:
-        if data == 0:
-            return sign * float('Inf')
-        else:
-            return sign * float('NaN')
-    else:
-        exponent = exponent - 16383
-    mantissa = data / (1 << 64)
-    return sign * mantissa * (2 ** exponent)
+    negative = bool(data >> 79)
+    exponent = (data >> 64) & 0x7FFF
+    mantissa = data & 0xFFFFFFFFFFFFFFFF
+    if exponent == 0x7FFF:
+        if mantissa & 0x7FFFFFFFFFFFFFFF == 0:
+            return -math.inf if negative else math.inf
+        return math.nan
+    if mantissa == 0:
+        return -0.0 if negative else 0.0
+    return x87.real(-mantissa if negative else mantissa, max(exponent, 1) - 16383 - 63)
 
 
 def represent(cls: _E) -> _E:
@@ -110,6 +104,15 @@ class Op(enum.IntEnum):
             return cls._INVALID
 
 
+class Dialect(enum.Enum):
+    """
+    The versions of Pascal Script whose rules for values differ, named by the Inno Setup that ships
+    them: the same rules from 5.5.3 to 6.7, and new ones from 7.0 on.
+    """
+    Inno6 = 6
+    Inno7 = 7
+
+
 class AOp(enum.IntEnum):
     """
     An enumeration of all known IFPS arithmetic opcodes.
@@ -124,8 +127,11 @@ class AOp(enum.IntEnum):
     And = 7
     BOr = 8
     Xor = 9
+    As = 10
 
     def __str__(self):
+        if self is AOp.As:
+            return 'as'
         glyph = ('+', '-', '*', '/', '%', '<<', '>>', '&', '|', '^')[self]
         return F'{glyph}='
 
@@ -191,72 +197,119 @@ class TC(enum.IntEnum):
         """
         Indicates whether the code represents a primitive type.
         """
-        return self not in {
-            TC.Class,
-            TC.ProcPtr,
-            TC.Interface,
-            TC.Set,
-            TC.StaticArray,
-            TC.Array,
-            TC.Record,
-        }
+        return self not in _TC_NON_PRIMITIVE
 
     @property
     def container(self) -> bool:
         """
         Indicates whether the code represents a container type.
         """
-        return self in {
-            TC.StaticArray,
-            TC.Array,
-            TC.Record,
-        }
+        return self in _TC_CONTAINER
 
     @property
     def width(self):
         """
         For primitive types, this gives the size of an immediate of this type in bytes.
         """
-        return {
-            TC.Variant       : 0x10,
-            TC.Char          : 0x01,
-            TC.S08           : 0x01,
-            TC.U08           : 0x01,
-            TC.WideChar      : 0x02,
-            TC.S16           : 0x02,
-            TC.U16           : 0x02,
-            TC.WideString    : 0x04,
-            TC.UnicodeString : 0x04,
-            TC.Interface     : 0x04,
-            TC.Class         : 0x04,
-            TC.PChar         : 0x04,
-            TC.AnsiString    : 0x04,
-            TC.Single        : 0x04,
-            TC.S32           : 0x04,
-            TC.U32           : 0x04,
-            TC.ProcPtr       : 0x0C,
-            TC.Currency      : 0x08,
-            TC.Pointer       : 0x0C,
-            TC.Double        : 0x08,
-            TC.S64           : 0x08,
-            TC.U64           : 0x08,
-            TC.Extended      : 0x0A,
-            TC.ReturnAddress : 0x1C,
-        }.get(self, 0)
+        return _TC_WIDTH.get(self, 0)
+
+    @property
+    def integer_range(self) -> range | None:
+        """
+        For integer types, this gives the range of values that an immediate of this type can hold.
+        """
+        return _TC_INTEGER_RANGE.get(self)
+
+    @property
+    def integer(self) -> bool:
+        """
+        Indicates whether the code represents an integer type.
+        """
+        return self in _TC_INTEGER_RANGE
+
+    @property
+    def signed(self) -> bool:
+        """
+        Indicates whether the code represents a signed integer type.
+        """
+        return self in _TC_SIGNED
+
+    @property
+    def character(self) -> bool:
+        """
+        Indicates whether the code represents a character type.
+        """
+        return self in _TC_CHARACTER
 
 
-@dataclass
-class IFPSTypeMixin:
-    """
-    A helper class to mix additional properties into various IFPS type classes.
-    """
-    symbol: str | None = None
-    attributes: list[FunctionAttribute] | None = None
+_TC_NON_PRIMITIVE = frozenset((
+    TC.Class,
+    TC.ProcPtr,
+    TC.Interface,
+    TC.Set,
+    TC.StaticArray,
+    TC.Array,
+    TC.Record,
+))
 
-    def __str__(self):
-        if self.symbol is not None:
-            return self.symbol
-        return super().__str__()
+_TC_CONTAINER = frozenset((
+    TC.StaticArray,
+    TC.Array,
+    TC.Record,
+))
+
+_TC_CHARACTER = frozenset((
+    TC.Char,
+    TC.WideChar,
+))
+
+_TC_WIDTH = {
+    TC.Variant       : 0x10,
+    TC.Char          : 0x01,
+    TC.S08           : 0x01,
+    TC.U08           : 0x01,
+    TC.WideChar      : 0x02,
+    TC.S16           : 0x02,
+    TC.U16           : 0x02,
+    TC.WideString    : 0x04,
+    TC.UnicodeString : 0x04,
+    TC.Interface     : 0x04,
+    TC.Class         : 0x04,
+    TC.PChar         : 0x04,
+    TC.AnsiString    : 0x04,
+    TC.Single        : 0x04,
+    TC.S32           : 0x04,
+    TC.U32           : 0x04,
+    TC.ProcPtr       : 0x0C,
+    TC.Currency      : 0x08,
+    TC.Pointer       : 0x0C,
+    TC.Double        : 0x08,
+    TC.S64           : 0x08,
+    TC.U64           : 0x08,
+    TC.Extended      : 0x0A,
+    TC.ReturnAddress : 0x1C,
+}
+
+
+def _integer_range(code: TC, signed: bool) -> range:
+    size = 1 << (code.width * 8)
+    if signed:
+        return range(-(size >> 1), size >> 1)
+    return range(size)
+
+
+_TC_INTEGER_RANGE = {
+    TC.U08 : _integer_range(TC.U08, False),
+    TC.U16 : _integer_range(TC.U16, False),
+    TC.U32 : _integer_range(TC.U32, False),
+    TC.U64 : _integer_range(TC.U64, False),
+    TC.S08 : _integer_range(TC.S08, True),
+    TC.S16 : _integer_range(TC.S16, True),
+    TC.S32 : _integer_range(TC.S32, True),
+    TC.S64 : _integer_range(TC.S64, True),
+}
+
+_TC_SIGNED = frozenset(code for code, valid in _TC_INTEGER_RANGE.items() if valid.start < 0)
 
 
 @dataclass
@@ -265,8 +318,10 @@ class IFPSTypeBase(abc.ABC):
     The base class for any IFPS type.
     """
     code: TC
+    symbol: str | None = field(default=None, kw_only=True)
+    attributes: list[FunctionAttribute] | None = field(default=None, kw_only=True)
 
-    def simple(self, nested=False):
+    def simple(self, nested: bool = False) -> bool:
         """
         Indicate whether the type requires more than one line to pretty print.
         """
@@ -277,22 +332,6 @@ class IFPSTypeBase(abc.ABC):
         Compute a display string that can be used to represent the type in disassembly.
         """
         return indent * _TAB + self.code.name
-
-    @abc.abstractmethod
-    def py_type(self, key: int | None = None) -> type | None:
-        """
-        If possible, provide a Python type equivalent for this IFPS type. The optional key argument
-        is required only for the `refinery.lib.inno.ifps.TRecord` class.
-        """
-        ...
-
-    @abc.abstractmethod
-    def default(self, key: int | None = None):
-        """
-        Compute the default value for this type. The optional key argument is required only for the
-        `refinery.lib.inno.ifps.TRecord` class.
-        """
-        ...
 
     @property
     def primitive(self) -> bool:
@@ -308,76 +347,34 @@ class IFPSTypeBase(abc.ABC):
         """
         return self.code.container
 
+    @property
+    def boolean(self) -> bool:
+        """
+        Indicates whether the type is the Boolean type of Pascal Script: a byte that the runtime
+        recognizes by its exported name and converts into a truth value for a Variant.
+        """
+        return self.code is TC.U08 and (self.symbol or '').upper() == 'BOOLEAN'
+
     def __str__(self):
+        if self.symbol is not None:
+            return self.symbol
         return self.display(0)
 
 
-def ifpstype(cls: _C) -> _C | type[IFPSTypeMixin]:
-    """
-    A decorator for IFPS types to mix the `refinery.lib.inno.ifps.IFPSTypeMixin` into the dataclass
-    definition.
-    """
-    cls = dataclass(cls)
-    mix = type(cls.__qualname__, (IFPSTypeMixin, cls), {})
-    assigned = set(WRAPPER_ASSIGNMENTS) - {'__annotations__'}
-    update_wrapper(mix, cls, assigned=assigned, updated=())
-    return dataclass(mix)
-
-
-@ifpstype
+@dataclass
 class TPrimitive(IFPSTypeBase):
     """
     A primitive IFPS type.
     """
-    def py_type(self, *_) -> type | None:
-        return {
-            TC.ReturnAddress       : int,
-            TC.U08                 : int,
-            TC.S08                 : int,
-            TC.U16                 : int,
-            TC.S16                 : int,
-            TC.U32                 : int,
-            TC.S32                 : int,
-            TC.Single              : float,
-            TC.Double              : float,
-            TC.Extended            : float,
-            TC.AnsiString          : str,
-            TC.Pointer             : VariableBase,
-            TC.PChar               : str,
-            TC.ResourcePointer     : VariableBase,
-            TC.Variant             : object,
-            TC.S64                 : int,
-            TC.U64                 : int,
-            TC.Char                : str,
-            TC.WideString          : str,
-            TC.WideChar            : str,
-            TC.Currency            : float,
-            TC.UnicodeString       : str,
-            TC.Enum                : int,
-            TC.Type                : IFPSType,
-        }.get(self.code)
-
-    def default(self, *_):
-        if self.code in (TC.Char, TC.WideChar, TC.PChar):
-            return '\0'
-        tc = self.py_type()
-        if issubclass(tc, (int, float, str)):
-            return tc()
 
 
-@ifpstype
+@dataclass
 class TProcPtr(IFPSTypeBase):
     """
     The procedure pointer IFPS type.
     """
     void: bool
     args: tuple[DeclSpecParam, ...]
-
-    def py_type(self, *_):
-        return None
-
-    def default(self, *_):
-        return None
 
     def display(self, indent=0):
         name = super().display(indent)
@@ -393,50 +390,32 @@ class TProcPtr(IFPSTypeBase):
         return F'{name}({args})'
 
 
-@ifpstype
+@dataclass
 class TInterface(IFPSTypeBase):
     """
     An IFPS type representing a COM interface.
     """
     uuid: UUID
 
-    def py_type(self, *_):
-        return object
-
-    def default(self, *_):
-        return None
-
     def display(self, indent=0):
         display = super().display(indent)
         return F'{display}({self.uuid!s})'
 
 
-@ifpstype
+@dataclass
 class TClass(IFPSTypeBase):
     """
     An IFPS type representing an IFPS class.
     """
     name: str
 
-    def py_type(self, *_):
-        return None
 
-    def default(self, *_):
-        return None
-
-
-@ifpstype
+@dataclass
 class TSet(IFPSTypeBase):
     """
     An IFPS type representing a bit vector.
     """
     size: int
-
-    def py_type(self, *_):
-        return int
-
-    def default(self, *_):
-        return 0
 
     @property
     def size_in_bytes(self):
@@ -448,80 +427,50 @@ class TSet(IFPSTypeBase):
         return F'{display}({self.size})'
 
 
-@ifpstype
+@dataclass
 class TArray(IFPSTypeBase):
     """
     An IFPS type representing a dynamic array.
     """
-    type: TPrimitive
-
-    def py_type(self, key: int | None = None):
-        if key is None:
-            return list
-        return self.type.py_type()
-
-    def default(self, key: int | None = None):
-        if key is None:
-            return []
-        return self.type.default()
+    type: IFPSType
 
     def display(self, indent=0):
         display = F'{_TAB * indent}{self.type!s}'
         return F'array of {display}'
 
-    def simple(self, nested=False):
+    def simple(self, nested: bool = False) -> bool:
         return self.type.simple(nested)
 
 
-@ifpstype
+@dataclass
 class TStaticArray(IFPSTypeBase):
     """
     An IFPS type representing a static array (i.e. a tuple).
     """
-    type: TPrimitive
+    type: IFPSType
     size: int
     offset: int | None = None
-
-    def py_type(self, key: int | None = None):
-        if key is None:
-            return list
-        return self.type.py_type(key)
-
-    def default(self, key: int | None = None):
-        if key is None:
-            return [self.type.default() for _ in range(self.size)]
-        return self.type.default()
 
     def display(self, indent=0):
         display = F'{_TAB * indent}{self.type!s}'
         return F'{display}[{self.size}]'
 
-    def simple(self, nested=False):
+    def simple(self, nested: bool = False) -> bool:
         return self.type.simple(nested)
 
 
-@ifpstype
+@dataclass
 class TRecord(IFPSTypeBase):
     """
     An IFPS type representing a structure.
     """
-    members: tuple[TPrimitive, ...]
+    members: tuple[IFPSType, ...]
 
     @property
     def size(self):
         return len(self.members)
 
-    def py_type(self, key: int | None = None):
-        if key is None:
-            return list
-        return self.members[key].py_type()
-
-    def default(self, key: int | None = None):
-        if key is None:
-            return [member.default() for member in self.members]
-        return self.members[key].default()
-
-    def simple(self, nested=False):
+    def simple(self, nested: bool = False) -> bool:
         if nested:
             return False
         if len(self.members) > 10:
@@ -575,13 +524,7 @@ class Value(NamedTuple):
     A value of the given type within the IFPS runtime.
     """
     type: IFPSType
-    value: str | int | float | bytes | Function
-
-    def convert(self, *_):
-        return self.type.py_type()
-
-    def default(self, *_):
-        return self.type.default()
+    value: str | int | float | x87.Extended | Fraction | bytes | Function
 
     def __repr__(self):
         value = self.value
@@ -593,6 +536,10 @@ class Value(NamedTuple):
         v = self.value
         if isinstance(v, Function):
             return F'&{v!s}'
+        if isinstance(v, x87.Extended):
+            return numbers.shortest(v)
+        if isinstance(v, Fraction):
+            return variants.currency_text(v, numbers.FormatSettings())
         return repr(v)
 
 
@@ -619,7 +566,7 @@ class DeclSpecParam:
     """
     True if this parameter is passed by value, not by reference.
     """
-    type: TPrimitive | None = None
+    type: IFPSType | None = None
     """
     The type of this parameter.
     """
@@ -636,7 +583,6 @@ class CallType(str, enum.Enum):
     Symbol = 'symbol'
     Procedure = 'procedure'
     Function = 'function'
-    Property = 'property'
 
     def __str__(self):
         return self.value
@@ -654,11 +600,14 @@ class DeclSpec:
     return_type: IFPSType | None = None
     module: str | None = None
     classname: str | None = None
+    method: bool = False
+    """
+    True for a method of a class, which Pascal Script calls with its object before the parameters
+    that the declaration lists.
+    """
     delay_load: bool = False
     vtable_index: int | None = None
     load_with_altered_search_path: bool = False
-    is_property: bool = False
-    is_accessor: bool = False
 
     @property
     def argc(self):
@@ -684,24 +633,18 @@ class DeclSpec:
         if not ref:
             if self.delay_load:
                 spec = F'__delay_load {spec}'
-            if self.calling_convention and not self.is_property:
+            if self.calling_convention:
                 spec = F'__{self.calling_convention} {spec}'
             spec = F'{self.type} {spec}'
             args = self.parameters
             args = args and ', '.join(pparam(*t) for t in enumerate(args, 1)) or ''
-            if self.is_property:
-                if args:
-                    spec = F'{spec}[{args}]'
-            else:
-                spec = F'{spec}({args})'
+            spec = F'{spec}({args})'
             if self.return_type:
                 spec = F'{spec}: {self.return_type!s}'
         return spec
 
     @property
     def type(self):
-        if self.is_property:
-            return CallType.Property
         if self.void:
             return CallType.Procedure
         return CallType.Function
@@ -710,7 +653,12 @@ class DeclSpec:
         return self.represent(self.name or '(*)')
 
     @classmethod
-    def ParseF(cls, reader: StructReader[bytes], load_flags: bool):
+    def ParseF(cls, reader: StructReader[bytes], load_flags: int, max_argc: int):
+        """
+        Parses the declaration of an import. Pascal Script writes `load_flags` flag bytes into the
+        declaration of a DLL import. The parameter count of a property is a number that no other
+        data backs; a count above `max_argc` is refused.
+        """
         def ascii():
             return reader.read_c_string('latin1')
 
@@ -742,8 +690,10 @@ class DeclSpec:
             properties.update(module=module)
             name = ascii()
             properties.update(calling_convention=cc())
-            if load_flags:
-                properties.update(delay_load=boolean(), load_with_altered_search_path=boolean())
+            if load_flags > 0:
+                properties.update(delay_load=boolean())
+            if load_flags > 1:
+                properties.update(load_with_altered_search_path=boolean())
             read_parameters()
         elif reader.readif(b'class:'):
             if reader.remaining_bytes == 1:
@@ -758,11 +708,17 @@ class DeclSpec:
             else:
                 properties.update(classname=reader.read_terminated_array(b'|').decode('latin1'))
                 name = reader.read_terminated_array(b'|').decode('latin1')
-                if name[-1] == '@':
-                    properties.update(is_property=True)
+                if write := name.endswith('@'):
                     name = name[:-1]
-                properties.update(calling_convention=cc())
-                read_parameters()
+                if write or reader.peek(1) != bytes(1):
+                    void = write
+                    if (argc := reader.u32() + write) > max_argc:
+                        raise ValueError(F'The property {name} takes {argc} arguments, more than any call can pass.')
+                    parameters.extend(DeclSpecParam(True) for _ in range(argc))
+                    name = F'Set{name}' if write else F'Get{name}'
+                else:
+                    properties.update(calling_convention=cc(), method=True)
+                    read_parameters()
         elif reader.readif(b'intf:.'):
             name = 'CoInterface'
             properties.update(vtable_index=reader.u32())
@@ -798,6 +754,35 @@ class DeclSpec:
         return cls(void, parameters, return_type=return_type)
 
 
+def _trace_stack(bbs: dict[int, BasicBlock]) -> None:
+    """
+    Traces the stack depth from the entry block through every block that is reachable from it, in
+    depth-first order. A block that is reached with two different depths has no known depth.
+    """
+    visited: set[int] = set()
+    errored: set[int] = set()
+    pending: list[tuple[int, int | None]] = [(0, 0)]
+    while pending:
+        offset, stack = pending.pop()
+        if offset in errored:
+            continue
+        bb = bbs[offset]
+        if bb.stack is not None and stack != bb.stack:
+            stack = None
+        if stack is None:
+            errored.add(offset)
+        elif offset in visited:
+            continue
+        else:
+            visited.add(offset)
+        bb.stack = stack
+        if stack is not None:
+            for insn in bb.body:
+                insn.stack = stack
+                stack += insn.stack_delta
+        pending.extend((target, stack) for target in reversed(bb.targets))
+
+
 @dataclass
 class Function:
     """
@@ -809,15 +794,6 @@ class Function:
     attributes: list[FunctionAttribute] | None = None
     _bbs: dict[int, BasicBlock] | None = None
     _ins: dict[int, Instruction] | None = None
-    getter: Function | None = None
-    setter: Function | None = None
-
-    @property
-    def is_property(self):
-        if decl := self.decl:
-            return decl.is_property
-        else:
-            return False
 
     @property
     def name(self):
@@ -895,30 +871,7 @@ class Function:
             for source in bb.sources.values():
                 source.targets.pop(offset, None)
 
-        visited: set[int] = set()
-        errored: set[int] = set()
-
-        def trace_stack(offset: int, stack: int | None):
-            if offset in errored:
-                return
-            bb = bbs[offset]
-            if bb.stack is not None and stack != bb.stack:
-                stack = None
-            if stack is None:
-                errored.add(offset)
-            elif offset in visited:
-                return
-            else:
-                visited.add(offset)
-            bb.stack = stack
-            body = [] if stack is None else bb.body
-            for insn in body:
-                insn.stack = stack
-                stack += insn.stack_delta
-            for t in bb.targets:
-                trace_stack(t, stack)
-
-        trace_stack(0, 0)
+        _trace_stack(bbs)
 
         for insn in self.body:
             if (stack := insn.stack) is None:
@@ -946,16 +899,16 @@ class VariableBase:
     """
     The type of the variable, see `refinery.lib.inno.ifps.IFPSType`.
     """
-    spec: VariableSpec | None
+    spec: VariableSpec | str | None
     """
-    A `refinery.lib.inno.ifps.VariableSpec` that uniquely identifies the base variable. If this
-    property is `None`, the variable is unbound: The `refinery.lib.inno.ifps.Op.SetPtrToCopy`
-    opcode can create such variables.
+    A `refinery.lib.inno.ifps.VariableSpec` that uniquely identifies the base variable, or the
+    name of a global variable that the script exports. If this property is `None`, the variable is
+    unbound: The `refinery.lib.inno.ifps.Op.SetPtrToCopy` opcode can create such variables.
     """
 
     __slots__ = 'type', 'spec'
 
-    def __init__(self, type: IFPSType, spec: VariableSpec):
+    def __init__(self, type: IFPSType, spec: VariableSpec | str | None):
         self.type = type
         self.spec = spec
 
@@ -1083,6 +1036,14 @@ class Instruction:
     operator: AOp | COp | None = None
     jumptarget: bool = False
 
+    def callee(self) -> Function:
+        """
+        The function that this instruction calls; it must be a `refinery.lib.inno.ifps.Op.Call`.
+        """
+        if not isinstance(target := self.operands[0], Function):
+            raise TypeError(F'The instruction at offset 0x{self.offset:X} calls no function.')
+        return target
+
     def op(self, index: int):
         arg = self.operands[index]
         if not isinstance(arg, Operand):
@@ -1183,6 +1144,61 @@ class FTag(enum.IntFlag):
         return bool(self & v)
 
 
+class _BuiltinParameter(NamedTuple):
+    name: str
+    const: bool
+
+
+_BUILTIN_PARAMETERS: dict[str, tuple[_BuiltinParameter, ...]] = {
+    'getarraylength' : (_BuiltinParameter('Arr', True),),
+    'setarraylength' : (_BuiltinParameter('arr', False), _BuiltinParameter('count', True)),
+    'length'         : (_BuiltinParameter('S', True),),
+    'setlength'      : (_BuiltinParameter('s', False), _BuiltinParameter('NewLength', True)),
+    'low'            : (_BuiltinParameter('X', True),),
+    'high'           : (_BuiltinParameter('X', True),),
+    'dec'            : (_BuiltinParameter('x', False),),
+    'inc'            : (_BuiltinParameter('x', False),),
+    'include'        : (_BuiltinParameter('s', False), _BuiltinParameter('m', True)),
+    'exclude'        : (_BuiltinParameter('s', False), _BuiltinParameter('m', True)),
+    'sizeof'         : (_BuiltinParameter('Data', True),),
+}
+"""
+The built-in functions of Pascal Script that get their parameters after their declaration was
+compiled, so that their compiled declaration has none; with the parameters they get.
+"""
+
+
+_ARGUMENT_SIZE = 6
+"""
+The fewest bytes of code that an argument of a call takes: Pascal Script pushes each argument with
+an instruction of five bytes or more and pops it with one of one byte.
+"""
+
+
+class _CallSite(NamedTuple):
+    """
+    What a call of a function shows about its declaration. Pascal Script passes the variable for
+    the result right before the call, and frees the argument slots and the result right after it,
+    one `Pop` each; the expression around the call may free more.
+    """
+    result: bool
+    pops: int
+
+    def contradicts(self, decl: DeclSpec) -> bool:
+        return self.result == decl.void or self.pops < decl.argc + self.result
+
+    def slack(self, decl: DeclSpec) -> int:
+        return self.pops - decl.argc - self.result
+
+
+def _shapes_agree(decl: DeclSpec, signature: IFPSSignature) -> bool:
+    return (
+        decl.void == signature.void
+        and decl.argc == signature.argc
+        and all(old.const == new.const for old, new in zip(decl.parameters, signature.parameters))
+    )
+
+
 class IFPSFile(Struct):
     MinVer = 12
     MaxVer = 23
@@ -1193,16 +1209,22 @@ class IFPSFile(Struct):
         self,
         reader: StructReader[memoryview],
         codec: str = 'latin1',
-        unicode: bool = True,
-        x64: bool = False,
+        unicode: bool | None = None,
+        load_flags: int | None = None,
     ):
+        """
+        The setup that compiled the script decides whether `String` is a Unicode string and how many
+        load flags a DLL import has. When the caller does not know them, they are read from the
+        script: it is Unicode unless its only string type is `AnsiString`, and the load flags are
+        decided by the calls of the DLL imports. The script's standard types tell which Pascal
+        Script compiled it and for which platform.
+        """
         self.codec = codec
-        self.unicode = unicode
-        self.x64 = x64
+        self.load_flags = load_flags
         self.types: list[IFPSType] = []
         self.functions: list[Function] = []
         self.globals: list[VariableBase] = []
-        self.strings: list[str] = []
+        self._strings: dict[str, None] = {}
         self.reader = reader
         if reader.remaining_bytes < 28:
             raise ValueError('Less than 28 bytes in file, not enough data to parse.')
@@ -1222,24 +1244,66 @@ class IFPSFile(Struct):
                 F'[{self.MinVer},{self.MaxVer}].')
 
         self._known_type_names = {
-            TC.U08   : {'Byte', 'Boolean'},
-            TC.S08   : {'ShortInt'},
-            TC.U16   : {'Word'},
-            TC.S16   : {'SmallInt'},
-            TC.S32   : {'Integer', 'LongInt'},
-            TC.U32   : {'LongWord', 'Cardinal', 'HWND', 'TSetupProcessorArchitecture'},
-            TC.Char  : {'AnsiChar'},
-            TC.PChar : {'PAnsiChar'},
-            TC.S64   : {'Int64', 'NativeInt'},
-            TC.U64   : {'UInt64', 'NativeUInt'},
+            TC.U08        : {'Byte', 'Boolean'},
+            TC.S08        : {'ShortInt'},
+            TC.U16        : {'Word'},
+            TC.S16        : {'SmallInt'},
+            TC.S32        : {'Integer', 'LongInt'},
+            TC.U32        : {'LongWord', 'Cardinal', 'HWND', 'TSetupProcessorArchitecture'},
+            TC.Char       : {'AnsiChar'},
+            TC.PChar      : {'PAnsiChar'},
+            TC.AnsiString : {'AnyString'},
+            TC.S64        : {'Int64', 'NativeInt'},
+            TC.U64        : {'UInt64', 'NativeUInt'},
         }
 
         self._load_types()
+        if unicode is None:
+            codes = {t.code for t in self.types}
+            unicode = TC.UnicodeString in codes or TC.AnsiString not in codes
+        self.unicode = unicode
+        self.dialect = self._dialect()
+        self.platform = self._platform()
         self._name_types()
         self._load_functions()
         self._load_variables()
 
         del self._known_type_names
+        self.strings: list[str] = list(self._strings)
+        del self._strings
+
+    def _dialect(self) -> Dialect:
+        """
+        The Pascal Script that compiled the script. The compiler of Inno Setup 7 declares the type
+        `UInt64` in every script, and Pascal Script has no such type before Inno Setup 7.
+        """
+        if any(t.code is TC.U64 for t in self.types):
+            return Dialect.Inno7
+        return Dialect.Inno6
+
+    def _platform(self) -> Platform:
+        """
+        The platform of the Setup that the script was compiled for. The compiler declares its
+        standard types first, in a fixed order; from Inno Setup 7 on, `NativeUInt` follows the first
+        `Single` and is 64 bits wide in a script for a 64-bit Setup. Earlier versions only build
+        32-bit Setups and have no 64-bit unsigned type. The standard types decide, so the types
+        read so far decide while the type table is read.
+        """
+        types = self.types
+        for k, t in enumerate(types):
+            if t.code is TC.Single:
+                if k + 1 < len(types) and types[k + 1].code is TC.U64:
+                    return Platform.Win64
+                break
+        return Platform.Win32
+
+    def _read_extended(self, reader: StructReader) -> x87.Real:
+        """
+        An Extended constant, which is a Double in a script for a 64-bit Setup.
+        """
+        if self._platform() is Platform.Win64:
+            return reader.f64()
+        return extended(reader.read(10))
 
     def _name_types(self, missing_types: set[str] | None = None):
         tbn: dict[str, IFPSType] = CaseInsensitiveDict()
@@ -1263,17 +1327,14 @@ class IFPSFile(Struct):
                     return tbn[name]
                 except KeyError:
                     pass
+                code = TC.UnicodeString if self.unicode else TC.AnsiString
                 for type in tbn.values():
-                    if type.code in (
-                        TC.AnsiString,
-                        TC.WideString,
-                        TC.UnicodeString,
-                    ):
+                    if type.code is code:
                         break
                 else:
-                    code = TC.WideString if self.unicode else TC.AnsiString
-                    type = TPrimitive(code, symbol=name)
-                return add_type(name, type)
+                    return add_type(name, TPrimitive(code, symbol=name))
+                tbn[name] = type
+                return type
 
             for name in tbn:
                 missing_types.discard(name)
@@ -1319,9 +1380,6 @@ class IFPSFile(Struct):
             if (name := 'String') in missing_types:
                 make_string(name)
 
-            if (name := 'AnyString') in missing_types:
-                make_string(name)
-
             if (name := 'TArrayOfString') in missing_types:
                 add_type(name, TArray(TC.Array, make_string()))
 
@@ -1333,7 +1391,7 @@ class IFPSFile(Struct):
                     tbn['LongWord'],
                     tbn['Word'],
                     tbn['Word'],
-                    TStaticArray(tbn['Byte'], 8)
+                    TStaticArray(TC.StaticArray, tbn['Byte'], 8)
                 ), symbol=name))
 
     def _load_types(self):
@@ -1398,7 +1456,7 @@ class IFPSFile(Struct):
             TC.U64           : reader.u64,
             TC.Single        : reader.f32,
             TC.Double        : reader.f64,
-            TC.Extended      : reader.f64 if self.x64 else (lambda: extended(reader.read(10))),
+            TC.Extended      : lambda: self._read_extended(reader),
             TC.AnsiString    : lambda: reader.read_length_prefixed(encoding=self.codec),
             TC.PChar         : lambda: reader.read_length_prefixed(encoding=self.codec),
             TC.WideString    : reader.read_length_prefixed_utf16,
@@ -1407,7 +1465,7 @@ class IFPSFile(Struct):
             TC.WideChar      : lambda: chr(reader.u16()),
             TC.ProcPtr       : lambda: self.functions[reader.u32()],
             TC.Set           : lambda: int.from_bytes(reader.read(type.size_in_bytes), 'little'),
-            TC.Currency      : lambda: reader.u64() / 10_000,
+            TC.Currency      : lambda: Fraction(reader.i64(), 10_000),
         }.get(type.code, None)
         if processor is not None:
             data = processor()
@@ -1415,8 +1473,8 @@ class IFPSFile(Struct):
             data = bytes(reader.read(size))
         else:
             raise ValueError(F'Unable to read attribute of type {type!s}.')
-        if isinstance(data, str) and data not in self.strings:
-            self.strings.append(data)
+        if isinstance(data, str):
+            self._strings[data] = None
         return Value(type, data)
 
     def _read_attributes(self) -> Generator[FunctionAttribute]:
@@ -1428,178 +1486,174 @@ class IFPSFile(Struct):
             yield FunctionAttribute(name, fields)
 
     def _load_functions(self):
-        def _signature(name: str, decl: DeclSpec | None):
-            signature = IFPSAPI.get(name, IFPSEvents.get(name)) if name else None
-            if decl and decl.classname and (ic := IFPSClasses.Classes.get(decl.classname)):
-                if ic.name not in self.types_by_name:
-                    missing_types.add(ic.name)
-                signature = ic.members.get(decl.name, signature)
-                decl.classname = ic.name
-            return signature
-
         reader = self.reader
-        rewind = reader.tell()
         width = len(F'{self.count_functions:X}')
-        missing_types = set()
-        load_flags = (self.version >= 23)
+        dll_imports: list[tuple[Function, bytes]] = []
+        max_argc = len(reader) // _ARGUMENT_SIZE
 
-        reparsed = False
-        all_void = True
-        all_long = True
-        has_dll_imports = False
-
-        while True:
-            for k in range(self.count_functions):
-                decl = None
-                body = None
-                name = F'F{k:0{width}X}'
-                tags = reader.u8()
-                attributes = None
-                exported = FTag.Exported.check(tags)
-                if FTag.External.check(tags):
-                    name = reader.read_length_prefixed_ascii(8)
-                    if exported:
-                        read = StructReader(bytes(reader.read_length_prefixed()))
-                        decl = DeclSpec.ParseF(read, load_flags)
-                        if not reparsed and decl.module is not None:
-                            has_dll_imports = True
-                            # inno: 0d13564460b4cca289ac60221e86ca5719d7217a8eb76671b4b2a8407c2af6b4
-                            # ifps: 6c211c02652317903b23c827cbc311a258fcd6197eec6a3d2f91986bd8accb0e
-                            # This script reports version 22 and therefore, load_flags starts as False.
-                            # However, it should be true; the reasons are unclear. The code below is
-                            # an attempt to identify incorrect load_flags values heuristically. When
-                            # there are no __delay_load functions present, reading them with load_flags
-                            # set to False will result in only procedures (void=True) with at least
-                            # 2 arguments.
-                            if not decl.void:
-                                all_void = False
-                            if len(decl.parameters) < 2:
-                                all_long = False
-                else:
-                    offset = reader.u32()
-                    length = reader.u32()
-                    if exported:
-                        name = reader.read_length_prefixed_ascii()
-                        decl = DeclSpec.ParseE(bytes(reader.read_length_prefixed()), self)
-                    with reader.detour(offset):
-                        body = reader.read(length)
-                if FTag.HasAttrs.check(tags):
-                    attributes = list(self._read_attributes())
-                fn = Function(name, decl=decl, body=body, attributes=attributes)
-                self.functions.append(fn)
-            if has_dll_imports and all_long and all_void and not reparsed:
-                load_flags = True
-                reparsed = True
-                reader.seekset(rewind)
-                self.functions.clear()
+        for k in range(self.count_functions):
+            decl = None
+            body = None
+            name = F'F{k:0{width}X}'
+            tags = reader.u8()
+            attributes = None
+            exported = FTag.Exported.check(tags)
+            spec = None
+            if FTag.External.check(tags):
+                name = reader.read_length_prefixed_ascii(8)
+                if exported:
+                    spec = bytes(reader.read_length_prefixed())
+                    if not spec.startswith(B'dll:'):
+                        decl = DeclSpec.ParseF(StructReader(spec), 0, max_argc)
             else:
-                break
-
-        byfqn: dict[str, list[Function]] = {}
+                offset = reader.u32()
+                length = reader.u32()
+                if exported:
+                    name = reader.read_length_prefixed_ascii()
+                    decl = DeclSpec.ParseE(bytes(reader.read_length_prefixed()), self)
+                with reader.detour(offset):
+                    body = reader.read(length)
+            if FTag.HasAttrs.check(tags):
+                attributes = list(self._read_attributes())
+            fn = Function(name, decl=decl, body=body, attributes=attributes)
+            self.functions.append(fn)
+            if decl is None and spec is not None:
+                dll_imports.append((fn, spec))
 
         for function in self.functions:
-            key = str(function)
-            byfqn.setdefault(key, []).append(function)
             if body := function.body:
                 void = decl.void if (decl := function.decl) else False
                 function.body = list(self._parse_bytecode(body, void))
 
-        for functions in byfqn.values():
-            if len(functions) != 2:
-                continue
-            getter, setter = functions
-            if not (s_decl := setter.decl):
-                continue
-            if not (g_decl := getter.decl):
-                continue
-            if setter.decl.is_property:
-                setter, getter = getter, setter
-                s_decl, g_decl = g_decl, s_decl
-            if s_decl.is_property:
-                continue
-            if not g_decl.is_property:
-                continue
-            g_decl.is_property = False
-            g_decl.name = F'Get{g_decl.name}'
-            s_decl.name = F'Set{s_decl.name}'
+        calls: dict[int, list[_CallSite]] = {}
 
         for function in self.functions:
-            name = function.symbol
+            body = function.body or ()
+            for k, instruction in enumerate(body):
+                if instruction.opcode is not Op.Call:
+                    continue
+                callee = instruction.operands[0] = self.functions[instruction.operands[0]]
+                pops = 0
+                for after in itertools.islice(body, k + 1, None):
+                    if after.opcode is not Op.Pop:
+                        break
+                    pops += 1
+                result = k > 0 and body[k - 1].opcode is Op.PushVar
+                calls.setdefault(id(callee), []).append(_CallSite(result, pops))
+
+        self._load_dll_imports(dll_imports, calls, max_argc)
+
+        missing_types = set()
+        signatures: list[tuple[Function, IFPSSignature]] = []
+
+        for function in self.functions:
             decl = function.decl
-            if (signature := _signature(name, decl)) and decl:
-                if signature.argc == decl.argc:
-                    for old, new in itertools.zip_longest(decl.parameters, signature.parameters):
-                        if not new:
-                            break
-                        if old and (t := old.type):
-                            t.symbol = new.type
-                            continue
-                        if t := self.types_by_name.get(new.type):
-                            t.symbol = new.type
-                        else:
-                            missing_types.add(new.type)
-                if sr := signature.return_type:
-                    if (dr := decl.return_type) or (dr := self.types_by_name.get(sr)):
-                        dr.symbol = sr
-                    else:
-                        missing_types.add(sr)
+            if (
+                decl is not None
+                and not decl.parameters
+                and not decl.module
+                and not decl.classname
+                and function.body is None
+                and (builtin := _BUILTIN_PARAMETERS.get(function.name.casefold()))
+            ):
+                decl.parameters = [DeclSpecParam(p.const, name=p.name) for p in builtin]
+            if (signature := self._signature(function, missing_types)) is None:
+                continue
+            if decl is None:
+                decl = function.decl = DeclSpec(
+                    signature.void or any(not call.result for call in calls.get(id(function), ())),
+                    [DeclSpecParam(p.const) for p in signature.parameters],
+                )
+            function.symbol = decl.name = signature.name
+            if not _shapes_agree(decl, signature):
+                continue
+            signatures.append((function, signature))
+            for old, new in zip(decl.parameters, signature.parameters):
+                if (t := old.type) is not None:
+                    t.symbol = new.type
+                elif t := self.types_by_name.get(new.type):
+                    t.symbol = new.type
+                else:
+                    missing_types.add(new.type)
+            if sr := signature.return_type:
+                if (dr := decl.return_type) or (dr := self.types_by_name.get(sr)):
+                    dr.symbol = sr
+                else:
+                    missing_types.add(sr)
 
         self.type_name_conflicts = self._name_types(missing_types)
 
-        for function in self.functions:
+        for function, signature in signatures:
             decl = function.decl
-            if signature := _signature(function.name, decl):
-                decl = decl or DeclSpec(True)
-                decl.void = signature.void
-                parameters = decl.parameters
-                if signature.argc != len(parameters):
-                    decl.parameters = parameters = [DeclSpecParam(True) for _ in range(signature.argc)]
-                for old, new in zip(parameters, signature.parameters):
-                    if old.type is None:
-                        old.type = self.types_by_name.get(new.type)
-                    old.name = new.name or old.name
-                    old.const = new.const
-                function.symbol = decl.name = signature.name
-                if (rt := signature.return_type) and (decl.return_type is None):
-                    decl.return_type = self.types_by_name.get(rt, decl.return_type)
-                function.decl = decl
-            elif decl and decl.is_property and decl.argc >= (k := decl.void + 1):
-                del decl.parameters[:k]
+            assert decl is not None
+            for old, new in zip(decl.parameters, signature.parameters):
+                if old.type is None:
+                    old.type = self.types_by_name.get(new.type)
+                old.name = new.name or old.name
+            if (rt := signature.return_type) and (decl.return_type is None):
+                decl.return_type = self.types_by_name.get(rt)
 
-        for function in self.functions:
-            if (decl := function.decl) and decl.is_property:
-                classname = decl.classname
-                this = DeclSpecParam(True, self.types_by_name.get(classname), 'This')
-                nval = DeclSpecParam(True, decl.return_type, 'NewValue')
-                info = IFPSClasses.Classes.get(classname)
-                info = info and info.members.get(decl.name)
-                if not info or info.writable:
-                    function.setter = Function(decl=DeclSpec(
-                        void=True,
-                        parameters=[this, *decl.parameters, nval],
-                        name=F'Set{decl.name}',
-                        calling_convention=None,
-                        return_type=None,
-                        classname=classname,
-                        is_accessor=True
-                    ))
-                if not info or info.readable:
-                    function.getter = Function(decl=DeclSpec(
-                        void=False,
-                        parameters=[this, *decl.parameters],
-                        name=F'Get{decl.name}',
-                        calling_convention=None,
-                        return_type=decl.return_type,
-                        classname=classname,
-                        is_accessor=True
-                    ))
+    def _load_dll_imports(
+        self,
+        imports: list[tuple[Function, bytes]],
+        calls: dict[int, list[_CallSite]],
+        max_argc: int,
+    ):
+        """
+        Parses the declarations of the DLL imports. Depending on its revision, Pascal Script wrote
+        zero, one or two load flags into them, independent of the version of the script. Unless the
+        caller gave the count, it is the one that the calls of the imports contradict least, then
+        the one that leaves the fewest extra pops after the calls, then the larger one. A count for
+        which a declaration cannot be parsed is out.
+        """
+        def parse(load_flags: int) -> list[DeclSpec]:
+            return [DeclSpec.ParseF(StructReader(spec), load_flags, max_argc) for _, spec in imports]
 
-            if function.body is None:
-                continue
-            for instruction in function.body:
-                if instruction.opcode is Op.Call:
-                    t: Function = self.functions[instruction.operands[0]]
-                    instruction.operands[0] = t
+        def fit(load_flags: int) -> tuple[int, int, int]:
+            contradictions = slack = 0
+            for (function, _), decl in zip(imports, candidates[load_flags]):
+                for call in calls.get(id(function), ()):
+                    if call.contradicts(decl):
+                        contradictions += 1
+                    else:
+                        slack += call.slack(decl)
+            return contradictions, slack, -load_flags
+
+        if (load_flags := self.load_flags) is None:
+            candidates: dict[int, list[DeclSpec]] = {}
+            for count in (0, 1, 2):
+                try:
+                    candidates[count] = parse(count)
+                except EOFError:
+                    continue
+            if not candidates:
+                raise ValueError('The declarations of the DLL imports do not parse with any count of load flags.')
+            load_flags = min(candidates, key=fit)
+            decls = candidates[load_flags]
+        else:
+            decls = parse(load_flags)
+        for (function, _), decl in zip(imports, decls):
+            function.decl = decl
+
+    def _signature(self, function: Function, missing_types: set[str]) -> IFPSSignature | None:
+        """
+        The declaration that Inno Setup documents for the given function: an event for a function
+        of the script, a member of a class for a method or a property, else one of the functions
+        that Inno Setup and Pascal Script provide. Imports from a DLL have none.
+        """
+        decl = function.decl
+        if function.body is not None:
+            return IFPSEvents.get(function.name)
+        if decl is not None and decl.module is not None:
+            return None
+        if decl is not None and decl.classname:
+            if (info := IFPSClasses.Classes.get(decl.classname)) is None:
+                return None
+            if info.name not in self.types_by_name:
+                missing_types.add(info.name)
+            decl.classname = info.name
+            return info.members.get(decl.name)
+        return IFPSAPI.get(function.name)
 
     def _load_variables(self):
         reader = self.reader
@@ -1781,8 +1835,6 @@ class IFPSFile(Struct):
                 output.write(F'external class {name}')
                 if members:
                     for spec in members.values():
-                        if spec.decl.is_accessor:
-                            continue
                         output.write(F'\n{_TAB}{spec.decl.represent(spec.symbol, rel=True)}')
                     output.write('\nend')
                 output.write(';\n\n')

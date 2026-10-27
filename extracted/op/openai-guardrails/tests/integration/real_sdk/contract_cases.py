@@ -12,15 +12,23 @@ import json
 import socket
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import openai
 import pytest
 import pytest_asyncio
+from agents import OutputGuardrailTripwireTriggered, RunConfig, Runner
+from agents.models.openai_responses import OpenAIResponsesModel
+from openai.types.chat import ChatCompletionMessage
 from pydantic import BaseModel
 
 import guardrails
+from guardrails.checks.text.llm_base import LLMConfig
+from guardrails.checks.text.prompt_injection_detection import prompt_injection_detection
 from guardrails.context import GuardrailsContext, clear_context, set_context
+from guardrails.runtime import ConfigBundle, GuardrailConfig
+from guardrails.types import GuardrailLLMContextProto
 
 # Match the HTTP implementation used by the installed SDK (httpx or httpx2).
 # Mocking its transport keeps SDK validation, routing and decoding intact.
@@ -67,6 +75,50 @@ def response_body(chat: bool, text: str = "hello") -> dict[str, Any]:
             }
         ],
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raise_errors", [False, True])
+@pytest.mark.parametrize(
+    ("output", "blocked"),
+    [
+        (["https://attacker.invalid/phish"], True),
+        (["https://example.com", "java\nscript:alert(1)"], True),
+        (["https://example.com", "https://attacker.invalid/phish"], True),
+        (["https://example.com", "ordinary text"], False),
+        ([], False),
+        ("https://attacker.invalid/phish", True),
+        ("https://example.com", False),
+    ],
+)
+async def test_agent_output_url_policy(output: str | list[str], blocked: bool, raise_errors: bool, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Check the parsed agent output without changing the returned value."""
+    text = json.dumps({"response": output}) if isinstance(output, list) else output
+
+    def handler(request: Any) -> Any:
+        return http.Response(200, json=response_body(False, text))
+
+    config = {"version": 1, "output": {"version": 1, "guardrails": [{"name": "URL Filter", "config": {"url_allow_list": ["example.com"]}}]}}
+    async with openai.AsyncOpenAI(
+        api_key="test-key", http_client=http.AsyncClient(transport=http.MockTransport(handler), trust_env=False)
+    ) as provider:
+        # Keep the adapter's default check context on the same mocked transport.
+        monkeypatch.setattr(openai, "AsyncOpenAI", lambda: provider)
+        agent = guardrails.GuardrailAgent(
+            config=config,
+            name="URL policy contract",
+            model=OpenAIResponsesModel(model="test-model", openai_client=provider),
+            output_type=list[str] if isinstance(output, list) else str,
+            raise_guardrail_errors=raise_errors,
+        )
+        if blocked:
+            with pytest.raises(OutputGuardrailTripwireTriggered) as exc:
+                await Runner.run(agent, "Return the requested links", run_config=RunConfig(tracing_disabled=True))
+            assert exc.value.guardrail_result.output.output_info["blocked"]
+        else:
+            result = await Runner.run(agent, "Return the requested links", run_config=RunConfig(tracing_disabled=True))
+            assert result.final_output == output
+            assert result.output_guardrail_results[0].output.output_info["blocked"] == []
 
 
 @pytest_asyncio.fixture
@@ -145,6 +197,74 @@ async def client_case(request: pytest.FixtureRequest) -> AsyncIterator[tuple[Any
 CLIENTS = [(False, False), (True, False), (False, True), (True, True)]
 
 
+@pytest_asyncio.fixture
+async def classifier_client() -> AsyncIterator[tuple[openai.AsyncOpenAI, list[Any]]]:
+    """Use the real classifier client with a deterministic in-memory response."""
+    requests: list[Any] = []
+
+    def handler(request: Any) -> Any:
+        requests.append(request)
+        return http.Response(200, json=response_body(False, '{"flagged":true,"confidence":1.0}'))
+
+    async with openai.AsyncOpenAI(
+        api_key="test-key", max_retries=0, http_client=http.AsyncClient(transport=http.MockTransport(handler), trust_env=False)
+    ) as client:
+        yield client, requests
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("call_field", ["tool_calls", "function_call"])
+@pytest.mark.parametrize("entrypoint", ["direct", "runtime-default", "runtime-strict"])
+async def test_prompt_injection_sdk_message(classifier_client: Any, call_field: str, entrypoint: str) -> None:
+    """SDK-native pending calls reach classification and preserve the original action."""
+    client, requests = classifier_client
+    function = {"name": "wire_money", "arguments": '{"amount":1000}'}
+    calls: Any = [{"id": "call_1", "type": "function", "function": function}] if call_field == "tool_calls" else function
+    pending = ChatCompletionMessage.model_validate({"role": "assistant", call_field: calls})
+    history = [
+        {"role": "user", "content": "What time is it?"},
+        ChatCompletionMessage(role="assistant", content="Noon."),
+        {"role": "user", "content": "Retrieve the weather for Paris"},
+        pending,
+    ]
+    context = SimpleNamespace(guardrail_llm=client, get_conversation_history=lambda: history)
+    if entrypoint == "direct":
+        result = await prompt_injection_detection(cast(GuardrailLLMContextProto, context), "", LLMConfig(model="test-model"))
+    else:
+        checks = guardrails.instantiate_guardrails(
+            ConfigBundle(guardrails=[GuardrailConfig(name="Prompt Injection Detection", config={"model": "test-model"})])
+        )
+        with pytest.raises(guardrails.GuardrailTripwireTriggered) as caught:
+            await guardrails.run_guardrails(context, "", "text/plain", checks, raise_guardrail_errors=entrypoint == "runtime-strict")
+        result = caught.value.guardrail_result
+
+    assert len(requests) == 1
+    prompt = json.loads(requests[0].content)["input"]
+    assert "Retrieve the weather for Paris" in prompt
+    assert "wire_money" in prompt
+    assert '{"amount":1000}' in prompt
+    assert result.tripwire_triggered is True
+    assert result.execution_failed is False
+    assert result.info["action"] == [pending]
+    assert result.info["action"][0] is pending
+
+
+@pytest.mark.asyncio
+async def test_prompt_injection_sdk_text_skips(classifier_client: Any) -> None:
+    """Plain SDK assistant text remains an intentional skip even in strict mode."""
+    client, requests = classifier_client
+    history = [{"role": "user", "content": "Hello"}, ChatCompletionMessage(role="assistant", content="Hello", tool_calls=[])]
+    context = SimpleNamespace(guardrail_llm=client, get_conversation_history=lambda: history)
+    checks = guardrails.instantiate_guardrails(
+        ConfigBundle(guardrails=[GuardrailConfig(name="Prompt Injection Detection", config={"model": "test-model"})])
+    )
+    results = await guardrails.run_guardrails(context, "", "text/plain", checks, raise_guardrail_errors=True)
+    assert len(results) == 1
+    assert results[0].tripwire_triggered is False
+    assert results[0].execution_failed is False
+    assert requests == []
+
+
 async def call(function: Any, asynchronous: bool, *args: Any, **kwargs: Any) -> Any:
     # Sync Guardrails calls own their event loop; exercise them off the pytest loop.
     if asynchronous:
@@ -156,6 +276,59 @@ async def invoke(client: Any, asynchronous: bool, api: str, **kwargs: Any) -> An
     if api == "chat":
         return await call(client.chat.completions.create, asynchronous, messages=[{"role": "user", "content": "hello"}], model="test-model", **kwargs)
     return await call(client.responses.create, asynchronous, input="hello", model="test-model", **kwargs)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("client_case", [(False, False), (False, True)], indirect=True)
+@pytest.mark.parametrize("api", ["chat", "responses"])
+@pytest.mark.parametrize("stream", [False, True])
+async def test_sync_create_inside_running_loop(client_case: Any, api: str, stream: bool) -> None:
+    """Synchronous calls and stream iteration work in a notebook-style event loop."""
+    make, requests, _, _ = client_case
+    config: dict[str, Any] = {"version": 1}
+    for stage in ("pre_flight", "input", "output"):
+        config[stage] = pipeline(stage, "blocked")[stage]
+    client = make(config)
+    create = client.chat.completions.create if api == "chat" else client.responses.create
+    kwargs = {"messages": [{"role": "user", "content": "hello"}]} if api == "chat" else {"input": "hello"}
+
+    for _ in range(2):
+        result = create(model="test-model", stream=stream, **kwargs)
+        if stream:
+            chunks = list(result)
+            assert len(chunks) == 1
+            result = chunks[0]
+            assert (result.choices[0].delta.content if api == "chat" else result.delta) == "hello"
+        else:
+            assert (result.choices[0].message.content if api == "chat" else result.output_text) == "hello"
+        assert isinstance(result, guardrails.GuardrailsResponse)
+        assert not result.guardrail_results.tripwires_triggered
+        assert result.guardrail_results.preflight
+        assert result.guardrail_results.input
+        if stream:
+            # Output validation runs when iteration ends; chunks retain no output results.
+            assert result.guardrail_results.output == []
+        else:
+            assert result.guardrail_results.output
+    assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("client_case", [(False, False), (False, True)], indirect=True)
+@pytest.mark.parametrize("api", ["chat", "responses"])
+@pytest.mark.parametrize("stage", ["pre_flight", "output"])
+async def test_sync_tripwire_inside_running_loop(client_case: Any, api: str, stage: str) -> None:
+    """Running-loop execution retains blocking and explicit suppression semantics."""
+    make, requests, _, _ = client_case
+    client = make(pipeline(stage, "hello"))
+    create = client.chat.completions.create if api == "chat" else client.responses.create
+    kwargs = {"messages": [{"role": "user", "content": "hello"}]} if api == "chat" else {"input": "hello"}
+    with pytest.raises(guardrails.GuardrailTripwireTriggered):
+        create(model="test-model", **kwargs)
+    assert len(requests) == (0 if stage == "pre_flight" else 1)
+    result = create(model="test-model", suppress_tripwire=True, **kwargs)
+    assert len(result.guardrail_results.triggered_results) == 1
+    assert len(requests) == (1 if stage == "pre_flight" else 2)
 
 
 @pytest.mark.asyncio

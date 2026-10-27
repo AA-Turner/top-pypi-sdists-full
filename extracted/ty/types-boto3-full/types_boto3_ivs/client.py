@@ -29,6 +29,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListAdConfigurationsPaginator,
     ListChannelsPaginator,
+    ListFailoverSlateConfigurationsPaginator,
     ListPlaybackKeyPairsPaginator,
     ListRecordingConfigurationsPaginator,
     ListStreamKeysPaginator,
@@ -45,6 +46,8 @@ from .type_defs import (
     CreateAdConfigurationResponseTypeDef,
     CreateChannelRequestTypeDef,
     CreateChannelResponseTypeDef,
+    CreateFailoverSlateConfigurationRequestTypeDef,
+    CreateFailoverSlateConfigurationResponseTypeDef,
     CreatePlaybackRestrictionPolicyRequestTypeDef,
     CreatePlaybackRestrictionPolicyResponseTypeDef,
     CreateRecordingConfigurationRequestTypeDef,
@@ -53,6 +56,7 @@ from .type_defs import (
     CreateStreamKeyResponseTypeDef,
     DeleteAdConfigurationRequestTypeDef,
     DeleteChannelRequestTypeDef,
+    DeleteFailoverSlateConfigurationRequestTypeDef,
     DeletePlaybackKeyPairRequestTypeDef,
     DeletePlaybackRestrictionPolicyRequestTypeDef,
     DeleteRecordingConfigurationRequestTypeDef,
@@ -62,6 +66,8 @@ from .type_defs import (
     GetAdConfigurationResponseTypeDef,
     GetChannelRequestTypeDef,
     GetChannelResponseTypeDef,
+    GetFailoverSlateConfigurationRequestTypeDef,
+    GetFailoverSlateConfigurationResponseTypeDef,
     GetPlaybackKeyPairRequestTypeDef,
     GetPlaybackKeyPairResponseTypeDef,
     GetPlaybackRestrictionPolicyRequestTypeDef,
@@ -82,6 +88,8 @@ from .type_defs import (
     ListAdConfigurationsResponseTypeDef,
     ListChannelsRequestTypeDef,
     ListChannelsResponseTypeDef,
+    ListFailoverSlateConfigurationsRequestTypeDef,
+    ListFailoverSlateConfigurationsResponseTypeDef,
     ListPlaybackKeyPairsRequestTypeDef,
     ListPlaybackKeyPairsResponseTypeDef,
     ListPlaybackRestrictionPoliciesRequestTypeDef,
@@ -105,6 +113,8 @@ from .type_defs import (
     UpdateAdConfigurationResponseTypeDef,
     UpdateChannelRequestTypeDef,
     UpdateChannelResponseTypeDef,
+    UpdateFailoverSlateConfigurationRequestTypeDef,
+    UpdateFailoverSlateConfigurationResponseTypeDef,
     UpdatePlaybackRestrictionPolicyRequestTypeDef,
     UpdatePlaybackRestrictionPolicyResponseTypeDef,
 )
@@ -219,6 +229,16 @@ class IVSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#create_channel)
         """
 
+    def create_failover_slate_configuration(
+        self, **kwargs: Unpack[CreateFailoverSlateConfigurationRequestTypeDef]
+    ) -> CreateFailoverSlateConfigurationResponseTypeDef:
+        """
+        Creates a new failover slate configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/create_failover_slate_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#create_failover_slate_configuration)
+        """
+
     def create_playback_restriction_policy(
         self, **kwargs: Unpack[CreatePlaybackRestrictionPolicyRequestTypeDef]
     ) -> CreatePlaybackRestrictionPolicyResponseTypeDef:
@@ -268,6 +288,16 @@ class IVSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/delete_channel.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#delete_channel)
+        """
+
+    def delete_failover_slate_configuration(
+        self, **kwargs: Unpack[DeleteFailoverSlateConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the specified failover slate configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/delete_failover_slate_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#delete_failover_slate_configuration)
         """
 
     def delete_playback_key_pair(
@@ -327,6 +357,16 @@ class IVSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/get_channel.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#get_channel)
+        """
+
+    def get_failover_slate_configuration(
+        self, **kwargs: Unpack[GetFailoverSlateConfigurationRequestTypeDef]
+    ) -> GetFailoverSlateConfigurationResponseTypeDef:
+        """
+        Gets the failover slate configuration for the specified ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/get_failover_slate_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#get_failover_slate_configuration)
         """
 
     def get_playback_key_pair(
@@ -430,6 +470,17 @@ class IVSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/list_channels.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#list_channels)
+        """
+
+    def list_failover_slate_configurations(
+        self, **kwargs: Unpack[ListFailoverSlateConfigurationsRequestTypeDef]
+    ) -> ListFailoverSlateConfigurationsResponseTypeDef:
+        """
+        Gets summary information about all failover slate configurations in your
+        account, in the Amazon Web Services region where the API request is processed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/list_failover_slate_configurations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#list_failover_slate_configurations)
         """
 
     def list_playback_key_pairs(
@@ -571,6 +622,16 @@ class IVSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#update_channel)
         """
 
+    def update_failover_slate_configuration(
+        self, **kwargs: Unpack[UpdateFailoverSlateConfigurationRequestTypeDef]
+    ) -> UpdateFailoverSlateConfigurationResponseTypeDef:
+        """
+        Updates a specified failover slate configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/update_failover_slate_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#update_failover_slate_configuration)
+        """
+
     def update_playback_restriction_policy(
         self, **kwargs: Unpack[UpdatePlaybackRestrictionPolicyRequestTypeDef]
     ) -> UpdatePlaybackRestrictionPolicyResponseTypeDef:
@@ -596,6 +657,17 @@ class IVSClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_channels"]
     ) -> ListChannelsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_failover_slate_configurations"]
+    ) -> ListFailoverSlateConfigurationsPaginator:
         """
         Create a paginator for an operation.
 

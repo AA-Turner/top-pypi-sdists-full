@@ -12,6 +12,14 @@ An OS advisory lock (`flock`) on a file that is never deleted: the kernel
 releases it the moment its holder exits, however it exits, so a run killed with
 SIGKILL leaves nothing to clean up and there is no pid to judge stale.
 
+A holder writes into the file who it is and since when (`{"pid", "start",
+"at"}`, `probe._shared.setup_marks`), and clears it as it lets go: the Probe
+service reads it to tell how long a setup has held the device, and updates
+past one held for a day (plan C1, `probe.service.updater.LIMITED`). The
+interactive menu lets go of the lock while it waits on a person, and says so
+in a marker of its own instead (`setup_marks.MENU_PREFIX`,
+`main._wizard_session`).
+
 The other ways in to the same writes hold it too: `probe login`, `probe
 logout`, `probe update`, and the auto-updater (`upgrading.perform_update`,
 once it has waited out the process that spawned it). An update turned away is
@@ -20,12 +28,15 @@ recorded as a skip, which `probe doctor` shows.
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-LOCK_FILENAME = "wizard.lock"
+from probe._shared import setup_marks
+
+LOCK_FILENAME = setup_marks.LOCK_FILENAME
 #: EX_TEMPFAIL: try again later. Distinct from 1 (failed) and 2 (usage).
 BUSY_EXIT_CODE = 75
 BUSY_MESSAGE = "another Probe setup is running"
@@ -95,11 +106,30 @@ def held() -> Iterator[None]:
             handle.close()
         handle = None
     _held = handle  # cleared by the close below: a closed handle holds nothing
+    if handle is not None:
+        _write_holder(handle, setup_marks.own_record())
     try:
         yield
     finally:
         if handle is not None:
+            # Cleared before letting go: a holder from before the record that
+            # takes the lock next must not inherit this one's date.
+            _write_holder(handle, None)
             handle.close()  # releases the lock
+
+
+def _write_holder(handle, record: dict | None) -> None:
+    """Say in the lock file who holds it and since when (`setup_marks`), over
+    whatever the last holder wrote; or nothing, as the holder lets go.
+    Fail-soft: a record that cannot be written only means the service cannot
+    tell how long this hold has lasted, and measures it by its own deferrals."""
+    try:
+        handle.truncate(0)  # opened "a+": what follows is written at 0
+        if record is not None:
+            handle.write(json.dumps(record))
+        handle.flush()
+    except (OSError, ValueError):
+        pass
 
 
 def running() -> bool | None:

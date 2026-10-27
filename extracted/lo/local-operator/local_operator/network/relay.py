@@ -1830,6 +1830,188 @@ def admit(
     return existing
 
 
+def prune_removed_device(
+    network_id: str,
+    device_id: str,
+    *,
+    root: Path | None = None,
+    by: str = "",
+    only_owner: str = "",
+) -> tuple[list[str], str]:
+    """Drop ``device_id`` from the placement document and the MCP evidence file.
+
+    Returns ``(pruned keys, failure class name or "")``. NEVER RAISES: it is the
+    second half of a removal whose first half (the tombstone) is the security act,
+    and a prune that cannot run must not undo or block that. Two callers share it
+    so they cannot drift: :func:`remove_member` at the removal itself, and
+    :func:`repair_removed_member` when an already-removed device still has
+    references left behind (a prune that failed, or a removal applied from a peer's
+    rotation frame, which never ran this prune locally). ``only_owner`` is passed
+    through to ``placement.revoke_device_everywhere`` — see its docstring for why
+    the repair must not edit rows a third device owns.
+    """
+    pruned: list[str] = []
+    failure = ""
+    try:
+        from local_operator.network.credentials import mcp_state, placement
+
+        pruned = placement.revoke_device_everywhere(
+            network_id, device_id, root=root, by=by, only_owner=only_owner
+        )
+        # Evidence about a login that belonged to the removed device is gone with
+        # it: a status surface must not keep naming an owner nobody can reach.
+        # Unconditional on ``pruned`` — a device that held no placement row can
+        # still have left an evidence entry behind.
+        mcp_state.forget_device(network_id, device_id, root=root)
+    except Exception as exc:  # noqa: BLE001 — see the docstring
+        failure = exc.__class__.__name__
+    if pruned or failure:
+        from local_operator.network import audit as audit_mod
+
+        # Key NAMES only. The detail shape is registered as ``credential.revoke_all``
+        # in ``audit.py``; an unregistered event would have its whole detail dropped,
+        # which is the failure mode that guard exists to prevent.
+        try:
+            audit_mod.write_event(
+                root,
+                event="credential.revoke_all",
+                network_id=network_id,
+                actor=by,
+                subject=device_id,
+                detail={
+                    "keys": sorted(set(pruned))[:64],
+                    "failed": bool(failure),
+                    "reason": failure,
+                },
+            )
+        except Exception:  # noqa: BLE001 — the audit log must not block a removal
+            pass
+    return pruned, failure
+
+
+@dataclass(frozen=True)
+class RemovedDeviceReferences:
+    """What this device's credential metadata still says about a removed device.
+
+    ``local`` is what THIS device may rewrite: placement rows it owns (or the removed
+    device owned) and its own MCP evidence. ``owner_must_revoke`` is ``(key, owner
+    device, owner name)`` for a row a third device owns that still lists the removed
+    device as a holder — this device reports it and leaves it alone, because only
+    that owner's revision can clear it without forking ``doc_rev`` (R1).
+    """
+
+    local: list[str]
+    owner_must_revoke: list[tuple[str, str, str]]
+
+
+def removed_device_references(
+    network_id: str, device_id: str, *, self_device: str, root: Path | None = None
+) -> RemovedDeviceReferences:
+    """The references to ``device_id`` this device's metadata still carries.
+
+    Read back AFTER a repair so the receipt reports what is on disk, not what the
+    writer meant to do: ``mcp_state.forget_device`` swallows its own write failure
+    by contract, so its return value cannot prove anything.
+    """
+    from local_operator.network.credentials import mcp_state, placement
+
+    document = placement.PlacementDocument.load(network_id, root)
+    local: set[str] = set()
+    foreign: list[tuple[str, str, str]] = []
+    for key, entry in sorted(document.entries.items()):
+        owner = str(entry.owner_device)
+        if owner == device_id or (owner == self_device and entry.is_holder(device_id)):
+            local.add(key)
+        elif entry.is_holder(device_id):
+            foreign.append((key, owner, str(entry.owner_device_name or "")))
+    local |= {
+        key
+        for key, row in mcp_state.load(network_id, root).items()
+        if str(row.get("owner_device") or "") == device_id
+    }
+    return RemovedDeviceReferences(sorted(local), foreign)
+
+
+@dataclass(frozen=True)
+class RemovedMemberRepair:
+    """The receipt of :func:`repair_removed_member`."""
+
+    repaired: list[str]
+    owner_must_revoke: list[tuple[str, str, str]]
+
+
+def repair_removed_member(
+    record: NetworkRecord, *, device_id: str, by: str, root: Path | None = None
+) -> RemovedMemberRepair:
+    """Re-run the removal prune for a device that is ALREADY removed.
+
+    WHY THIS EXISTS: ``member rm`` on a removed id used to answer
+    ``unknown_member`` (the device resolver is active-only), while ``network show``
+    still listed the tombstone and credential metadata still named the device as a
+    holder — and nothing else ever cleans that up (``store.prune`` has no caller).
+    This is the idempotent repair half of a removal, and deliberately NOTHING more:
+
+    * NO EPOCH ROTATION. The removal that tombstoned the id already rotated; a
+      second rotation would re-key every peer for no security gain.
+    * THE TOMBSTONE AND ``removed_ids`` ARE NOT TOUCHED — the burned id is what
+      refuses a re-admission, so history must survive the repair.
+    * IT ERASES NOTHING REMOTE. Only this device's metadata is edited; a copy the
+      removed device already holds is not reachable from here (the caller's
+      receipt keeps the copy-ceiling sentence for that reason).
+    * ONLY ROWS THIS DEVICE MAY REVISE (R1). A row a third device owns is reported
+      as ``owner_must_revoke`` and left byte-identical: rewriting it locally forks
+      its ``doc_rev`` and the owner's next revision is dropped as a replay.
+    * NEVER THIS DEVICE'S OWN ID (R2). A device a peer removed has itself in
+      ``removed_ids``, and the prune deletes every row the target OWNS — on its own
+      id that empties this device's whole placement document. Leaving a network is
+      ``lop network disconnect``.
+
+    Refuses ``unknown_member`` for an id that is not removed in ``record``,
+    ``cannot_remove_self`` for this device's id, and ``already_revoked_repair_failed``
+    when the prune failed or a local reference is still on disk afterwards — a
+    repair that did not land must never read as done.
+    """
+    if device_id == record.self_device_id:
+        raise MeshRefusal(
+            "cannot_remove_self",
+            f"{device_id[:8]} is this device's own id; a device cannot remove itself from "
+            f"{record.name} (to leave the network, run 'lop network disconnect "
+            f"{record.name}')",
+        )
+    member = next((row for row in record.members if row.device_id == device_id), None)
+    if not record.is_burned(device_id) and (member is None or member.active):
+        raise MeshRefusal("unknown_member", f"{device_id} is not a removed member of {record.name}")
+    self_device = record.self_device_id
+    # Read BEFORE as well as after: the placement prune returns its keys but the
+    # MCP evidence prune returns nothing, so the receipt's list is the difference
+    # between the two on-disk reads rather than either writer's own account.
+    try:
+        before = removed_device_references(
+            record.network_id, device_id, self_device=self_device, root=root
+        ).local
+    except Exception:  # noqa: BLE001 — the after-read below decides the outcome
+        before = []
+    pruned, failure = prune_removed_device(
+        record.network_id, device_id, root=root, by=by, only_owner=self_device
+    )
+    try:
+        after = removed_device_references(
+            record.network_id, device_id, self_device=self_device, root=root
+        )
+    except Exception as exc:  # noqa: BLE001 — an unreadable store proves nothing
+        failure = failure or exc.__class__.__name__
+        after = RemovedDeviceReferences([], [])
+    if failure or after.local:
+        detail = f" ({failure})" if failure else ""
+        still = f"; still referenced by: {', '.join(after.local)}" if after.local else ""
+        raise MeshRefusal(
+            "already_revoked_repair_failed",
+            f"{device_id[:8]} was already removed from {record.name}, but cleaning up its "
+            f"credential references failed{detail}{still}; re-run the command",
+        )
+    return RemovedMemberRepair(sorted(set(before) | set(pruned)), after.owner_must_revoke)
+
+
 def remove_member(
     record: NetworkRecord,
     state: SecretState,
@@ -1848,6 +2030,13 @@ def remove_member(
     immediately and on the others as soon as they receive the frame.
     """
     moment = time.time() if now is None else now
+    # THE ROTATION LOCK IS CHECKED BEFORE ANYTHING IS TOUCHED (#2991 QA round 1,
+    # Q-1). ``rotate_epoch`` below re-checks it, but by then the placement and MCP
+    # evidence prune has already run: a lock-refused removal of an ACTIVE member
+    # left it active with its shares and evidence deleted. The relay handler
+    # prechecks the same way before its ending exchange; the CLI's local path
+    # comes straight here, so the precheck belongs to the writer.
+    rotation_lock_refusal(record, now=moment)
     member = record.member(device_id)
     if member is None:
         raise MeshRefusal("unknown_member", f"{device_id} is not a member of {record.name}")
@@ -1863,40 +2052,7 @@ def remove_member(
     # promising a share nobody can take. Best-effort by contract: a prune that
     # cannot run must never block the removal (the tombstone above is the security
     # half), and the failure is recorded rather than swallowed.
-    pruned: list[str] = []
-    prune_failure = ""
-    try:
-        from local_operator.network.credentials import mcp_state, placement
-
-        pruned = placement.revoke_device_everywhere(record.network_id, device_id, root=root, by=by)
-        # Evidence about a login that belonged to the removed device is gone with
-        # it: a status surface must not keep naming an owner nobody can reach.
-        # Unconditional on ``pruned`` — a device that held no placement row can
-        # still have left an evidence entry behind.
-        mcp_state.forget_device(record.network_id, device_id, root=root)
-    except Exception as exc:  # noqa: BLE001 — see the block comment
-        prune_failure = exc.__class__.__name__
-    if pruned or prune_failure:
-        from local_operator.network import audit as audit_mod
-
-        # Key NAMES only. The detail shape is registered as ``credential.revoke_all``
-        # in ``audit.py``; an unregistered event would have its whole detail dropped,
-        # which is the failure mode that guard exists to prevent.
-        try:
-            audit_mod.write_event(
-                root,
-                event="credential.revoke_all",
-                network_id=record.network_id,
-                actor=by,
-                subject=device_id,
-                detail={
-                    "keys": sorted(set(pruned))[:64],
-                    "failed": bool(prune_failure),
-                    "reason": prune_failure,
-                },
-            )
-        except Exception:  # noqa: BLE001 — the audit log must not block a removal
-            pass
+    prune_removed_device(record.network_id, device_id, root=root, by=by)
     outcome = rotate_epoch(
         record,
         state,
@@ -4364,10 +4520,17 @@ class PeerLink:
             self.sock.shutdown(socket.SHUT_RDWR)
         except OSError:
             pass
-        try:
-            self.sock.close()
-        except OSError:
-            pass
+        # The reader owns the descriptor until it leaves recv. On macOS, closing
+        # immediately after shutdown can strand an already-waiting timed recv until
+        # its original deadline (CPython #154224; measured here with a closed fd and
+        # a surviving mesh reader at the 120s idle timeout). Shutdown wakes the read;
+        # its finally block releases the descriptor. A link never started, or whose
+        # reader already exited, has no owner left to perform that release.
+        if self._reader is None or not self._reader.is_alive():
+            try:
+                self.sock.close()
+            except OSError:
+                pass
         self.server.link_closed(self, reason)
 
     # -- threads ------------------------------------------------------------
@@ -4394,12 +4557,55 @@ class PeerLink:
         except TimeoutError:
             self.server.audit_idle(self)
             self.close("timeout")
-        except (wire.LinkCryptoError, ConnectionError, OSError, TimeoutError):
+        except (wire.LinkCryptoError, ConnectionError, OSError, TimeoutError) as exc:
             # Every failure here is fatal to the LINK and none is repaired: there is
             # no resynchronisation and no partial-trust phase.
+            if not self._closed.is_set():
+                self._log_link_error("reader", exc)
             self.close("error")
-        except Exception:  # noqa: BLE001 — a handler must not kill the accept loop
+        except Exception as exc:  # noqa: BLE001 — a handler must not kill the accept loop
+            if not self._closed.is_set():
+                self._log_link_error("reader", exc)
             self.close("error")
+        finally:
+            # No other thread may release/reuse this descriptor while our recv is
+            # still waiting. This also covers reader-initiated and concurrent close.
+            try:
+                self.sock.close()
+            except OSError:
+                pass
+
+    def _log_link_error(self, side: str, exc: BaseException) -> None:
+        """Say WHY a link died, ONCE, with the cause that actually ended it.
+
+        THE AUDIT ROW CARRIES ONLY ``cause=error``, and that was the whole record of
+        the 2026-10-25 move failure: the Mac's writer refused a 13.67 MB frame over
+        the 8 MiB record limit, the link closed, and both ends' logs said nothing,
+        so the destination's "the source stopped answering" was the only story
+        anyone could read. One WARNING per link death — never per frame — is the
+        volume a supervised log can carry, and the exception text is the evidence.
+
+        ONLY WHEN THIS SIDE'S TEARDOWN DID NOT START IT (review round 1, m3; QA
+        round 1, Q3). ``close`` sets ``_closed`` before it shuts the socket down, so
+        a reader that loses the race with its own ``sock.close()`` raises EBADF and
+        used to log a SECOND line — `closed by its reader: OSError: [Errno 9] Bad
+        file descriptor` — after the writer's real cause, and even on a deliberate
+        ``replaced``/``we-closed`` close where there was no failure at all. A line
+        that points at the socket teardown instead of the cause is worse than no
+        line: it is the one an operator reads first. Callers therefore skip this
+        once ``_closed`` is set; the guard is repeated here so no future caller can
+        reintroduce the noise.
+        """
+        if self._closed.is_set():
+            return
+        logger.warning(
+            "mesh link %s to %s closed by its %s: %s: %s",
+            self.link_id,
+            self.device_id,
+            side,
+            type(exc).__name__,
+            exc,
+        )
 
     def _handle(self, frame: dict[str, Any]) -> None:
         if wire.is_keepalive(frame):
@@ -4480,7 +4686,9 @@ class PeerLink:
                     self._write(wire.keepalive_frame(record.pid if record else 0))
                 self._wake.wait(timeout=0.5)
                 self._wake.clear()
-        except (OSError, wire.LinkCryptoError):
+        except (OSError, wire.LinkCryptoError) as exc:
+            if not self._closed.is_set():
+                self._log_link_error("writer", exc)
             self.close("error", flush_s=0.0)
 
     def _drain(self) -> bool:
@@ -5056,6 +5264,11 @@ class RelayServer:
         #: (QA round 5, Q-R5-1) — and an asynchronous hop here would hand the
         #: caller that same race back.
         self._slice_stop_hooks: list[tuple[str, Callable[[], Any]]] = []
+        #: Slice callbacks run when a peer link closes (``register_ops``'s
+        #: ``on_link_closed``): a slice holding state keyed to ONE link — the move's
+        #: source parks a session ``prepared`` for the link that asked — must learn
+        #: that the link is gone, because no frame will ever arrive to say so.
+        self._slice_link_closed_hooks: list[tuple[str, Callable[[PeerLink, str], Any]]] = []
         self._slow_lock = threading.Lock()
         self._slow_pool: ThreadPoolExecutor | None = None
         self._slow_slots: threading.BoundedSemaphore | None = None
@@ -6976,6 +7189,19 @@ class RelayServer:
         # more, so they are resolved here rather than left to time out (``fail_replies``).
         self.fail_replies(link)
         self.identity_use.released(link.device_id, link.link_id)
+        # AFTER the waiters are failed, so a slice reading "is that link gone?" from
+        # its hook sees the same answer every requester on it already got. Inline on
+        # the closing thread and best-effort: a hook is a small journal edit, and one
+        # slice's failure must not stop the audit row below or another slice's hook.
+        # ``getattr`` BECAUSE A REDUCED SERVER IS A REAL SHAPE HERE: two resilience
+        # cells build one with ``__new__`` and drive ``link_closed`` directly, and a
+        # relay whose slices never installed has no hook list. Absent means "no slice
+        # state keyed to a link", which is exactly a server with no slices.
+        for label, hook in getattr(self, "_slice_link_closed_hooks", ()):
+            try:
+                hook(link, reason)
+            except Exception as exc:  # noqa: BLE001 — see above
+                logger.warning("mesh relay: link-closed hook %s failed (%s)", label, exc)
         self.audit.record(
             AuditEvent(
                 event="link_closed",
@@ -7447,6 +7673,7 @@ class RelayServer:
         replace: bool = False,
         on_start: Mapping[str, Callable[[], Any]] | None = None,
         on_stop: Mapping[str, Callable[[], Any]] | None = None,
+        on_link_closed: Mapping[str, Callable[[PeerLink, str], Any]] | None = None,
     ) -> None:
         """Let a slice module serve its ops without editing this file.
 
@@ -7457,7 +7684,9 @@ class RelayServer:
         reader (see :data:`SLOW_OP_WORKERS`). ``on_start`` maps a LABEL to a
         callable run once when the relay starts, on its own daemon thread;
         ``on_stop`` maps a LABEL to a callable run when the relay stops, INLINE
-        on the stopping thread.
+        on the stopping thread. ``on_link_closed`` maps a LABEL to a callable run
+        with ``(link, reason)`` each time a peer link closes, inline on the closing
+        thread after that link's waiters have been failed.
 
         WHY ``on_start`` EXISTS. Some slice state can only be settled by a relay
         that is up: the move's crash recovery has to run when a relay starts on a
@@ -7529,6 +7758,14 @@ class RelayServer:
                 raise TypeError(f"stop hook {label!r} is not callable")
             if any(label == existing for existing, _hook in self._slice_stop_hooks):
                 raise ValueError(f"a stop hook named {label!r} is already registered")
+        for label, hook in (on_link_closed or {}).items():
+            if not callable(hook):
+                raise TypeError(f"link-closed hook {label!r} is not callable")
+            if any(label == existing for existing, _hook in self._slice_link_closed_hooks):
+                raise ValueError(f"a link-closed hook named {label!r} is already registered")
+        self._slice_link_closed_hooks.extend(
+            (label, hook) for label, hook in (on_link_closed or {}).items()
+        )
         self._slice_start_hooks.extend((label, hook) for label, hook in (on_start or {}).items())
         self._slice_stop_hooks.extend((label, hook) for label, hook in (on_stop or {}).items())
         self._handlers.update(handlers)
@@ -14239,6 +14476,40 @@ def log_path() -> Path:
     return log_dir() / "network.log"
 
 
+def ensure_log_parent(*, strict: bool = True) -> None:
+    """Create the directory the supervisor appends the relay's stdout/stderr to.
+
+    THE SUPERVISOR OPENS THE FILE, NOT THE RELAY, and it does so BEFORE exec:
+    systemd 240+ resolves ``StandardOutput=append:<config>/logs/network.log`` in
+    the manager, and launchd's ``StandardOutPath`` likewise. A missing parent
+    therefore never reaches Python, which could create it — the start fails
+    (systemd: "Failed to set up standard output") or the output is lost. The first
+    install created the parent, but the REFRESH (``refresh_unit_if_stale``,
+    reached from ``lop update`` and the mesh roll in ``meshupdate``) and the
+    existing-unit start/restart (``service_action``, reached from a peer restart
+    through ``meshrestart``) did not, so a provisioned unit — or one whose
+    ``logs/`` was removed afterwards — came up with no log (#2918 lane audit).
+    EVERY path that starts, restarts or reloads the unit calls this, so the
+    invariant has one owner.
+
+    ``strict`` IS THE ONE DIFFERENCE BETWEEN THE ARMS, and it preserves each arm's
+    existing contract. An INSTALL (``_install_systemd``, ``_install_launchd``) is
+    the one moment a refusal is still cheap, which is what
+    ``test_systemd_log_parent_failure_never_starts_service`` pins: the error
+    propagates, so no unit is written over a log nobody can create. A REFRESH, or
+    a start of an ALREADY-INSTALLED unit, is the opposite case — a directory that
+    cannot be made must not abort an upgrade that has otherwise succeeded, and the
+    supervisor's own refusal is then the honest report — so those pass
+    ``strict=False``.
+    """
+    try:
+        log_path().parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        if strict:
+            raise
+        logger.debug("relay: could not create %s", log_path().parent, exc_info=True)
+
+
 def plist_path() -> Path:
     return Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
 
@@ -14412,6 +14683,8 @@ def refresh_plist_if_stale() -> Any:
         if not launchd.is_own_plist(path, LABEL):
             return launchd.PlistRefresh(name=name, kind="not-addressable")
         port = launchd.int_arg(launchd.load(path), "--port", DEFAULT_PORT)
+        # A rewrite reloads the job, which reopens its log: see ``ensure_log_parent``.
+        ensure_log_parent(strict=False)
         outcome = launchd.rewrite_if_stale(name=name, path=path, rendered=render_plist(port))
         if outcome.kind == "current":
             # A CURRENT PLIST IS NOT A CURRENT BUILD: this unit names the stable
@@ -14505,6 +14778,8 @@ def refresh_unit_if_stale() -> Any:
             # rewrite could repoint a tree this refresh does not own. The F10
             # discipline — an unanswered question declines; it does not guess.
             return launchd.PlistRefresh(name=name, kind="not-addressable")
+        # Before any reload or restart below: see ``ensure_log_parent``.
+        ensure_log_parent(strict=False)
         rendered = render_systemd(_service_port())
         try:
             current = path.read_text(encoding="utf-8", errors="replace")
@@ -14640,6 +14915,8 @@ def _install_launchd(port: int = DEFAULT_PORT, *, dry_run: bool = False) -> dict
         }
     plist_path().parent.mkdir(parents=True, exist_ok=True)
     if not dry_run:
+        # launchd opens ``StandardOutPath`` itself; see ``ensure_log_parent``.
+        ensure_log_parent()
         plist_path().write_bytes(plistlib.dumps(render_plist(port)))
         durability["persistent"] = _launchd_boot_persistent()
     steps.append(f"wrote {plist_path()}")
@@ -14713,7 +14990,7 @@ def _install_systemd(port: int = DEFAULT_PORT, *, dry_run: bool = False) -> dict
         }
     # systemd opens append-log targets before Python starts, so a fresh HOME
     # needs this parent before enable --now; the daemon cannot create it in time.
-    log_path().parent.mkdir(parents=True, exist_ok=True)
+    ensure_log_parent()
     # Lingering BEFORE enable --now (mobile's ordering): without a user manager
     # the enable itself fails with the bus error, and enabling linger is what
     # spawns one. Best-effort — a refusal must not fail the install.
@@ -15874,6 +16151,8 @@ def _service_action_launchd(action: str) -> dict[str, Any]:
         # no job to kickstart yet. The installer verifies the managed process.
         return _install_launchd()
     if action in ("start", "restart") and plist_path().exists():
+        # launchd opens ``StandardOutPath`` before exec; see ``ensure_log_parent``.
+        ensure_log_parent(strict=False)
         printed = _launchctl("print", f"{_domain()}/{LABEL}")
         if printed.returncode != 0:
             bootstrap = _launchctl("bootstrap", _domain(), str(plist_path()))
@@ -15913,6 +16192,9 @@ def _service_action_systemd(action: str) -> dict[str, Any]:
         return refused
     starting = action in ("start", "restart")
     if starting:
+        # An EXISTING unit appends to a log whose parent may be gone; systemd
+        # opens it before exec, so it must exist first (``ensure_log_parent``).
+        ensure_log_parent(strict=False)
         # Repair existing units too: installation may predate linger, and a
         # successful start alone cannot promise restart-on-boot durability.
         supervisors.enable_linger()

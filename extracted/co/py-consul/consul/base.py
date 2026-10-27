@@ -11,14 +11,17 @@ from typing import TYPE_CHECKING, Any
 from consul.api.acl import ACL
 from consul.api.agent import Agent
 from consul.api.catalog import Catalog
+from consul.api.config import Config
 from consul.api.connect import Connect
 from consul.api.coordinates import Coordinate
+from consul.api.discovery_chain import DiscoveryChain
 from consul.api.event import Event
 from consul.api.health import Health
 from consul.api.kv import KV
 from consul.api.operator import Operator
 from consul.api.query import Query
 from consul.api.session import Session
+from consul.api.snapshot import Snapshot
 from consul.api.status import Status
 from consul.api.txn import Txn
 from consul.exceptions import ConsulException
@@ -54,15 +57,15 @@ class HTTPClient(metaclass=abc.ABCMeta):
         return uri
 
     @abc.abstractmethod
-    def get(self, callback, path, params=None, headers: dict[str, str] | None = None):
+    def get(self, callback, path, params=None, headers: dict[str, str] | None = None, raw: bool = False):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def put(self, callback, path, params=None, data: str = "", headers: dict[str, str] | None = None):
+    def put(self, callback, path, params=None, data: str | bytes = "", headers: dict[str, str] | None = None):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def delete(self, callback, path, params=None, headers: dict[str, str] | None = None):
+    def delete(self, callback, path, params=None, data: str | bytes = "", headers: dict[str, str] | None = None):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -163,6 +166,9 @@ class Consul:
         self.coordinate = Coordinate(self)
         self.operator = Operator(self)
         self.connect = Connect(self)
+        self.config = Config(self)
+        self.discovery_chain = DiscoveryChain(self)
+        self.snapshot = Snapshot(self)
 
     def __enter__(self):
         return self

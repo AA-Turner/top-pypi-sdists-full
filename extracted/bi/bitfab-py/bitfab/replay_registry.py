@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable, TextIO
 
 from bitfab.replay import (
     _REPLAY_PERSISTENCE_TIMEOUT_SECONDS,
+    CODE_CHANGE_CHOICES,
     JUDGE_ASSERTIONS_DEPRECATION,
     ReplayConcurrency,
     ReplayError,
@@ -25,6 +26,7 @@ from bitfab.replay import (
     ReplayItemFinishProgress,
     ReplayResult,
     execute_replay_item,
+    is_code_change_type,
     report_replay_progress,
     serialize_replay_item,
     serialize_replay_result,
@@ -69,8 +71,6 @@ _REGISTRY_OPTION_NAMES = frozenset(
         "notes",
         "metadata",
         "max_concurrency",
-        "code_change_description",
-        "code_change_files",
         "experiment_group_id",
         "experiment_group_name",
         "dataset_id",
@@ -311,9 +311,22 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
         dest="max_concurrency",
         type=_positive_integer,
     )
-    code_change = parser.add_mutually_exclusive_group()
-    code_change.add_argument("--code-change")
-    code_change.add_argument("--no-code-change", action="store_true")
+    parser.add_argument(
+        "--code-change",
+        metavar="working-tree|last-branch|default-branch|skip|manual",
+        help=(
+            "Required: the code change this run tests. working-tree is the "
+            "uncommitted changes vs HEAD, last-branch the diff against the "
+            "branch this one was cut from, default-branch the diff against the "
+            "default branch, skip none, manual the edits in --code-change-file."
+        ),
+    )
+    parser.add_argument(
+        "--code-change-file",
+        metavar="PATH",
+        help="With --code-change manual: a JSON file of { description, files }.",
+    )
+    parser.add_argument("--no-code-change", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument(
         "--experiment-group-id",
         metavar="UUID",
@@ -459,7 +472,9 @@ def _resume_command(args: argparse.Namespace, experiment_id: str) -> str:
     registry_path = (
         shlex.quote(str(context["registry_path"])) if context is not None else "<path>"
     )
-    carried: list[str] = []
+    carried: list[str] = ["--code-change", args.code_change]
+    if args.code_change_file is not None:
+        carried += ["--code-change-file", args.code_change_file]
     if args.mock is not None:
         carried += ["--mock", args.mock]
     if args.params is not None:
@@ -683,11 +698,11 @@ def _load_code_change(path: str | None) -> dict[str, Any] | None:
     value = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(value, dict) or not isinstance(value.get("description"), str):
         raise ValueError(
-            f"Invalid --code-change file '{path}': expected {{ description, files }}."
+            f"Invalid --code-change-file '{path}': expected {{ description, files }}."
         )
     if not isinstance(value.get("files"), list):
         raise ValueError(
-            f"Invalid --code-change file '{path}': expected {{ description, files }}."
+            f"Invalid --code-change-file '{path}': expected {{ description, files }}."
         )
     return value
 
@@ -998,8 +1013,30 @@ def _pinned_dataset_members(
     return _bound_trace_ids(client, members, limit, only_with_assertions)
 
 
+def _require_code_change(args: argparse.Namespace) -> None:
+    if args.no_code_change:
+        raise ValueError("--no-code-change was replaced by --code-change skip.")
+    if args.code_change is None:
+        raise ValueError(
+            f"--code-change is required: {CODE_CHANGE_CHOICES}. "
+            '"manual" takes the edits from --code-change-file PATH.'
+        )
+    if not is_code_change_type(args.code_change):
+        raise ValueError(
+            f"Unknown --code-change '{args.code_change}'. Pass {CODE_CHANGE_CHOICES}. "
+            "A file of edits goes in --code-change manual --code-change-file PATH."
+        )
+    if (args.code_change == "manual") != (args.code_change_file is not None):
+        raise ValueError(
+            "--code-change-file goes with --code-change manual, and "
+            "--code-change manual needs --code-change-file PATH."
+        )
+
+
 def check_replay_arguments(argv: list[str]) -> None:
     args = _parser(None).parse_args(argv)
+    if args.seed is None:
+        _require_code_change(args)
     _refuse_selection_flags_with_resume(args)
 
 
@@ -1026,6 +1063,7 @@ def run_replay_cli(
     args = parser.parse_args(argv)
     if args.seed is not None:
         return run_seed_cli(registry, argv, stdout=stdout, stderr=stderr)
+    _require_code_change(args)
     registration = registry.get(args.pipeline)
     options = _resolve_registry_options(
         registration, _load_parameters(args.params, args.param)
@@ -1121,13 +1159,11 @@ def run_replay_cli(
         else:
             options["db_branch"] = False
 
-    code_change = _load_code_change(args.code_change)
+    options["code_change"] = args.code_change
+    code_change = _load_code_change(args.code_change_file)
     if code_change is not None:
         options["code_change_description"] = code_change["description"]
         options["code_change_files"] = code_change["files"]
-    elif args.no_code_change:
-        options["code_change_description"] = None
-        options["code_change_files"] = None
 
     concurrency = options.get("concurrency")
     if concurrency is not None:

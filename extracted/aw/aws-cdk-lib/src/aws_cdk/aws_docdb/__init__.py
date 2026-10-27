@@ -618,6 +618,7 @@ class CaCertificate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_2019")
+    @builtins.classmethod
     def RDS_CA_2019(cls) -> "_aws_rds_77eaad52.CaCertificate":
         '''(deprecated) rds-ca-2019 certificate authority.
 
@@ -629,12 +630,14 @@ class CaCertificate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_ECC384_G1")
+    @builtins.classmethod
     def RDS_CA_ECC384_G1(cls) -> "_aws_rds_77eaad52.CaCertificate":
         '''rds-ca-ecc384-g1 certificate authority.'''
         return typing.cast("_aws_rds_77eaad52.CaCertificate", jsii.sget(cls, "RDS_CA_ECC384_G1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_RDS2048_G1")
+    @builtins.classmethod
     def RDS_CA_RDS2048_G1(cls) -> "_aws_rds_77eaad52.CaCertificate":
         '''(deprecated) rds-ca-rsa2048-g1 certificate authority.
 
@@ -646,6 +649,7 @@ class CaCertificate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_RDS4096_G1")
+    @builtins.classmethod
     def RDS_CA_RDS4096_G1(cls) -> "_aws_rds_77eaad52.CaCertificate":
         '''(deprecated) rds-ca-rsa4096-g1 certificate authority.
 
@@ -657,12 +661,14 @@ class CaCertificate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_RSA2048_G1")
+    @builtins.classmethod
     def RDS_CA_RSA2048_G1(cls) -> "_aws_rds_77eaad52.CaCertificate":
         '''rds-ca-rsa2048-g1 certificate authority.'''
         return typing.cast("_aws_rds_77eaad52.CaCertificate", jsii.sget(cls, "RDS_CA_RSA2048_G1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RDS_CA_RSA4096_G1")
+    @builtins.classmethod
     def RDS_CA_RSA4096_G1(cls) -> "_aws_rds_77eaad52.CaCertificate":
         '''rds-ca-rsa4096-g1 certificate authority.'''
         return typing.cast("_aws_rds_77eaad52.CaCertificate", jsii.sget(cls, "RDS_CA_RSA4096_G1"))
@@ -877,6 +883,7 @@ class CfnDBCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -967,7 +974,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a4bdaf0bc7cad58ade1a34b4b85daf3a0c9caf4e9c4aa423d8c08839742b0d4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZones", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZones", value)
 
     @builtins.property
     @jsii.member(jsii_name="backupRetentionPeriod")
@@ -983,7 +990,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c664a6034ddc5d1a75cd1bae48398fc11875b13ff09951c293559b0708786b47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "backupRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "backupRetentionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="copyTagsToSnapshot")
@@ -1001,7 +1008,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a9579155c60f37e7baaefd2add0496a87f54293584ec94a2a7785dc3264ebe4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "copyTagsToSnapshot", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "copyTagsToSnapshot", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterIdentifier")
@@ -1017,7 +1024,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__22fbd7b0bf1256197f71b3b43f4d11d7eb59e118a93d9b0c59335aea8e7b586f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterParameterGroupName")
@@ -1033,7 +1040,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1a2f5fa89f057ba4759b48019d5a08e9de7fcb5cc68ed5ace17b6303dec5d87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterParameterGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterParameterGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbSubnetGroupName")
@@ -1046,7 +1053,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__43f1e52bdd69041102d5550de099fe30eb54180c8559f2760b4c5a4cb3af9e07)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSubnetGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtection")
@@ -1064,7 +1071,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc9a3746b34c3c8e0f788ea45970b8e53d09b5b282a722fbed39cfe0b59b8f97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableCloudwatchLogsExports")
@@ -1082,7 +1089,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b98a157c72eff100321309f96926d75d4cfd89d474c71de6df075763daff6e71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableCloudwatchLogsExports", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableCloudwatchLogsExports", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineVersion")
@@ -1095,7 +1102,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6c3f347d46adbb72bedc7428b15c6469cfe26cf4f30488e8abd2f8f22ca84d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalClusterIdentifier")
@@ -1108,7 +1115,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1df18874740f7d79670e3866720fac8967c1b52aced5a089132ee06a94fd72d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -1121,7 +1128,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__03e9375b32d036932973e964a270516d21d155bd0db4369d824ccb7e7f0bdc62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="manageMasterUserPassword")
@@ -1139,7 +1146,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cdcd3cca26349ee0c4a653267f8614c14cebb3b1c16af84aa9d85681fe2b07dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "manageMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "manageMasterUserPassword", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUsername")
@@ -1152,7 +1159,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c07cdadbef8a45e2db19e8559d89c8cec47c9d2d698c3fc441a996847907dfc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUsername", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUsername", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUserPassword")
@@ -1165,7 +1172,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e2998c76e0321a3f0bc1fe35b15ded5ba4f630cb6e5e7519736bf7455e2abe14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUserPassword", value)
 
     @builtins.property
     @jsii.member(jsii_name="masterUserSecretKmsKeyId")
@@ -1181,7 +1188,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3a1df2c9ac1f613c512469d693487a300c74230885d5e260bf5ada30155d14d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "masterUserSecretKmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "masterUserSecretKmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkType")
@@ -1194,7 +1201,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__79c741f6d8f922d19130884d7c02ab03431fc05781cc91b8ec5ac23e2ecd06e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkType", value)
 
     @builtins.property
     @jsii.member(jsii_name="port")
@@ -1207,7 +1214,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a09b878a6d8b852d7eb17f26dcd8f718779776e12f67987303b1e944b3a40516)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "port", value)
 
     @builtins.property
     @jsii.member(jsii_name="preferredBackupWindow")
@@ -1220,7 +1227,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__903ec8bf5c75ee86965cb4a2c278ea1e1e98dd095e22060664e8fa764f66256e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredBackupWindow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preferredBackupWindow", value)
 
     @builtins.property
     @jsii.member(jsii_name="preferredMaintenanceWindow")
@@ -1236,7 +1243,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4322d6fabf4d2d1ef485d3e448e48faf3b9968a20e9c0b97b5a07213032c1c30)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preferredMaintenanceWindow", value)
 
     @builtins.property
     @jsii.member(jsii_name="restoreToTime")
@@ -1249,7 +1256,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e0ee86da53d4a8f5b7ebf251632e7ba9588ee4112a830c775ece3433f227e29c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "restoreToTime", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "restoreToTime", value)
 
     @builtins.property
     @jsii.member(jsii_name="restoreType")
@@ -1265,7 +1272,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__43c278d2c39f8d3f098ad2320789939b448b2958965646678cb8dd9f218f8736)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "restoreType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "restoreType", value)
 
     @builtins.property
     @jsii.member(jsii_name="rotateMasterUserPassword")
@@ -1283,7 +1290,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8a962178d061c1e3b6b6e4c04690d1515176ca035477d280a9ddaee831ed19ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotateMasterUserPassword", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rotateMasterUserPassword", value)
 
     @builtins.property
     @jsii.member(jsii_name="serverlessV2ScalingConfiguration")
@@ -1301,7 +1308,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f23cec17e6d5a308bc97faa6c2e987d67b01e77f99c6ad20b6019114adb90e97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serverlessV2ScalingConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serverlessV2ScalingConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="snapshotIdentifier")
@@ -1314,7 +1321,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d9827e5902a31fbb3009632e22e0590a6a453b8ad1f433893f790e68c5abe9b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snapshotIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceDbClusterIdentifier")
@@ -1330,7 +1337,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__38eacfeb3f4a2ffe2d0fb22ed93a5652cb018e7fed96bb166e4d29176228a8d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceDbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageEncrypted")
@@ -1348,7 +1355,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__efd881b325008feb4534c0ce6da0a09c3cfeabe00ff36a389bdfadd597bcf73f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageEncrypted", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageEncrypted", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageType")
@@ -1361,7 +1368,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b645f0dac4407e66855e7b0c6023c5c4199e9306e017bdd5ba6514a9ae5dab3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageType", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1377,7 +1384,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__467cb576faa79b69ba7e6b18a96e5bbf103b0f9e2e68b9ca5c5b6baa2c3116c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="useLatestRestorableTime")
@@ -1395,7 +1402,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__313b92cc69cbcbc01b1b3c76867167207277927cc984c7fd4f92ea48c138bbda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "useLatestRestorableTime", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "useLatestRestorableTime", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSecurityGroupIds")
@@ -1411,7 +1418,7 @@ class CfnDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__461b181007a5279b076f42e5ac0a26f146fd3b28454ba100be1045b0614f2f9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSecurityGroupIds", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_docdb.CfnDBCluster.ServerlessV2ScalingConfigurationProperty",
@@ -1606,6 +1613,7 @@ class CfnDBClusterParameterGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1645,7 +1653,7 @@ class CfnDBClusterParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5e27b4f0b3d2455b83e7b94d42a23c0c8ff2300e3ab6fba5c69d15cd9464adb7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="family")
@@ -1658,7 +1666,7 @@ class CfnDBClusterParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6bdc5b6562ba3c1478a5fee7c979b6215b64e8bb2b58e86475cfde6421ae1272)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "family", value)
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
@@ -1671,7 +1679,7 @@ class CfnDBClusterParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__332a0d384ecea2c65bb972833483a0e813f12d76d753ec68ce55267e1a229804)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "parameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1684,7 +1692,7 @@ class CfnDBClusterParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__702d9cc13fd6cd2a95ea6c1b6615540be0c5afe0086986a3555d3d957840d35b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1700,7 +1708,7 @@ class CfnDBClusterParameterGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e8ee52ae08b545bed27f58e883eee6b47f43f216f34098f0850a8bd9e024e08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -2676,6 +2684,7 @@ class CfnDBInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2741,7 +2750,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__80b91c5185212df44fcdfd50a3fc8af7618b82ddf9b010801f03aa6406893084)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceClass")
@@ -2754,7 +2763,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__029c9f8b16eafbef2fc69d8acedeac66b64c5f54d4181c222b8ccdac9c799cf4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceClass", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbInstanceClass", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoMinorVersionUpgrade")
@@ -2772,7 +2781,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3cdf0adea06b9d8f482fb95fb33660d1499428dfa0cb77f3f07f118054cbc3a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoMinorVersionUpgrade", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoMinorVersionUpgrade", value)
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZone")
@@ -2785,7 +2794,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2c97a8d0db9d5aeae5aae1b2716ddc77dc210b628e704c9fb560f2e5f9f354e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZone", value)
 
     @builtins.property
     @jsii.member(jsii_name="caCertificateIdentifier")
@@ -2798,7 +2807,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__193d56c7c2508ccdc280335b753057896277d8d04a5dd9d87dfc060e0516e242)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "caCertificateIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "caCertificateIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="certificateRotationRestart")
@@ -2816,7 +2825,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a44cc71e239a50c2ba8e26c4a201166550e3b3b8d3dded99bc99c4e47f79b365)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateRotationRestart", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificateRotationRestart", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceIdentifier")
@@ -2832,7 +2841,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4b45ff85dbf36b2c15a8a4b5e7ad1f0c9f9eb5577435cebd788a2606cbec6255)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbInstanceIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="enablePerformanceInsights")
@@ -2850,7 +2859,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f9998ef6aa09a50a2905d1d918bc4bb893f66e90b164daccd2292eab9af3d6f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enablePerformanceInsights", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enablePerformanceInsights", value)
 
     @builtins.property
     @jsii.member(jsii_name="preferredMaintenanceWindow")
@@ -2866,7 +2875,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1261d32bc82ad0c231ccfd241bb82acfe898707f947c36ba29797ffe6917fbd9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferredMaintenanceWindow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preferredMaintenanceWindow", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2882,7 +2891,7 @@ class CfnDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__112d9161916b1c4ecabe22178d1e136ce15dc818a63e39711e0c01b8a28b6e7a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -3241,6 +3250,7 @@ class CfnDBSubnetGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3278,7 +3288,7 @@ class CfnDBSubnetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__850c5dced7314d3602ee9d080b8694a65dc2f4ffef020d657e4fa4fc2bf55025)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSubnetGroupDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSubnetGroupDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnetIds")
@@ -3291,7 +3301,7 @@ class CfnDBSubnetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__75553da48e99dee7463a4e6973f58dfe6c143be1e0a737b8d27cab2738646257)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnetIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbSubnetGroupName")
@@ -3307,7 +3317,7 @@ class CfnDBSubnetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a461937c4bb0e819298839e96415d65e9462c00459cccb23d6147d4118f1cb74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbSubnetGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbSubnetGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3323,7 +3333,7 @@ class CfnDBSubnetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2aa03e7aefbfc736e2e8595ebfa58a0fc955af7dd797db1d97f4d1a21cd9b635)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -3590,6 +3600,7 @@ class CfnEventSubscription(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3623,7 +3634,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cbdf559b24615e45ddf5c69cfd3641d78184cbadf589ae301537d02c4bdfbb7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snsTopicArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snsTopicArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -3641,7 +3652,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0516058187ff1e96246f1be785eb949dc458861e2393e993f4c6296a87f1163f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="eventCategories")
@@ -3657,7 +3668,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d7d499d907468c66313404015876f161704901bbddf0fb60ec8014aa0ff32682)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventCategories", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventCategories", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceIds")
@@ -3670,7 +3681,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__408c6e4d5c088c34a6428d6bc56a0cd33158f2b01c56372df307cb6d9bd2c844)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceType")
@@ -3683,7 +3694,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d09ba07ebf0ad0a63b9515db6dee97880048766ce1683054a3c9d864abe3a39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceType", value)
 
     @builtins.property
     @jsii.member(jsii_name="subscriptionName")
@@ -3696,7 +3707,7 @@ class CfnEventSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d7bc2e62bb3b2b35f63e5b6a8a20e68b3082eb38625b5f563734f9659b0f148)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscriptionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subscriptionName", value)
 
 
 @jsii.data_type(
@@ -3990,6 +4001,7 @@ class CfnGlobalCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4047,7 +4059,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e978ec084e88a81db2bfe156d4473f1e27d7e100a75adbb10e281ff2e0dab318)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtection")
@@ -4065,7 +4077,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__589e1e5900b3b7b0f06c428ba5efdc979e22bd05a01bc945d8aa11ad6b69fa8b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="engine")
@@ -4078,7 +4090,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee8718c4aef1bfd83769edbf2b5165dc05e4707fa2e92b11aeeb92e4105031cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engine", value)
 
     @builtins.property
     @jsii.member(jsii_name="engineVersion")
@@ -4091,7 +4103,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__197f04446dd554664658967e2bb1634a5e5601cff1dc56926363b822fd93cc61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "engineVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceDbClusterIdentifier")
@@ -4107,7 +4119,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d103a16257df077bc8f587f0d7f9c52a16d7b92af9509674f8278d2bcb511587)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceDbClusterIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageEncrypted")
@@ -4125,7 +4137,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fc2492e1ca12e1767074fdf562b81529f58a28f001be82a16025c39fbe44705)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageEncrypted", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageEncrypted", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4141,7 +4153,7 @@ class CfnGlobalCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6965130ecd3995c44f26142c677181a2bfbed87fdf11b570728e814366cf7cf5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -5549,6 +5561,7 @@ class DatabaseSecret(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -6352,6 +6365,7 @@ class ClusterParameterGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -6614,18 +6628,21 @@ class DatabaseCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_NUM_INSTANCES")
+    @builtins.classmethod
     def DEFAULT_NUM_INSTANCES(cls) -> jsii.Number:
         '''The default number of instances in the DocDB cluster if none are specified.'''
         return typing.cast(jsii.Number, jsii.sget(cls, "DEFAULT_NUM_INSTANCES"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_PORT")
+    @builtins.classmethod
     def DEFAULT_PORT(cls) -> jsii.Number:
         '''The default port Document DB listens on.'''
         return typing.cast(jsii.Number, jsii.sget(cls, "DEFAULT_PORT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -6816,6 +6833,7 @@ class DatabaseInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

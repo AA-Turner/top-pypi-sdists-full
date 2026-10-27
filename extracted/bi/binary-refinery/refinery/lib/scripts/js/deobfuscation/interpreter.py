@@ -10,33 +10,64 @@ import re
 import sys
 import urllib.parse
 
-from decimal import Decimal
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Callable, Mapping, TypeAlias
+    from typing import Callable
 
-    from refinery.lib.scripts.js.analysis.effects import EffectModel
-    from refinery.lib.scripts.js.model import JsArrowFunctionExpression as _Arrow
-    from refinery.lib.scripts.js.model import JsFunctionDeclaration as _FuncDecl
-    from refinery.lib.scripts.js.model import JsFunctionExpression as _FuncExpr
-
-    Value: TypeAlias = str | int | float | bool | list | dict | _FuncDecl | _FuncExpr | _Arrow | None
-    _FuncNode: TypeAlias = _FuncDecl | _FuncExpr | _Arrow
+    from refinery.lib.scripts.js.analysis.effects import AnchoredTrust, EffectModel
+    from refinery.lib.scripts.js.analysis.tampering import TamperingModel
+    from refinery.lib.scripts.js.deobfuscation.helpers import Value
 
 from refinery.lib.scripts import Node
+from refinery.lib.scripts.js.analysis.environment import HostEnvironment, typeof_of_global
+from refinery.lib.scripts.js.analysis.model import (
+    Binding,
+    BindingKind,
+    SemanticModel,
+    call_supplies_an_arguments_object,
+    statement_list_holding,
+)
 from refinery.lib.scripts.js.deobfuscation.helpers import (
+    GLOBAL_VALUE_NAMES,
+    JS_HOLE,
     JS_NULL,
+    PROTO_KEY,
     RELATIONAL_OPS,
+    SEQUENCE_DATA_PROPERTIES,
+    UNARY_OPS,
+    JsBuffer,
+    MemberRead,
+    _array_element_string,
     _js_pow,
+    _to_int,
     _to_int32,
     _to_uint32,
+    canonical_array_index,
+    code_points,
+    coerces_uninterceptably,
+    coerces_uninterceptably_from_written_chain,
+    converts_uninterceptably,
     eval_binary_op,
-    js_parse_int,
+    js_typeof,
+    name_is_unbound,
+    names_global_value,
+    own_property_keys,
+    property_absent_from_written_chain,
+    property_is_inherited_from_an_intact_chain,
+    property_is_inherited_from_an_unwritten_chain,
+    property_provably_absent,
+    read_data_property,
+    spell_astral_characters,
+    to_boolean,
+    to_number,
+    to_string,
+    utf16_code_units,
     walk_scope,
 )
 from refinery.lib.scripts.js.model import (
+    FUNCTION_NODES,
+    LOGICAL_ASSIGNMENT_OPERATORS,
     JsArrayExpression,
     JsArrowFunctionExpression,
     JsAssignmentExpression,
@@ -48,12 +79,14 @@ from refinery.lib.scripts.js.model import (
     JsConditionalExpression,
     JsContinueStatement,
     JsDoWhileStatement,
+    JsEmptyStatement,
     JsExpressionStatement,
     JsForInStatement,
     JsForOfStatement,
     JsForStatement,
     JsFunctionDeclaration,
     JsFunctionExpression,
+    JsFunctionNode,
     JsIdentifier,
     JsIfStatement,
     JsLogicalExpression,
@@ -78,10 +111,20 @@ from refinery.lib.scripts.js.model import (
     JsVariableDeclarator,
     JsVarKind,
     JsWhileStatement,
+    object_sets_prototype,
+    wraps_return,
 )
+from refinery.lib.scripts.js.numbers import (
+    TRIMMABLE_WHITESPACE,
+    js_parse_float,
+    js_parse_int,
+)
+from refinery.lib.scripts.js.token import ASCII_WHITESPACE
+from refinery.lib.scripts.js.utf16 import to_code_units
 
 MAX_ITERATIONS = 100_000
 MAX_STRING_LEN = 1_000_000
+MAX_ARRAY_LEN = 1_000_000
 _MAX_RECURSION = 10
 
 
@@ -101,6 +144,21 @@ class _ReturnSignal(Exception):
 
 class _BreakSignal(Exception):
     pass
+
+
+class JsArguments:
+    """
+    The `arguments` object of the call being interpreted: the argument values that call was made
+    with, held read-only. Deliberately not a `list` subclass — nothing that dispatches on a list
+    may answer for it, no builtin registry entry exists for the type, and the object this models
+    exposes only `length` and the indexed elements. It cannot escape into a folded value: a body
+    whose `arguments` reads are not all element-wise never passes the preflight that admits one,
+    so no bare `arguments` ever reaches the value domain.
+    """
+    __slots__ = ('values',)
+
+    def __init__(self, values: list[Value]):
+        self.values = values
 
 
 class _ContinueSignal(Exception):
@@ -134,68 +192,6 @@ class _ReturnIrreducible(Exception):
         self.node = node
 
 
-class JsBuffer(list):
-    """
-    Thin wrapper around `list` to distinguish a Node.js Buffer (byte array) from a plain JS Array
-    in the interpreter's type-based method dispatch.
-    """
-    pass
-
-
-def _contains_jsbuffer(value: Value) -> bool:
-    """
-    Recursively determine whether *value* is, or contains, a `JsBuffer`. A Buffer (even nested
-    inside an array or object) must never be emitted as a plain array literal, which would silently
-    change its type and method dispatch (e.g. `.toString('hex')` would no longer work).
-    """
-    if isinstance(value, JsBuffer):
-        return True
-    if isinstance(value, list):
-        return any(_contains_jsbuffer(v) for v in value)
-    if isinstance(value, dict):
-        return any(_contains_jsbuffer(v) for v in value.values())
-    return False
-
-
-def _deep_copy_value(value):
-    if isinstance(value, list):
-        return type(value)(_deep_copy_value(item) for item in value)
-    if isinstance(value, dict):
-        return {k: _deep_copy_value(v) for k, v in value.items()}
-    return value
-
-
-def _truthy(value: Value) -> bool:
-    """
-    Return the JavaScript truthiness of a runtime value. This is the runtime counterpart of the
-    AST-node `refinery.lib.scripts.js.deobfuscation.helpers.is_truthy`; the two must agree on which
-    values are falsy (`undefined`, `null`, `0`, `NaN`, `''`) so that interpreted and
-    statically-folded conditionals stay consistent.
-    """
-    if value is None or value is JS_NULL:
-        return False
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return value != 0 and value == value
-    if isinstance(value, str):
-        return len(value) > 0
-    if isinstance(value, list):
-        return True
-    if isinstance(value, dict):
-        return True
-    if isinstance(value, (JsFunctionDeclaration, JsFunctionExpression, JsArrowFunctionExpression)):
-        return True
-    return False
-
-
-def _to_int(value: Value) -> int:
-    n = to_number(value)
-    if n != n or math.isinf(n):
-        return 0
-    return int(n)
-
-
 def _to_index(value: Value) -> int:
     n = to_number(value)
     if n != n:
@@ -212,7 +208,7 @@ def _to_array_length(value: Value) -> int:
     Coerce a value to a valid array length. Per ECMA-262 ArraySetLength, `ToUint32(v)` must equal
     `ToNumber(v)`; otherwise the length is invalid and a JavaScript `RangeError` is signalled. This
     rejects NaN, +/-Infinity, negative, and non-integer lengths, each of which a real engine
-    (verified against Node and Chrome) reports as `Invalid array length`.
+    reports as `Invalid array length`.
     """
     number_len = to_number(value)
     length = _to_uint32(number_len)
@@ -221,120 +217,24 @@ def _to_array_length(value: Value) -> int:
     return length
 
 
-def to_number(value: Value) -> int | float:
-    if isinstance(value, bool):
-        return 1 if value else 0
-    if isinstance(value, (int, float)):
-        return value
-    if isinstance(value, str):
-        s = value.strip()
-        if not s:
-            return 0
-        if '_' in s:
-            return float('nan')
-        if s[0] in '+-' and len(s) > 2 and s[1] == '0' and s[2] in 'xXoObB':
-            return float('nan')
-        try:
-            return int(s, 0)
-        except ValueError:
-            pass
-        try:
-            return float(s)
-        except ValueError:
-            return float('nan')
-    if value is JS_NULL:
-        return 0
-    if isinstance(value, list):
-        return to_number(to_string(value))
-    return float('nan')
-
-
-def _js_float_to_string(value: float) -> str:
-    """
-    Format a finite, non-zero float as JavaScript's `Number.prototype.toString` (the ECMA-262
-    Number::toString algorithm) would: this controls the decimal/exponential cutoff (exponential at
-    magnitudes >= 1e21 or < 1e-6) and the exponent format (`1e-7`, not Python's `1e-07`).
-    """
-    neg = value < 0
-    d = Decimal(repr(abs(value)))
-    s = ''.join(str(digit) for digit in d.as_tuple().digits).rstrip('0') or '0'
-    k = len(s)
-    n = d.adjusted() + 1
-    if k <= n <= 21:
-        result = s + '0' * (n - k)
-    elif 0 < n <= 21:
-        result = s[:n] + '.' + s[n:]
-    elif -6 < n <= 0:
-        result = '0.' + '0' * -n + s
-    else:
-        mantissa = s if k == 1 else s[0] + '.' + s[1:]
-        exponent = n - 1
-        result = F"{mantissa}e{'+' if exponent >= 0 else '-'}{abs(exponent)}"
-    return '-' + result if neg else result
-
-
-def to_string(value: Value) -> str:
-    if isinstance(value, str):
-        return value
-    if value is None:
-        return 'undefined'
-    if value is JS_NULL:
-        return 'null'
-    if isinstance(value, bool):
-        return 'true' if value else 'false'
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, float):
-        if value != value:
-            return 'NaN'
-        if value == float('inf'):
-            return 'Infinity'
-        if value == float('-inf'):
-            return '-Infinity'
-        if value == 0:
-            return '0'
-        if value == int(value) and abs(value) < 1e21:
-            return str(int(value))
-        return _js_float_to_string(value)
-    if isinstance(value, list):
-        return ','.join(_array_element_string(v) for v in value)
-    return '[object Object]'
-
-
-def _array_element_string(value: Value) -> str:
-    """
-    Stringify an array element for `Array.prototype.toString` / `join`. JavaScript renders `null` and
-    `undefined` elements as the empty string (e.g. `[1, null, 2].toString()` is `'1,,2'`), unlike a
-    top-level `String(null)` which is `'null'`.
-    """
-    if value is None or value is JS_NULL:
-        return ''
-    return to_string(value)
+#: The value-domain types that model a JavaScript object: an array, a plain object, and a function.
+#: They share the two behaviours the primitives do not — a ToPrimitive that runs a (here
+#: interceptable) conversion, and an equality by reference rather than by value. `_to_primitive` and
+#: `_loose_equal` name the set once here rather than each enumerating it and drifting apart.
+_OBJECT_VALUE_TYPES = (
+    list, dict, JsFunctionDeclaration, JsFunctionExpression, JsArrowFunctionExpression,
+)
 
 
 def _to_primitive(value: Value) -> Value:
     """
     Replicate the ECMA-262 ToPrimitive abstract operation with the default hint, as used by `+`.
-    Arrays and plain objects have no useful `valueOf`, so they coerce to their string form; all other
-    values are already primitive.
+    Arrays, plain objects and functions have no useful `valueOf`, so they coerce to their string
+    form; all other values are already primitive.
     """
-    if isinstance(value, (list, dict)):
+    if isinstance(value, _OBJECT_VALUE_TYPES):
         return to_string(value)
     return value
-
-
-def _js_typeof(value: Value) -> str:
-    if value is None:
-        return 'undefined'
-    if isinstance(value, bool):
-        return 'boolean'
-    if isinstance(value, (int, float)):
-        return 'number'
-    if isinstance(value, str):
-        return 'string'
-    if isinstance(value, (JsFunctionDeclaration, JsFunctionExpression, JsArrowFunctionExpression)):
-        return 'function'
-    return 'object'
 
 
 def js_strict_equal(a: Value, b: Value) -> bool:
@@ -358,16 +258,30 @@ def js_strict_equal(a: Value, b: Value) -> bool:
 BUILTIN_REGISTRY: dict[tuple, Callable] = {}
 
 
+def _in_code_units(fn: Callable) -> Callable:
+    """
+    Wrap a builtin so a bare string it produces is held as UTF-16 code units before it enters the
+    value domain, so a decode that introduces an astral code point yields the surrogate pair a
+    literal already is. Every reader of the registry — the interpreter and the simplifier — gets this
+    without repeating the rule, and a builtin added later is covered by being registered. It reaches
+    only a string the builtin returns directly: a string nested in a returned list or dict is the
+    producer's own to normalize (as `_json_to_value` does its keys and values). It is idempotent,
+    because `to_code_units` leaves a string already in code units untouched, and a no-op on any
+    non-string result.
+    """
+    def in_code_units(*args):
+        result = fn(*args)
+        if isinstance(result, str):
+            return to_code_units(result)
+        return result
+    return in_code_units
+
+
 def _register(key: tuple):
     def _decorator(fn: Callable):
-        BUILTIN_REGISTRY[key] = fn
+        BUILTIN_REGISTRY[key] = _in_code_units(fn)
         return fn
     return _decorator
-
-
-@_register((str, 'length'))
-def _str_length(s: str, args: list[Value]) -> Value:
-    return len(s)
 
 
 @_register((str, 'charAt'))
@@ -479,7 +393,7 @@ def _str_split(s: str, args: list[Value]) -> Value:
         return [s]
     sep = to_string(args[0])
     if not sep:
-        result = list(s)
+        result = utf16_code_units(s)
     else:
         result = s.split(sep)
     if len(args) > 1 and args[1] is not None:
@@ -523,6 +437,8 @@ def _expand_replacement(replacement: str, s: str, start: int, matched: str) -> s
 def _str_replace(s: str, args: list[Value]) -> Value:
     if len(args) < 2:
         return s
+    if isinstance(args[1], FUNCTION_NODES):
+        raise InterpreterError
     search = to_string(args[0])
     replacement = to_string(args[1])
     index = s.find(search)
@@ -536,6 +452,8 @@ def _str_replace(s: str, args: list[Value]) -> Value:
 def _str_replace_all(s: str, args: list[Value]) -> Value:
     if len(args) < 2:
         return s
+    if isinstance(args[1], FUNCTION_NODES):
+        raise InterpreterError
     search = to_string(args[0])
     replacement = to_string(args[1])
     if not search:
@@ -555,27 +473,27 @@ def _str_replace_all(s: str, args: list[Value]) -> Value:
 
 @_register((str, 'toLowerCase'))
 def _str_to_lower(s: str, args: list[Value]) -> Value:
-    return s.lower()
+    return spell_astral_characters(s).lower()
 
 
 @_register((str, 'toUpperCase'))
 def _str_to_upper(s: str, args: list[Value]) -> Value:
-    return s.upper()
+    return spell_astral_characters(s).upper()
 
 
 @_register((str, 'trim'))
 def _str_trim(s: str, args: list[Value]) -> Value:
-    return s.strip()
+    return s.strip(TRIMMABLE_WHITESPACE)
 
 
 @_register((str, 'trimStart'))
 def _str_trim_start(s: str, args: list[Value]) -> Value:
-    return s.lstrip()
+    return s.lstrip(TRIMMABLE_WHITESPACE)
 
 
 @_register((str, 'trimEnd'))
 def _str_trim_end(s: str, args: list[Value]) -> Value:
-    return s.rstrip()
+    return s.rstrip(TRIMMABLE_WHITESPACE)
 
 
 @_register((str, 'repeat'))
@@ -623,17 +541,22 @@ def _string_from_char_code(args: list[Value]) -> Value:
     return ''.join(chr(_to_int(a) & 0xFFFF) for a in args)
 
 
-def _json_nulls_to_jsnull(value):
+def _json_to_value(value):
     """
-    Replace every decoded JSON `null` (Python `None`) with the `JS_NULL` sentinel, recursively, so
-    parsed JSON uses the interpreter's `null` representation rather than `undefined`.
+    The interpreter's value for a node `json.loads` decoded: a JSON `null` (Python `None`) becomes
+    the `JS_NULL` sentinel rather than `undefined`, and every string — an object key as much as a
+    value — becomes the UTF-16 code units the value domain counts, so an astral character
+    `json.loads` read as one code point is the surrogate pair a literal already is. It recurses, so
+    a string nested in an object or array is reached too.
     """
     if value is None:
         return JS_NULL
+    if isinstance(value, str):
+        return to_code_units(value)
     if isinstance(value, list):
-        return [_json_nulls_to_jsnull(v) for v in value]
+        return [_json_to_value(v) for v in value]
     if isinstance(value, dict):
-        return {k: _json_nulls_to_jsnull(v) for k, v in value.items()}
+        return {to_code_units(k): _json_to_value(v) for k, v in value.items()}
     return value
 
 
@@ -649,12 +572,7 @@ def _json_parse(args: list[Value]) -> Value:
         parsed = json.loads(s, parse_int=float, parse_constant=_reject_constant)
     except Exception:
         raise InterpreterError
-    return _json_nulls_to_jsnull(parsed)
-
-
-@_register((list, 'length'))
-def _arr_length(arr: list, args: list[Value]) -> Value:
-    return len(arr)
+    return _json_to_value(parsed)
 
 
 @_register((list, 'push'))
@@ -666,14 +584,14 @@ def _arr_push(arr: list, args: list[Value]) -> Value:
 @_register((list, 'pop'))
 def _arr_pop(arr: list, args: list[Value]) -> Value:
     if arr:
-        return arr.pop()
+        return _element_read(arr.pop())
     return None
 
 
 @_register((list, 'shift'))
 def _arr_shift(arr: list, args: list[Value]) -> Value:
     if arr:
-        return arr.pop(0)
+        return _element_read(arr.pop(0))
     return None
 
 
@@ -781,11 +699,35 @@ def _arr_index_of(arr: list, args: list[Value]) -> Value:
     return -1
 
 
+def _element_read(value: Value) -> Value:
+    """
+    The value an element-reading array method answers for *value*: a hole reads as `undefined`,
+    the same value the array's own iterator yields for it, and every other element is itself.
+    """
+    return None if value is JS_HOLE else value
+
+
+def _same_value_zero(a: Value, b: Value) -> bool:
+    """
+    Compare two interpreter values with SameValueZero, the equality `includes` uses: strict
+    equality, except that two NaNs are equal — and a hole reads as the `undefined` the
+    iteration that visits it would yield.
+    """
+    a = _element_read(a)
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        if a != a and b != b:
+            return True
+    return js_strict_equal(a, b)
+
+
 @_register((list, 'includes'))
 def _arr_includes(arr: list, args: list[Value]) -> Value:
     if not args:
         return False
-    return any(js_strict_equal(item, args[0]) for item in arr)
+    start = _to_index(args[1]) if len(args) > 1 else 0
+    if start < 0:
+        start = max(0, len(arr) + start)
+    return any(_same_value_zero(item, args[0]) for item in arr[start:])
 
 
 @_register((list, 'flat'))
@@ -795,6 +737,10 @@ def _arr_flat(arr: list, args: list[Value]) -> Value:
     def _flatten(lst: list, d: int) -> list:
         result: list = []
         for item in lst:
+            # Flattening asks whether the array has a property at each index, at every level,
+            # so a hole is skipped there rather than read or carried into the result.
+            if item is JS_HOLE:
+                continue
             if isinstance(item, list) and d > 0:
                 result.extend(_flatten(item, d - 1))
             else:
@@ -809,7 +755,7 @@ def _arr_at(arr: list, args: list[Value]) -> Value:
     if idx < 0:
         idx += len(arr)
     if 0 <= idx < len(arr):
-        return arr[idx]
+        return _element_read(arr[idx])
     return None
 
 
@@ -960,11 +906,21 @@ def _math_log2(args: list[Value]) -> Value:
 
 
 @_register((None, 'parseInt'))
+@_register(('Number', 'parseInt'))
 def _global_parse_int(args: list[Value]) -> Value:
+    """
+    `Number.parseInt` is registered to the same function rather than to a copy of it, because the
+    specification says the two property values *are* the same function object; an obfuscator
+    reaching the global through its `Number` spelling is reaching this.
+
+    The radix is read with ToInt32 rather than by truncation, because that is the coercion the
+    specification names and the two disagree outside the int32 range: `parseInt('10', 2 ** 32 + 16)`
+    is `16`, the radix the wrap lands on, and not the `NaN` an out-of-range value would answer.
+    """
     if not args:
         return float('nan')
     s = to_string(args[0])
-    radix = _to_int(args[1]) if len(args) > 1 else 10
+    radix = _to_int32(to_number(args[1])) if len(args) > 1 else 0
     result = js_parse_int(s, radix)
     if result is None:
         return float('nan')
@@ -972,33 +928,11 @@ def _global_parse_int(args: list[Value]) -> Value:
 
 
 @_register((None, 'parseFloat'))
+@_register(('Number', 'parseFloat'))
 def _global_parse_float(args: list[Value]) -> Value:
     if not args:
         return float('nan')
-    s = to_string(args[0]).strip()
-    if not s:
-        return float('nan')
-    digits: list[str] = []
-    i = 0
-    if i < len(s) and s[i] in '+-':
-        digits.append(s[i])
-        i += 1
-    has_dot = False
-    while i < len(s):
-        if s[i].isdigit():
-            digits.append(s[i])
-        elif s[i] == '.' and not has_dot:
-            digits.append(s[i])
-            has_dot = True
-        else:
-            break
-        i += 1
-    if not digits or digits == ['+'] or digits == ['-']:
-        return float('nan')
-    try:
-        return float(''.join(digits))
-    except ValueError:
-        return float('nan')
+    return js_parse_float(to_string(args[0]))
 
 
 @_register((None, 'isNaN'))
@@ -1029,11 +963,22 @@ def _global_string(args: list[Value]) -> Value:
 
 @_register((None, 'atob'))
 def _global_atob(args: list[Value]) -> Value:
+    """
+    Apply the WHATWG forgiving-base64 decode, which is what `atob` answers with. Padding is read
+    rather than supplied: the decode takes off one or two `=` only from an argument whose length is
+    already a multiple of four, and every `=` that survives that is a character outside the alphabet
+    and refuses the whole argument. Completing the group instead is how `atob('QQ=')` answered `'A'`
+    where the engine throws, so a call the program never returns from folded to a value.
+    """
     if not args:
         raise InterpreterError
     s = to_string(args[0])
     try:
-        cleaned = _RE_WHITESPACE.sub('', s)
+        cleaned = _RE_ASCII_WHITESPACE.sub('', s)
+        if len(cleaned) % 4 == 0:
+            cleaned = cleaned[:-2] if cleaned.endswith('==') else cleaned.removesuffix('=')
+        if len(cleaned) % 4 == 1 or '=' in cleaned:
+            raise InterpreterError
         padded = cleaned + '=' * (-len(cleaned) % 4)
         return base64.b64decode(padded, validate=True).decode('latin-1')
     except Exception:
@@ -1052,8 +997,23 @@ def _global_btoa(args: list[Value]) -> Value:
 
 
 _UNESCAPE_PATTERN = re.compile(r'%u([0-9A-Fa-f]{4})|%([0-9A-Fa-f]{2})')
-_RE_WHITESPACE = re.compile(r'\s')
+_RE_ASCII_WHITESPACE = re.compile(F"[{re.escape(ASCII_WHITESPACE)}]")
+"""
+The characters forgiving-base64 decoding removes before it reads an `atob` argument. The set is
+`refinery.lib.scripts.js.token.ASCII_WHITESPACE` and is narrower than Python's `\\s`, which also
+takes the vertical tab and `U+001C` through `U+001F`, and narrower than
+`refinery.lib.scripts.js.numbers.TRIMMABLE_WHITESPACE`, which takes the space separators and the
+byte order mark. Every character outside it is a character `atob` throws on, so reading it as
+padding deletes a throw.
+"""
 _RE_NON_BASE64 = re.compile(r'[^A-Za-z0-9+/=]')
+_RE_URI_ESCAPE = re.compile('%([0-9A-Fa-f]{2})')
+"""
+One escape of a URI: a percent sign and the two hexadecimal digits spelling one octet. A decode
+throws a `URIError` for a percent sign anything else follows, so a sign this does not match is not
+a character it passes through: `decodeURIComponent('100%')` throws where `urllib.parse.unquote`
+answers `'100%'`.
+"""
 
 
 @_register((None, 'unescape'))
@@ -1064,25 +1024,66 @@ def _global_unescape(args: list[Value]) -> Value:
     return _UNESCAPE_PATTERN.sub(lambda m: chr(int(m.group(1) or m.group(2), 16)), s)
 
 
+def _uri_escape_octet(s: str, index: int) -> int:
+    match = _RE_URI_ESCAPE.match(s, index)
+    if match is None:
+        raise InterpreterError
+    return int(match.group(1), 16)
+
+
+def _utf8_sequence_length(lead: int) -> int:
+    if 0xC0 <= lead < 0xE0:
+        return 2
+    if 0xE0 <= lead < 0xF0:
+        return 3
+    if 0xF0 <= lead < 0xF8:
+        return 4
+    raise InterpreterError
+
+
 @_register((None, 'decodeURIComponent'))
 def _global_decode_uri_component(args: list[Value]) -> Value:
+    """
+    Apply the `Decode` operation of the specification over the code units of the argument, with no
+    escape preserved. A character no escape introduced is copied straight into the answer, a
+    surrogate the argument itself spells included; an escaped octet outside ASCII must open a run
+    of escaped octets that is strict UTF-8 — an overlong form, an encoded surrogate, or a code
+    point past the last one all throw — and the code point that run encodes comes back as the code
+    units that spell it, so a decoded astral character is the pair a literal holding it would be.
+    """
     if not args:
         raise InterpreterError
     s = to_string(args[0])
-    try:
-        result = urllib.parse.unquote(s, encoding='utf-8', errors='surrogatepass')
-        if any('\uD800' <= c <= '\uDFFF' for c in result):
+    result: list[str] = []
+    index = 0
+    while index < len(s):
+        unit = s[index]
+        if unit != '%':
+            result.append(unit)
+            index += 1
+            continue
+        lead = _uri_escape_octet(s, index)
+        index += 3
+        if lead < 0x80:
+            result.append(chr(lead))
+            continue
+        octets = bytearray([lead])
+        for _ in range(_utf8_sequence_length(lead) - 1):
+            octets.append(_uri_escape_octet(s, index))
+            index += 3
+        try:
+            decoded = octets.decode('utf-8')
+        except UnicodeDecodeError:
             raise InterpreterError
-        return result
-    except Exception:
-        raise InterpreterError
+        result.append(to_code_units(decoded))
+    return ''.join(result)
 
 
 @_register((None, 'encodeURIComponent'))
 def _global_encode_uri_component(args: list[Value]) -> Value:
     if not args:
         raise InterpreterError
-    s = to_string(args[0])
+    s = spell_astral_characters(to_string(args[0]))
     try:
         return urllib.parse.quote(s, safe="!'()*~-._")
     except Exception:
@@ -1091,22 +1092,29 @@ def _global_encode_uri_component(args: list[Value]) -> Value:
 
 @_register(('Object', 'keys'))
 def _object_keys(args: list[Value]) -> Value:
-    if args and isinstance(args[0], dict):
-        return list(args[0].keys())
+    if not args:
+        raise InterpreterError
+    obj = args[0]
+    if isinstance(obj, dict):
+        return own_property_keys(obj)
+    if isinstance(obj, list):
+        # An array's own keys are its indices in ascending order, minus the holes: a hole is a
+        # position the array holds no property at, which is what `Object.keys` reports as absent.
+        return [str(i) for i, item in enumerate(obj) if item is not JS_HOLE]
     raise InterpreterError
 
 
 @_register(('Object', 'values'))
 def _object_values(args: list[Value]) -> Value:
     if args and isinstance(args[0], dict):
-        return list(args[0].values())
+        return [args[0][key] for key in own_property_keys(args[0])]
     raise InterpreterError
 
 
 @_register(('Object', 'entries'))
 def _object_entries(args: list[Value]) -> Value:
     if args and isinstance(args[0], dict):
-        return [[k, v] for k, v in args[0].items()]
+        return [[key, args[0][key]] for key in own_property_keys(args[0])]
     raise InterpreterError
 
 
@@ -1115,8 +1123,12 @@ def _array_from(args: list[Value]) -> Value:
     if not args:
         return []
     src = args[0]
-    if isinstance(src, (str, list)):
-        return list(src)
+    if isinstance(src, str):
+        return code_points(src)
+    if isinstance(src, list):
+        # The iteration `Array.from` runs over an array yields a hole as `undefined` rather
+        # than skipping it, so the copy it builds holds an element there.
+        return [_element_read(item) for item in src]
     raise InterpreterError
 
 
@@ -1145,7 +1157,7 @@ def _buffer_from(args: list[Value]) -> Value:
             padded = padded + '=' * (-len(padded) % 4)
             return JsBuffer(base64.b64decode(padded))
         if encoding in ('utf8', 'utf-8'):
-            return JsBuffer(data.encode('utf-8'))
+            return JsBuffer(spell_astral_characters(data).encode('utf-8'))
         if encoding in ('latin1', 'binary'):
             return JsBuffer(data.encode('latin-1'))
         if encoding == 'hex':
@@ -1182,87 +1194,14 @@ def _list_to_string(buf: list, args: list[Value]) -> Value:
 
 STATIC_OBJECTS = frozenset({'Math', 'String', 'Object', 'Array', 'Number', 'JSON', 'Buffer'})
 
-_TYPEOF_FUNCTION_GLOBALS = frozenset({
-    'String',
-    'Number',
-    'Boolean',
-    'Array',
-    'Object',
-    'Function',
-    'Symbol',
-    'BigInt',
-    'Date',
-    'RegExp',
-    'Error',
-    'EvalError',
-    'RangeError',
-    'ReferenceError',
-    'SyntaxError',
-    'TypeError',
-    'URIError',
-    'AggregateError',
-    'Promise',
-    'Map',
-    'Set',
-    'WeakMap',
-    'WeakSet',
-    'WeakRef',
-    'Proxy',
-    'ArrayBuffer',
-    'SharedArrayBuffer',
-    'DataView',
-    'Int8Array',
-    'Uint8Array',
-    'Uint8ClampedArray',
-    'Int16Array',
-    'Uint16Array',
-    'Int32Array',
-    'Uint32Array',
-    'Float32Array',
-    'Float64Array',
-    'BigInt64Array',
-    'BigUint64Array',
-    'Buffer',
-    'parseInt',
-    'parseFloat',
-    'isNaN',
-    'isFinite',
-    'encodeURIComponent',
-    'decodeURIComponent',
-    'encodeURI',
-    'decodeURI',
-    'eval',
-    'escape',
-    'unescape',
-    'btoa',
-    'atob',
-    'setTimeout',
-    'setInterval',
-    'clearTimeout',
-    'clearInterval',
-    'setImmediate',
-    'queueMicrotask',
-})
-
-_TYPEOF_OBJECT_GLOBALS = frozenset({'Math', 'JSON', 'Reflect', 'Atomics', 'globalThis', 'console'})
-
-
-def _global_typeof(name: str) -> str | None:
-    """
-    The `typeof` result for a well-known global *name* — a constructor or built-in function is
-    `'function'`, a namespace object is `'object'`, `NaN`/`Infinity` are `'number'` and `undefined` is
-    `'undefined'` — or `None` when the interpreter does not model *name* and so cannot tell a declared
-    global (whose `typeof` is not `'undefined'`) from a genuinely absent one.
-    """
-    if name in _TYPEOF_FUNCTION_GLOBALS or (None, name) in BUILTIN_REGISTRY:
-        return 'function'
-    if name in _TYPEOF_OBJECT_GLOBALS:
-        return 'object'
-    if name in ('NaN', 'Infinity'):
-        return 'number'
-    if name == 'undefined':
-        return 'undefined'
-    return None
+_COERCING_GLOBALS = frozenset({'String', 'Number'})
+"""
+The global functions whose value *is* the coercion of their argument: `String(x)` is ToString and
+`Number(x)` is ToNumber as callable spellings. They are the one pair the interpreter guards at its
+dispatch, because their argument is exactly the value a program-installed conversion replaces;
+the registry arms that coerce an argument in the course of a larger operation keep the behavior
+they have, which the fold-admission gate outside the interpreter is what stands behind.
+"""
 
 
 def is_runtime_name(name: str) -> bool:
@@ -1272,6 +1211,73 @@ def is_runtime_name(name: str) -> bool:
     `parseInt`, `parseFloat`).
     """
     return name in STATIC_OBJECTS or (None, name) in BUILTIN_REGISTRY
+
+
+def names_runtime_builtin(node: JsIdentifier, model: SemanticModel) -> bool:
+    """
+    Whether *node* names a runtime symbol this interpreter models, read where nothing has bound the
+    name. The spelling alone does not settle it: `catch (parseInt)` and `function o(parseInt)` both
+    give the name a value of their own, and evaluating a call to it as the built-in then computes an
+    answer the program never produces.
+    """
+    return is_runtime_name(node.name) and name_is_unbound(node, model)
+
+
+def _declares_a_function_inside_a_block(
+    func: JsFunctionDeclaration | JsFunctionExpression | JsArrowFunctionExpression,
+) -> bool:
+    """
+    Whether *func*'s body declares a function anywhere other than directly among its own statements
+    - inside a block, a `switch` case, or the clause of an `if` or a loop.
+
+    Which list a declaration stands in is `statement_list_holding`'s answer, so a labelled one is
+    read as standing where its label stands, exactly as the scope model reads it. The walk is the
+    boundary-respecting one, so a function written inside a *nested* function is that function's
+    business and not this one's.
+    """
+    body = func.body
+    if not isinstance(body, JsBlockStatement):
+        return False
+    return any(
+        isinstance(node, JsFunctionDeclaration) and statement_list_holding(node) is not body
+        for node in walk_scope(body)
+    )
+
+
+def _shadows_a_name_in_a_block(
+    func: JsFunctionDeclaration | JsFunctionExpression | JsArrowFunctionExpression,
+    model: SemanticModel,
+) -> bool:
+    """
+    Whether a block of *func*'s body declares a name that the body also uses for another binding:
+    a `let`, `const` or `class` in a block, a loop head or a `switch` clause that shadows a
+    parameter, a name the function declares, or a name declared outside it. This interpreter has
+    one environment per call and none per block, so the value the block puts under the name stays
+    there when the block ends and answers the reads of the other binding. A `catch` parameter is
+    exempt, since `_exec_try` puts back what the name held when its clause ends, and so are two
+    blocks declaring the same name, since each of them writes the name before it reads it.
+    """
+    body = func.body
+    scope = model.function_scope(func)
+    if not isinstance(body, JsBlockStatement) or scope is None:
+        return False
+    in_a_block: set[str] = set()
+    elsewhere: set[str] = set()
+    for node in walk_scope(body):
+        if not isinstance(node, JsIdentifier):
+            continue
+        binding = model.binding_of(node)
+        if binding is None:
+            if not model.is_reference(node):
+                continue
+            binding = model.resolve(node)
+        if binding is not None and binding.kind is BindingKind.CATCH:
+            continue
+        if binding is not None and scope.contains(binding.scope, strict=True):
+            in_a_block.add(node.name)
+        else:
+            elsewhere.add(node.name)
+    return not in_a_block.isdisjoint(elsewhere)
 
 
 class JsInterpreter:
@@ -1284,20 +1290,53 @@ class JsInterpreter:
         self, *,
         max_iterations: int = MAX_ITERATIONS,
         max_string_len: int = MAX_STRING_LEN,
+        max_array_len: int = MAX_ARRAY_LEN,
         max_recursion: int = _MAX_RECURSION,
         effects: EffectModel | None = None,
-        closure: Mapping[str, Value] | None = None,
-        closure_env: Mapping[int, Mapping[str, Value]] | None = None,
-        established: Callable[[_FuncNode], bool] | None = None,
+        model: SemanticModel | None = None,
+        anchor: Node | None = None,
+        tampering: TamperingModel | None = None,
+        established: Callable[[Binding, Node], bool] | None = None,
+        constant: Callable[[Binding], tuple[bool, Value]] | None = None,
+        entered: set[JsFunctionNode] | None = None,
+        constants: dict[Binding, tuple[bool, Value]] | None = None,
         depth: int = 0,
     ):
         self.max_iterations = max_iterations
         self.max_string_len = max_string_len
+        self.max_array_len = max_array_len
         self.max_recursion = max_recursion
         self._effects = effects
-        self._closure: Mapping[str, Value] = closure or {}
-        self._closure_env: Mapping[int, Mapping[str, Value]] = closure_env or {}
+        self._model = model if model is not None else effects and effects.model
+        self._anchor = anchor
+        self._tampering = tampering
+        """
+        The scope authority, held separately from *effects*. Whether a name still reaches the host is a
+        question about bindings alone, so a caller that has only the semantic model — reflection builds
+        one and would pay for an effect model it never consults — can answer it by passing *model*.
+        """
         self._established = established
+        self._constant = constant
+        self._entered: set[JsFunctionNode] = set() if entered is None else entered
+        self._constants: dict[Binding, tuple[bool, Value]] = {} if constants is None else constants
+        self._trust: AnchoredTrust | None = None
+        """
+        The trust questions at the anchor, which ask the tampering oracle once: the anchor and the
+        tree it was pinned over are fixed for this interpreter's lifetime. Without an anchor or an
+        oracle they are asked of the whole program, and without an effect model not at all.
+        """
+        if tampering is not None and anchor is not None:
+            self._trust = tampering.trust_at(anchor)
+        elif effects is not None:
+            self._trust = effects.program_trust()
+        self._intact_callees: dict[JsCallExpression, bool] = {}
+        self._host_object_names: dict[JsIdentifier, bool] = {}
+        self._intact_prototypes: dict[type, bool] = {}
+        """
+        Remembered answers to the trust questions, keyed by the node or type each was asked
+        about. The tree and the pinned models are fixed for this interpreter's lifetime, so a
+        repeated question has the one answer.
+        """
         self._env: dict[str, Value] = {}
         self._iterations = 0
         self._depth = depth
@@ -1307,6 +1346,33 @@ class JsInterpreter:
         func: JsFunctionDeclaration | JsFunctionExpression | JsArrowFunctionExpression,
         arguments: list[Value],
     ) -> Value:
+        """
+        The value a call to *func* with *arguments* answers, which is the value its body returned
+        only where a call answers that value at all. An `async` function answers a promise and a
+        generator answers a generator object whose body has not run, so `wraps_return` ends the
+        interpretation rather than reporting a value the call never had. `InterpreterError` is what
+        ends it and not `IrreducibleExpression`: the latter hands the caller the body's return
+        expression to splice into the call site, which is the same wrong answer written a second
+        way.
+
+        A body declaring a function anywhere but among its own statements ends it too. This
+        interpreter has one environment per call and none per block, so it holds such a function
+        from the entry of the body, where the language holds it in the block it is written in and,
+        in sloppy code, in the enclosing scope only from the point the declaration runs. A read
+        before that point is the difference, and it is one this answers with the function where a
+        program answers `undefined`. For the same reason a body ends it where one of its blocks
+        declares a name the body also uses for another binding (`_shadows_a_name_in_a_block`).
+
+        The function joins the ones this fold has entered (`_bound_in_an_entered_function`) before
+        any statement of its body runs.
+        """
+        if wraps_return(func):
+            raise InterpreterError
+        if _declares_a_function_inside_a_block(func):
+            raise InterpreterError
+        if self._model is not None and _shadows_a_name_in_a_block(func, self._model):
+            raise InterpreterError
+        self._entered.add(func)
         params = func.params
         param_names: list[str] = []
         for p in params:
@@ -1318,10 +1384,16 @@ class JsInterpreter:
             self._env[name] = arguments[i] if i < len(arguments) else None
         body = func.body
         for name in self._collect_hoisted_var_names(body):
+            if name == 'arguments' and not isinstance(func, JsArrowFunctionExpression):
+                # The call has already bound `arguments` to the argument object before any
+                # statement runs, so an entry holding `undefined` would answer a read with a
+                # value the call never made — including under a `var` that displaces it, where
+                # leaving the name unbound refuses instead.
+                continue
             self._env.setdefault(name, None)
-        for name, value in self._closure.items():
-            if name not in self._env:
-                self._env[name] = _deep_copy_value(value)
+        arguments_object = self._arguments_object(func, arguments)
+        if arguments_object is not None:
+            self._env['arguments'] = arguments_object
         self._iterations = 0
         if isinstance(body, JsBlockStatement):
             try:
@@ -1365,6 +1437,20 @@ class JsInterpreter:
                     if isinstance(decl, JsVariableDeclarator) and isinstance(decl.id, JsIdentifier):
                         names.append(decl.id.name)
         return names
+
+    def _arguments_object(self, func, values: list[Value]) -> JsArguments | None:
+        """
+        The `arguments` object a call to *func* may be given, or `None` where the body may not be
+        handed one. Whether the object a call models from its argument values can stand in for
+        the name is `call_supplies_an_arguments_object`'s question, shared with the fold that
+        asks which names a call supplies. Every failure leaves the name unbound, so the read
+        declines through the `IrreducibleExpression` every unresolved name takes, and a nested
+        function's own `arguments` declines the same way in its own environment.
+        """
+        model = self._model
+        if model is None or not call_supplies_an_arguments_object(model, func):
+            return None
+        return JsArguments(values)
 
     def _exec_statements(self, stmts: list) -> None:
         for stmt in stmts:
@@ -1411,6 +1497,8 @@ class JsInterpreter:
         elif isinstance(stmt, JsFunctionDeclaration):
             if isinstance(stmt.id, JsIdentifier):
                 self._env[stmt.id.name] = stmt
+        elif isinstance(stmt, JsEmptyStatement):
+            return
         else:
             raise InterpreterError
 
@@ -1429,25 +1517,52 @@ class JsInterpreter:
                 self._env[name] = None
 
     def _exec_if(self, node: JsIfStatement) -> None:
-        if _truthy(self._eval(node.test)):
+        if to_boolean(self._eval(node.test)):
             if node.consequent:
                 self._exec_statement(node.consequent)
         elif node.alternate:
             self._exec_statement(node.alternate)
 
     def _exec_switch(self, node: JsSwitchStatement) -> None:
+        """
+        A switch runs the clause whose test the discriminant matches, and where none matches, the
+        default clause. The default is chosen only after every test has been evaluated, so a clause
+        written after it is still asked. Writing the default in the middle of a dispatcher is a way
+        to make the clause order look like the run order when it is not, and reading the default the
+        moment it is reached answers with the wrong branch for every discriminant a later clause
+        would have claimed.
+
+        Once a clause is chosen, execution enters it and falls through the clauses behind it, which
+        is why the run is a walk from the chosen index rather than of the clause alone. Tests behind
+        the match are not evaluated: a match ends the search, and an expression that would throw is
+        never reached.
+
+        A second default clause is an early error, so a switch carrying one is not a program and is
+        refused rather than interpreted as though the first of them governed.
+        """
+        cases = [case for case in node.cases if isinstance(case, JsSwitchCase)]
+        if len(cases) != len(node.cases):
+            raise InterpreterError
+        defaults = [index for index, case in enumerate(cases) if case.test is None]
+        if len(defaults) > 1:
+            raise InterpreterError
         discriminant = self._eval(node.discriminant)
-        matched = False
-        for case in node.cases:
-            if not isinstance(case, JsSwitchCase):
-                raise InterpreterError
-            if not matched:
-                matched = case.test is None or self._strict_equal(discriminant, self._eval(case.test))
-            if matched:
-                try:
-                    self._exec_statements(case.body)
-                except _BreakSignal:
-                    return
+        chosen = None
+        for index, case in enumerate(cases):
+            if case.test is None:
+                continue
+            if self._strict_equal(discriminant, self._eval(case.test)):
+                chosen = index
+                break
+        if chosen is None:
+            if not defaults:
+                return
+            chosen = defaults[0]
+        try:
+            for case in cases[chosen:]:
+                self._exec_statements(case.body)
+        except _BreakSignal:
+            return
 
     def _exec_loop_body(self, body) -> bool:
         if not body:
@@ -1468,7 +1583,7 @@ class JsInterpreter:
                 self._eval(node.init)
         while True:
             self._tick()
-            if node.test and not _truthy(self._eval(node.test)):
+            if node.test and not to_boolean(self._eval(node.test)):
                 break
             if self._exec_loop_body(node.body):
                 break
@@ -1478,7 +1593,7 @@ class JsInterpreter:
     def _exec_while(self, node: JsWhileStatement) -> None:
         while True:
             self._tick()
-            if not _truthy(self._eval(node.test)):
+            if not to_boolean(self._eval(node.test)):
                 break
             if self._exec_loop_body(node.body):
                 break
@@ -1488,19 +1603,37 @@ class JsInterpreter:
             self._tick()
             if self._exec_loop_body(node.body):
                 break
-            if not _truthy(self._eval(node.test)):
+            if not to_boolean(self._eval(node.test)):
                 break
 
     def _exec_for_in(self, node: JsForInStatement) -> None:
+        """
+        Walk the enumerable names of the receiver, which is every name it owns and every enumerable
+        one its prototype chain holds.
+
+        The chain contributes none of its own while the program leaves it alone: measured across
+        sixteen receiver kinds, every name the language installs on a prototype — and every method a
+        class body writes onto one — is non-enumerable. So the own names are the whole answer
+        exactly while the chain is intact, and where it is not, the walk is refused rather than
+        answered a name short. Refusing one walk is what that costs, which is why this asks
+        `read_chain_intact` rather than the arm that overlooks a reflective surface.
+
+        The question asked is about the whole chain rather than about one key, which over-refuses
+        where an own name shadows an added inherited one: `Object.prototype.z = 9` over a receiver
+        holding its own `z` walks `z` once either way. That costs a fold and never an answer.
+        """
         right = self._eval(node.right)
         if right is None or right is JS_NULL:
             return
-        if isinstance(right, dict):
-            keys: list = list(right.keys())
-        elif isinstance(right, list):
-            keys = [str(i) for i in range(len(right))]
-        else:
+        if not isinstance(right, (dict, list)):
             raise InterpreterError
+        if not self._chain_is_intact(type(right)):
+            raise InterpreterError
+        keys: list
+        if isinstance(right, dict):
+            keys = own_property_keys(right)
+        else:
+            keys = [str(i) for i, item in enumerate(right) if item is not JS_HOLE]
         var_name = self._get_loop_var(node.left)
         for key in keys:
             self._tick()
@@ -1509,15 +1642,26 @@ class JsInterpreter:
                 break
 
     def _exec_for_of(self, node: JsForOfStatement) -> None:
+        """
+        Walk the values the receiver's iterator yields, which is the iterator a list's or a
+        string's prototype supplies — so the walk asks the same chain question a for-in walk does
+        before it yields anything: a program that patched `Array.prototype[Symbol.iterator]` makes
+        the real loop answer something other than the elements, and an interpretation that walks
+        them regardless is answering for it.
+        """
         right = self._eval(node.right)
         if right is None or right is JS_NULL:
             _js_throw('TypeError', F'{to_string(right)} is not iterable')
-        if isinstance(right, list):
-            items = right
-        elif isinstance(right, str):
-            items = list(right)
-        else:
+        if not isinstance(right, (list, str)):
             raise InterpreterError
+        if not self._chain_is_intact(type(right)):
+            raise InterpreterError
+        if isinstance(right, list):
+            # An array's iterator yields a hole as `undefined` — it asks whether the array has a
+            # property at the index and takes the value on either branch — so a hole is not a skip.
+            items = [None if item is JS_HOLE else item for item in right]
+        else:
+            items = code_points(right)
         var_name = self._get_loop_var(node.left)
         for item in items:
             self._tick()
@@ -1605,6 +1749,8 @@ class JsInterpreter:
         if expr is None:
             return None
         if isinstance(expr, JsStringLiteral):
+            if not expr.terminated or expr.value is None:
+                raise IrreducibleExpression(expr)
             return expr.value
         if isinstance(expr, JsNumericLiteral):
             return expr.value
@@ -1630,9 +1776,9 @@ class JsInterpreter:
             return self._eval_member(expr)
         if isinstance(expr, JsConditionalExpression):
             test = self._eval(expr.test)
-            return self._eval(expr.consequent) if _truthy(test) else self._eval(expr.alternate)
+            return self._eval(expr.consequent) if to_boolean(test) else self._eval(expr.alternate)
         if isinstance(expr, JsArrayExpression):
-            return [self._eval(e) if e else None for e in expr.elements]
+            return self._eval_array(expr)
         if isinstance(expr, JsSequenceExpression):
             result: Value = None
             for e in expr.expressions:
@@ -1648,51 +1794,174 @@ class JsInterpreter:
             return self._eval(expr.expression)
         raise InterpreterError
 
-    def _resolve_function_node(self, node: JsIdentifier) -> _FuncNode | None:
+    def _resolve_function_node(self, node: JsIdentifier) -> JsFunctionNode | None:
         """
-        The single function *node* names, or `None`. Delegates to `EffectModel.unambiguous_function`: a
-        function declaration or a bare-assignment (`var f; f = function(){}`) resolves, but a name
-        reassigned away from a value it already held stays unresolved. When an *established* predicate was
-        supplied, a resolved function is returned only if it is in place before the call site folding began
-        — a bare-assignment or initializer function reached before its establishing node has run reads a
-        temporal dead zone or a hoisted `undefined` at runtime, so resolving it here would replace that
-        throw with a value. A hoisted function declaration is always established and passes unconditionally.
+        The single function *node* names, or `None`. Delegates to
+        `EffectModel.unambiguous_function`: a function declaration or a bare-assignment
+        (`var f; f = function(){}`) resolves, but a name reassigned away from a value it already
+        held stays unresolved. When an *established* predicate was supplied, a resolved function is
+        returned only if it is in place at the point the predicate is asked for — a bare-assignment
+        or initializer function reached before its establishing node has run reads a temporal dead
+        zone or a hoisted `undefined` at runtime, so resolving it here would replace that throw with
+        a value. A hoisted function declaration is always established and passes unconditionally.
+
+        The point is the call being folded, which every read of the fold runs after, except for a
+        function declared inside a function the fold has entered (`_bound_in_an_entered_function`).
+        That name belongs to a run of the entered function, and the read itself is the one point
+        whose ordering answers for every such run: a helper declared after a `return` is in place
+        wherever it is read, and an arrow whose `const` the run reading it has not reached yet is
+        not. Without the predicate nothing orders such a name, so only a hoisted declaration
+        resolves.
         """
         effects = self._effects
         if effects is None:
             return None
-        func = effects.unambiguous_function(effects.model.resolve(node))
-        if func is None:
+        binding = effects.model.resolve(node)
+        func = effects.unambiguous_function(binding)
+        if func is None or binding is None:
             return None
-        if self._established is not None and not self._established(func):
+        entered = self._bound_in_an_entered_function(binding)
+        if self._established is not None:
+            anchor = self._anchor
+            point = node if entered or anchor is None else anchor
+            return func if self._established(binding, point) else None
+        if entered and effects.model.binding_establishment_sites(binding) != []:
             return None
         return func
 
-    def _resolves_to_lexical_binding(self, node: JsIdentifier) -> bool:
+    def _bound_in_an_entered_function(self, binding: Binding) -> bool:
         """
-        Whether *node* resolves to a local `let`, `const`, or `class` binding. Such a name is absent from
-        `_env` only while its declarator has not yet run, i.e. it is being read in its temporal dead zone,
-        so the read throws at runtime and the well-known-global `typeof` fallback must not apply to it.
+        Whether *binding* is declared inside a function this fold has entered: one this interpreter
+        runs, one a caller in the same fold runs, or one a call the fold has already finished ran.
+        Such a name belongs to one run of that function, and a function value this interpreter holds
+        does not say which: the environment of the run that made it is not handed to the interpreter
+        that runs it, and a run the fold has finished may have handed it out before it put the name
+        in place. So an ordering asked against the call being folded, which stands outside every
+        such run, does not answer for the name.
         """
-        effects = self._effects
-        if effects is None:
+        return any(binding.declared_within(function) for function in self._entered)
+
+    def constant_of(self, node: JsIdentifier) -> tuple[bool, Value]:
+        """
+        The constant the name *node* holds while the call this interpreter is anchored at runs, as a
+        read of it in the folded body answers it (`_resolve_constant`), and so the same object that
+        read answers. A caller resolving the call's arguments asks this, so an argument naming a
+        table and the name read inside the body are one table, as they are in the program.
+        """
+        return self._resolve_constant(node)
+
+    def _resolve_constant(self, node: JsIdentifier) -> tuple[bool, Value]:
+        """
+        The value the free name *node* holds while the call being folded runs, as `(True, value)`,
+        or `(False, None)` where this interpreter does not know it. The caller's *constant* callback
+        decides it for a binding, and is asked only for one declared outside every function the fold
+        has entered (`_bound_in_an_entered_function`) and read outside any `with` body, since the
+        `with` object may answer the read with something else; code that may rewrite the binding is
+        the callback's question. The value is copied once and handed to every nested call of the
+        same fold, so two reads of one table are the same object, and a change the fold makes to its
+        copy never reaches the table the program holds. The callback answers a primitive or an array
+        of primitives, so a copy of the array is a copy of everything it holds.
+        """
+        model = self._model
+        if self._constant is None or model is None:
+            return False, None
+        if model.read_has_dynamic_effect(node):
+            return False, None
+        binding = model.resolve(node)
+        if binding is None or self._bound_in_an_entered_function(binding):
+            return False, None
+        cached = self._constants.get(binding)
+        if cached is None:
+            known, value = self._constant(binding)
+            if isinstance(value, list):
+                value = list(value)
+            cached = self._constants[binding] = known, value
+        return cached
+
+    def _unknown_to_the_model(self, node: JsIdentifier) -> bool:
+        """
+        Whether *node* is a name the semantic model was not built over: a clone that an earlier fold
+        of the same pass spliced in, which the model the pass holds has never resolved. The model
+        answers such a name as unbound whatever it denotes where it stands, so no answer this
+        interpreter reads off the model may be given for it.
+        """
+        model = self._model
+        return model is not None and model.scope_of(node) is None
+
+    def _names_a_runtime_builtin(self, node: JsIdentifier) -> bool:
+        """
+        Whether *node* still reaches the host built-in of that name. Without a model this answers
+        `False` and the call becomes irreducible, for the same reason `_names_a_global_value` does.
+        """
+        model = self._model
+        return (
+            model is not None
+            and not self._unknown_to_the_model(node)
+            and names_runtime_builtin(node, model)
+        )
+
+    def _names_a_static_object(self, node: JsIdentifier) -> bool:
+        """
+        Whether *node*, standing in receiver position ahead of a method the registry knows, still
+        reaches the host object of that name. It is the question `_names_a_runtime_builtin` asks
+        for a bare callee, and the static branch has to ask it too: `var Number = {parseInt: ...}`
+        gives the name a value of its own, and answering the call from the registry then computes a
+        number the program never produces. Without a model this answers `True` rather than `False`,
+        matching `_callee_is_intact`: an interpreter used on one expression in isolation cannot see
+        a scope, so the assumption is the caller's.
+        """
+        if node.name in self._env:
             return False
-        binding = effects.model.resolve(node)
-        return binding is not None and binding.is_lexical
+        memo = self._host_object_names
+        if node not in memo:
+            model = self._model
+            memo[node] = model is None or (
+                not self._unknown_to_the_model(node)
+                and names_runtime_builtin(node, model)
+            )
+        return memo[node]
+
+    def _names_a_global_value(self, node: JsIdentifier) -> bool:
+        """
+        Whether *node* is `undefined`, `NaN` or `Infinity` still denoting the global value, which only
+        the semantic model can say. Without one this answers `False` and the name becomes irreducible:
+        an interpreter that cannot see the scope cannot tell the global from a binding an enclosing
+        function supplies, and guessing the global is how a call to `function f(NaN) { return NaN + 1 }`
+        folded to `NaN` instead of to its argument.
+        """
+        model = self._model
+        return (
+            model is not None
+            and not self._unknown_to_the_model(node)
+            and names_global_value(node, model)
+        )
+
+    def _resolves_to_a_binding(self, node: JsIdentifier) -> bool:
+        """
+        Whether *node* may resolve to a binding at all. A name the model binds but `_env` does not
+        hold has a value this interpreter does not know — it may belong to an enclosing scope and
+        hold no constant the caller knows, or to a `let` whose declarator has not run, which is a
+        read in its temporal dead zone that throws — so the well-known-global `typeof` fallback must
+        not answer for it. Nor may it answer for a name the model does not know
+        (`_unknown_to_the_model`), which may be bound wherever it stands.
+        """
+        model = self._model
+        return model is not None and (
+            self._unknown_to_the_model(node) or model.resolve(node) is not None
+        )
 
     def _eval_identifier(self, node: JsIdentifier) -> Value:
         name = node.name
-        if name == 'undefined':
-            return None
-        if name == 'NaN':
-            return float('nan')
-        if name == 'Infinity':
-            return float('inf')
         if name in self._env:
             return self._env[name]
         func = self._resolve_function_node(node)
         if func is not None:
             return func
+        known, value = self._resolve_constant(node)
+        if known:
+            return value
+        if self._names_a_global_value(node):
+            return GLOBAL_VALUE_NAMES[name]
         raise IrreducibleExpression(node)
 
     def _js_add(self, left: Value, right: Value) -> Value:
@@ -1710,9 +1979,28 @@ class JsInterpreter:
         return to_number(left) + to_number(right)
 
     def _eval_binary(self, node: JsBinaryExpression) -> Value:
-        op = node.operator
-        left = self._eval(node.left)
-        right = self._eval(node.right)
+        return self._apply_binary(node.operator, self._eval(node.left), self._eval(node.right))
+
+    def _apply_binary(self, op: str, left: Value, right: Value) -> Value:
+        """
+        Apply the binary operator *op* to two already-evaluated values — the one place this interpreter
+        decides what an operator means. A binary expression and the arithmetic step of a compound
+        assignment ask the same question, so they must ask it here.
+
+        `eval_binary_op` handles the numeric operators alone, which is why the string cases resolve first:
+        `+` needs ToPrimitive on both operands and may yield a concatenation, and a relational operator
+        compares two strings lexicographically rather than numerically. Everything after that is a number.
+
+        Every operator but strict equality coerces its operands — `+` and the relational operators to
+        primitives, the numeric ones to numbers, `==` to whichever the other side demands, and `in` its
+        left side to a key — so every one of them asks the coercion guard first, the `in` operator of
+        its key alone: an object whose conversion a program installed decides what all of these answer,
+        and strict equality is the one operator that runs nothing.
+        """
+        if op not in ('===', '!=='):
+            self._require_uninterceptable(left)
+            if op != 'in':
+                self._require_uninterceptable(right)
         if op == '===':
             return self._strict_equal(left, right)
         if op == '!==':
@@ -1724,88 +2012,155 @@ class JsInterpreter:
         if op == '+':
             return self._js_add(left, right)
         if op == 'in':
-            if isinstance(right, dict):
-                return to_string(left) in right
-            if isinstance(right, list):
-                key = to_string(left)
-                if key == 'length':
-                    return True
-                if (type(right), key) in BUILTIN_REGISTRY or (list, key) in BUILTIN_REGISTRY:
-                    return True
-                if key in _ARRAY_HOF_METHODS:
-                    return True
-                try:
-                    idx = int(key)
-                except (ValueError, OverflowError):
-                    return False
-                return str(idx) == key and 0 <= idx < len(right)
-            raise InterpreterError
+            return self._eval_in(left, right)
         if op == 'instanceof':
             raise InterpreterError
         if op in RELATIONAL_OPS:
-            left = _to_primitive(left)
-            right = _to_primitive(right)
-            if isinstance(left, str) and isinstance(right, str):
-                return RELATIONAL_OPS[op](left, right)
+            primitive_left = _to_primitive(left)
+            primitive_right = _to_primitive(right)
+            if isinstance(primitive_left, str) and isinstance(primitive_right, str):
+                return RELATIONAL_OPS[op](primitive_left, primitive_right)
         result = eval_binary_op(op, to_number(left), to_number(right))
         if result is None:
             raise InterpreterError
         return result
 
-    def _eval_unary(self, node: JsUnaryExpression) -> Value:
-        op = node.operator
-        if op == 'typeof':
-            if isinstance(node.operand, JsIdentifier):
-                operand = node.operand
-                name = operand.name
-                if name in self._env:
-                    return _js_typeof(self._env[name])
-                if self._resolve_function_node(operand) is not None:
-                    return 'function'
-                if self._resolves_to_lexical_binding(operand):
-                    raise IrreducibleExpression(node)
-                result = _global_typeof(name)
-                if result is None:
-                    raise IrreducibleExpression(node)
-                return result
-            return _js_typeof(self._eval(node.operand))
-        if op == 'void':
-            self._eval(node.operand)
-            return None
-        operand = self._eval(node.operand)
-        if op == '-':
-            v = to_number(operand)
-            return -v if v != 0 else -float(v)
-        if op == '+':
-            return to_number(operand)
-        if op == '~':
-            return _to_int32(~_to_int(operand))
-        if op == '!':
-            return not _truthy(operand)
+    def _eval_in(self, left: Value, right: Value) -> bool:
+        """
+        Whether *right* has a property named by *left*, which the operator answers for the whole
+        prototype chain and not for the own properties alone. The three ways that can go are the
+        three this file has words for: the value owns a slot there, the chain supplies the name, or
+        neither does and it is `property_provably_absent`'s to say whether that settles anything.
+
+        A name it will not decide without the chain is one this operator cannot answer `false` for
+        either, so the interpretation stops rather than reporting what the own properties happen to
+        show. `Object.prototype.z = 9` makes `'z' in {}` true, and reading a refusal as an absence
+        is what a program written to be read wrongly is looking for.
+        """
+        if not isinstance(right, (dict, list)):
+            raise InterpreterError
+        key = to_string(left)
+        if read_data_property(right, key)[0] is MemberRead.FOUND:
+            return True
+        chain_intact = property_is_inherited_from_an_intact_chain(self._effects, type(right), key)
+        if not chain_intact and self._builtins_intact():
+            chain_intact = property_is_inherited_from_an_unwritten_chain(
+                self._effects, type(right), key)
+        if chain_intact:
+            return True
+        if self._property_is_absent(right, key):
+            return False
         raise InterpreterError
 
+    def _eval_array(self, expr: JsArrayExpression) -> list[Value]:
+        """
+        The list an array literal builds, refusing one that would hold a hole. An elision is not an
+        element whose value is `undefined`: `[1, , 3][1]` reads `Array.prototype[1]` where
+        `[1, undefined, 3][1]` reads the element, so the two answer differently wherever that
+        prototype is written, and `indexOf` and the callback methods skip the first while visiting
+        the second.
+
+        A hole is representable in this domain — a store growing an array past its end builds one —
+        but a literal holding one has no fold to go to: `value_to_node` refuses a holey list, so
+        building it here would answer no call. The syntax model spells an elision as no element at
+        all, which is the shape this refusal leaves standing.
+        """
+        if any(element is None for element in expr.elements):
+            raise InterpreterError
+        return [self._eval(element) for element in expr.elements]
+
+    def _eval_unary(self, node: JsUnaryExpression) -> Value:
+        """
+        Apply a unary operator through `UNARY_OPS`, which holds the ones that are functions of the
+        operand's value. `typeof` on a bare name is answered before the operand is evaluated because it
+        is the one expression that reads a name without requiring it to exist: `typeof missing` is
+        `'undefined'` where evaluating `missing` is a `ReferenceError`.
+        """
+        op = node.operator
+        operand = node.operand
+        if op == 'typeof' and isinstance(operand, JsIdentifier):
+            name = operand.name
+            if name in self._env:
+                return js_typeof(self._env[name])
+            if self._resolve_function_node(operand) is not None:
+                return 'function'
+            known, value = self._resolve_constant(operand)
+            if known:
+                return js_typeof(value)
+            if self._resolves_to_a_binding(operand):
+                raise IrreducibleExpression(node)
+            if (trust := self._trust) is not None:
+                result = trust.global_typeof(name)
+            else:
+                environment = self._model.environment if self._model is not None else HostEnvironment.universal
+                result = typeof_of_global(name, environment)
+            if result is None:
+                raise IrreducibleExpression(node)
+            return result
+        apply = UNARY_OPS.get(op)
+        if apply is None:
+            raise InterpreterError
+        value = self._eval(operand)
+        if op in ('+', '-', '~'):
+            self._require_uninterceptable(value)
+        return apply(value)
+
     def _eval_update(self, node: JsUpdateExpression) -> Value:
-        if not isinstance(node.argument, JsIdentifier):
+        """
+        Apply `++` or `--`. The target may be a plain identifier or a member, and both must be supported here:
+        `a[i]++` is the same operation as `a[i] += 1` on a value the language has already coerced to a number,
+        so refusing one while folding the other would make the two disagree.
+        """
+        delta = {'++': 1, '--': -1}.get(node.operator)
+        if delta is None:
             raise InterpreterError
-        name = node.argument.name
-        if name not in self._env:
-            raise InterpreterError
-        current = to_number(self._env[name])
-        if node.operator == '++':
-            new_val = current + 1
-        elif node.operator == '--':
-            new_val = current - 1
+        target = node.argument
+        if isinstance(target, JsIdentifier):
+            name = target.name
+            if name not in self._env:
+                raise InterpreterError
+            self._require_uninterceptable(self._env[name])
+            current = to_number(self._env[name])
+            self._env[name] = current + delta
+        elif isinstance(target, JsMemberExpression):
+            obj = self._eval(target.object)
+            key = self._member_key(target)
+            current = self._get_property(obj, key)
+            self._require_uninterceptable(current)
+            current = to_number(current)
+            self._set_property(obj, key, current + delta)
         else:
             raise InterpreterError
-        self._env[name] = new_val
-        return new_val if node.prefix else current
+        return current + delta if node.prefix else current
+
+    def _short_circuits(self, operator: str, current: Value) -> bool:
+        """
+        Whether a logical assignment (`&&=`, `||=`, `??=`) is already decided by *current*, so neither its
+        right operand nor the store runs. The three truthiness rules are the ones `_eval_logical` applies to
+        the expression forms, read in the other direction.
+        """
+        if operator == '&&=':
+            return not to_boolean(current)
+        if operator == '||=':
+            return to_boolean(current)
+        if operator == '??=':
+            return current is not None and current is not JS_NULL
+        raise InterpreterError
+
+    def _compound_value(self, operator: str, current: Value, node: JsAssignmentExpression) -> Value:
+        """
+        The value a compound assignment stores: its right operand evaluated and combined with *current* under
+        the operator the assignment names. *current* is read by the caller before this runs, because
+        JavaScript reads the target before evaluating the right operand — `v += (v = 10)` on `v = 5` is 15.
+        """
+        return self._apply_binary(operator[:-1], current, self._eval(node.right))
 
     def _eval_logical(self, node: JsLogicalExpression) -> Value:
         left = self._eval(node.left)
         if node.operator == '&&':
-            return self._eval(node.right) if _truthy(left) else left
+            return self._eval(node.right) if to_boolean(left) else left
         if node.operator == '||':
-            return left if _truthy(left) else self._eval(node.right)
+            return left if to_boolean(left) else self._eval(node.right)
         if node.operator == '??':
             if left is None or left is JS_NULL:
                 return self._eval(node.right)
@@ -1823,41 +2178,27 @@ class JsInterpreter:
             value = self._eval(node.right)
             self._env[name] = value
             return value
-        current = self._env.get(name)
-        value = self._eval(node.right)
-        if op == '+=':
-            self._env[name] = self._js_add(current, value)
-        elif op == '-=':
-            self._env[name] = to_number(current) - to_number(value)
-        elif op == '*=':
-            self._env[name] = to_number(current) * to_number(value)
-        elif op == '/=':
-            divisor = to_number(value)
-            if divisor == 0:
-                raise InterpreterError
-            self._env[name] = to_number(current) / divisor
-        elif op == '%=':
-            divisor = to_number(value)
-            if divisor == 0:
-                raise InterpreterError
-            self._env[name] = math.fmod(to_number(current), divisor)
-        elif op == '|=':
-            self._env[name] = _to_int32(_to_int(current) | _to_int(value))
-        elif op == '&=':
-            self._env[name] = _to_int32(_to_int(current) & _to_int(value))
-        elif op == '^=':
-            self._env[name] = _to_int32(_to_int(current) ^ _to_int(value))
-        elif op == '<<=':
-            self._env[name] = _to_int32(_to_int32(_to_int(current)) << (_to_int(value) & 0x1F))
-        elif op == '>>=':
-            self._env[name] = _to_int32(
-                _to_int32(_to_int(current)) >> (_to_int(value) & 0x1F)
-            )
-        else:
-            raise InterpreterError
+        current = self._eval(node.left)
+        if op in LOGICAL_ASSIGNMENT_OPERATORS:
+            if self._short_circuits(op, current):
+                return current
+            self._env[name] = self._eval(node.right)
+            return self._env[name]
+        self._env[name] = self._compound_value(op, current, node)
         return self._env[name]
 
     def _eval_member_assignment(self, node: JsAssignmentExpression) -> Value:
+        """
+        Assign to a member target. The object and key expressions are evaluated exactly once, before the
+        operator is considered, so `a[i++] += 1` advances `i` once — and a logical assignment that
+        short-circuits performs no store at all.
+
+        Skipping that store is what JavaScript specifies rather than an optimization: the language makes it
+        observable through a setter or a frozen object, neither of which this interpreter's value domain has.
+        Within this domain a store of the value just read is idempotent, so no program folded here can tell
+        the difference — the rule is kept because the domain is a subset of the language's, not because a test
+        can witness it.
+        """
         member = node.left
         if not isinstance(member, JsMemberExpression):
             raise InterpreterError
@@ -1865,17 +2206,13 @@ class JsInterpreter:
         key = self._member_key(member)
         if node.operator == '=':
             value = self._eval(node.right)
-        else:
+        elif node.operator in LOGICAL_ASSIGNMENT_OPERATORS:
             old = self._get_property(obj, key)
-            rhs = self._eval(node.right)
-            if node.operator == '+=':
-                value = self._js_add(old, rhs)
-            elif node.operator == '-=':
-                value = to_number(old) - to_number(rhs)
-            elif node.operator == '*=':
-                value = to_number(old) * to_number(rhs)
-            else:
-                raise InterpreterError
+            if self._short_circuits(node.operator, old):
+                return old
+            value = self._eval(node.right)
+        else:
+            value = self._compound_value(node.operator, self._get_property(obj, key), node)
         self._set_property(obj, key, value)
         return value
 
@@ -1889,14 +2226,17 @@ class JsInterpreter:
         raise InterpreterError
 
     def _eval_function_call(self, node: JsCallExpression) -> Value:
+        """
+        Call the function a bare name denotes. The registry is consulted last, and only for a name the
+        scope has left alone: it records what the *host* provides, which is what a name reaches only
+        when nothing nearer has claimed it. Asking it first is how a call to a parameter or a `catch`
+        binding named `parseInt` was answered by the real `parseInt`.
+        """
         callee = node.callee
         if not isinstance(callee, JsIdentifier):
             raise InterpreterError
         name = callee.name
         args = [self._eval(a) for a in node.arguments]
-        builtin = BUILTIN_REGISTRY.get((None, name))
-        if builtin is not None:
-            return builtin(args)
         if name in self._env:
             target = self._env[name]
             if isinstance(target, (JsFunctionDeclaration, JsFunctionExpression, JsArrowFunctionExpression)):
@@ -1907,6 +2247,13 @@ class JsInterpreter:
         func = self._resolve_function_node(callee)
         if func is not None:
             return self._call_function(func, args)
+        builtin = BUILTIN_REGISTRY.get((None, name))
+        if builtin is not None and self._names_a_runtime_builtin(callee):
+            if name in _COERCING_GLOBALS and not all(
+                self._coerces_uninterceptably(arg) for arg in args
+            ):
+                raise InterpreterError
+            return builtin(args)
         raise InterpreterError
 
     def _eval_method_call(self, node: JsCallExpression) -> Value:
@@ -1922,6 +2269,10 @@ class JsInterpreter:
             args = [self._eval(a) for a in node.arguments]
             builtin = BUILTIN_REGISTRY.get((static_name, method_name))
             if builtin is not None:
+                if not self._names_a_static_object(member.object):
+                    raise InterpreterError
+                if not self._callee_is_intact(node):
+                    raise InterpreterError
                 return builtin(args)
             raise InterpreterError
         obj = self._eval(member.object)
@@ -1931,28 +2282,135 @@ class JsInterpreter:
             _js_throw('TypeError', F"Cannot read properties of {to_string(obj)} (reading a method)")
         method_name = self._member_key(member)
         args = [self._eval(a) for a in node.arguments]
+        if isinstance(obj, (str, list)) and method_name in SEQUENCE_DATA_PROPERTIES:
+            # A data property is not callable. The arguments are evaluated first, as JS does, so a side
+            # effect or a throw inside one is not lost to this TypeError.
+            _js_throw('TypeError', F'{to_string(obj)}.{method_name} is not a function')
         obj_type = type(obj)
         builtin = BUILTIN_REGISTRY.get((obj_type, method_name))
         if builtin is None and obj_type is not list and isinstance(obj, list):
             builtin = BUILTIN_REGISTRY.get((list, method_name))
         if builtin is not None:
+            if not self._prototype_is_intact(obj_type):
+                raise InterpreterError
             result = builtin(obj, args)
             if isinstance(obj, JsBuffer) and isinstance(result, list) and not isinstance(result, JsBuffer):
                 result = JsBuffer(result)
             return result
         if isinstance(obj, list) and method_name in _ARRAY_HOF_METHODS:
+            if not self._prototype_is_intact(obj_type):
+                raise InterpreterError
             result = self._eval_array_hof(obj, method_name, args)
             if isinstance(obj, JsBuffer) and method_name in _BUFFER_PRESERVING_HOFS:
                 if isinstance(result, list) and not isinstance(result, JsBuffer):
                     result = JsBuffer(result)
             return result
         if isinstance(obj, (JsFunctionExpression, JsArrowFunctionExpression)):
+            if method_name in ('call', 'apply') and not self._prototype_is_intact(obj_type):
+                raise InterpreterError
             if method_name == 'call':
                 return self._call_function(obj, args[1:] if len(args) > 1 else [])
             if method_name == 'apply':
                 actual_args = args[1] if len(args) > 1 and isinstance(args[1], list) else []
                 return self._call_function(obj, actual_args)
         raise InterpreterError
+
+    def _builtins_intact(self) -> bool:
+        """
+        Whether the tampering oracle vouches that no builtin was replaced before the anchor's
+        execution. An interpreter constructed with no anchor, or with no oracle beside it, answers
+        `False`: the trust questions below then fall through to their no-anchor arms, which refuse
+        wherever a reflective surface could have done the replacing.
+        """
+        trust = self._trust
+        return trust is not None and trust.cleared
+
+    def _callee_is_intact(self, node: JsCallExpression) -> bool:
+        """
+        Whether the built-in *node* names is still that built-in. Evaluating a call by looking its name up
+        in the registry assumes the program has not replaced it, and an obfuscated file may well have.
+        Without an effect model there is nothing to consult, and the interpreter is then used on a single
+        expression in isolation rather than over a whole program, so the assumption is the caller's.
+
+        Where the oracle has vouched for the anchor, the reflection terms of the name question are
+        answered already, so the attributed writes alone decide — `call_names_an_unwritten_builtin`.
+        """
+        memo = self._intact_callees
+        if node not in memo:
+            effects = self._effects
+            if effects is None:
+                answer = True
+            elif self._builtins_intact():
+                answer = effects.call_names_an_unwritten_builtin(node)
+            else:
+                answer = effects.call_is_foldable(node)
+            memo[node] = answer
+        return memo[node]
+
+    def _require_uninterceptable(self, value: Value) -> None:
+        """
+        Refuse where converting *value* to the primitive an operator, a key, or a template hole needs
+        could run a conversion the program installed. `coerces_uninterceptably` decides, against the
+        effect model this interpreter holds — or its surface-free half, where the oracle has vouched
+        for the anchor; without an effect model there is no chain to vouch for an object,
+        so every object conversion refuses rather than assuming a file that replaced none.
+        """
+        if not self._coerces_uninterceptably(value):
+            raise InterpreterError
+
+    def _coerces_uninterceptably(self, value: Value) -> bool:
+        """
+        The coercion guard the operator, key, and template arms ask: `coerces_uninterceptably`, or
+        its written-chain half where the oracle has vouched for the anchor.
+        """
+        if converts_uninterceptably(value):
+            return True
+        if self._builtins_intact():
+            return coerces_uninterceptably_from_written_chain(self._effects, value)
+        return coerces_uninterceptably(self._effects, value)
+
+    def _prototype_is_intact(self, value_type: type) -> bool:
+        """
+        Whether the prototype that supplies *value_type*'s methods is unmodified, so dispatching a method
+        on a receiver of that type by name still means what the language says. This is the same question
+        `_callee_is_intact` asks, for a receiver that names no global; where the oracle has vouched for
+        the anchor, the attributed writes alone decide.
+        """
+        memo = self._intact_prototypes
+        if value_type not in memo:
+            trust = self._trust
+            memo[value_type] = True if trust is None else trust.prototype(value_type)
+        return memo[value_type]
+
+    def _chain_is_intact(self, value_type: type) -> bool:
+        """
+        Whether every prototype a plain property read on a value of *value_type* consults is
+        unmodified — `EffectModel.read_chain_intact`, or its surface-free half where the oracle has
+        vouched for the anchor. The question the for-in and for-of walks and the inherited-read
+        arms ask; without an effect model there is no chain to consult and the caller owns the
+        assumption.
+        """
+        trust = self._trust
+        return True if trust is None else trust.chain(value_type)
+
+    def _callback_is_contained(self, callback: JsFunctionNode) -> bool:
+        """
+        Whether running *callback* for its return values alone loses nothing. A higher-order method is
+        evaluated here for the value it produces, so a callback that also writes a binding outside itself
+        has an effect the resulting literal cannot carry: `[1,2].map(function (x) { n += x; return x; })`
+        yields the right array while leaving `n` unchanged.
+
+        It asks `is_effect_free_when_discarded` rather than `is_pure`, which is stricter than this
+        position needs: a mutation the callback confines to a fresh local it returns is tolerated, while
+        a throw the summary records in `throws` is not. Purity alone is not sufficient either — a write
+        to a *script-scope* `var` reports `writes_captured=False`, slipping through every purity flag —
+        so `written_bindings`, which records outer bindings by identity, is checked too.
+        """
+        effects = self._effects
+        if effects is None:
+            return True
+        summary = effects.summary_of(callback)
+        return summary.is_effect_free_when_discarded and not summary.written_bindings
 
     def _eval_array_hof(self, arr: list, method: str, args: list[Value]) -> Value:
         if not args:
@@ -1963,58 +2421,80 @@ class JsInterpreter:
             (JsFunctionDeclaration, JsFunctionExpression, JsArrowFunctionExpression)
         ):
             raise InterpreterError
+        if not self._callback_is_contained(callback):
+            raise InterpreterError
+        # Every higher-order method asks the array whether it has a property at each index
+        # before it calls, so a hole is a position no callback runs at and no filter keeps.
+        # `find` and `findIndex` are the exception: they read the element directly and visit a
+        # hole as the `undefined` the read yields.
         if method == 'every':
             for i, item in enumerate(arr):
+                if item is JS_HOLE:
+                    continue
                 self._tick()
-                if not _truthy(self._call_function(callback, [item, i, arr])):
+                if not to_boolean(self._call_function(callback, [item, i, arr])):
                     return False
             return True
         if method == 'some':
             for i, item in enumerate(arr):
+                if item is JS_HOLE:
+                    continue
                 self._tick()
-                if _truthy(self._call_function(callback, [item, i, arr])):
+                if to_boolean(self._call_function(callback, [item, i, arr])):
                     return True
             return False
         if method == 'map':
             mapped: list[Value] = []
             for i, item in enumerate(arr):
+                if item is JS_HOLE:
+                    mapped.append(JS_HOLE)
+                    continue
                 self._tick()
                 mapped.append(self._call_function(callback, [item, i, arr]))
             return mapped
         if method == 'filter':
             filtered: list[Value] = []
             for i, item in enumerate(arr):
+                if item is JS_HOLE:
+                    continue
                 self._tick()
-                if _truthy(self._call_function(callback, [item, i, arr])):
+                if to_boolean(self._call_function(callback, [item, i, arr])):
                     filtered.append(item)
             return filtered
         if method == 'find':
             for i, item in enumerate(arr):
                 self._tick()
-                if _truthy(self._call_function(callback, [item, i, arr])):
-                    return item
+                if to_boolean(self._call_function(callback, [_element_read(item), i, arr])):
+                    return _element_read(item)
             return None
         if method == 'findIndex':
             for i, item in enumerate(arr):
                 self._tick()
-                if _truthy(self._call_function(callback, [item, i, arr])):
+                if to_boolean(self._call_function(callback, [_element_read(item), i, arr])):
                     return i
             return -1
         if method == 'forEach':
             for i, item in enumerate(arr):
+                if item is JS_HOLE:
+                    continue
                 self._tick()
                 self._call_function(callback, [item, i, arr])
             return None
         if method == 'reduce':
-            if len(arr) == 0 and len(args) < 2:
-                raise InterpreterError
             if len(args) >= 2:
                 acc: Value = args[1]
                 start = 0
             else:
-                acc = arr[0]
-                start = 1
+                start = 0
+                while start < len(arr) and arr[start] is JS_HOLE:
+                    start += 1
+                if start == len(arr):
+                    _js_throw('TypeError', 'Reduce of empty array with no initial value')
+                acc = arr[start]
+                start += 1
             for i in range(start, len(arr)):
+                if arr[i] is JS_HOLE:
+                    continue
                 self._tick()
                 acc = self._call_function(callback, [acc, arr[i], i, arr])
             return acc
@@ -2028,8 +2508,8 @@ class JsInterpreter:
         """
         Whether *func* assigns to a name that the calling environment binds but that *func* does not
         declare locally — a write through a closure into a captured outer variable. A nested call runs
-        in an isolated child interpreter with only a snapshot of captured values and no write-back, so
-        the mutation would be silently lost. Refusing to evaluate leaves the call in place for a real
+        in an isolated child interpreter with an environment of its own and no write-back, so the
+        mutation would be silently lost. Refusing to evaluate leaves the call in place for a real
         engine to run and keeps the fold sound rather than producing a wrong constant.
         """
         body = func.body
@@ -2056,20 +2536,29 @@ class JsInterpreter:
                 return True
         return False
 
-    def _call_function(self, func, args: list[Value]) -> Value:
+    def _call_function(self, func: JsFunctionNode, args: list[Value]) -> Value:
+        """
+        The value a call to *func* answers, computed by a child interpreter. What a call answers at
+        all is `execute`'s question and is refused there, so that the refusal covers the entry a
+        caller outside this class reaches as well.
+        """
         if self._depth >= self.max_recursion:
             raise InterpreterError
         if self._mutates_captured_binding(func):
             raise InterpreterError
-        callee_closure = self._closure_env.get(id(func)) or {}
         child = JsInterpreter(
             max_iterations=max(1, self.max_iterations - self._iterations),
             max_string_len=self.max_string_len,
+            max_array_len=self.max_array_len,
             max_recursion=self.max_recursion,
             effects=self._effects,
-            closure=callee_closure,
-            closure_env=self._closure_env,
+            model=self._model,
+            anchor=self._anchor,
+            tampering=self._tampering,
             established=self._established,
+            constant=self._constant,
+            entered=self._entered,
+            constants=self._constants,
             depth=self._depth + 1,
         )
         try:
@@ -2085,20 +2574,62 @@ class JsInterpreter:
         if node.optional and (obj is None or obj is JS_NULL):
             return None
         key = self._member_key(node)
+        if isinstance(obj, JsArguments):
+            return self._read_arguments_element(node, obj, key)
         return self._get_property(obj, key)
 
+    def _read_arguments_element(
+        self, node: JsMemberExpression, arguments: JsArguments, key: str,
+    ) -> Value:
+        """
+        The element or the element count the arguments object answers for *key*. Every other key
+        refuses rather than guessing, for the same reason a method read off any other value does:
+        the answer lives on the prototype chain, on a `callee` no value domain here holds, or at
+        an index past the end the chain may supply, and none of those is this object's to decide.
+        """
+        if key == 'length':
+            return len(arguments.values)
+        index = canonical_array_index(key)
+        if index is not None and 0 <= index < len(arguments.values):
+            return arguments.values[index]
+        raise IrreducibleExpression(node)
+
     def _eval_template(self, node: JsTemplateLiteral) -> Value:
+        """
+        A template denotes the text of its runs with what its holes evaluate to between them. A run
+        that denotes nothing makes the whole literal denote nothing: the language refuses such a
+        template rather than reading it, so there is no string to hand back and computing one would
+        answer for a script no engine will run.
+
+        A hole's value is converted to a string, so it asks the coercion guard first: a program
+        that installed a conversion on the object the hole evaluates to decides what the template
+        spells, and that is a program this interpreter refuses to answer for.
+        """
         parts: list[str] = []
         for i, quasi in enumerate(node.quasis):
+            if quasi.value is None:
+                raise IrreducibleExpression(node)
             parts.append(quasi.value)
             if i < len(node.expressions):
-                parts.append(to_string(self._eval(node.expressions[i])))
+                value = self._eval(node.expressions[i])
+                self._require_uninterceptable(value)
+                parts.append(to_string(value))
         result = ''.join(parts)
         if len(result) > self.max_string_len:
             raise InterpreterError
         return result
 
     def _eval_object(self, node: JsObjectExpression) -> Value:
+        """
+        Evaluate an object literal into a dict of its own data properties. A literal that installs a
+        prototype through the plain `__proto__:` form has a member surface this dict cannot express —
+        the installed object's properties are inherited, not owned — so it aborts interpretation rather
+        than record `__proto__` as an ordinary key, which would invent an own property JavaScript does
+        not create. `object_sets_prototype` decides which spellings do that; the computed form and a
+        shorthand or method define an ordinary own property and evaluate normally.
+        """
+        if object_sets_prototype(node):
+            raise InterpreterError
         result: dict[str, Value] = {}
         for prop in node.properties:
             if not isinstance(prop, JsProperty):
@@ -2111,6 +2642,8 @@ class JsInterpreter:
             elif isinstance(prop.key, JsIdentifier):
                 key = prop.key.name
             elif isinstance(prop.key, JsStringLiteral):
+                if prop.key.value is None:
+                    raise InterpreterError
                 key = prop.key.value
             elif isinstance(prop.key, JsNumericLiteral):
                 key = to_string(prop.key.value)
@@ -2122,69 +2655,99 @@ class JsInterpreter:
     def _member_key(self, node: JsMemberExpression) -> str:
         if node.computed:
             val = self._eval(node.property)
+            self._require_uninterceptable(val)
             return to_string(val)
         if isinstance(node.property, JsIdentifier):
             return node.property.name
         raise InterpreterError
 
     def _get_property(self, obj: Value, key: str) -> Value:
+        """
+        Read property *key* off *obj*, as a property *read* rather than a call. A method name yields the
+        method itself, which this interpreter has no value domain for — a JS function value has an
+        observable identity, `name`, `length`, and source text — so reading one aborts interpretation
+        instead of guessing. Crucially it must not *invoke* the method: `typeof 'abc'.charAt` is
+        `'function'`, not the `typeof` of what `charAt()` would return.
+
+        Which keys the value itself decides is `read_data_property`'s to say, so that an emulated
+        execution and a fold read a property the same way by construction. What is left here is the
+        half that needs this interpreter: a nullish receiver throws before any key is looked at, and
+        a key the value does not own is `undefined` only while the prototype chain is intact.
+
+        An index past the end of an array is such a key and not a value of its own. Writing
+        `Array.prototype[5]` puts a value where the array has no slot, so a read of `a[5]` answers
+        it, and both of the outcomes the value declines to answer therefore ask the same question:
+        the one that names an index is not the shorter road to `undefined` it looks like.
+        """
         if obj is None or obj is JS_NULL:
             _js_throw('TypeError', F"Cannot read properties of {to_string(obj)} (reading '{key}')")
-        if isinstance(obj, dict):
-            return obj.get(key)
-        if isinstance(obj, list):
-            if key == 'length':
-                return len(obj)
-            try:
-                idx = int(key)
-                if 0 <= idx < len(obj):
-                    return obj[idx]
-                return None
-            except (ValueError, TypeError):
-                pass
-            obj_type = type(obj)
-            builtin = BUILTIN_REGISTRY.get((obj_type, key))
-            if builtin is None and obj_type is not list:
-                builtin = BUILTIN_REGISTRY.get((list, key))
-            if builtin is not None:
-                raise InterpreterError
-            return None
-        if isinstance(obj, str):
-            builtin = BUILTIN_REGISTRY.get((str, key))
-            if builtin is not None:
-                return builtin(obj, [])
-            try:
-                idx = int(key)
-                if 0 <= idx < len(obj):
-                    return obj[idx]
-                return None
-            except (ValueError, TypeError):
-                pass
+        outcome, value = read_data_property(obj, key)
+        if outcome is MemberRead.FOUND:
+            return value
+        if self._property_is_absent(obj, key):
             return None
         raise InterpreterError
 
+    def _property_is_absent(self, obj: Value, key: str) -> bool:
+        """
+        Whether *key* provably does not exist anywhere on *obj*'s prototype chain, making a read of it
+        `undefined`. `property_provably_absent` decides it, so that an emulated execution and a fold
+        answer an inherited read the same way by construction; what is left here is naming the type
+        this interpreter's value is of and handing over the effect model when there is one. Where
+        the oracle has vouched for the anchor, the chain is asked its attributed writes alone
+        (`property_absent_from_written_chain`) rather than refused on a reflective surface.
+        """
+        if self._builtins_intact():
+            return property_absent_from_written_chain(self._effects, type(obj), key)
+        return property_provably_absent(self._effects, type(obj), key)
+
     def _set_property(self, obj: Value, key: str, value: Value) -> None:
+        """
+        Store *value* at *key* on *obj*, or refuse when this interpreter cannot model what the store means.
+
+        An array accepts only `length` and a canonical index. Refusing every *named* property on one is not
+        merely a gap in coverage: it is what keeps a function that writes `constructor` or `__proto__` on an
+        array unfoldable. Those two properties decide what `slice` and its neighbours return — the read goes
+        through ArraySpeciesCreate — so a program that sets them can make an apparently fresh array be a
+        shared object, or make the call throw by leaving a primitive there. `EffectModel` refuses such a
+        receiver as well, and both refusals are wanted: a widening here that started modelling named array
+        properties would need that reasoning restated, not silently dropped.
+
+        Growing the array — storing past its end, or writing a larger `length` — happens in place, filling
+        the positions the store skipped over with holes, because the array another name holds must grow
+        with it: `var v = u; u[87] = 5` leaves `v.length` at 88, so a copy is not a modelling of that
+        store. How far an index or a length may reach is capped, which bounds the memory one store may
+        ask for; a store the cap refuses still refuses here.
+        """
         if isinstance(obj, dict):
+            if key == PROTO_KEY and key not in obj:
+                # Writing `__proto__` runs the accessor Object.prototype carries, which installs a
+                # prototype instead of creating an own property. An existing own `__proto__` entry
+                # shadows that accessor, and then the write does land in the data slot.
+                raise InterpreterError
             obj[key] = value
             return
         if isinstance(obj, list):
-            if key == 'length':
+            if key in SEQUENCE_DATA_PROPERTIES:
                 new_len = _to_array_length(value)
-                if new_len < len(obj):
-                    del obj[new_len:]
-                else:
-                    obj.extend([None] * (new_len - len(obj)))
+                if new_len > len(obj):
+                    if new_len > self.max_array_len:
+                        raise InterpreterError
+                    obj.extend([JS_HOLE] * (new_len - len(obj)))
+                    return
+                del obj[new_len:]
                 return
-            try:
-                idx = int(key)
-                if idx < 0:
+            index = canonical_array_index(key)
+            if index is not None:
+                if index >= self.max_array_len:
                     raise InterpreterError
-                while len(obj) <= idx:
-                    obj.append(None)
-                obj[idx] = value
+                if index > len(obj):
+                    obj.extend([JS_HOLE] * (index - len(obj)))
+                if index == len(obj):
+                    obj.append(value)
+                else:
+                    obj[index] = value
                 return
-            except (ValueError, TypeError):
-                pass
         raise InterpreterError
 
     @staticmethod
@@ -2195,7 +2758,8 @@ class JsInterpreter:
     def _loose_equal(a: Value, b: Value) -> bool:
         """
         Replicate the ECMA-262 abstract-equality (`==`) algorithm. `null` and `undefined` are equal to
-        each other and to nothing else; booleans and objects coerce to numbers/primitives; a number
+        each other and to nothing else; a boolean coerces to a number; two objects compare by
+        reference, while an object compared with a primitive coerces to a primitive first; a number
         compared with a string compares by numeric value.
         """
         a_nullish = a is None or a is JS_NULL
@@ -2206,9 +2770,13 @@ class JsInterpreter:
             a = 1 if a else 0
         if isinstance(b, bool):
             b = 1 if b else 0
-        if isinstance(a, (list, dict)):
+        a_object = isinstance(a, _OBJECT_VALUE_TYPES)
+        b_object = isinstance(b, _OBJECT_VALUE_TYPES)
+        if a_object and b_object:
+            return js_strict_equal(a, b)
+        if a_object:
             a = _to_primitive(a)
-        if isinstance(b, (list, dict)):
+        elif b_object:
             b = _to_primitive(b)
         if isinstance(a, str) and isinstance(b, str):
             return a == b
@@ -2221,7 +2789,4 @@ class JsInterpreter:
         return js_strict_equal(a, b)
 
     def eval_expression(self, expr) -> Value:
-        """
-        Evaluate a single expression AST node and return a Python value.
-        """
         return self._eval(expr)

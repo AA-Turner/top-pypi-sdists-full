@@ -25,7 +25,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from probe.cli import bootstrap, doctor, json_events, outbox_worker, setup, upgrading
+from probe.cli import bootstrap, codex_hooks, doctor, json_events, outbox_worker, setup, upgrading
 from probe.cli.capabilities import Capabilities, capture_token_sources
 from probe.sdk import device as device_flow
 from probe.sdk.config import resolve, save_context
@@ -70,7 +70,7 @@ def device(tmp_path, monkeypatch):
         lambda **_: bootstrap.BootstrapResult(installed=False, already_persistent=True, message=""),
     )
     monkeypatch.setattr(main, "_version_notice", lambda: None)
-    monkeypatch.setattr(main, "_outbox_notice", lambda: None)
+    monkeypatch.setattr(main, "_outbox_notice", lambda **_: None)
     monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "codex"))
     monkeypatch.setattr(setup, "refresh_marketplace", lambda **_: None)
     monkeypatch.setattr(setup, "_record_login_account", lambda *a, **k: None)
@@ -125,6 +125,9 @@ def device(tmp_path, monkeypatch):
     monkeypatch.setattr(setup, "apply_capture", applied("capture"))
     monkeypatch.setattr(setup, "apply_auto_update", applied("updates"))
     monkeypatch.setattr(setup, "apply_agent_rules", applied("rules"))
+    # Codex's answer to the approval the wizard makes after installing its plugins.
+    state.approval = codex_hooks.Approval(approved=tuple(f"hook-{n}" for n in range(11)), done=True)
+    monkeypatch.setattr(codex_hooks, "approve", lambda *a, **k: state.approval)
     monkeypatch.setattr(
         main,
         "_register_local_capabilities",
@@ -216,18 +219,18 @@ GOLDEN_CONFIGURE_BOTH = (
     "[6/6] write the rules into your global CLAUDE.md ... ok\n"
     "rules applied.\n"
     "Restart Claude Code to load Probe.\n"
-    "[1/5] refresh the plugin marketplace ... ok\n"
-    "[2/5] install the CLI + MCP plugin ... ok\n"
+    "[1/6] refresh the plugin marketplace ... ok\n"
+    "[2/6] install the CLI + MCP plugin ... ok\n"
     "tracking applied.\n"
-    "[3/5] install the Session capture plugin ... ok\n"
+    "[3/6] install the Session capture plugin ... ok\n"
     "capture applied.\n"
-    "[4/5] enable automatic updates ... ok\n"
+    "[4/6] approve Probe's hooks in Codex ... ok\n"
+    "Approved Probe's 11 hooks in Codex.\n"
+    "[5/6] enable automatic updates ... ok\n"
     "updates applied.\n"
-    "[5/5] write the rules into your global AGENTS.md ... ok\n"
+    "[6/6] write the rules into your global AGENTS.md ... ok\n"
     "rules applied.\n"
     "Restart Codex to load Probe.\n"
-    "In the new session: `/hooks` › approve Probe Session Capture.\n"
-    "Until you do, capture is installed but sends nothing.\n"
 )
 
 
@@ -244,6 +247,21 @@ def test_configure_without_json_prints_exactly_what_it_printed_before(device):
 def test_a_two_agent_configure_without_json_prints_exactly_what_it_printed_before(device):
     result = CliRunner().invoke(main.app, ["wizard", "--action", "configure", "--yes", "--agent", "both"])
     assert _human(result, device) == GOLDEN_CONFIGURE_BOTH
+
+
+def test_a_codex_that_did_not_take_the_approval_still_sends_the_person_to_hooks(device):
+    """Codex refused or could not be asked: the install stays a success (the
+    step is what `/hooks` fixes) and the closing note keeps the `/hooks` step."""
+    device.approval = None
+    result = CliRunner().invoke(main.app, ["wizard", "--action", "configure", "--yes", "--agent", "codex"])
+    printed = _human(result, device)
+    assert "approve Probe's hooks in Codex ... ok" in printed
+    assert "Probe's hooks in Codex still need approval (Codex could not be asked): in a new Codex session" in printed
+    assert printed.endswith(
+        "Restart Codex to load Probe.\n"
+        "In the new session: `/hooks` › approve Probe Session Capture.\n"
+        "Until you do, capture is installed but sends nothing.\n"
+    )
 
 
 # -- a real process: stdout is the events, all of them, and nothing else -------
@@ -608,3 +626,25 @@ def test_a_process_with_no_stdout_still_runs_a_session(monkeypatch):
         json_events.step(json_events.Step.SIGN_IN, json_events.Status.DONE)
         print("still printable")
     assert sys.stdout is None
+
+
+def test_an_installed_codex_with_hooks_waiting_is_not_already_set_up(device, monkeypatch):
+    """A machine installed before the wizard approved Probe's hooks (or after an
+    update changed an entry) reads "already set up" while Codex runs none of them."""
+    configure = ["wizard", "--action", "configure", "--yes", "--agent", "codex"]
+    CliRunner().invoke(main.app, configure)
+    again = _human(CliRunner().invoke(main.app, configure), device)
+    assert "Already set up the way you asked" in again and "approve Probe's hooks" not in again
+    monkeypatch.setattr(setup, "codex_hooks_waiting", lambda: True)
+    healed = _human(CliRunner().invoke(main.app, configure), device)
+    assert "[1/1] approve Probe's hooks in Codex ... ok\nApproved Probe's 11 hooks in Codex.\n" in healed
+
+
+def test_a_claude_run_never_does_codexs_approval(device, monkeypatch):
+    """Codex's hooks are approved on Codex's own run and by every Codex plugin
+    update: a Claude Code run neither asks Codex nor loses "Already set up"."""
+    configure = ["wizard", "--action", "configure", "--yes", "--agent", "claude"]
+    CliRunner().invoke(main.app, configure)
+    monkeypatch.setattr(setup, "codex_hooks_waiting", lambda: pytest.fail("a Claude run asked Codex"))
+    again = _human(CliRunner().invoke(main.app, configure), device)
+    assert "Already set up the way you asked" in again and "approve Probe's hooks" not in again

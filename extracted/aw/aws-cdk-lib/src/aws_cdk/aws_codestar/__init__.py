@@ -196,6 +196,7 @@ class CfnGitHubRepository(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -238,7 +239,7 @@ class CfnGitHubRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__27ccfc7b3ae99551723d091d486beb239d3403b4f1b9deafc5c0a04b55247643)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "repositoryName", value)
 
     @builtins.property
     @jsii.member(jsii_name="repositoryOwner")
@@ -251,7 +252,7 @@ class CfnGitHubRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__640c2ed63761e3743ab623c5dfcf38e74a0ce8bcbad31ce15434b261981c5406)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repositoryOwner", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "repositoryOwner", value)
 
     @builtins.property
     @jsii.member(jsii_name="code")
@@ -269,7 +270,7 @@ class CfnGitHubRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6c0889c4a593a141a6cb7467ebd1f42de66b0efb11fb84c85fe540d22116d660)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "code", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectionArn")
@@ -281,7 +282,7 @@ class CfnGitHubRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40f6d57c287d62fd9a8d78e58760116b638298a4ebe8719cee42723fcf413b5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableIssues")
@@ -299,7 +300,7 @@ class CfnGitHubRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a79ceb918a835c4943c7e5b1adac2d4bddd5012f1f982dcab4b466109451a7d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableIssues", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableIssues", value)
 
     @builtins.property
     @jsii.member(jsii_name="isPrivate")
@@ -317,7 +318,7 @@ class CfnGitHubRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ba584dda4e5123d3df0ff330b816c7ba97e7623d76da94664700730a76d46c15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "isPrivate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "isPrivate", value)
 
     @builtins.property
     @jsii.member(jsii_name="repositoryAccessToken")
@@ -330,7 +331,7 @@ class CfnGitHubRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dfa1287e08e29bddee8be2e21d0fac3b2dcdc87c2686d1d97549e7bb42511162)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repositoryAccessToken", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "repositoryAccessToken", value)
 
     @builtins.property
     @jsii.member(jsii_name="repositoryDescription")
@@ -343,7 +344,7 @@ class CfnGitHubRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__656c22ea05d8337af8c161af2cbbe1a76bb1db316b0a96a4b6951ce729f92146)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repositoryDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "repositoryDescription", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_codestar.CfnGitHubRepository.CodeProperty",

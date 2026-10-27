@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "1.21.0"
+__version__ = "1.22.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -62,6 +62,7 @@ from cwsandbox._types import (
     ProcessResult,
     RegisteredVolumeOptions,
     ResourceOptions,
+    SandboxControl,
     SandboxFileType,
     ScratchVolumeOptions,
     Secret,
@@ -384,6 +385,7 @@ __all__ = [
     "disable_signal_handlers",
     "Sandbox",
     "SandboxCommandTimeoutError",
+    "SandboxControl",
     "SandboxDefaults",
     "SandboxError",
     "SandboxExecutionError",

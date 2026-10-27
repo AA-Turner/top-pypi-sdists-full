@@ -1,0 +1,509 @@
+import typing
+
+import pytest
+
+import consul
+from tests.utils import find_recursive
+
+# Static RSA public key used to configure an offline "jwt" ACL auth method in tests,
+# so auth-method/binding-rule CRUD can be tested without a real OIDC/Kubernetes backend.
+JWT_PUBLIC_KEY = """-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0VPUoKqJMko3Snie9UX1
+AgDQcE0W13BdhFJn9ngzjq/ce2WJiIzww/sY1NVwVUkymdGYsFhoEorvGBwsOgWI
+FEOlpKgTWOjn+nXVYCH7AnyVdYkCfgDPItdv666ankphcv55QJOY16om2uSWV3iy
+IoScXHFVJtBhlwho33wH+AZLmaV2LSEYqQdqHhGKT6JO20QRGYQzxfXkGSbEUtNm
+f2Tgbr4nZPL/fKqhuY+rsU7LGVYKGf5Ddrm5+AjotDturj4GAc+R49MfsPXN9pZG
+BXOAq+NWy3W3IPz1DQ2wU1MYPm3X94FG7Og8b2qZ/5+oB/2RXwYTtW5vvOgZ6mSK
+KwIDAQAB
+-----END PUBLIC KEY-----"""
+
+
+class TestConsulAcl:
+    def test_acl_token_permission_denied(self, acl_consul) -> None:
+        c, _master_token, _consul_version = acl_consul
+
+        # No token
+        pytest.raises(consul.ACLPermissionDenied, c.acl.token.list)
+        pytest.raises(consul.ACLPermissionDenied, c.acl.token.create)
+        pytest.raises(
+            consul.ACLPermissionDenied, c.acl.token.update, accessor_id="00000000-0000-0000-0000-000000000002"
+        )
+        pytest.raises(consul.ACLPermissionDenied, c.acl.token.clone, accessor_id="00000000-0000-0000-0000-000000000002")
+        pytest.raises(consul.ACLPermissionDenied, c.acl.token.read, accessor_id="00000000-0000-0000-0000-000000000002")
+        pytest.raises(
+            consul.ACLPermissionDenied, c.acl.token.delete, accessor_id="00000000-0000-0000-0000-000000000002"
+        )
+
+        # Token without the right permission (acl:write or acl:read)
+        pytest.raises(consul.ACLPermissionDenied, c.acl.token.list, token="anonymous")
+        pytest.raises(consul.ACLPermissionDenied, c.acl.token.create, token="anonymous")
+        pytest.raises(
+            consul.ACLPermissionDenied,
+            c.acl.token.update,
+            accessor_id="00000000-0000-0000-0000-000000000002",
+            token="anonymous",
+        )
+        pytest.raises(
+            consul.ACLPermissionDenied,
+            c.acl.token.clone,
+            accessor_id="00000000-0000-0000-0000-000000000002",
+            token="anonymous",
+        )
+        pytest.raises(
+            consul.ACLPermissionDenied,
+            c.acl.token.read,
+            accessor_id="00000000-0000-0000-0000-000000000002",
+            token="anonymous",
+        )
+        pytest.raises(
+            consul.ACLPermissionDenied,
+            c.acl.token.delete,
+            accessor_id="00000000-0000-0000-0000-000000000002",
+            token="anonymous",
+        )
+
+    def test_acl_token_list(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        # Make sure both master and anonymous tokens are created
+        acls = c.acl.token.list(token=master_token)
+
+        master_token_repr = {
+            "Description": "Initial Management Token",
+            "Policies": [{"ID": "00000000-0000-0000-0000-000000000001", "Name": "global-management"}],
+            "SecretID": master_token,
+        }
+        anonymous_token_repr = {
+            "AccessorID": "00000000-0000-0000-0000-000000000002",
+            "SecretID": "anonymous",
+        }
+        assert find_recursive(acls, master_token_repr)
+        assert find_recursive(acls, anonymous_token_repr)
+
+    def test_acl_token_read(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        # Unknown token
+        pytest.raises(consul.ConsulException, c.acl.token.read, accessor_id="unknown", token=master_token)
+
+        anonymous_token_repr = {
+            "AccessorID": "00000000-0000-0000-0000-000000000002",
+            "SecretID": "anonymous",
+        }
+        acl = c.acl.token.read(accessor_id="00000000-0000-0000-0000-000000000002", token=master_token)
+        assert find_recursive(acl, anonymous_token_repr)
+
+    def test_acl_token_create(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        c.acl.token.create(accessor_id="00000000-DEAD-BEEF-0000-000000000000", token=master_token)
+        c.acl.token.create(secret_id="DEADBEEF-0000-0000-0000-000000000000", token=master_token)
+        c.acl.token.create(
+            secret_id="00000000-A5A5-0000-0000-000000000000",
+            accessor_id="00000000-0000-A5A5-0000-000000000000",
+            description="some token!",
+            token=master_token,
+        )
+        c.acl.token.create(
+            accessor_id="00000000-0000-DEAF-0000-000000000000",
+            node_identities=["deaf:dc1"],
+            token=master_token,
+        )
+
+        assert c.acl.token.read(accessor_id="00000000-DEAD-BEEF-0000-000000000000", token=master_token)
+        assert c.acl.token.read(accessor_id="00000000-0000-A5A5-0000-000000000000", token=master_token)
+
+        expected: list[dict[typing.Any, typing.Any]] = [
+            {
+                "AccessorID": "00000000-DEAD-BEEF-0000-000000000000",
+                "Description": "",
+            },
+            {
+                "SecretID": "DEADBEEF-0000-0000-0000-000000000000",
+                "Description": "",
+            },
+            {
+                "AccessorID": "00000000-0000-A5A5-0000-000000000000",
+                "SecretID": "00000000-A5A5-0000-0000-000000000000",
+                "Description": "some token!",
+            },
+            {
+                "AccessorID": "00000000-0000-DEAF-0000-000000000000",
+                "NodeIdentities": [
+                    {
+                        "NodeName": "deaf",
+                        "Datacenter": "dc1",
+                    },
+                ],
+            },
+        ]
+        acl = c.acl.token.list(token=master_token)
+        assert find_recursive(acl, expected)
+
+    def test_acl_token_clone(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        assert len(c.acl.token.list(token=master_token)) == 2
+
+        # Unknown token
+        pytest.raises(consul.ConsulException, c.acl.token.clone, accessor_id="unknown", token=master_token)
+
+        c.acl.token.create(accessor_id="00000000-DEAD-BEEF-0000-000000000000", token=master_token)
+        c.acl.token.clone(accessor_id="00000000-DEAD-BEEF-0000-000000000000", description="cloned", token=master_token)
+        assert len(c.acl.token.list(token=master_token)) == 4
+
+        expected = [
+            {
+                "AccessorID": "00000000-DEAD-BEEF-0000-000000000000",
+            },
+            {
+                "Description": "cloned",
+            },
+        ]
+        acl = c.acl.token.list(token=master_token)
+        assert find_recursive(acl, expected)
+
+    def test_acl_token_update(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        # Unknown token
+        pytest.raises(consul.ConsulException, c.acl.token.update, accessor_id="unknown", token=master_token)
+
+        assert len(c.acl.token.list(token=master_token)) == 2
+        c.acl.token.create(
+            accessor_id="00000000-DEAD-BEEF-0000-000000000000",
+            description="original",
+            node_identities=["test01:dc1"],
+            token=master_token,
+        )
+        assert len(c.acl.token.list(token=master_token)) == 3
+        c.acl.token.update(
+            accessor_id="00000000-DEAD-BEEF-0000-000000000000",
+            description="updated",
+            node_identities=["test02:dc2"],
+            token=master_token,
+        )
+        assert len(c.acl.token.list(token=master_token)) == 3
+
+        expected = {
+            "AccessorID": "00000000-DEAD-BEEF-0000-000000000000",
+            "Description": "updated",
+            "NodeIdentities": [
+                {
+                    "NodeName": "test02",
+                    "Datacenter": "dc2",
+                },
+            ],
+        }
+        acl = c.acl.token.read(accessor_id="00000000-DEAD-BEEF-0000-000000000000", token=master_token)
+        assert find_recursive(acl, expected)
+
+    def test_acl_token_delete(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        assert len(c.acl.token.list(token=master_token)) == 2
+        c.acl.token.create(accessor_id="00000000-DEAD-BEEF-0000-000000000000", token=master_token)
+        assert len(c.acl.token.list(token=master_token)) == 3
+        assert c.acl.token.read(accessor_id="00000000-DEAD-BEEF-0000-000000000000", token=master_token)
+
+        # Delete and ensure it doesn't exist anymore
+        c.acl.token.delete(accessor_id="00000000-DEAD-BEEF-0000-000000000000", token=master_token)
+        assert len(c.acl.token.list(token=master_token)) == 2
+        pytest.raises(
+            consul.ConsulException,
+            c.acl.token.read,
+            accessor_id="00000000-DEAD-BEEF-0000-000000000000",
+            token=master_token,
+        )
+
+    def test_acl_policy_list(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        # Make sure both master and anonymous tokens are created
+        policies = c.acl.policy.list(token=master_token)
+        assert find_recursive(policies, {"ID": "00000000-0000-0000-0000-000000000001", "Name": "global-management"})
+
+    def test_acl_policy_read(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        # Unknown token
+        pytest.raises(consul.ConsulException, c.acl.policy.read, uuid="unknown", token=master_token)
+
+        policy = c.acl.policy.read(uuid="00000000-0000-0000-0000-000000000001", token=master_token)
+        assert find_recursive(policy, {"ID": "00000000-0000-0000-0000-000000000001", "Name": "global-management"})
+
+    def test_acl_policy_update(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        created = c.acl.policy.create(name="test-policy", description="original", token=master_token)
+        policy_id = created["ID"]
+
+        updated = c.acl.policy.update(
+            uuid=policy_id,
+            name="test-policy",
+            description="updated",
+            rules={"key_prefix": {"": {"policy": "read"}}},
+            token=master_token,
+        )
+        assert updated["Description"] == "updated"
+
+        read_back = c.acl.policy.read(uuid=policy_id, token=master_token)
+        assert read_back["Description"] == "updated"
+        assert "read" in read_back["Rules"]
+
+    def test_acl_policy_delete(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        created = c.acl.policy.create(name="delete-me-policy", token=master_token)
+        policy_id = created["ID"]
+
+        assert c.acl.policy.delete(uuid=policy_id, token=master_token) is True
+        assert c.acl.policy.read(uuid=policy_id, token=master_token) is None
+
+    def test_acl_token_list_filters(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        policy = c.acl.policy.create(name="filter-test-policy", token=master_token)
+        c.acl.token.create(
+            accessor_id="00000000-F17E-0000-0000-000000000000",
+            policies_id=[policy["ID"]],
+            token=master_token,
+        )
+
+        filtered = c.acl.token.list(policy=policy["ID"], token=master_token)
+        assert {t["AccessorID"] for t in filtered} == {"00000000-F17E-0000-0000-000000000000"}
+
+        assert c.acl.token.list(policy="00000000-0000-0000-0000-000000000099", token=master_token) == []
+
+    def test_acl_token_service_identities(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        token_info = c.acl.token.create(
+            description="service identity token",
+            service_identities=[{"ServiceName": "web", "Datacenters": ["dc1"]}],
+            token=master_token,
+        )
+        # find_recursive doesn't handle a list-of-strings leaf value (Datacenters), only
+        # lists of dicts, so this is asserted directly rather than via find_recursive.
+        assert len(token_info["ServiceIdentities"]) == 1
+        assert token_info["ServiceIdentities"][0]["ServiceName"] == "web"
+        assert token_info["ServiceIdentities"][0]["Datacenters"] == ["dc1"]
+
+    def test_acl_token_local(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        # Consul rejects combining a service identity's Datacenters scoping
+        # with Local=true ("cannot specify a list of datacenters on a local
+        # token"), so this is exercised separately from service_identities.
+        token_info = c.acl.token.create(description="local token", local=True, token=master_token)
+        assert find_recursive(token_info, {"Local": True})
+
+    def test_acl_token_expiration_ttl(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        token_info = c.acl.token.create(description="expiring token", expiration_ttl="10m", token=master_token)
+        assert "ExpirationTime" in token_info
+
+    def test_acl_token_create_templated(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        policy_name = "builtin/service"
+        templated_policies = [{policy_name: {"Name": "my-service"}}]
+
+        token_info = c.acl.token.create(
+            description="templated token", templated_policies=templated_policies, token=master_token
+        )
+
+        expected = {"TemplatedPolicies": [{"TemplateName": policy_name, "TemplateVariables": {"name": "my-service"}}]}
+
+        # Check immediate response
+        assert find_recursive(token_info, expected)
+
+        # Check read
+        token_read = c.acl.token.read(accessor_id=token_info["AccessorID"], token=master_token)
+        assert find_recursive(token_read, expected)
+
+    def test_acl_token_read_self(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        token_info = c.acl.token.read_self(token=master_token)
+        assert token_info["SecretID"] == master_token
+        assert token_info["Description"] == "Initial Management Token"
+
+    def test_acl_bootstrap_already_done(self, acl_consul) -> None:
+        c, _master_token, _consul_version = acl_consul
+
+        # acl_consul_instance already sets the initial management token via config,
+        # so the ACL system is already bootstrapped and a second bootstrap must fail.
+        pytest.raises(consul.ConsulException, c.acl.bootstrap)
+
+    def test_acl_login_unknown_auth_method(self, acl_consul) -> None:
+        c, _master_token, _consul_version = acl_consul
+
+        pytest.raises(consul.ConsulException, c.acl.login, auth_method="does-not-exist", bearer_token="fake-token")
+
+    def test_acl_logout_invalid_token(self, acl_consul) -> None:
+        c, _master_token, _consul_version = acl_consul
+
+        pytest.raises(consul.ConsulException, c.acl.logout, token="00000000-0000-0000-0000-0000000000ff")
+
+    def test_acl_role_crud(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        role = c.acl.role.create(
+            name="test-role",
+            description="a test role",
+            service_identities=[{"ServiceName": "web"}],
+            node_identities=[{"NodeName": "node-1", "Datacenter": "dc1"}],
+            token=master_token,
+        )
+        assert role["Name"] == "test-role"
+        assert find_recursive(role, {"ServiceIdentities": [{"ServiceName": "web"}]})
+        role_id = role["ID"]
+
+        assert c.acl.role.read(role_id=role_id, token=master_token)["Name"] == "test-role"
+        assert c.acl.role.read_by_name(name="test-role", token=master_token)["ID"] == role_id
+        assert find_recursive(c.acl.role.list(token=master_token), {"ID": role_id})
+
+        updated = c.acl.role.update(role_id=role_id, name="test-role", description="updated", token=master_token)
+        assert updated["Description"] == "updated"
+
+        assert c.acl.role.delete(role_id=role_id, token=master_token) is True
+        assert c.acl.role.read(role_id=role_id, token=master_token) is None
+
+    def test_acl_role_permission_denied(self, acl_consul) -> None:
+        c, _master_token, _consul_version = acl_consul
+
+        pytest.raises(consul.ACLPermissionDenied, c.acl.role.list)
+        pytest.raises(consul.ACLPermissionDenied, c.acl.role.create, name="denied-role")
+
+    def test_acl_auth_method_crud(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        method = c.acl.auth_method.create(
+            name="test-jwt",
+            method_type="jwt",
+            description="a test auth method",
+            config={"JWTValidationPubKeys": [JWT_PUBLIC_KEY], "BoundIssuer": "test-issuer"},
+            token=master_token,
+        )
+        assert method["Name"] == "test-jwt"
+        assert method["Type"] == "jwt"
+
+        read = c.acl.auth_method.read(name="test-jwt", token=master_token)
+        assert read["Config"]["BoundIssuer"] == "test-issuer"
+
+        assert find_recursive(c.acl.auth_method.list(token=master_token), {"Name": "test-jwt"})
+
+        updated = c.acl.auth_method.update(
+            name="test-jwt",
+            method_type="jwt",
+            description="updated",
+            config={"JWTValidationPubKeys": [JWT_PUBLIC_KEY], "BoundIssuer": "test-issuer"},
+            token=master_token,
+        )
+        assert updated["Description"] == "updated"
+
+        assert c.acl.auth_method.delete(name="test-jwt", token=master_token) is True
+        assert c.acl.auth_method.read(name="test-jwt", token=master_token) is None
+
+    def test_acl_binding_rule_crud(self, acl_consul) -> None:
+        c, master_token, _consul_version = acl_consul
+
+        c.acl.auth_method.create(
+            name="test-jwt",
+            method_type="jwt",
+            config={"JWTValidationPubKeys": [JWT_PUBLIC_KEY]},
+            token=master_token,
+        )
+
+        rule = c.acl.binding_rule.create(
+            auth_method="test-jwt",
+            bind_type="service",
+            bind_name="jwt-bound-service",
+            description="a test binding rule",
+            selector='value.iss=="test-issuer"',
+            token=master_token,
+        )
+        assert rule["AuthMethod"] == "test-jwt"
+        rule_id = rule["ID"]
+
+        assert c.acl.binding_rule.read(binding_rule_id=rule_id, token=master_token)["BindName"] == "jwt-bound-service"
+        assert find_recursive(c.acl.binding_rule.list(token=master_token), {"ID": rule_id})
+        assert find_recursive(c.acl.binding_rule.list(auth_method="test-jwt", token=master_token), {"ID": rule_id})
+
+        updated = c.acl.binding_rule.update(
+            binding_rule_id=rule_id,
+            auth_method="test-jwt",
+            bind_type="service",
+            bind_name="jwt-bound-service",
+            description="updated",
+            token=master_token,
+        )
+        assert updated["Description"] == "updated"
+
+        assert c.acl.binding_rule.delete(binding_rule_id=rule_id, token=master_token) is True
+        assert c.acl.binding_rule.read(binding_rule_id=rule_id, token=master_token) is None
+
+    #
+    # def test_acl_token_implicit_token_use(self, acl_consul):
+    #     # configure client to use the master token by default
+    #     port, _token, _consul_version = acl_consul
+    #     c = consul.Consul(port=port)
+    #     master_token = acl_consul.token
+    #
+    #     if should_skip(_consul_version, "<", "1.11.0"):
+    #         clean_consul(port)
+    #         pytest.skip("Endpoint /v1/acl/list for the legacy ACL system was removed in Consul 1.11.")
+    #
+    #
+    #     acls = c.acl.list()
+    #     assert {x["ID"] for x in acls} == {"anonymous", master_token}
+    #
+    #     assert c.acl.info("foo") is None
+    #     compare = [c.acl.info(master_token), c.acl.info("anonymous")]
+    #     compare.sort(key=operator.itemgetter("ID"))
+    #     assert acls == compare
+    #
+    #     rules = """
+    #         key "" {
+    #             policy = "read"
+    #         }
+    #         key "private/" {
+    #             policy = "deny"
+    #         }
+    #     """
+    #     token = c.acl.create(rules=rules)
+    #     assert c.acl.info(token)["Rules"] == rules
+    #
+    #     token2 = c.acl.clone(token)
+    #     assert c.acl.info(token2)["Rules"] == rules
+    #
+    #     assert c.acl.update(token2, name="Foo") == token2
+    #     assert c.acl.info(token2)["Name"] == "Foo"
+    #
+    #     assert c.acl.destroy(token2) is True
+    #     assert c.acl.info(token2) is None
+    #
+    #     c.kv.put("foo", "bar")
+    #     c.kv.put("private/foo", "bar")
+    #
+    #     c_limited = consul.Consul(port=acl_consul.port, token=token)
+    #     assert c_limited.kv.get("foo")[1]["Value"] == b"bar"
+    #     pytest.raises(consul.ACLPermissionDenied, c_limited.kv.put, "foo", "bar2")
+    #     pytest.raises(consul.ACLPermissionDenied, c_limited.kv.delete, "foo")
+    #
+    #     assert c.kv.get("private/foo")[1]["Value"] == b"bar"
+    #     pytest.raises(consul.ACLPermissionDenied, c_limited.kv.get, "private/foo")
+    #     pytest.raises(consul.ACLPermissionDenied, c_limited.kv.put, "private/foo", "bar2")
+    #     pytest.raises(consul.ACLPermissionDenied, c_limited.kv.delete, "private/foo")
+    #
+    #     # check we can override the client's default token
+    #     pytest.raises(consul.ACLPermissionDenied, c.kv.get, "private/foo", token=token)
+    #     pytest.raises(consul.ACLPermissionDenied, c.kv.put, "private/foo", "bar2", token=token)
+    #     pytest.raises(consul.ACLPermissionDenied, c.kv.delete, "private/foo", token=token)
+    #
+    #     # clean up
+    #     c.acl.destroy(token)
+    #     acls = c.acl.list()
+    #     assert {x["ID"] for x in acls} == {"anonymous", master_token}

@@ -2124,9 +2124,9 @@ def openai_complete(
 
         To route requests through Chalk's AI router instead of calling OpenAI directly,
         point this (or ``OPENAI_BASE_URL``) at your Chalk API server, e.g.
-        ``https://api.chalk.ai``. On a dedicated or self-hosted Chalk deployment, replace
-        ``api.chalk.ai`` with your own API server host — found in the ``apiServer`` field
-        of ``chalk config --format json``.
+        ``https://api.chalk.ai``. If your Chalk API host is not ``api.chalk.ai``, use your
+        own API server host in its place. It is in the ``apiServer`` field of
+        ``chalk config --format json``.
     api_key
         The OpenAI API key to use for authentication. When omitted, falls back to the
         ``OPENAI_API_KEY`` environment variable on the execution host, so the secret
@@ -2238,9 +2238,9 @@ def openai_embed(
 
         To route requests through Chalk's AI router instead of calling OpenAI directly,
         point this (or ``OPENAI_BASE_URL``) at your Chalk API server, e.g.
-        ``https://api.chalk.ai``. On a dedicated or self-hosted Chalk deployment, replace
-        ``api.chalk.ai`` with your own API server host — found in the ``apiServer`` field
-        of ``chalk config --format json``.
+        ``https://api.chalk.ai``. If your Chalk API host is not ``api.chalk.ai``, use your
+        own API server host in its place. It is in the ``apiServer`` field of
+        ``chalk config --format json``.
     api_key
         The OpenAI API key to use for authentication. When omitted, falls back to the
         ``OPENAI_API_KEY`` environment variable on the execution host, so the secret

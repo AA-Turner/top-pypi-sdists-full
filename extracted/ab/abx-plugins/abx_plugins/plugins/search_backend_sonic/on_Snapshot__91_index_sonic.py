@@ -28,6 +28,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
+from abx_plugins.plugins.base.search_text import clean_index_text, read_indexable_text
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     load_required_binary_from_config,
@@ -47,7 +48,18 @@ OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 # File extensions eligible for full-text indexing
-INDEXABLE_EXTENSIONS = {".txt", ".md", ".html", ".htm"}
+INDEXABLE_EXTENSIONS = {".txt", ".md"}
+# These hooks emit extracted articles or native document exports as HTML.
+# Raw browser/HTTP captures are not text extraction inputs to search.
+HTML_TEXT_PLUGINS = {"readability", "defuddle", "mercury", "trafilatura"}
+# Search is a bounded derivative; embedded media must not exhaust the capture
+# worker. All limits count bytes after data URL / encoded-blob removal.
+MAX_INDEX_FILE_SIZE = 16 * 1024 * 1024
+MAX_INDEX_TOTAL_SIZE = 64 * 1024 * 1024
+MAX_INDEX_TEXT_SIZE = 5 * 1024 * 1024
+MIN_INDEX_TEXT_SIZE = 10 * 1024
+MAX_FALLBACK_HTML_SIZE = 100 * 1024
+MAX_FALLBACK_TEXT_SIZE = 256 * 1024
 # Directories to skip (search backends themselves, executor artifacts, non-text plugins)
 SKIP_DIRS = {"search_backend_sqlite", "search_backend_sonic", "search_backend_ripgrep"}
 # Nested runtime/build/cache directories that are never snapshot content
@@ -73,7 +85,8 @@ def strip_html_tags(html: str) -> str:
     html = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
     # Quoted `>` characters do not end tags; leaking srcset data URLs here
     # can send megabytes of image bytes to the text index.
-    html = re.sub(r"""<(?:[^>"']|"[^"]*"|'[^']*')+>""", " ", html)
+    # Consume unquoted attributes as runs, not one backtracking frame per byte.
+    html = re.sub(r"""<(?:[^>"']++|"[^"]*"|'[^']*')++>""", " ", html)
     html = html.replace("&nbsp;", " ").replace("&amp;", "&")
     html = html.replace("&lt;", "<").replace("&gt;", ">")
     html = html.replace("&quot;", '"')
@@ -100,12 +113,38 @@ def find_indexable_content() -> list[tuple[str, str]]:
     """Auto-discover text content to index from all plugin output directories.
 
     Walks every subdirectory of SNAP_DIR and collects .txt, .md, .html, .htm
-    files, stripping HTML tags where needed.  This avoids hardcoding which
-    plugins produce indexable output — any plugin that writes text files will
-    be picked up automatically.
+    files. Plain text and Markdown are discovered from any plugin; HTML is
+    read first from article extractors and document exports. Small raw HTML
+    is a fallback only when less than 10 KiB of cleaned extracted text exists.
     """
     results = []
+    fallback_html = []
+    input_bytes = 0
+    text_bytes = 0
     snap_dir = SNAP_DIR
+
+    def read_source(source_path: Path, is_html: bool, remaining: int) -> str:
+        nonlocal input_bytes
+        read_limit = min(MAX_INDEX_FILE_SIZE, MAX_INDEX_TOTAL_SIZE - input_bytes)
+        if read_limit <= 0:
+            return ""
+        content = read_indexable_text(source_path, read_limit + 1)
+        encoded = content.encode("utf-8")
+        if len(encoded) > read_limit:
+            print(
+                f"Limiting {source_path}: search indexing limit ({read_limit} cleaned bytes)",
+                file=sys.stderr,
+            )
+            content = encoded[:read_limit].decode("utf-8", errors="ignore")
+        input_bytes += min(len(encoded), read_limit)
+        if is_html:
+            content = strip_html_tags(content)
+        return (
+            clean_index_text(content)
+            .strip()
+            .encode("utf-8")[:remaining]
+            .decode("utf-8", errors="ignore")
+        )
 
     if not snap_dir.is_dir():
         return results
@@ -132,6 +171,10 @@ def find_indexable_content() -> list[tuple[str, str]]:
         elif not stat.S_ISDIR(plugin_stat.st_mode):
             continue
 
+        # Provider hooks publish native document exports under files/ together
+        # with downloads.json. Those HTML documents are extracted content too.
+        has_document_exports = (resolved_plugin / "downloads.json").is_file()
+
         # Match rglob's symlink behavior: follow a plugin-root alias and file
         # aliases, but never recurse through nested directory symlinks. The
         # per-file fast path below relies on keeping followlinks=False.
@@ -139,9 +182,19 @@ def find_indexable_content() -> list[tuple[str, str]]:
             dirnames[:] = [
                 name for name in dirnames if not should_skip_nested_dir(name)
             ]
-            for filename in filenames:
+            for filename in sorted(filenames):
                 match = Path(directory) / filename
-                if not filename.endswith(tuple(INDEXABLE_EXTENSIONS)):
+                is_html = match.suffix.lower() in (".html", ".htm")
+                is_primary = True
+                if is_html:
+                    is_document_export = (
+                        has_document_exports
+                        and match.relative_to(plugin_dir).parts[0] == "files"
+                    )
+                    is_primary = (
+                        resolved_plugin.name in HTML_TEXT_PLUGINS or is_document_export
+                    )
+                elif not filename.lower().endswith(tuple(INDEXABLE_EXTENSIONS)):
                     continue
                 if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
                     continue
@@ -166,18 +219,43 @@ def find_indexable_content() -> list[tuple[str, str]]:
                 if not stat.S_ISREG(source_stat.st_mode) or source_stat.st_size == 0:
                     continue
 
-                try:
-                    content = resolved.read_text(encoding="utf-8", errors="ignore")
-                    if not content.strip():
-                        continue
-                    if match.suffix.lower() in (".html", ".htm"):
-                        content = strip_html_tags(content)
-                    if not content.strip():
-                        continue
-                    rel_path = match.relative_to(plugin_dir)
-                    results.append((f"{extractor}/{rel_path.as_posix()}", content))
-                except Exception:
+                source_id = f"{extractor}/{match.relative_to(plugin_dir).as_posix()}"
+                if not is_primary:
+                    fallback_html.append((source_id, resolved))
                     continue
+                try:
+                    content = read_source(
+                        resolved,
+                        is_html,
+                        MAX_INDEX_TEXT_SIZE - text_bytes,
+                    )
+                    if content:
+                        results.append((source_id, content))
+                        text_bytes += len(content.encode("utf-8"))
+                        if text_bytes >= MAX_INDEX_TEXT_SIZE:
+                            return results
+                except (OSError, UnicodeError):
+                    continue
+
+    if text_bytes < MIN_INDEX_TEXT_SIZE:
+        fallback_bytes = 0
+        for source_id, resolved in fallback_html:
+            try:
+                # Admission is based on cleaned HTML, not embedded-media size.
+                html = read_indexable_text(resolved, MAX_FALLBACK_HTML_SIZE)
+                if len(html.encode("utf-8")) >= MAX_FALLBACK_HTML_SIZE:
+                    continue
+                content = clean_index_text(strip_html_tags(html)).strip()
+                content = content.encode("utf-8")[
+                    : MAX_FALLBACK_TEXT_SIZE - fallback_bytes
+                ].decode("utf-8", errors="ignore")
+                if content:
+                    results.append((source_id, content))
+                    fallback_bytes += len(content.encode("utf-8"))
+                    if fallback_bytes >= MAX_FALLBACK_TEXT_SIZE:
+                        break
+            except (OSError, UnicodeError):
+                continue
 
     return results
 
@@ -207,8 +285,14 @@ def build_metadata_content(
     metadata = {}
     index_path = SNAP_DIR / "index.jsonl"
     if index_path.is_file():
-        with index_path.open(encoding="utf-8") as index:
-            for line in index:
+        raw_metadata = read_indexable_text(index_path, MAX_INDEX_FILE_SIZE + 1)
+        if len(raw_metadata.encode("utf-8")) > MAX_INDEX_FILE_SIZE:
+            print(
+                f"Skipping {index_path}: search indexing limit ({MAX_INDEX_FILE_SIZE} bytes)",
+                file=sys.stderr,
+            )
+        else:
+            for line in raw_metadata.splitlines():
                 if not line.strip():
                     continue
                 record = json.loads(line)
@@ -222,7 +306,11 @@ def build_metadata_content(
         *_metadata_values(metadata.get("title")),
         *_metadata_values(metadata.get("tags"), split_tags=True),
     ]
-    return "\n".join(dict.fromkeys(values))
+    return (
+        clean_index_text("\n".join(dict.fromkeys(values)))
+        .encode("utf-8")[:MAX_INDEX_TEXT_SIZE]
+        .decode("utf-8", errors="ignore")
+    )
 
 
 def escape_sonic_backslashes(text: str) -> str:

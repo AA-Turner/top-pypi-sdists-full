@@ -15,19 +15,25 @@
 #include "tensorstore/kvstore/s3/s3_request_builder.h"
 
 #include <string>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/base/log_severity.h"
+#include "absl/log/scoped_mock_log.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/aws/aws_credentials.h"
 #include "tensorstore/internal/http/http_request.h"
+#include "tensorstore/internal/log/verbose_flag.h"
 
 using ::tensorstore::internal_aws::AwsCredentials;
 using ::tensorstore::internal_kvstore_s3::S3RequestBuilder;
+using ::testing::_;
 using ::testing::Contains;
+using ::testing::HasSubstr;
 using ::testing::Not;
 using ::testing::Pair;
 using ::testing::UnorderedElementsAre;
@@ -79,11 +85,10 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   const auto now =
       absl::FromCivil(absl::CivilSecond(2024, 2, 21, 03, 02, 05), utc);
 
-  auto builder =
-      S3RequestBuilder(
-          "PUT", "https://host/bucket/tensorstore/a-_.~$&,:=@z/b/file.txt")
-          .AddHeader("content-md5", "1B2M2Y8AsgTpgAmY7PhCfg==")
-          .AddHeader("content-type", "text/plain");
+  auto builder = S3RequestBuilder("PUT", "https://host/bucket",
+                                  "tensorstore/a-_.~$&,:=@z/b/file.txt")
+                     .AddHeader("content-md5", "1B2M2Y8AsgTpgAmY7PhCfg==")
+                     .AddHeader("content-type", "text/plain");
 
   // NOTE: In a proper vhost request, `bucket/` would be omitted from the path.
   auto request = builder.BuildRequest(
@@ -113,9 +118,35 @@ e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   auto expected_signature =
       "c3bf762eae82b8a87dc5f7af8c2ad8973d4a0132c49bd8c46d025d4a1aa175fb";
 
+  EXPECT_EQ(
+      request.url,
+      "https://host/bucket/tensorstore/a-_.~%24%26%2C%3A%3D%40z/b/file.txt");
   EXPECT_EQ(builder.GetCanonicalRequest(), expected_canonical_request);
   EXPECT_EQ(builder.GetSigningString(), expected_signing_string);
   EXPECT_EQ(builder.GetSignature(), expected_signature);
+}
+
+TEST(S3RequestBuilderTest, PreservesLiteralPercentInObjectKey) {
+  const auto credentials = AwsCredentials::Make(
+      "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
+  const auto now =
+      absl::FromCivil(absl::CivilSecond(2024, 2, 21, 03, 02, 05), utc);
+
+  // An object key containing a literal "%20" or "%3A" must have its '%'
+  // encoded as "%25" in both the request URL and the CanonicalRequest URI
+  // (i.e. "/bucket/dir%253A1/file%2520name.txt"), rather than being
+  // percent-decoded into "%3A" / "%20" or double-encoded into "%2525".
+  auto builder = S3RequestBuilder("GET", "https://host/bucket",
+                                  "dir%3A1/file%20name?acl#frag");
+  auto request = builder.BuildRequest(
+      "bucket.s3.us-west-2.amazonaws.com", credentials, "us-west-2",
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", now);
+
+  EXPECT_EQ(request.url,
+            "https://host/bucket/dir%253A1/file%2520name%3Facl%23frag");
+  EXPECT_THAT(
+      builder.GetCanonicalRequest(),
+      HasSubstr("GET\n/bucket/dir%253A1/file%2520name%3Facl%23frag\n\n"));
 }
 
 TEST(S3RequestBuilderTest, AWS4SignatureGetExample) {
@@ -182,8 +213,8 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
   const auto credentials = AwsCredentials::Make(
       "AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "");
 
-  auto url = absl::StrFormat("s3://%s/test$file.text", bucket);
-  auto builder = S3RequestBuilder("PUT", url)
+  auto endpoint = absl::StrFormat("s3://%s", bucket);
+  auto builder = S3RequestBuilder("PUT", endpoint, "test$file.text")
                      .AddHeader("date", "Fri, 24 May 2013 00:00:00 GMT")
                      .AddHeader("x-amz-storage-class", "REDUCED_REDUNDANCY");
   auto request = builder.BuildRequest(
@@ -225,7 +256,7 @@ TEST(S3RequestBuilderTest, AWS4SignaturePutExample) {
   EXPECT_EQ(builder.GetCanonicalRequest(), expected_canonical_request);
   EXPECT_EQ(builder.GetSigningString(), expected_signing_string);
   EXPECT_EQ(builder.GetSignature(), expected_signature);
-  EXPECT_EQ(request.url, url);
+  EXPECT_EQ(request.url, absl::StrCat(endpoint, "/test%24file.text"));
   EXPECT_EQ(request.headers.size(), 6);
   EXPECT_THAT(
       request.headers,
@@ -371,6 +402,38 @@ TEST(S3RequestBuilderTest, AwsRequesterPaysHeaderAdded) {
 
   EXPECT_THAT(request.headers,
               Contains(Pair("x-amz-requester-payer", "requester")));
+}
+
+TEST(S3RequestBuilderTest, DoesNotLogSigningKeyOrSessionToken) {
+  tensorstore::internal_log::UpdateVerboseLogging("s3=1", true);
+  absl::ScopedMockLog log(absl::MockLogDefault::kIgnoreUnexpected);
+
+  constexpr char kToken[] = "MY_SECRET_STS_SESSION_TOKEN_123456";
+  // Derived signing key hex for wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY on
+  // 20130524 in us-east-1 for service s3.
+  constexpr char kExpectedSigningKeyHex[] =
+      "dbb893acc010964918f1fd433add87c70e8b0db6be30c1fbeafefa5ec6ba8378";
+  EXPECT_CALL(log, Log(_, _, HasSubstr("Signing Key"))).Times(0);
+  EXPECT_CALL(log, Log(_, _, HasSubstr(kExpectedSigningKeyHex))).Times(0);
+  EXPECT_CALL(log, Log(_, _, HasSubstr(kToken))).Times(0);
+  EXPECT_CALL(log, Log(absl::LogSeverity::kInfo, _,
+                       HasSubstr("x-amz-security-token:[REDACTED]")))
+      .Times(::testing::AtLeast(1));
+  log.StartCapturingLogs();
+
+  const auto sts_credentials =
+      AwsCredentials::Make("AKIAIOSFODNN7EXAMPLE",
+                           "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", kToken);
+
+  auto builder =
+      S3RequestBuilder("GET", absl::StrFormat("https://%s/test.txt", bucket));
+  auto request = builder.BuildRequest(
+      absl::StrFormat("%s.s3.amazonaws.com", bucket), sts_credentials,
+      aws_region,
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      absl::FromCivil(absl::CivilSecond(2013, 5, 24, 0, 0, 0), utc));
+
+  tensorstore::internal_log::UpdateVerboseLogging("", true);
 }
 
 }  // namespace

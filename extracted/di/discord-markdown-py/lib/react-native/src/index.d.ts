@@ -1,4 +1,4 @@
-import type { Block, SyntaxFlags } from "@discord/markdown-types";
+import type { Block, LosslessNode, SyntaxFlags } from "@discord/markdown-types";
 
 export { Syntax, type SyntaxFlags } from "@discord/markdown-types";
 
@@ -21,6 +21,19 @@ export function parse(
 	flags?: SyntaxFlags | null,
 	fuel?: number | null,
 ): Block[];
+
+/**
+ * Parse markdown into the lossless tree, for rich text: nodes for what the markdown means, and
+ * tokens holding every character of `content` in order, so joining their `text` gives it back
+ * exactly. Every span is in UTF-16 code units, so it indexes `content` directly.
+ *
+ * Runs synchronously on the JS thread, and takes `flags` and `fuel` as {@link parse} does.
+ */
+export function parseLossless(
+	content: string,
+	flags?: SyntaxFlags | null,
+	fuel?: number | null,
+): LosslessNode;
 
 /**
  * Turn an AST back into markdown.

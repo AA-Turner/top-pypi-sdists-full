@@ -3,16 +3,17 @@
 optional dependency (part of the dev extras), an ImportError on this module
 means it is not installed."""
 
-import numba
 import numbagg
 
-# numbagg compiles its grouped reductions to parallel-target gufuncs -
-# for a scatter reduction the per-call thread sync of that target
-# dominates at this data size (measured 3.6ms against 0.5ms at one
-# thread on a 6-core machine).  every other participant of this
-# benchmark runs single threaded, so numbagg is held there too
-numba.set_num_threads(1)
-
+# numbagg compiles its grouped reductions to parallel-target gufuncs and
+# decides under its own hood what to do with the threads of the machine: the
+# target is chosen when the function is called, and the runtime splits the
+# work over the threads where there is anything to split.  There is nothing
+# to split on a one-dimensional input - the whole array is the core of the
+# kernel - so the threads of the machine bring nothing, and the call runs
+# where it runs.  The benchmark does not hold numbagg at one thread and does
+# not measure it twice: that is a decision of numbagg, and a second column
+# would only show the same numbers twice.
 funcs = {
     "sum": numbagg.group_nansum,
     "prod": numbagg.group_nanprod,
@@ -59,6 +60,12 @@ def aggregate(group_idx, a, func="sum", size=None, fill_value=None, order="C", d
     reported as "----".  ``size``/``fill_value`` are accepted but ignored:
     numbagg infers the group count and fills empty groups itself (the
     benchmark data leaves no group empty).
+
+    The threads of the machine are numbagg's own business: it compiles its
+    grouped reductions to parallel targets and uses the pool where there is
+    anything to split - and on a one-dimensional input there is nothing,
+    the whole array being the core of the kernel.  The benchmark does not
+    hold it at one thread and does not measure it a second time.
     """
     name = func if isinstance(func, str) else getattr(func, "__name__", None)
     fn = funcs.get(name)

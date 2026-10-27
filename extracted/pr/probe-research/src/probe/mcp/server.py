@@ -20,6 +20,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import threading
 import time
 import warnings
@@ -40,6 +41,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel, BeforeValidator, Field, create_model
 
 from .. import __version__
+from .._compat import StrEnum
 from ..client_headers import (
     CLIENT_KIND_HEADER,
     CLIENT_VERSION_HEADER,
@@ -2192,6 +2194,65 @@ async def _send_json(
     await send({"type": "http.response.body", "body": body})
 
 
+#: What the Claude Code plugin's `bin/probe-mcp-headers` sends when the computer
+#: holds no Probe token. It never sends nothing: a bare request draws the OAuth
+#: challenge, and Claude Code then shows "Needs authentication" and skips this
+#: server in every new session for 15 minutes. This placeholder is refused like
+#: a bad token ("Failed to connect", no OAuth), without asking the API.
+NO_TOKEN_PLACEHOLDER = "probe-no-token"
+
+
+class Unauthorized(StrEnum):
+    """Why the edge refused a request (logged; the body's `error` stays `invalid_token`)."""
+
+    #: No bearer token at all: an OAuth client before it signs in, or an old helper.
+    MISSING = "missing"
+    #: The plugin helper found no token on the computer (NO_TOKEN_PLACEHOLDER).
+    NO_TOKEN_ON_DEVICE = "no_token_on_device"
+    #: A token the API refused: revoked, rotated, expired or never valid.
+    REJECTED = "rejected"
+
+
+def _unauthorized_body(reason: Unauthorized) -> bytes:
+    if reason is Unauthorized.NO_TOKEN_ON_DEVICE:
+        from ..sdk.session_marker import WIZARD_HINT
+
+        return json.dumps(
+            {"error": "invalid_token", "error_description": f"no Probe token on this computer: {WIZARD_HINT}"}
+        ).encode()
+    return b'{"error":"invalid_token"}'
+
+
+#: A User-Agent's leading `product/version`, the only part of that caller-chosen
+#: text a refusal log keeps: anything else (a pasted credential included) is "other".
+_USER_AGENT_PRODUCT = re.compile(r"[A-Za-z][A-Za-z0-9._-]{0,40}/[0-9][0-9A-Za-z._+-]{0,30}")
+
+
+def _user_agent_product(raw: bytes) -> str:
+    text = raw.decode("ascii", "replace").split(" ", 1)[0]
+    if not text:
+        return "-"
+    return text if _USER_AGENT_PRODUCT.fullmatch(text) else "other"
+
+
+def _auth_logger() -> logging.Logger:
+    """The refusal log, one plain line per 401. Not `_logger`: the hosted server's
+    root handler (FastMCP's RichHandler) wraps at 80 columns, which splits a line
+    so a search for `reason=` never shows the client beside it."""
+    log = logging.getLogger("probe.mcp.auth")
+    # Probe's own handler, found by its mark: a handler someone else added first
+    # (a dictConfig, a test's capture) must not stop the plain line or let it
+    # propagate into the wrapping root handler as well.
+    if not any(getattr(handler, "_probe_auth_log", False) for handler in log.handlers):
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+        handler._probe_auth_log = True  # type: ignore[attr-defined]
+        log.addHandler(handler)
+    log.setLevel(logging.INFO)
+    log.propagate = False
+    return log
+
+
 def with_auth_and_health(inner: Any, *, mcp_path: str = "/mcp", token_rejected: Any = None) -> Any:
     """Wrap an ASGI app: answer ``GET /healthz``; when OAuth discovery is on, serve
     the RFC 9728 protected-resource metadata and return a ``WWW-Authenticate``
@@ -2222,10 +2283,31 @@ def with_auth_and_health(inner: Any, *, mcp_path: str = "/mcp", token_rejected: 
             f'resource_metadata="{discovery["resource"]}{_PROTECTED_RESOURCE_PATH}", '
             'scope="research:read"'
         ).encode()
+    auth_log = _auth_logger()
 
-    async def _unauthorized(send: Any) -> None:
-        extra = [(b"www-authenticate", challenge)] if challenge else None
-        await _send_json(send, 401, b'{"error":"invalid_token"}', extra_headers=extra)
+    async def _unauthorized(
+        send: Any, reason: Unauthorized, client_headers: dict, agent: str | None, user_agent: bytes
+    ) -> None:
+        # Why, and from which client: a missing token and a refused one used to be
+        # one indistinguishable `401 invalid_token`. Only values already validated
+        # (client kind/version, a known agent) or reduced to `product/version`;
+        # never the token, never other caller text.
+        auth_log.info(
+            "mcp 401 reason=%s client=%s/%s agent=%s user_agent=%s",
+            reason.value,
+            client_headers.get(CLIENT_KIND_HEADER) or "-",
+            client_headers.get(CLIENT_VERSION_HEADER) or "-",
+            agent or "-",
+            _user_agent_product(user_agent),
+        )
+        extra = None
+        if challenge and reason is Unauthorized.NO_TOKEN_ON_DEVICE:
+            # Our own helper's placeholder: no sign-in to discover, so no
+            # resource_metadata for a client to start one from.
+            extra = [(b"www-authenticate", b'Bearer realm="research", error="invalid_token"')]
+        elif challenge:
+            extra = [(b"www-authenticate", challenge)]
+        await _send_json(send, 401, _unauthorized_body(reason), extra_headers=extra)
 
     async def app(scope: dict, receive: Any, send: Any) -> None:
         if scope.get("type") != "http":
@@ -2255,7 +2337,14 @@ def with_auth_and_health(inner: Any, *, mcp_path: str = "/mcp", token_rejected: 
             return
         headers = dict(scope.get("headers") or [])
         raw = headers.get(b"authorization", b"")
-        token = raw[7:].decode().strip() or None if raw[:7].lower() == b"bearer " else None
+        try:
+            # ASCII: every token any issuer mints is, and a non-ASCII one would
+            # raise inside the API check (httpx cannot send it): a 500, not a 401.
+            token = raw[7:].decode("ascii").strip() or None if raw[:7].lower() == b"bearer " else None
+            undecodable = False
+        except UnicodeDecodeError:
+            # Not a token any issuer minted: refused at the edge, never a 500.
+            token, undecodable = None, True
         try:
             client_kind = headers.get(CLIENT_KIND_HEADER.lower().encode(), b"").decode("ascii")
             client_version = headers.get(
@@ -2293,11 +2382,17 @@ def with_auth_and_health(inner: Any, *, mcp_path: str = "/mcp", token_rejected: 
         with client_headers_scope(client_headers), workspace_limit.forwarded_scope(forwarded_limit):
             try:
                 if path.startswith(mcp_path):
-                    if discovery and token is None:
-                        await _unauthorized(send)
-                        return
-                    if token and token_rejected is not None and await token_rejected(token):
-                        await _unauthorized(send)
+                    refused = None
+                    if undecodable:
+                        refused = Unauthorized.REJECTED
+                    elif discovery and token is None:
+                        refused = Unauthorized.MISSING
+                    elif token == NO_TOKEN_PLACEHOLDER:
+                        refused = Unauthorized.NO_TOKEN_ON_DEVICE
+                    elif token and token_rejected is not None and await token_rejected(token):
+                        refused = Unauthorized.REJECTED
+                    if refused is not None:
+                        await _unauthorized(send, refused, client_headers, agent, headers.get(b"user-agent", b""))
                         return
                 # Identity is read HERE, not at emit time. The accept cache has a
                 # short TTL and emit runs after the tool body: any call that outlives

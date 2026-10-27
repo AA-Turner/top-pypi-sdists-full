@@ -33,6 +33,7 @@ from rich.console import Console
 from rich.text import Text
 
 from lib_log_rich.application.ports.console import ConsolePort
+from lib_log_rich.domain.enums import ConsoleStream, FormatPreset, require_enum_member
 from lib_log_rich.domain.levels import LogLevel
 
 from .._formatting import build_format_payload
@@ -53,22 +54,21 @@ _STYLE_MAP: Mapping[LogLevel, str] = {
 #: Default Rich styles keyed by :class:`LogLevel` severity.
 
 
-#: Console line templates by preset name. Brackets are plain text: every line is
+#: Console line templates by preset. Brackets are plain text: every line is
 #: printed as a :class:`rich.text.Text`, so no Rich markup is interpreted and no
 #: escaping is needed (see :meth:`RichConsoleAdapter.emit`).
-_CONSOLE_PRESETS: dict[str, str] = {
-    "full": "{timestamp_trimmed_naive} {level_icon}{LEVEL:>8} {logger_name} — {message}{context_fields}",
-    "short": "[{hh}:{mm}:{ss}][{level_code} {level_icon}][{logger_name}]: {message}",
-    "full_loc": "{timestamp_trimmed_naive_loc} {level_icon}{LEVEL:>8} {logger_name} — {message}{context_fields}",
-    "short_loc": "[{hh_loc}:{mm_loc}:{ss_loc}][{level_code}]: {message}",
-    "short_loc_icon": "[{hh_loc}:{mm_loc}:{ss_loc}] {level_icon} {message}",
+_CONSOLE_PRESETS: Mapping[FormatPreset, str] = {
+    FormatPreset.FULL: "{timestamp_trimmed_naive} {level_icon}{LEVEL:>8} {logger_name} — {message}{context_fields}",
+    FormatPreset.SHORT: "[{hh}:{mm}:{ss}][{level_code} {level_icon}][{logger_name}]: {message}",
+    FormatPreset.FULL_LOC: "{timestamp_trimmed_naive_loc} {level_icon}{LEVEL:>8} {logger_name} — {message}{context_fields}",
+    FormatPreset.SHORT_LOC: "[{hh_loc}:{mm_loc}:{ss_loc}][{level_code}]: {message}",
+    FormatPreset.SHORT_LOC_ICON: "[{hh_loc}:{mm_loc}:{ss_loc}] {level_icon} {message}",
 }
-CONSOLE_PRESETS: tuple[str, ...] = tuple(_CONSOLE_PRESETS.keys())
 
 
-def _default_preset() -> str:
+def _default_preset() -> FormatPreset:
     """Return platform-appropriate default console preset."""
-    return "short_loc_icon" if sys.platform == "win32" else "short_loc"
+    return FormatPreset.SHORT_LOC_ICON if sys.platform == "win32" else FormatPreset.SHORT_LOC
 
 
 def _flush_stream(stream: IO[str]) -> None:
@@ -84,6 +84,18 @@ def _stream_isatty(stream: IO[str]) -> bool:
     if not callable(isatty):
         return False
     return bool(isatty())
+
+
+def _no_terminal_width(*streams: IO[str]) -> bool:
+    """Return True when a target stream is not a terminal, so Rich must not wrap.
+
+    Off a terminal Rich still hard-wraps at its default 80 columns, which split
+    one event into several journal or log-file records, the first ending in a
+    space. Judged on the real stream, not ``force_color``: a pipe with colour
+    forced on has no width either. With several targets (``stream="both"``) one
+    non-terminal is enough, since wrapping would split the lines it receives.
+    """
+    return not all(_stream_isatty(stream) for stream in streams)
 
 
 def _try_get_fileno(stream: IO[str]) -> int | None:
@@ -108,28 +120,31 @@ class _ConsoleStreamTee(io.TextIOBase):
         primary = streams[0] if streams else None
         self._encoding = getattr(primary, "encoding", "utf-8")
 
+    # typeshed declares TextIOBase.encoding a plain str attribute, but CPython's C base makes it
+    # a read-only slot, so the per-instance value can only come from a property. Remove the
+    # ignore once typeshed declares encoding as a read-only property.
     @property
-    def encoding(self) -> str:  # type: ignore[override]
+    def encoding(self) -> str:  # pyright: ignore[reportIncompatibleVariableOverride]
         """Return the encoding of the primary stream."""
         return self._encoding
 
-    def write(self, data: str) -> int:  # type: ignore[override]
+    def write(self, data: str) -> int:
         """Write data to all underlying streams."""
         length = len(data)
         for stream in self._streams:
             stream.write(data)
         return length
 
-    def flush(self) -> None:  # type: ignore[override]
+    def flush(self) -> None:
         """Flush all underlying streams."""
         for stream in self._streams:
             _flush_stream(stream)
 
-    def isatty(self) -> bool:  # type: ignore[override]
+    def isatty(self) -> bool:
         """Return True if any underlying stream is a TTY."""
         return any(_stream_isatty(stream) for stream in self._streams)
 
-    def fileno(self) -> int:  # type: ignore[override]
+    def fileno(self) -> int:
         """Return the file descriptor of the first stream that has one."""
         for stream in self._streams:
             result = _try_get_fileno(stream)
@@ -137,20 +152,20 @@ class _ConsoleStreamTee(io.TextIOBase):
                 return result
         raise OSError("fileno is unsupported for tee console stream")
 
-    def writable(self) -> bool:  # type: ignore[override]
+    def writable(self) -> bool:
         """Return True since this stream supports writing."""
         return True
 
-    def readable(self) -> bool:  # type: ignore[override]
+    def readable(self) -> bool:
         """Return False since this stream does not support reading."""
         return False
 
-    def close(self) -> None:  # type: ignore[override]
+    def close(self) -> None:
         """No-op; underlying streams are not closed by the tee."""
         # We deliberately do not close underlying streams.
         return None
 
-    @property  # type: ignore[override]
+    @property
     def closed(self) -> bool:
         """Return False; the tee is never closed."""
         return False
@@ -166,9 +181,9 @@ class RichConsoleAdapter(ConsolePort):
         force_color: bool = False,
         no_color: bool = False,
         styles: Mapping[str, str] | None = None,
-        format_preset: str | None = None,
+        format_preset: FormatPreset | None = None,
         format_template: str | None = None,
-        stream: str = "stderr",
+        stream: ConsoleStream = ConsoleStream.STDERR,
         stream_target: IO[str] | None = None,
     ) -> None:
         """Configure the console adapter with colour and style overrides.
@@ -178,17 +193,28 @@ class RichConsoleAdapter(ConsolePort):
             force_color: Force ANSI colour even when Rich would disable it.
             no_color: Disable colour regardless of terminal capabilities.
             styles: Mapping of levels to Rich style strings overriding defaults.
-            format_preset: Named preset from :data:`_CONSOLE_PRESETS`.
+            format_preset: Line layout; ``None`` picks the platform default.
             format_template: Custom ``str.format`` template overriding presets.
-            stream: Destination stream selector: ``"stdout"``, ``"stderr"``,
-                ``"both"``, ``"custom"``, or ``"none"``.
-            stream_target: Custom text IO object used when ``stream == "custom"``.
+            stream: Destination stream; ``ConsoleStream.CUSTOM`` writes to
+                ``stream_target``.
+            stream_target: Custom text IO object used with ``ConsoleStream.CUSTOM``.
+
+        Raises:
+            TypeError: If ``format_preset`` or ``stream`` is not a member of its enum.
+
+        Example:
+            >>> RichConsoleAdapter(stream='stderr')
+            Traceback (most recent call last):
+            ...
+            TypeError: stream must be a member of ConsoleStream, got 'stderr'
 
         """
+        selected_stream = require_enum_member(stream, ConsoleStream, parameter="stream")
+        selected_preset = None if format_preset is None else require_enum_member(format_preset, FormatPreset, parameter="format_preset")
         if console is not None:
             self._console = console
         else:
-            self._console = self._build_console(stream, stream_target, force_color=force_color, no_color=no_color)
+            self._console = self._build_console(selected_stream, stream_target, force_color=force_color, no_color=no_color)
         self._force_color = force_color
         self._no_color = no_color
         if styles:
@@ -199,7 +225,7 @@ class RichConsoleAdapter(ConsolePort):
             self._style_map = merged
         else:
             self._style_map = dict(_STYLE_MAP)
-        self._template, self._template_source = _resolve_template(format_preset, format_template)
+        self._template, self._preset = _resolve_template(selected_preset, format_template)
 
     def emit(self, event: LogEvent, *, colorize: bool) -> None:
         r"""Print ``event`` using Rich with optional colour.
@@ -266,32 +292,32 @@ class RichConsoleAdapter(ConsolePort):
         try:
             return template.format(**payload)
         except Exception:
-            if self._template_source != "full":
-                fallback = _CONSOLE_PRESETS["full"]
+            # A custom template (preset None) or a non-FULL preset that fails to
+            # render falls back to FULL; FULL itself has nothing to fall back to.
+            if self._preset is not FormatPreset.FULL:
+                fallback = _CONSOLE_PRESETS[FormatPreset.FULL]
                 try:
                     return fallback.format(**payload)
                 except Exception as exc:  # pragma: no cover - defensive
                     raise ValueError("Console format template failed to render") from exc
             raise
 
-    def _build_console(self, stream: str, stream_target: IO[str] | None, *, force_color: bool, no_color: bool) -> Console:
+    def _build_console(self, stream: ConsoleStream, stream_target: IO[str] | None, *, force_color: bool, no_color: bool) -> Console:
         """Create a Rich console routed to the requested stream."""
-        stream_mode = stream.lower()
-        if stream_mode == "stdout":
-            return Console(force_terminal=force_color, no_color=no_color)
-        if stream_mode == "stderr":
-            return Console(stderr=True, force_terminal=force_color, no_color=no_color)
-        if stream_mode == "both":
+        if stream is ConsoleStream.STDOUT:
+            return Console(force_terminal=force_color, no_color=no_color, soft_wrap=_no_terminal_width(sys.stdout))
+        if stream is ConsoleStream.BOTH:
             tee = _ConsoleStreamTee(sys.stdout, sys.stderr)
-            return Console(file=cast("IO[str]", tee), force_terminal=force_color, no_color=no_color)
-        if stream_mode == "custom":
+            return Console(file=cast("IO[str]", tee), force_terminal=force_color, no_color=no_color, soft_wrap=_no_terminal_width(sys.stdout, sys.stderr))
+        if stream is ConsoleStream.CUSTOM:
             if stream_target is None:
                 raise ValueError("stream_target must be provided when stream='custom'")
-            return Console(file=stream_target, force_terminal=force_color, no_color=no_color)
-        if stream_mode == "none":
+            return Console(file=stream_target, force_terminal=force_color, no_color=no_color, soft_wrap=_no_terminal_width(stream_target))
+        if stream is ConsoleStream.NONE:
             tee = _ConsoleStreamTee()
-            return Console(file=cast("IO[str]", tee), force_terminal=force_color, no_color=no_color)
-        raise ValueError(f"Unsupported console stream: {stream_mode}")
+            return Console(file=cast("IO[str]", tee), force_terminal=force_color, no_color=no_color, soft_wrap=True)
+        # ConsoleStream.STDERR, the one member left.
+        return Console(stderr=True, force_terminal=force_color, no_color=no_color, soft_wrap=_no_terminal_width(sys.stderr))
 
     def flush(self) -> None:
         """Flush the underlying console stream.
@@ -303,7 +329,7 @@ class RichConsoleAdapter(ConsolePort):
         Example:
             >>> from io import StringIO
             >>> buffer = StringIO()
-            >>> adapter = RichConsoleAdapter(stream='custom', stream_target=buffer)
+            >>> adapter = RichConsoleAdapter(stream=ConsoleStream.CUSTOM, stream_target=buffer)
             >>> adapter.flush()  # no-op but doesn't raise
 
         """
@@ -316,42 +342,28 @@ class RichConsoleAdapter(ConsolePort):
 
 
 @lru_cache(maxsize=16)
-def _resolve_template(format_preset: str | None, format_template: str | None) -> tuple[str, str]:
-    """Select the console template and track its origin.
+def _resolve_template(format_preset: FormatPreset | None, format_template: str | None) -> tuple[str, FormatPreset | None]:
+    """Select the console template and the preset it came from.
 
-    Parameters
-    ----------
-    format_preset:
-        Named preset to load when ``format_template`` is ``None``.
-    format_template:
-        Custom template string overriding presets.
+    Args:
+        format_preset: Preset to load when ``format_template`` is empty;
+            ``None`` picks the platform default.
+        format_template: Custom template string overriding presets.
 
-    Returns
-    -------
-    tuple[str, str]
-        ``(template, source)`` where ``source`` is either ``"custom"`` or the
-        preset key.
+    Returns:
+        ``(template, preset)`` where ``preset`` is ``None`` for a custom template.
 
-    Raises
-    ------
-    ValueError
-        If the requested preset does not exist.
-
-    Examples
-    --------
-    >>> _resolve_template('full', None)[1]
-    'full'
-    >>> _resolve_template(None, '{message}')[1]
-    'custom'
+    Examples:
+        >>> _resolve_template(FormatPreset.FULL, None)[1] is FormatPreset.FULL
+        True
+        >>> _resolve_template(FormatPreset.FULL, '{message}')
+        ('{message}', None)
 
     """
     if format_template:
-        return format_template, "custom"
-    preset = (format_preset or _default_preset()).lower()
-    try:
-        return _CONSOLE_PRESETS[preset], preset
-    except KeyError as exc:
-        raise ValueError(f"Unknown console format preset: {format_preset!r}") from exc
+        return format_template, None
+    preset = format_preset or _default_preset()
+    return _CONSOLE_PRESETS[preset], preset
 
 
-__all__ = ["CONSOLE_PRESETS", "RichConsoleAdapter"]
+__all__ = ["RichConsoleAdapter"]

@@ -5,8 +5,13 @@
 cimport cython
 
 from libc.stdint cimport int8_t, int32_t, uint8_t, uint16_t, uint32_t, uint64_t
-from libc.stdlib cimport free, malloc, realloc
+from libc.stdlib cimport free, malloc
 from libc.string cimport memcpy
+
+from refinery.lib.fast._buffer cimport reserve
+
+from refinery.lib.exceptions import RefineryPartialResult
+from refinery.lib.fast.lzfse_header import LITERALS_PER_BLOCK, BlockKind, read_block_header
 
 DEF ENCODE_L_SYMBOLS = 20
 DEF ENCODE_M_SYMBOLS = 20
@@ -18,12 +23,6 @@ DEF ENCODE_D_STATES = 256
 DEF ENCODE_LITERAL_STATES = 1024
 DEF TOTAL_FREQ_COUNT = 360
 DEF VALUE_STRIDE = 4
-
-cdef uint32_t _LZFSE_V1_MAGIC = 0x31787662
-cdef uint32_t _LZFSE_V2_MAGIC = 0x32787662
-cdef uint32_t _LZVN_MAGIC     = 0x6E787662
-cdef uint32_t _UNCOMPRESSED_MAGIC = 0x2D787662
-cdef uint32_t _ENDOFSTREAM_MAGIC  = 0x24787662
 
 DEF LZVN_EOS   = 0
 DEF LZVN_NOP   = 1
@@ -90,6 +89,9 @@ _LZVN_OPC_TABLE[:] = [
    10, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
 ]
 
+cdef uint8_t _LZVN_INSTRUCTION_SIZE[11]
+_LZVN_INSTRUCTION_SIZE[:] = [1, 1, 1, 2, 3, 3, 1, 1, 2, 1, 2]
+
 cdef uint8_t _FREQ_NBITS_TABLE[32]
 _FREQ_NBITS_TABLE[:] = [
     2, 3, 2, 5, 2, 3, 2, 8, 2, 3, 2, 5, 2, 3, 2, 14,
@@ -110,8 +112,9 @@ _FREQ_VALUE_TABLE[:] = [
 
 ctypedef struct FseInState:
     const uint8_t *buf
-    int buf_start       # lower bound (offset) for the buffer pointer
-    int buf_pos
+    Py_ssize_t start
+    Py_ssize_t end
+    Py_ssize_t pos
     uint64_t accum
     int accum_nbits
 
@@ -141,70 +144,81 @@ cdef inline int _clz32(uint32_t x) noexcept nogil:
     return n
 
 
-cdef inline uint64_t _read_le_u64_safe(const uint8_t *buf, int pos, int buf_len) noexcept nogil:
-    cdef uint64_t result = 0
-    cdef int avail, i
-    if pos + 8 <= buf_len:
-        memcpy(&result, &buf[pos], 8)
-        return result
-    avail = buf_len - pos
-    if avail <= 0:
-        return 0
-    for i in range(avail):
-        result |= (<uint64_t>buf[pos + i]) << (8 * i)
-    return result
-
-
-cdef inline uint32_t _read_le_u32(const uint8_t *buf, int pos) noexcept nogil:
-    cdef uint32_t result
-    memcpy(&result, &buf[pos], 4)
-    return result
-
-
-cdef inline uint16_t _read_le_u16(const uint8_t *buf, int pos) noexcept nogil:
-    cdef uint16_t result
-    memcpy(&result, &buf[pos], 2)
-    return result
-
-
-cdef inline uint64_t _read_le_u64(const uint8_t *buf, int pos) noexcept nogil:
+cdef inline uint64_t _read_le_u64(const uint8_t *buf, Py_ssize_t pos) noexcept nogil:
     cdef uint64_t result
     memcpy(&result, &buf[pos], 8)
     return result
+
+
+cdef inline void _copy_match(uint8_t *dst, Py_ssize_t distance, Py_ssize_t length) noexcept nogil:
+    """
+    Write `length` bytes to `dst` that repeat the output from `distance` bytes before `dst`.
+    """
+    cdef Py_ssize_t k
+    if distance >= length:
+        memcpy(dst, dst - distance, length)
+    else:
+        for k in range(length):
+            dst[k] = dst[k - distance]
 
 # ---------------------------------------------------------------------------
 # FSE bit-stream operations
 # ---------------------------------------------------------------------------
 
-cdef inline FseInState _fse_in_init(const uint8_t *buf, int offset, int nbytes, int nbits, int buf_len) noexcept nogil:
-    cdef FseInState st
+cdef inline uint64_t _fse_in_load(FseInState *st) noexcept nogil:
+    """
+    Read 8 bytes at the stream position; bytes outside the payload of the stream read as zero.
+    """
+    cdef uint64_t result = 0
+    cdef Py_ssize_t i
+    if st.pos >= st.start and st.pos + 8 <= st.end:
+        memcpy(&result, &st.buf[st.pos], 8)
+        return result
+    for i in range(max(st.pos, st.start), min(st.pos + 8, st.end)):
+        result |= (<uint64_t>st.buf[i]) << (8 * (i - st.pos))
+    return result
+
+
+cdef inline int _fse_in_init(
+    FseInState *st,
+    const uint8_t *buf,
+    Py_ssize_t start,
+    Py_ssize_t end,
+    int nbits,
+) noexcept nogil:
     st.buf = buf
-    st.buf_start = offset
-    st.buf_pos = offset + nbytes
+    st.start = start
+    st.end = end
     if nbits:
-        st.buf_pos -= 8
-        st.accum = _read_le_u64_safe(buf, st.buf_pos, buf_len)
+        st.pos = end - 8
+        st.accum = _fse_in_load(st)
         st.accum_nbits = nbits + 64
     else:
-        st.buf_pos -= 7
-        st.accum = _read_le_u64_safe(buf, st.buf_pos, buf_len) & <uint64_t>0xFFFFFFFFFFFFFF
+        st.pos = end - 7
+        st.accum = _fse_in_load(st) & <uint64_t>0xFFFFFFFFFFFFFF
         st.accum_nbits = 56
-    return st
+    if st.accum >> st.accum_nbits:
+        return -1
+    return 0
 
 
-cdef inline void _fse_in_flush(FseInState *st, int buf_len) noexcept nogil:
-    cdef int nbits, nbytes
-    cdef uint64_t incoming
-    nbits = (63 - st.accum_nbits) & ~7
-    if nbits <= 0:
-        return
-    nbytes = nbits >> 3
-    if st.buf_pos - nbytes < st.buf_start:
-        return
-    st.buf_pos -= nbytes
-    incoming = _read_le_u64_safe(st.buf, st.buf_pos, buf_len)
-    st.accum = (st.accum << nbits) | (incoming & ((<uint64_t>1 << nbits) - 1))
-    st.accum_nbits += nbits
+cdef inline Py_ssize_t _fse_in_remaining(FseInState *st) noexcept nogil:
+    """
+    The number of payload bits that were not consumed yet; it is negative when bits from before the
+    start of the payload were consumed.
+    """
+    return st.accum_nbits + 8 * (st.pos - st.start)
+
+
+cdef inline int _fse_in_flush(FseInState *st) noexcept nogil:
+    cdef int nbits = (63 - st.accum_nbits) & ~7
+    if _fse_in_remaining(st) < 0:
+        return -1
+    if nbits:
+        st.pos -= nbits >> 3
+        st.accum = (st.accum << nbits) | (_fse_in_load(st) & ((<uint64_t>1 << nbits) - 1))
+        st.accum_nbits += nbits
+    return 0
 
 
 cdef inline uint32_t _fse_in_pull(FseInState *st, int n) noexcept nogil:
@@ -293,74 +307,63 @@ cdef void _fse_init_value_decoder_table(
 
 cdef int _decode_v2_freq_table(
     const uint8_t *buf,
-    int buf_len,
-    int offset,
-    int header_size,
+    Py_ssize_t pos,
+    Py_ssize_t end,
     uint16_t *freqs,
 ) noexcept nogil:
     """
-    Decode the variable-length compressed frequency table from a V2 header.
-    Writes TOTAL_FREQ_COUNT values to freqs. Returns 0 on success, -1 on error.
+    Decode the variable-length compressed frequency table of a V2 header, which must consume the
+    bytes from pos to end. Writes TOTAL_FREQ_COUNT values to freqs. Returns 0 on success, -1 on
+    error.
     """
     cdef uint32_t accum = 0
     cdef int accum_nbits = 0
-    cdef int src_pos = offset
-    cdef int count = 0
+    cdef int count, nbits
     cdef uint32_t lookup
-    cdef int nbits, value
 
-    while count < TOTAL_FREQ_COUNT:
-        while accum_nbits < 14:
-            if src_pos < buf_len:
-                accum |= (<uint32_t>buf[src_pos]) << accum_nbits
-                src_pos += 1
-                accum_nbits += 8
-            else:
-                break
+    for count in range(TOTAL_FREQ_COUNT):
+        while accum_nbits < 14 and pos < end:
+            accum |= (<uint32_t>buf[pos]) << accum_nbits
+            pos += 1
+            accum_nbits += 8
 
         lookup = accum & 0x1F
         nbits = _FREQ_NBITS_TABLE[lookup]
-        value = _FREQ_VALUE_TABLE[lookup]
-
-        if nbits <= 5:
-            accum >>= nbits
-            accum_nbits -= nbits
-            freqs[count] = <uint16_t>value
-            count += 1
-        elif nbits == 8:
-            accum >>= 4
-            accum_nbits -= 4
-            value = 8 + (accum & 0xF)
-            accum >>= 4
-            accum_nbits -= 4
-            freqs[count] = <uint16_t>value
-            count += 1
-        elif nbits == 14:
-            accum >>= 4
-            accum_nbits -= 4
-            value = 24 + (accum & 0x3FF)
-            accum >>= 10
-            accum_nbits -= 10
-            freqs[count] = <uint16_t>value
-            count += 1
-        else:
+        if nbits > accum_nbits:
             return -1
+        if nbits == 8:
+            freqs[count] = <uint16_t>(8 + ((accum >> 4) & 0xF))
+        elif nbits == 14:
+            freqs[count] = <uint16_t>(24 + ((accum >> 4) & 0x3FF))
+        else:
+            freqs[count] = <uint16_t>_FREQ_VALUE_TABLE[lookup]
+        accum >>= nbits
+        accum_nbits -= nbits
 
+    if pos < end or accum_nbits >= 8:
+        return -1
     return 0
+
+
+cdef inline int _sum_freqs(const uint16_t *freqs, int count) noexcept nogil:
+    cdef int total = 0
+    cdef int i
+    for i in range(count):
+        total += freqs[i]
+    return total
 
 # ---------------------------------------------------------------------------
 # LZFSE payload decoder (core FSE + LZ77 loop)
 # ---------------------------------------------------------------------------
 
-cdef int _decode_lzfse_payload(
+cdef Py_ssize_t _decode_lzfse_payload(
     const uint8_t *buf,
-    int buf_len,
-    int payload_offset,
-    int n_raw_bytes,
-    int n_literals,
-    int n_matches,
-    int n_literal_payload_bytes,
-    int n_lmd_payload_bytes,
+    Py_ssize_t payload,
+    Py_ssize_t literal_payload_size,
+    Py_ssize_t lmd_payload_size,
+    Py_ssize_t raw_size,
+    Py_ssize_t n_literals,
+    Py_ssize_t n_matches,
     int literal_bits,
     int literal_state0,
     int literal_state1,
@@ -370,13 +373,10 @@ cdef int _decode_lzfse_payload(
     int l_state,
     int m_state,
     int d_state,
-    const uint16_t *l_freq,
-    const uint16_t *m_freq,
-    const uint16_t *d_freq,
-    const uint16_t *literal_freq,
+    const uint16_t *freqs,
+    uint8_t *literals,
     uint8_t *output,
-    int out_pos,
-    int out_cap,
+    Py_ssize_t out_pos,
 ) noexcept nogil:
     """
     Decode the FSE-encoded literal and LMD payloads, apply LZ77.
@@ -386,6 +386,18 @@ cdef int _decode_lzfse_payload(
     cdef uint32_t l_table[ENCODE_L_STATES * VALUE_STRIDE]
     cdef uint32_t m_table[ENCODE_M_STATES * VALUE_STRIDE]
     cdef uint32_t d_table[ENCODE_D_STATES * VALUE_STRIDE]
+    cdef const uint16_t *l_freq = freqs
+    cdef const uint16_t *m_freq = l_freq + ENCODE_L_SYMBOLS
+    cdef const uint16_t *d_freq = m_freq + ENCODE_M_SYMBOLS
+    cdef const uint16_t *literal_freq = d_freq + ENCODE_D_SYMBOLS
+
+    if (
+        _sum_freqs(l_freq, ENCODE_L_SYMBOLS) != ENCODE_L_STATES
+        or _sum_freqs(m_freq, ENCODE_M_SYMBOLS) != ENCODE_M_STATES
+        or _sum_freqs(d_freq, ENCODE_D_SYMBOLS) != ENCODE_D_STATES
+        or _sum_freqs(literal_freq, ENCODE_LITERAL_SYMBOLS) != ENCODE_LITERAL_STATES
+    ):
+        return -1
 
     _fse_init_decoder_table(ENCODE_LITERAL_STATES, ENCODE_LITERAL_SYMBOLS, literal_freq, lit_table)
     _fse_init_value_decoder_table(ENCODE_L_STATES, ENCODE_L_SYMBOLS, l_freq, _L_EXTRA_BITS, _L_BASE_VALUE, l_table)
@@ -393,9 +405,9 @@ cdef int _decode_lzfse_payload(
     _fse_init_value_decoder_table(ENCODE_D_STATES, ENCODE_D_SYMBOLS, d_freq, _D_EXTRA_BITS, _D_BASE_VALUE, d_table)
 
     # Decode literals
-    cdef FseInState lit_stream = _fse_in_init(buf, payload_offset, n_literal_payload_bytes, literal_bits, buf_len)
-    cdef uint8_t *literals = <uint8_t *>malloc(n_literals + 4)
-    if literals == NULL:
+    cdef Py_ssize_t lmd_payload = payload + literal_payload_size
+    cdef FseInState lit_stream
+    if _fse_in_init(&lit_stream, buf, payload, lmd_payload, literal_bits) < 0:
         return -1
 
     cdef int s0 = literal_state0
@@ -405,10 +417,11 @@ cdef int _decode_lzfse_payload(
     cdef uint32_t entry
     cdef int k, sym
     cdef int32_t lit_delta
-    cdef int i = 0
+    cdef Py_ssize_t i = 0
 
     while i + 3 < n_literals:
-        _fse_in_flush(&lit_stream, buf_len)
+        if _fse_in_flush(&lit_stream) < 0:
+            return -1
 
         entry = lit_table[s0]
         k = entry & 0xFF
@@ -440,9 +453,13 @@ cdef int _decode_lzfse_payload(
 
         i += 4
 
+    if _fse_in_remaining(&lit_stream) != 0:
+        return -1
+
     # LMD decode
-    cdef int lmd_offset = payload_offset + n_literal_payload_bytes
-    cdef FseInState lmd_stream = _fse_in_init(buf, lmd_offset, n_lmd_payload_bytes, lmd_bits, buf_len)
+    cdef FseInState lmd_stream
+    if _fse_in_init(&lmd_stream, buf, lmd_payload, lmd_payload + lmd_payload_size, lmd_bits) < 0:
+        return -1
 
     cdef int lit_pos = 0
     cdef int prev_d = -1
@@ -450,11 +467,12 @@ cdef int _decode_lzfse_payload(
     cdef int total_bits, value_bits
     cdef int32_t lmd_delta
     cdef uint32_t vbase, bits
-    cdef int match_start, j, written = 0
+    cdef Py_ssize_t written = 0
     cdef int vidx
 
     for i in range(n_matches):
-        _fse_in_flush(&lmd_stream, buf_len)
+        if _fse_in_flush(&lmd_stream) < 0:
+            return -1
 
         # L
         vidx = l_state * VALUE_STRIDE
@@ -503,13 +521,11 @@ cdef int _decode_lzfse_payload(
         if (
             l_value < 0
             or m_value < 0
-            or lit_pos + l_value > n_literals + 4
-            or out_pos + written + l_value + m_value > out_cap
+            or lit_pos + l_value > n_literals
+            or written + l_value + m_value > raw_size
         ):
-            free(literals)
             return -1
         if m_value > 0 and (d_value <= 0 or out_pos + written + l_value - d_value < 0):
-            free(literals)
             return -1
 
         # Copy literals
@@ -520,376 +536,133 @@ cdef int _decode_lzfse_payload(
 
         # Copy match
         if m_value > 0:
-            match_start = out_pos + written - d_value
-            if d_value >= m_value:
-                memcpy(&output[out_pos + written], &output[match_start], m_value)
-            else:
-                for j in range(m_value):
-                    output[out_pos + written + j] = output[match_start + j]
+            _copy_match(&output[out_pos + written], d_value, m_value)
             written += m_value
 
-    # Remaining literals
-    if lit_pos < n_literals:
-        if out_pos + written + (n_literals - lit_pos) > out_cap:
-            free(literals)
-            return -1
-        memcpy(&output[out_pos + written], &literals[lit_pos], n_literals - lit_pos)
-        written += n_literals - lit_pos
-
-    free(literals)
-    return written
-
-# ---------------------------------------------------------------------------
-# LZFSE V2 block decoder
-# ---------------------------------------------------------------------------
-
-cdef int _decode_lzfse_v2_block(
-    const uint8_t *buf,
-    int buf_len,
-    int pos,
-    uint8_t *output,
-    int out_pos,
-    int out_cap,
-    int *new_pos,
-) noexcept nogil:
-    """
-    Decode a V2 LZFSE block. Returns bytes written, or -1 on error.
-    Sets *new_pos to the next position in buf.
-    """
-    cdef int block_start = pos
-    pos += 4  # skip magic
-
-    cdef uint32_t n_raw_bytes = _read_le_u32(buf, pos)
-    pos += 4
-
-    cdef uint64_t pf0 = _read_le_u64(buf, pos)
-    cdef uint64_t pf1 = _read_le_u64(buf, pos + 8)
-    cdef uint64_t pf2 = _read_le_u64(buf, pos + 16)
-    pos += 24
-
-    cdef int n_literals                = <int>(pf0 & <uint64_t>0xFFFFF)
-    cdef int n_literal_payload_bytes   = <int>((pf0 >> 20) & <uint64_t>0xFFFFF)
-    cdef int n_matches                 = <int>((pf0 >> 40) & <uint64_t>0xFFFFF)
-    cdef int literal_bits              = <int>(((pf0 >> 60) & <uint64_t>0x7)) - 7
-
-    cdef int literal_state0            = <int>(pf1 & <uint64_t>0x3FF)
-    cdef int literal_state1            = <int>((pf1 >> 10) & <uint64_t>0x3FF)
-    cdef int literal_state2            = <int>((pf1 >> 20) & <uint64_t>0x3FF)
-    cdef int literal_state3            = <int>((pf1 >> 30) & <uint64_t>0x3FF)
-    cdef int n_lmd_payload_bytes       = <int>((pf1 >> 40) & <uint64_t>0xFFFFF)
-    cdef int lmd_bits                  = <int>(((pf1 >> 60) & <uint64_t>0x7)) - 7
-
-    cdef uint32_t header_size          = <uint32_t>(pf2 & <uint64_t>0xFFFFFFFF)
-    cdef int l_state                   = <int>((pf2 >> 32) & <uint64_t>0x3FF)
-    cdef int m_state                   = <int>((pf2 >> 42) & <uint64_t>0x3FF)
-    cdef int d_state                   = <int>((pf2 >> 52) & <uint64_t>0x3FF)
-
-    cdef int n_payload_bytes = n_literal_payload_bytes + n_lmd_payload_bytes
-
-    # Decode frequency table
-    cdef uint16_t freqs[TOTAL_FREQ_COUNT]
-    if _decode_v2_freq_table(buf, buf_len, pos, header_size, freqs) < 0:
+    if (
+        _fse_in_remaining(&lmd_stream) != 64
+        or _read_le_u64(buf, lmd_payload) != 0
+        or written != raw_size
+    ):
         return -1
-
-    cdef int payload_offset = block_start + <int>header_size
-    cdef int written
-
-    written = _decode_lzfse_payload(
-        buf, buf_len, payload_offset,
-        <int>n_raw_bytes, n_literals, n_matches,
-        n_literal_payload_bytes, n_lmd_payload_bytes,
-        literal_bits,
-        literal_state0, literal_state1, literal_state2, literal_state3,
-        lmd_bits, l_state, m_state, d_state,
-        &freqs[0],
-        &freqs[ENCODE_L_SYMBOLS],
-        &freqs[ENCODE_L_SYMBOLS + ENCODE_M_SYMBOLS],
-        &freqs[ENCODE_L_SYMBOLS + ENCODE_M_SYMBOLS + ENCODE_D_SYMBOLS],
-        output, out_pos, out_cap,
-    )
-
-    new_pos[0] = payload_offset + n_payload_bytes
     return written
 
-# ---------------------------------------------------------------------------
-# LZFSE V1 block decoder
-# ---------------------------------------------------------------------------
 
-cdef int _decode_lzfse_v1_block(
+cdef Py_ssize_t _decode_lzfse_block(
     const uint8_t *buf,
-    int buf_len,
-    int pos,
+    object header,
+    uint8_t *literals,
     uint8_t *output,
-    int out_pos,
-    int out_cap,
-    int *new_pos,
-) noexcept nogil:
+    Py_ssize_t out_pos,
+):
     """
-    Decode a V1 LZFSE block. Returns bytes written, or -1 on error.
-    Sets *new_pos to the next position in buf.
+    Decode an LZFSE V1 or V2 block. Returns the number of bytes written, or -1 on error.
     """
-    pos += 4  # skip magic
-
-    cdef uint32_t n_raw_bytes            = _read_le_u32(buf, pos)
-    cdef uint32_t n_payload_bytes        = _read_le_u32(buf, pos + 4)
-    cdef uint32_t n_literals_u           = _read_le_u32(buf, pos + 8)
-    cdef uint32_t n_matches_u            = _read_le_u32(buf, pos + 12)
-    cdef uint32_t n_literal_payload_u    = _read_le_u32(buf, pos + 16)
-    cdef uint32_t n_lmd_payload_u        = _read_le_u32(buf, pos + 20)
-    cdef int32_t literal_bits_s
-    memcpy(&literal_bits_s, &buf[pos + 24], 4)
-    pos += 28
-
-    cdef int literal_state0 = <int>_read_le_u16(buf, pos)
-    cdef int literal_state1 = <int>_read_le_u16(buf, pos + 2)
-    cdef int literal_state2 = <int>_read_le_u16(buf, pos + 4)
-    cdef int literal_state3 = <int>_read_le_u16(buf, pos + 6)
-    pos += 8
-
-    cdef int32_t lmd_bits_s
-    memcpy(&lmd_bits_s, &buf[pos], 4)
-    pos += 4
-
-    cdef int l_state = <int>_read_le_u16(buf, pos)
-    cdef int m_state = <int>_read_le_u16(buf, pos + 2)
-    cdef int d_state = <int>_read_le_u16(buf, pos + 4)
-    pos += 6
-
-    # Read frequency tables (inline, each is an array of uint16)
-    cdef uint16_t l_freq[ENCODE_L_SYMBOLS]
-    cdef uint16_t m_freq[ENCODE_M_SYMBOLS]
-    cdef uint16_t d_freq[ENCODE_D_SYMBOLS]
-    cdef uint16_t literal_freq[ENCODE_LITERAL_SYMBOLS]
-
-    memcpy(l_freq, &buf[pos], ENCODE_L_SYMBOLS * 2)
-    pos += ENCODE_L_SYMBOLS * 2
-    memcpy(m_freq, &buf[pos], ENCODE_M_SYMBOLS * 2)
-    pos += ENCODE_M_SYMBOLS * 2
-    memcpy(d_freq, &buf[pos], ENCODE_D_SYMBOLS * 2)
-    pos += ENCODE_D_SYMBOLS * 2
-    memcpy(literal_freq, &buf[pos], ENCODE_LITERAL_SYMBOLS * 2)
-    pos += ENCODE_LITERAL_SYMBOLS * 2
-
-    cdef int payload_offset = pos
-    cdef int written
-
-    written = _decode_lzfse_payload(
-        buf, buf_len, payload_offset,
-        <int>n_raw_bytes, <int>n_literals_u, <int>n_matches_u,
-        <int>n_literal_payload_u, <int>n_lmd_payload_u,
-        <int>literal_bits_s,
-        literal_state0, literal_state1, literal_state2, literal_state3,
-        <int>lmd_bits_s, l_state, m_state, d_state,
-        l_freq, m_freq, d_freq, literal_freq,
-        output, out_pos, out_cap,
+    cdef uint16_t freqs[TOTAL_FREQ_COUNT]
+    cdef int i
+    if header.kind is BlockKind.LZFSE_V2:
+        if _decode_v2_freq_table(buf, header.freq_table, header.payload, freqs) < 0:
+            return -1
+    else:
+        for i in range(TOTAL_FREQ_COUNT):
+            freqs[i] = header.freqs[i]
+    s0, s1, s2, s3 = header.literal_states
+    return _decode_lzfse_payload(
+        buf,
+        header.payload,
+        header.literal_payload_size,
+        header.lmd_payload_size,
+        header.raw_size,
+        header.n_literals,
+        header.n_matches,
+        header.literal_bits,
+        s0,
+        s1,
+        s2,
+        s3,
+        header.lmd_bits,
+        header.l_state,
+        header.m_state,
+        header.d_state,
+        freqs,
+        literals,
+        output,
+        out_pos,
     )
-
-    new_pos[0] = payload_offset + <int>n_payload_bytes
-    return written
 
 # ---------------------------------------------------------------------------
 # LZVN decoder
 # ---------------------------------------------------------------------------
 
-cdef inline void _lzvn_copy_match(
-    uint8_t *output, int out_pos, int D, int M,
-) noexcept nogil:
-    cdef int start = out_pos - D
-    cdef int j
-    if D >= M:
-        memcpy(&output[out_pos], &output[start], M)
-    else:
-        for j in range(M):
-            output[out_pos + j] = output[start + j]
-
-
-cdef int _lzvn_decode(
+cdef Py_ssize_t _lzvn_decode(
     const uint8_t *src,
-    int src_pos,
-    int src_end,
-    int n_raw_bytes,
+    Py_ssize_t src_pos,
+    Py_ssize_t src_end,
+    Py_ssize_t n_raw_bytes,
     uint8_t *output,
-    int out_pos,
+    Py_ssize_t out_pos,
 ) noexcept nogil:
     """
-    Decode an LZVN byte stream. Returns number of bytes written.
+    Decode the LZVN payload of a block up to its end-of-stream instruction. Returns the number of
+    bytes written, which is `n_raw_bytes`, or -1 if the payload is corrupt.
     """
-    cdef int written = 0
-    cdef int d_prev = 0
+    cdef Py_ssize_t written = 0
+    cdef Py_ssize_t L, M, D = 0
     cdef uint8_t opc
-    cdef int kind, L, M, D
-    cdef uint16_t opc23
+    cdef int kind
 
-    while src_pos < src_end and written < n_raw_bytes:
+    while True:
+        if src_pos >= src_end:
+            return -1
         opc = src[src_pos]
         kind = _LZVN_OPC_TABLE[opc]
-
         if kind == LZVN_EOS:
             break
-        elif kind == LZVN_NOP:
+        if kind == LZVN_NOP:
             src_pos += 1
             continue
-        elif kind == LZVN_UDEF:
-            break
+        if kind == LZVN_UDEF or src_pos + _LZVN_INSTRUCTION_SIZE[kind] > src_end:
+            return -1
+        L = opc >> 6
+        M = ((opc >> 3) & 7) + 3
+        if kind == LZVN_SML_D:
+            D = ((opc & 7) << 8) | src[src_pos + 1]
+        elif kind == LZVN_MED_D:
+            L = (opc >> 3) & 3
+            M = (((opc & 7) << 2) | (src[src_pos + 1] & 3)) + 3
+            D = (src[src_pos + 1] >> 2) | (src[src_pos + 2] << 6)
+        elif kind == LZVN_LRG_D:
+            D = src[src_pos + 1] | (src[src_pos + 2] << 8)
         elif kind == LZVN_SML_L:
             L = opc & 0x0F
-            src_pos += 1
-            if src_pos + L > src_end:
-                L = src_end - src_pos
-            if written + L > n_raw_bytes:
-                L = n_raw_bytes - written
-            memcpy(&output[out_pos + written], &src[src_pos], L)
-            written += L
-            src_pos += L
-            continue
+            M = 0
         elif kind == LZVN_LRG_L:
-            if src_pos + 1 >= src_end:
-                break
             L = src[src_pos + 1] + 16
-            src_pos += 2
-            if src_pos + L > src_end:
-                L = src_end - src_pos
-            if written + L > n_raw_bytes:
-                L = n_raw_bytes - written
-            memcpy(&output[out_pos + written], &src[src_pos], L)
-            written += L
-            src_pos += L
-            continue
+            M = 0
         elif kind == LZVN_SML_M:
+            L = 0
             M = opc & 0x0F
-            src_pos += 1
-            D = d_prev
-            if D == 0:
-                break
-            if written + M > n_raw_bytes:
-                M = n_raw_bytes - written
-            _lzvn_copy_match(output, out_pos + written, D, M)
-            written += M
         elif kind == LZVN_LRG_M:
-            if src_pos + 1 >= src_end:
-                break
+            L = 0
             M = src[src_pos + 1] + 16
-            src_pos += 2
-            D = d_prev
-            if D == 0:
-                break
-            if written + M > n_raw_bytes:
-                M = n_raw_bytes - written
-            _lzvn_copy_match(output, out_pos + written, D, M)
-            written += M
-        elif kind == LZVN_PRE_D:
-            L = (opc >> 6) & 0x03
-            M = ((opc >> 3) & 0x07) + 3
-            src_pos += 1
-            D = d_prev
-            if D == 0:
-                break
-            if L > 0:
-                if src_pos + L > src_end:
-                    break
-                if written + L > n_raw_bytes:
-                    L = n_raw_bytes - written
-                memcpy(&output[out_pos + written], &src[src_pos], L)
-                written += L
-                src_pos += L
-            if written + M > n_raw_bytes:
-                M = n_raw_bytes - written
-            _lzvn_copy_match(output, out_pos + written, D, M)
-            written += M
-        elif kind == LZVN_LRG_D:
-            if src_pos + 2 >= src_end:
-                break
-            L = (opc >> 6) & 0x03
-            M = ((opc >> 3) & 0x07) + 3
-            D = <int>_read_le_u16(src, src_pos + 1)
-            src_pos += 3
-            if D == 0:
-                break
-            d_prev = D
-            if L > 0:
-                if src_pos + L > src_end:
-                    break
-                if written + L > n_raw_bytes:
-                    L = n_raw_bytes - written
-                memcpy(&output[out_pos + written], &src[src_pos], L)
-                written += L
-                src_pos += L
-            if written + M > n_raw_bytes:
-                M = n_raw_bytes - written
-            _lzvn_copy_match(output, out_pos + written, D, M)
-            written += M
-        elif kind == LZVN_MED_D:
-            if src_pos + 2 >= src_end:
-                break
-            L = (opc >> 3) & 0x03
-            opc23 = _read_le_u16(src, src_pos + 1)
-            M = ((opc & 0x07) << 2 | (opc23 & 0x03)) + 3
-            D = opc23 >> 2
-            src_pos += 3
-            if D == 0:
-                break
-            d_prev = D
-            if L > 0:
-                if src_pos + L > src_end:
-                    break
-                if written + L > n_raw_bytes:
-                    L = n_raw_bytes - written
-                memcpy(&output[out_pos + written], &src[src_pos], L)
-                written += L
-                src_pos += L
-            if written + M > n_raw_bytes:
-                M = n_raw_bytes - written
-            _lzvn_copy_match(output, out_pos + written, D, M)
-            written += M
-        elif kind == LZVN_SML_D:
-            if src_pos + 1 >= src_end:
-                break
-            L = (opc >> 6) & 0x03
-            M = ((opc >> 3) & 0x07) + 3
-            D = ((opc & 0x07) << 8) | src[src_pos + 1]
-            src_pos += 2
-            if D == 0:
-                break
-            d_prev = D
-            if L > 0:
-                if src_pos + L > src_end:
-                    break
-                if written + L > n_raw_bytes:
-                    L = n_raw_bytes - written
-                memcpy(&output[out_pos + written], &src[src_pos], L)
-                written += L
-                src_pos += L
-            if written + M > n_raw_bytes:
-                M = n_raw_bytes - written
-            _lzvn_copy_match(output, out_pos + written, D, M)
+        src_pos += _LZVN_INSTRUCTION_SIZE[kind]
+
+        if written + L + M > n_raw_bytes:
+            return -1
+        if L:
+            if src_pos + L > src_end:
+                return -1
+            memcpy(&output[out_pos + written], &src[src_pos], L)
+            src_pos += L
+            written += L
+        if M:
+            if not 0 < D <= out_pos + written:
+                return -1
+            _copy_match(&output[out_pos + written], D, M)
             written += M
 
-    return written
-
-
-cdef int _decode_lzvn_block(
-    const uint8_t *buf,
-    int buf_len,
-    int pos,
-    uint8_t *output,
-    int out_pos,
-    int out_cap,
-    int *new_pos,
-) noexcept nogil:
-    """
-    Decode an LZVN compressed block. Returns bytes written.
-    """
-    pos += 4  # skip magic
-    cdef uint32_t n_raw_bytes = _read_le_u32(buf, pos)
-    pos += 4
-    cdef uint32_t n_payload_bytes = _read_le_u32(buf, pos)
-    pos += 4
-
-    cdef int payload_start = pos
-    cdef int payload_end = pos + <int>n_payload_bytes
-    cdef int written = _lzvn_decode(buf, payload_start, payload_end, <int>n_raw_bytes, output, out_pos)
-
-    new_pos[0] = payload_end
+    if written != n_raw_bytes:
+        return -1
     return written
 
 # ---------------------------------------------------------------------------
@@ -898,82 +671,47 @@ cdef int _decode_lzvn_block(
 
 def lzfse_decompress(data) -> bytearray:
     """
-    Decompress an LZFSE compressed stream. Returns the decompressed data as a bytearray.
+    Decompress an LZFSE stream, which ends with an end-of-stream block. Input that ends before that
+    block, or that cannot be decoded after some output, raises a `RefineryPartialResult` with the
+    output of the blocks decoded so far.
     """
+    view = memoryview(data)
     cdef:
-        const uint8_t[::1] src = memoryview(data)
-        int end = len(data)
-        int pos = 0
-        uint32_t magic
-        uint32_t n_raw_bytes
-        int out_pos = 0
-        int out_cap = end * 4 if end > 64 else 256
-        uint8_t *out_buf
-        int new_pos, written
+        const uint8_t[::1] src = view
+        Py_ssize_t end = len(src)
+        Py_ssize_t pos = 0
+        Py_ssize_t payload, raw_size, written
+        Py_ssize_t out_pos = 0
+        Py_ssize_t out_cap = end * 4 if end > 64 else 256
+        uint8_t *out_buf = <uint8_t *>malloc(out_cap)
+        uint8_t *literals = <uint8_t *>malloc(LITERALS_PER_BLOCK)
         const uint8_t *buf_ptr = &src[0]
 
-    if out_cap < 256:
-        out_cap = 256
-
-    out_buf = <uint8_t *>malloc(out_cap)
-    if out_buf == NULL:
-        raise MemoryError
-
     try:
-        while pos + 4 <= end:
-            magic = _read_le_u32(buf_ptr, pos)
-
-            if magic == _ENDOFSTREAM_MAGIC:
-                pos += 4
-                break
-            elif magic == _UNCOMPRESSED_MAGIC:
-                pos += 4
-                n_raw_bytes = _read_le_u32(buf_ptr, pos)
-                pos += 4
-                # Ensure capacity
-                while out_pos + <int>n_raw_bytes > out_cap:
-                    out_cap = out_cap * 2
-                    out_buf = <uint8_t *>realloc(out_buf, out_cap)
-                    if out_buf == NULL:
-                        raise MemoryError
-                memcpy(&out_buf[out_pos], &buf_ptr[pos], n_raw_bytes)
-                out_pos += <int>n_raw_bytes
-                pos += <int>n_raw_bytes
-            elif magic == _LZFSE_V1_MAGIC or magic == _LZFSE_V2_MAGIC:
-                # Read n_raw_bytes from byte 4 of the block header
-                n_raw_bytes = _read_le_u32(buf_ptr, pos + 4)
-                # Ensure capacity
-                while out_pos + <int>n_raw_bytes > out_cap:
-                    out_cap = out_cap * 2
-                    out_buf = <uint8_t *>realloc(out_buf, out_cap)
-                    if out_buf == NULL:
-                        raise MemoryError
-                if magic == _LZFSE_V2_MAGIC:
-                    written = _decode_lzfse_v2_block(
-                        buf_ptr, end, pos, out_buf, out_pos, out_cap, &new_pos)
-                else:
-                    written = _decode_lzfse_v1_block(
-                        buf_ptr, end, pos, out_buf, out_pos, out_cap, &new_pos)
-                if written < 0:
-                    raise ValueError('LZFSE block decoding failed')
-                out_pos += written
-                pos = new_pos
-            elif magic == _LZVN_MAGIC:
-                # Read n_raw_bytes from byte 4 of the block header
-                n_raw_bytes = _read_le_u32(buf_ptr, pos + 4)
-                # Ensure capacity
-                while out_pos + <int>n_raw_bytes > out_cap:
-                    out_cap = out_cap * 2
-                    out_buf = <uint8_t *>realloc(out_buf, out_cap)
-                    if out_buf == NULL:
-                        raise MemoryError
-                written = _decode_lzvn_block(
-                    buf_ptr, end, pos, out_buf, out_pos, out_cap, &new_pos)
-                out_pos += written
-                pos = new_pos
+        if out_buf == NULL or literals == NULL:
+            raise MemoryError
+        while (header := read_block_header(view, pos)).kind is not BlockKind.END:
+            kind = header.kind
+            payload = header.payload
+            raw_size = header.raw_size
+            reserve(&out_buf, &out_cap, out_pos, raw_size)
+            if kind is BlockKind.RAW:
+                memcpy(&out_buf[out_pos], &buf_ptr[payload], raw_size)
+                written = raw_size
+            elif kind is BlockKind.LZVN:
+                written = _lzvn_decode(buf_ptr, payload, header.end, raw_size, out_buf, out_pos)
             else:
-                raise ValueError(f'unknown LZFSE block magic: 0x{magic:08X}')
-
+                written = _decode_lzfse_block(buf_ptr, header, literals, out_buf, out_pos)
+            if written < 0:
+                raise ValueError(F'the LZFSE block at offset {pos} is corrupt')
+            out_pos += written
+            pos = header.end
         return bytearray(out_buf[:out_pos])
+    except ValueError as error:
+        if not out_pos:
+            raise
+        raise RefineryPartialResult(
+            F'Decoding failed after {out_pos} bytes: {error!s}', bytearray(out_buf[:out_pos])) from error
     finally:
         free(out_buf)
+        free(literals)

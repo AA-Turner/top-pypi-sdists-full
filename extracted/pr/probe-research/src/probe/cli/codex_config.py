@@ -112,6 +112,59 @@ def plugin_mcp_url(name: str, *, marketplace: str) -> str | None:
     return None
 
 
+def installed_plugin_versions(marketplace: str) -> dict[str, str] | None:
+    """`{plugin: version}` for every plugin of `marketplace` Codex has added,
+    read from its own files: the `[plugins."<plugin>@<marketplace>"]` table
+    `codex plugin add` writes in config.toml, and the copy it installs at
+    `plugins/cache/<marketplace>/<plugin>/<version>/`, a copy whose manifest
+    names the plugin (its version, else the folder's name; the newest when
+    several are left). None when config.toml cannot be read.
+
+    What `codex plugin list` reports, without starting Codex: on 2026-10-26 a
+    Mac's `codex plugin list --json` timed out after 20 s right after the
+    update had reinstalled both plugins, and the update read that as both
+    missing."""
+    from probe.cli import updater
+
+    try:
+        parsed = tomllib.loads(config_path().read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError):
+        return None
+    tables = parsed.get("plugins")
+    suffix = f"@{marketplace}"
+    found: dict[str, str] = {}
+    for plugin_id in tables if isinstance(tables, dict) else ():
+        if not (isinstance(plugin_id, str) and plugin_id.endswith(suffix)):
+            continue
+        name = plugin_id[: -len(suffix)]
+        root = codex_home() / "plugins" / "cache" / marketplace / name
+        try:
+            copies = [entry for entry in root.iterdir() if entry.is_dir()]
+        except OSError:
+            continue
+        versions = []
+        for copy in copies:
+            # Only a copy Codex could load: a manifest naming this plugin. An
+            # empty or half-written folder is no evidence of an install.
+            try:
+                declared = json.loads((copy / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(declared, dict) or declared.get("name") != name:
+                continue
+            version = declared.get("version")
+            versions.append(version if isinstance(version, str) and version else copy.name)
+        newest = None
+        for version in versions:
+            if newest is None or updater.is_newer(version, newest):
+                newest = version
+        if newest:
+            found[name] = newest
+    return found
+
+
 def configured_bearer(name: str, *, path: Path | None = None) -> str | None:
     """The token currently in the header we wrote, or None if there is no entry.
 

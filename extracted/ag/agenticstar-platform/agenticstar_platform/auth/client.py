@@ -13,7 +13,7 @@ Example:
 
     config = AgenticStarAuthConfig.create(
         base_url="https://auth.example.com",
-        api_key="your-api-key",
+        api_key="your-bearer-token",
     )
 
     async with AgenticStarAuthClient(config) as client:
@@ -35,7 +35,7 @@ from urllib.parse import quote
 
 import httpx
 
-from .config import AgenticStarAuthConfig
+from .config import AgenticStarAuthConfig, _check_auth_type
 from .exceptions import (
     AuthAPIError,
     AuthConfigError,
@@ -64,7 +64,8 @@ class AgenticStarAuthClient:
     AgenticStar Auth API クライアント
 
     認証API（ユーザー管理、MCP OAuthトークン）へのアクセスを提供。
-    X-Internal-API-Key認証を使用します。
+    Bearer 認証（token_provider が返すトークン、または api_key の静的トークン）を使用します。
+    旧方式の X-Internal-API-Key 認証（auth_type="api_key"）は 3.2.0 で削除しました。
 
     Attributes:
         config: AgenticStarAuthConfig設定
@@ -73,7 +74,7 @@ class AgenticStarAuthClient:
         ```python
         config = AgenticStarAuthConfig.create(
             base_url="https://auth.example.com",
-            api_key="xxx",
+            api_key="your-bearer-token",
         )
         async with AgenticStarAuthClient(config) as client:
             users = await client.get_users()
@@ -88,10 +89,13 @@ class AgenticStarAuthClient:
             config: AgenticStarAuthConfig インスタンス
 
         Raises:
-            AuthConfigError: 設定が不正な場合
+            AuthConfigError: 設定が不正な場合（auth_type が "bearer" でない場合を含む）
         """
         if not config.base_url:
             raise AuthConfigError("base_url is required")
+
+        # 作った後に書き換えた設定・同じ形の別の設定オブジェクトも、"bearer" 以外は断る
+        _check_auth_type(getattr(config, "auth_type", "bearer"))
 
         if not config.api_key and not config.token_provider:
             raise AuthConfigError("api_key or token_provider is required")
@@ -99,7 +103,7 @@ class AgenticStarAuthClient:
         self._config = config
         self._http_client: Optional[httpx.AsyncClient] = None
 
-        auth_mode = "token_provider" if config.token_provider else config.auth_type
+        auth_mode = "token_provider" if config.token_provider else "bearer"
         logger.info(
             f"AgenticStarAuthClient initialized - base_url={config.base_url[:30]}..., auth_mode={auth_mode}"
         )
@@ -122,7 +126,7 @@ class AgenticStarAuthClient:
         """共通ヘッダーを取得
 
         token_providerが設定されている場合は毎回コールバックでトークン取得（動的トークン）。
-        それ以外はapi_keyを使用。
+        それ以外はapi_keyを Bearer token として使用。
         """
         headers = {"Content-Type": "application/json"}
 
@@ -135,13 +139,7 @@ class AgenticStarAuthClient:
                 logger.warning("token_provider returned None, request will be unauthenticated")
             return headers
 
-        auth_type = getattr(self._config, 'auth_type', 'bearer')
-        if auth_type == "bearer":
-            headers["Authorization"] = f"Bearer {self._config.api_key}"
-        else:
-            # Legacy: Internal API Key
-            headers["X-Internal-API-Key"] = self._config.api_key
-
+        headers["Authorization"] = f"Bearer {self._config.api_key}"
         return headers
 
     async def _request(

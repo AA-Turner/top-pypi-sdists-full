@@ -20,7 +20,7 @@ from typing_extensions import Self
 
 class CoverageClass(str, Enum):
     """
-    A card on the coverage grid.  The source classes agents are observed from, minus `manual`, plus Network & Gateway: a class no source can report today, listed so the gap is named rather than left out.
+    A card on the coverage grid.  The source classes agents are observed from, minus `manual`: otel plus every configurable `DiscoverySourceClass`, under the same values. The summary repository builds its configurable cards from `DiscoverySourceClass`, so a source class missing here fails at import rather than reporting on no card.
     """
 
     """
@@ -30,7 +30,7 @@ class CoverageClass(str, Enum):
     CLOUD = 'cloud'
     SIEM = 'siem'
     ENDPOINT = 'endpoint'
-    NETWORK_GATEWAY = 'network_gateway'
+    NETWORK = 'network'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

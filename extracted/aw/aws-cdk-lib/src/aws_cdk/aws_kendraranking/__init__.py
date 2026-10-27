@@ -189,6 +189,7 @@ class CfnExecutionPlan(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -246,7 +247,7 @@ class CfnExecutionPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0db3b98973e564e5a4b30f991391bb1b49f61fcdec383f174a6613c8158e4ea0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="capacityUnits")
@@ -264,7 +265,7 @@ class CfnExecutionPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cf82105f97a1c94ff72a8269c751d540ea7e092450fdb48e2bbdbb2d8314735d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "capacityUnits", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "capacityUnits", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -277,7 +278,7 @@ class CfnExecutionPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1db9cba35f7e629b2c9a36f1f2a30a3b2958a4fc872e860756137af869eb2062)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -293,7 +294,7 @@ class CfnExecutionPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__55d68c9f299d528d643242539117e67cdcb6d318233fbecc0794963d32a7dd69)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_kendraranking.CfnExecutionPlan.CapacityUnitsConfigurationProperty",

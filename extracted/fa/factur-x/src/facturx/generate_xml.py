@@ -540,14 +540,6 @@ EN16931_FIELDS = {
         "ram:ReferenceTypeCode",
         "ubl_xpath": "/Invoice/cac:ContractDocumentReference/cbc:DocumentType",
     },
-    "EXT-FR-FE-199": {
-        "label": "Contract Date",
-        "format": "date",
-        "cii_xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/"
-        "ram:ApplicableHeaderTradeAgreement/ram:ContractReferencedDocument/"
-        "ram:FormattedIssueDateTime/qdt:DateTimeString",
-        "ubl_xpath": "/Invoice/cac:ContractDocumentReference/cbc:IssueDate",
-    },
     "EXT-FR-FE-185": {
         "label": "Incoterms Code",
         "cii_xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/"
@@ -561,6 +553,30 @@ EN16931_FIELDS = {
         "ram:ApplicableHeaderTradeAgreement/ram:ApplicableTradeDeliveryTerms/"
         "ram:RelevantTradeLocation/ram:Name",
         "ubl_xpath": "/Invoice/cac:DeliveryTerms/cac:DeliveryLocation/cbc:Name",
+    },
+    "EXT-FR-FE-197": {
+        "label": "Purchase Order Date",
+        "format": "date",
+        "cii_xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/"
+        "ram:ApplicableHeaderTradeAgreement/ram:BuyerOrderReferencedDocument/"
+        "ram:FormattedIssueDateTime/qdt:DateTimeString",
+        "ubl_xpath": "/Invoice/cac:OrderReference/cbc:IssueDate",
+    },
+    "EXT-FR-FE-198": {
+        "label": "Despatch Advice Date",
+        "format": "date",
+        "cii_xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/"
+        "ram:ApplicableHeaderTradeDelivery/ram:DespatchAdviceReferencedDocument/"
+        "ram:FormattedIssueDateTime/qdt:DateTimeString",
+        "ubl_xpath": "/Invoice/cac:DespatchDocumentReference/cbc:IssueDate",
+    },
+    "EXT-FR-FE-199": {
+        "label": "Contract Date",
+        "format": "date",
+        "cii_xpath": "/rsm:CrossIndustryInvoice/rsm:SupplyChainTradeTransaction/"
+        "ram:ApplicableHeaderTradeAgreement/ram:ContractReferencedDocument/"
+        "ram:FormattedIssueDateTime/qdt:DateTimeString",
+        "ubl_xpath": "/Invoice/cac:ContractDocumentReference/cbc:IssueDate",
     },
     "BG-1": {
         "label": "Invoice Notes",
@@ -1003,13 +1019,6 @@ EN16931_FIELDS = {
                 "cii_xpath": "ram:SpecifiedTradeProduct/ram:OriginTradeCountry/ram:ID",
                 "ubl_xpath": "cac:Item/cac:OriginCountry/cbc:IdentificationCode",
             },
-            "EXT-FR-FE-BG-12": {
-                "label": "Seller at Invoice Line",
-                "format": "party_dict",
-                "party_dict_blacklist": ["contacts", "role_code", "legal_info"],
-                "cii_xpath": "ram:SpecifiedLineTradeAgreement/ram:ItemSellerTradeParty",
-                "ubl_xpath": "cac:Item/cac:ManufacturerParty",
-            },
             "EXT-FR-FE-135": {
                 "label": "Purchased Order Reference at Invoice Line",
                 "cii_xpath": "ram:SpecifiedLineTradeAgreement/"
@@ -1069,6 +1078,14 @@ EN16931_FIELDS = {
                 "ram:SellerOrderReferencedDocument/ram:LineID",
                 "ubl_xpath": "cac:OrderLineReference/cbc:SalesOrderLineID",
             },
+            "EXT-FR-FE-158": {
+                "label": "Delivery Date of this Invoice Line",
+                "format": "date",
+                "cii_xpath": "ram:SpecifiedLineTradeDelivery/"
+                "ram:ActualDeliverySupplyChainEvent/ram:OccurrenceDateTime/"
+                "udt:DateTimeString",
+                "ubl_xpath": "cac:Delivery/cbc:ActualDeliveryDate",
+            },
             # disabled for the moment, because EXT-FR-FE-162 has the same UBL XPATH
             # location as EXT-FR-FR-139
             # "EXT-FR-FE-162": {
@@ -1083,6 +1100,27 @@ EN16931_FIELDS = {
                 "ram:LineStatusReasonCode",
                 "ubl_xpath": "cac:BillingReference/cac:InvoiceDocumentReference/"
                 "cbc:DocumentStatusCode",
+            },
+            "EXT-FR-FE-181": {
+                "label": "Invoice Line VAT Amount in BT-5",
+                "cii_xpath": "ram:SpecifiedLineTradeSettlement/"
+                "ram:SpecifiedTradeSettlementLineMonetarySummation/"
+                "ram:TaxTotalAmount[@currencyID='%(BT-5)s']",
+                "ubl_xpath": "cac:TaxTotal/cbc:TaxAmount[@currencyID='%(BT-5)s']",
+            },
+            "EXT-FR-FE-182": {
+                "label": "Invoice Line VAT Amount in BT-6",
+                "cii_xpath": "ram:SpecifiedLineTradeSettlement/"
+                "ram:SpecifiedTradeSettlementLineMonetarySummation/"
+                "ram:TaxTotalAmount[@currencyID='%(BT-6)s']",
+                "ubl_xpath": "cac:TaxTotal/cbc:TaxAmount[@currencyID='%(BT-6)s']",
+            },
+            "EXT-FR-FE-184": {
+                "label": "Invoice Line Total Amount VAT included",
+                "cii_xpath": "ram:SpecifiedLineTradeSettlement/"
+                "ram:SpecifiedTradeSettlementLineMonetarySummation/"
+                "ram:GrandTotalAmount",
+                # "ubl_xpath": "cac:TaxTotal/cbc:TaxAmount", # not in UBL ?
             },
             "EXT-FR-FE-193": {
                 "label": "Incoterms Code at Invoice Line",
@@ -1162,6 +1200,13 @@ EN16931_FIELDS = {
                 "cii_xpath": "ram:SpecifiedLineTradeDelivery/ram:ShipToTradeParty",
                 "ubl_xpath": "cac:Delivery",
             },
+            "EXT-FR-FE-BG-12": {
+                "label": "Seller at Invoice Line",
+                "format": "party_dict",
+                "party_dict_blacklist": ["contacts", "role_code", "legal_info"],
+                "cii_xpath": "ram:SpecifiedLineTradeAgreement/ram:ItemSellerTradeParty",
+                "ubl_xpath": "cac:Item/cac:ManufacturerParty",
+            },
         },
     },
 }
@@ -1197,7 +1242,6 @@ EN16931_ADDRESS_FIELDS = {
     },
     "addr_l3": {
         "label": "Address Line 3",
-        "min_level": "extended",
         "cii_xpath": "ram:PostalTradeAddress/ram:LineThree",
         "ubl_xpath": "cac:PostalAddress/cac:AddressLine/cbc:Line",
     },
@@ -1668,6 +1712,9 @@ def _cii_generate_party(node_name, partner_dict, namespaces):
         tax_schemes["VA"] = partner_dict["vat_identifier"]
     if partner_dict.get("tax_identifier"):
         tax_schemes["FC"] = partner_dict["tax_identifier"]
+    legal_ident_schemeid = {}
+    if partner_dict.get("legal_identifier_schemeid"):
+        legal_ident_schemeid["schemeID"] = partner_dict["legal_identifier_schemeid"]
     RAM = namespaces["ram"]
     generate_node_method = getattr(RAM, node_name)
     return generate_node_method(
@@ -1695,13 +1742,9 @@ def _cii_generate_party(node_name, partner_dict, namespaces):
         *[
             RAM.SpecifiedLegalOrganization(
                 *[
-                    RAM.ID(
-                        partner_dict["legal_identifier"],
-                        schemeID=partner_dict["legal_identifier_schemeid"],
-                    )
+                    RAM.ID(partner_dict["legal_identifier"], **legal_ident_schemeid)
                     for _ in [1]
                     if partner_dict.get("legal_identifier")
-                    and partner_dict.get("legal_identifier_schemeid")
                 ],
                 *[
                     RAM.TradingBusinessName(partner_dict["biz_name"])
@@ -1710,11 +1753,7 @@ def _cii_generate_party(node_name, partner_dict, namespaces):
                 ],
             )
             for _ in [1]
-            if (
-                partner_dict.get("legal_identifier")
-                and partner_dict.get("legal_identifier_schemeid")
-            )
-            or partner_dict.get("biz_name")
+            if partner_dict.get("legal_identifier") or partner_dict.get("biz_name")
         ],
         *[
             RAM.DefinedTradeContact(
@@ -1919,7 +1958,7 @@ def _cii_generate_single_allowance_charge(namespaces, indicator, allowance_charg
     )
 
 
-def _cii_generate_single_invoice_line(namespaces, line_dict):
+def _cii_generate_single_invoice_line(namespaces, line_dict, data_dict):
     if not isinstance(line_dict, dict):
         raise ValueError("BG-25 must be a list of dicts")
     RAM = namespaces["ram"]
@@ -2143,9 +2182,21 @@ def _cii_generate_single_invoice_line(namespaces, line_dict):
         ),
         RAM.SpecifiedLineTradeDelivery(
             RAM.BilledQuantity(line_dict["BT-129"], unitCode=line_dict["BT-130"]),
-            _cii_generate_party(  # EXT-FR-FE-BG-10
+            _cii_generate_party(
                 "ShipToTradeParty", line_dict.get("EXT-FR-FE-BG-10"), namespaces
             ),
+            *[
+                RAM.ActualDeliverySupplyChainEvent(
+                    RAM.OccurrenceDateTime(
+                        UDT.DateTimeString(
+                            _cii_date_to_string(line_dict["EXT-FR-FE-158"]),
+                            format="102",
+                        )
+                    )
+                )
+                for _ in [1]
+                if line_dict.get("EXT-FR-FE-158")
+            ],
             *[
                 RAM.DespatchAdviceReferencedDocument(
                     *[
@@ -2225,6 +2276,27 @@ def _cii_generate_single_invoice_line(namespaces, line_dict):
             ],
             RAM.SpecifiedTradeSettlementLineMonetarySummation(
                 RAM.LineTotalAmount(line_dict["BT-131"]),
+                *[
+                    RAM.TaxTotalAmount(
+                        line_dict["EXT-FR-FE-181"], currencyID=data_dict["BT-5"]
+                    )
+                    for _ in [1]
+                    if line_dict.get("EXT-FR-FE-181")
+                ],
+                *[
+                    RAM.TaxTotalAmount(
+                        line_dict["EXT-FR-FE-182"], currencyID=data_dict["BT-6"]
+                    )
+                    for _ in [1]
+                    if line_dict.get("EXT-FR-FE-182")
+                    and data_dict.get("BT-6")
+                    and data_dict.get("BT-6") != data_dict["BT-5"]
+                ],
+                *[
+                    RAM.GrandTotalAmount(line_dict["EXT-FR-FE-184"])
+                    for _ in [1]
+                    if line_dict.get("EXT-FR-FE-184")
+                ],
             ),
             *[
                 RAM.InvoiceReferencedDocument(
@@ -2356,7 +2428,7 @@ def generate_cii_xml(
         ),
         RSM.SupplyChainTradeTransaction(
             *[
-                _cii_generate_single_invoice_line(namespaces, iline)
+                _cii_generate_single_invoice_line(namespaces, iline, data_dict)
                 for iline in (data_dict.get("BG-25") or [])
             ],
             RAM.ApplicableHeaderTradeAgreement(
@@ -2411,7 +2483,17 @@ def generate_cii_xml(
                 ],
                 *[
                     RAM.BuyerOrderReferencedDocument(
-                        RAM.IssuerAssignedID(data_dict["BT-13"])
+                        RAM.IssuerAssignedID(data_dict["BT-13"]),
+                        *[
+                            RAM.FormattedIssueDateTime(
+                                QDT.DateTimeString(
+                                    _cii_date_to_string(data_dict["EXT-FR-FE-197"]),
+                                    format="102",
+                                )
+                            )
+                            for _ in [1]
+                            if data_dict.get("EXT-FR-FE-197")
+                        ],
                     )
                     for _ in [1]
                     if data_dict.get("BT-13")
@@ -2478,7 +2560,17 @@ def generate_cii_xml(
                 ],
                 *[
                     RAM.DespatchAdviceReferencedDocument(
-                        RAM.IssuerAssignedID(data_dict["BT-16"])
+                        RAM.IssuerAssignedID(data_dict["BT-16"]),
+                        *[
+                            RAM.FormattedIssueDateTime(
+                                QDT.DateTimeString(
+                                    _cii_date_to_string(data_dict["EXT-FR-FE-198"]),
+                                    format="102",
+                                )
+                            )
+                            for _ in [1]
+                            if data_dict.get("EXT-FR-FE-198")
+                        ],
                     )
                     for _ in [1]
                     if data_dict.get("BT-16")
@@ -2820,6 +2912,9 @@ def _ubl_generate_party(
         tax_schemes["VAT"] = partner_dict["vat_identifier"]
     if partner_dict.get("tax_identifier"):
         tax_schemes["LOC"] = partner_dict["tax_identifier"]
+    legal_ident_schemeid = {}
+    if partner_dict.get("legal_identifier_schemeid"):
+        legal_ident_schemeid["schemeID"] = partner_dict["legal_identifier_schemeid"]
     # HACK for tax representative name vs biz_name
     if field in ("BG-10", "BG-11"):
         partner_dict["biz_name"] = partner_dict.get("name")
@@ -2870,12 +2965,10 @@ def _ubl_generate_party(
                 ],
                 *[
                     CBC.CompanyID(
-                        partner_dict["legal_identifier"],
-                        schemeID=partner_dict["legal_identifier_schemeid"],
+                        partner_dict["legal_identifier"], **legal_ident_schemeid
                     )
                     for _ in [1]
                     if partner_dict.get("legal_identifier")
-                    and partner_dict.get("legal_identifier_schemeid")
                 ],
                 *[
                     CBC.CompanyLegalForm(partner_dict["legal_info"])
@@ -2885,10 +2978,7 @@ def _ubl_generate_party(
             )
             for _ in [1]
             if partner_dict.get("name")
-            or (
-                partner_dict.get("legal_identifier")
-                and partner_dict.get("legal_identifier_schemeid")
-            )
+            or partner_dict.get("legal_identifier")
             or partner_dict.get("legal_info")
         ],
         *[
@@ -3091,7 +3181,7 @@ def _ubl_generate_additional_doc_ref(data_dict, namespaces):
 
 
 def _ubl_generate_single_allowance_charge(
-    namespaces, indicator, allowance_charge_dict, invoice_currency
+    namespaces, indicator, allowance_charge_dict, data_dict
 ):
     if indicator not in ("false", "true"):
         raise ValueError("Wrong value for indicator argument")
@@ -3123,10 +3213,10 @@ def _ubl_generate_single_allowance_charge(
             for _ in [1]
             if allowance_charge_dict.get("rate")
         ],
-        CBC.Amount(allowance_charge_dict["amount"], currencyID=invoice_currency),
+        CBC.Amount(allowance_charge_dict["amount"], currencyID=data_dict["BT-5"]),
         *[
             CBC.BaseAmount(
-                allowance_charge_dict["base_amount"], currencyID=invoice_currency
+                allowance_charge_dict["base_amount"], currencyID=data_dict["BT-5"]
             )
             for _ in [1]
             if allowance_charge_dict.get("base_amount")
@@ -3159,7 +3249,7 @@ def _ubl_generate_single_allowance_charge(
     )
 
 
-def _ubl_generate_single_invoice_line(namespaces, line_dict, invoice_currency, refund):
+def _ubl_generate_single_invoice_line(namespaces, line_dict, data_dict, refund):
     if not isinstance(line_dict, dict):
         raise ValueError("BG-25 must be a list of dicts")
     CAC = namespaces["cac"]
@@ -3178,7 +3268,7 @@ def _ubl_generate_single_invoice_line(namespaces, line_dict, invoice_currency, r
             if note.get("BT-127")
         ],
         qty_builder(line_dict["BT-129"], unitCode=line_dict["BT-130"]),
-        CBC.LineExtensionAmount(line_dict["BT-131"], currencyID=invoice_currency),
+        CBC.LineExtensionAmount(line_dict["BT-131"], currencyID=data_dict["BT-5"]),
         *[
             CBC.AccountingCost(line_dict["BT-133"])
             for _ in [1]
@@ -3305,16 +3395,50 @@ def _ubl_generate_single_invoice_line(namespaces, line_dict, invoice_currency, r
             namespaces,
         ),
         *[
+            CAC.TaxTotal(
+                CBC.TaxAmount(line_dict["EXT-FR-FE-181"], currencyID=data_dict["BT-5"]),
+            )
+            for _ in [1]
+            if refund and line_dict.get("EXT-FR-FE-181")
+        ],
+        *[
+            CAC.TaxTotal(
+                CBC.TaxAmount(line_dict["EXT-FR-FE-182"], currencyID=data_dict["BT-6"]),
+            )
+            for _ in [1]
+            if refund
+            and line_dict.get("EXT-FR-FE-182")
+            and data_dict.get("BT-6")
+            and data_dict.get("BT-6") != data_dict["BT-5"]
+        ],
+        *[
             _ubl_generate_single_allowance_charge(
-                namespaces, "false", allowance_dict, invoice_currency
+                namespaces, "false", allowance_dict, data_dict
             )
             for allowance_dict in (line_dict.get("BG-27") or [])
         ],
         *[
             _ubl_generate_single_allowance_charge(
-                namespaces, "true", charge_dict, invoice_currency
+                namespaces, "true", charge_dict, data_dict
             )
             for charge_dict in (line_dict.get("BG-28") or [])
+        ],
+        *[
+            CAC.TaxTotal(
+                CBC.TaxAmount(line_dict["EXT-FR-FE-181"], currencyID=data_dict["BT-5"]),
+            )
+            for _ in [1]
+            if not refund and line_dict.get("EXT-FR-FE-181")
+        ],
+        *[
+            CAC.TaxTotal(
+                CBC.TaxAmount(line_dict["EXT-FR-FE-182"], currencyID=data_dict["BT-6"]),
+            )
+            for _ in [1]
+            if not refund
+            and line_dict.get("EXT-FR-FE-182")
+            and data_dict.get("BT-6")
+            and data_dict.get("BT-6") != data_dict["BT-5"]
         ],
         CAC.Item(
             *[
@@ -3426,7 +3550,7 @@ def _ubl_generate_single_invoice_line(namespaces, line_dict, invoice_currency, r
             ),
         ),  # close Item
         CAC.Price(
-            CBC.PriceAmount(line_dict["BT-146"], currencyID=invoice_currency),
+            CBC.PriceAmount(line_dict["BT-146"], currencyID=data_dict["BT-5"]),
             *[
                 CBC.BaseQuantity(line_dict["BT-149"], unitCode=line_dict["BT-130"])
                 for _ in [1]
@@ -3450,10 +3574,13 @@ def _ubl_generate_single_invoice_line(namespaces, line_dict, invoice_currency, r
                         if line_dict["BT-147-00"][0].get("EXT-FR-FE-195")
                     ],
                     CBC.Amount(
-                        line_dict["BT-147-00"][0]["BT-147"], currencyID=invoice_currency
+                        line_dict["BT-147-00"][0]["BT-147"],
+                        currencyID=data_dict["BT-5"],
                     ),
                     *[
-                        CBC.BaseAmount(line_dict["BT-148"], currencyID=invoice_currency)
+                        CBC.BaseAmount(
+                            line_dict["BT-148"], currencyID=data_dict["BT-5"]
+                        )
                         for _ in [1]
                         if line_dict.get("BT-148")
                     ],
@@ -3606,15 +3733,20 @@ def generate_ubl_xml(
         ],
         *[
             CAC.OrderReference(
-                *[CBC.ID(data_dict["BT-13"]) for _ in [1] if data_dict.get("BT-13")],
+                CBC.ID(data_dict["BT-13"]),
                 *[
                     CBC.SalesOrderID(data_dict["BT-14"])
                     for _ in [1]
                     if data_dict.get("BT-14")
                 ],
+                *[
+                    CBC.IssueDate(_ubl_date_to_string(data_dict["EXT-FR-FE-197"]))
+                    for _ in [1]
+                    if data_dict.get("EXT-FR-FE-197")
+                ],
             )
             for _ in [1]
-            if data_dict.get("BT-13") or data_dict.get("BT-14")
+            if data_dict.get("BT-13")
         ],
         *[
             CAC.BillingReference(
@@ -3635,7 +3767,14 @@ def generate_ubl_xml(
             for previnv in (data_dict.get("BG-3") or [])
         ],
         *[
-            CAC.DespatchDocumentReference(CBC.ID(data_dict["BT-16"]))
+            CAC.DespatchDocumentReference(
+                CBC.ID(data_dict["BT-16"]),
+                *[
+                    CBC.IssueDate(_ubl_date_to_string(data_dict["EXT-FR-FE-198"]))
+                    for _ in [1]
+                    if data_dict.get("EXT-FR-FE-198")
+                ],
+            )
             for _ in [1]
             if data_dict.get("BT-16")
         ],
@@ -3815,13 +3954,13 @@ def generate_ubl_xml(
         ],
         *[
             _ubl_generate_single_allowance_charge(
-                namespaces, "false", allowance_dict, data_dict["BT-5"]
+                namespaces, "false", allowance_dict, data_dict
             )
             for allowance_dict in (data_dict.get("BG-20") or [])
         ],
         *[
             _ubl_generate_single_allowance_charge(
-                namespaces, "true", charge_dict, data_dict["BT-5"]
+                namespaces, "true", charge_dict, data_dict
             )
             for charge_dict in (data_dict.get("BG-21") or [])
         ],
@@ -3892,9 +4031,7 @@ def generate_ubl_xml(
             CBC.PayableAmount(data_dict["BT-115"], currencyID=data_dict["BT-5"]),
         ),
         *[
-            _ubl_generate_single_invoice_line(
-                namespaces, iline, data_dict["BT-5"], refund
-            )
+            _ubl_generate_single_invoice_line(namespaces, iline, data_dict, refund)
             for iline in (data_dict.get("BG-25") or [])
         ],
     )  # Close Invoice

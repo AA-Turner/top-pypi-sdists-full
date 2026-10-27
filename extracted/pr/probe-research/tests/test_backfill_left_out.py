@@ -145,9 +145,9 @@ def test_every_filing_prompt_offers_left_out_and_naming_makes_no_junk_project(tm
         assert "probe-backfill-plan leave-out" in text
     for text in filing[:2]:
         assert prompts.LEAVE_OUT in text
-    naming = prompts.name_projects(root=tmp_path, findings_json="[]", existing=[])
+    naming = prompts.name_projects(root=tmp_path, findings_json="[]", own=[])
     assert "belong in one project of their own" not in naming
-    assert "Make no project\nfor what is not research" in naming
+    assert "make no project for what is not research" in " ".join(naming.split())
     # The slice filer decides what is left out, so a correction must reach it.
     corrected = prompts.assign_chunk(projects="training", index=1, total=2,
                                      feedback="keep apps/lab, it is research", **common)

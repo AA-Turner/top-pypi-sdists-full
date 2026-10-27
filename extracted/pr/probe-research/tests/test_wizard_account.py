@@ -720,7 +720,7 @@ def test_the_screen_runs_the_row_that_was_picked(monkeypatch, capsys):
     with pytest.raises(typer.Exit) as caught:
         _run(Action.ACCOUNT, monkeypatch, interactive=True)
     assert caught.value.exit_code == 0
-    assert "signed out" in capsys.readouterr().out
+    assert "Signed out of Probe on this device." in capsys.readouterr().out
 
 
 def test_picking_switch_opens_the_account_list(monkeypatch):
@@ -1102,3 +1102,24 @@ def test_every_heading_has_a_blank_line_under_it():
         if isinstance(choice, questionary.Separator) and str(choice.title).strip():
             after = choices[index + 1]
             assert isinstance(after, questionary.Separator) and not str(after.title).strip(), choice.title
+
+
+def test_a_sign_out_that_could_not_clear_the_credentials_does_not_say_signed_out(monkeypatch, capsys):
+    """The page's headline is what is true: with the credentials still saved,
+    "Signed out" would send someone off believing this device is clean."""
+    monkeypatch.setattr(
+        setup, "run_account_menu", lambda caps, saved=None: setup.AccountAction.SIGN_OUT
+    )
+    monkeypatch.setattr(
+        setup, "sign_out",
+        lambda sources: [f"! {setup.CREDENTIALS_NOT_CLEARED} (read-only file). Delete them by hand."],
+    )
+    monkeypatch.setattr(setup, "confirm_sign_out", lambda account=None: True)
+
+    import typer
+
+    with pytest.raises(typer.Exit):
+        _run(Action.ACCOUNT, monkeypatch, interactive=True)
+    out = capsys.readouterr().out
+    assert "Not signed out: the saved credentials remain." in out
+    assert "Signed out of Probe" not in out

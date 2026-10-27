@@ -213,6 +213,7 @@ class CfnContainer(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -269,7 +270,7 @@ class CfnContainer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__10e7e81e71aa4b865a53dcff4b11dbf9fde09b2d2b25f839e982ab92110fe012)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "containerName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "containerName", value)
 
     @builtins.property
     @jsii.member(jsii_name="accessLoggingEnabled")
@@ -287,7 +288,7 @@ class CfnContainer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aa774c7c5a8092f174195c7b605a1516571a888f5be6c2df2f5a2584d8b581c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accessLoggingEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accessLoggingEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="corsPolicy")
@@ -307,7 +308,7 @@ class CfnContainer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__467426d7f4bad0107abaee763e8b698f349eb6f7e80bec30278bb48af442d70e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "corsPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "corsPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="lifecyclePolicy")
@@ -322,7 +323,7 @@ class CfnContainer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__283671ecfc000621a4145f391f01564d103579132b4dba5c58a8d37a6469fb7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lifecyclePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lifecyclePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="metricPolicy")
@@ -340,7 +341,7 @@ class CfnContainer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fbe17101e1cbabe4ada35b516bf8c1866a67969c1a431e3e00e64089669ff87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metricPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="policy")
@@ -353,7 +354,7 @@ class CfnContainer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb4bb02f97dcf212717074795ec241aa23847808700630f07392cee599cd3553)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policy", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -368,7 +369,7 @@ class CfnContainer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__af8f09217c9fcffb59ad0a4b95e405df0ad5d481e0b17745a0feaf4d46e6c880)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediastore.CfnContainer.CorsRuleProperty",

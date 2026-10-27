@@ -10,7 +10,10 @@ pub use script::{
 	AugmentedScript, ConfusableClass, ScriptSet, classify_confusable, is_single_script,
 	resolved_script_set,
 };
-pub use skeleton::{Direction, bidi_skeleton, is_confusable, is_confusable_in, skeleton};
+pub use skeleton::{
+	Direction, bidi_skeleton, display_order, internal_skeleton, is_confusable, is_confusable_in,
+	skeleton,
+};
 
 #[cfg(test)]
 mod test {

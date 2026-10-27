@@ -202,6 +202,7 @@ class CfnParallelData(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -329,7 +330,7 @@ class CfnParallelData(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__97f718facff8f4b58a92a6fa10539fef44a949898d2a287f05ba41a545eebfd1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="parallelDataConfig")
@@ -347,7 +348,7 @@ class CfnParallelData(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2a5935aca36b0f03f4344a91d663167c7a1686c6ac3a440367f180ebf7f6c482)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parallelDataConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "parallelDataConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -360,7 +361,7 @@ class CfnParallelData(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7699a9dfa806d9960c658ac0594b99faaa6b5213a1db21a0eb6b838f64601ae2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
@@ -378,7 +379,7 @@ class CfnParallelData(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cbc625fe497dae754fd3717d67d19eaef35120ce0352138699c71843de004e92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -394,7 +395,7 @@ class CfnParallelData(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__871ad6be66bec9d0b23c1ba4e4dbf39ad4cb2e41b05685bb5efd13ca852691e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_translate.CfnParallelData.EncryptionKeyProperty",
@@ -864,6 +865,7 @@ class CfnTerminology(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -982,7 +984,7 @@ class CfnTerminology(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3cd928adc66a375994b438d17bca789f259f95225818cd01cfba93d39a454f08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -995,7 +997,7 @@ class CfnTerminology(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__275c757c82dcbf0a9d75d3812d8eb182dba0c4951e6fd43031e2389bc4e14910)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
@@ -1013,7 +1015,7 @@ class CfnTerminology(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c3c95bb62cc8da45f796394c88dc84a0134435345034e198a819852994160fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="mergeStrategy")
@@ -1026,7 +1028,7 @@ class CfnTerminology(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ab4d0d921aa8246154618894a5fe889463302f7ecdd55b273306740d506f10dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mergeStrategy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mergeStrategy", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1042,7 +1044,7 @@ class CfnTerminology(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__94c2068e0799445fe6129f4d598810200f3e4da70669569961b5e1ac6c9e1427)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="terminologyData")
@@ -1060,7 +1062,7 @@ class CfnTerminology(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e1c366793c1312875aba463288787fee0253f436325073e7462e9c2310ba21e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "terminologyData", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "terminologyData", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_translate.CfnTerminology.EncryptionKeyProperty",

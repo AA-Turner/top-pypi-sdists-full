@@ -78,15 +78,24 @@ def get_function_caller_info(frame_offset: int = 1) -> FunctionCallerInfo:
         lineno = frame.f_lineno
         source = "".join(linecache.getlines(filename))
 
+        # Prefer the exact call being executed: matching by line picks the outer call in `f(g(...))`.
         try:
-            tree = ast.parse(source, filename)
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Call) and node.lineno == lineno:
-                    caller_source = ast.get_source_segment(source, node)
-                    caller_node = node
-                    break
+            executing_node = Source.executing(frame).node
         except Exception:
-            pass
+            executing_node = None
+        if isinstance(executing_node, ast.Call):
+            caller_node = executing_node
+            caller_source = ast.get_source_segment(source, executing_node)
+        else:
+            try:
+                tree = ast.parse(source, filename)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call) and node.lineno == lineno:
+                        caller_source = ast.get_source_segment(source, node)
+                        caller_node = node
+                        break
+            except Exception:
+                pass
 
         if caller_source is None:
             try:
@@ -961,12 +970,21 @@ class FunctionCallErrorBuilder:
 
     def function_arg_range_by_name(self, name: str) -> RangeGQL | None:
         """Get the range for a function argument by its keyword name."""
+        node = self.function_arg_node(name, None)
+        return None if node is None else node_to_range(node)
+
+    def function_arg_node(self, name: str, position: int | None) -> ast.expr | None:
+        """The expression passed for argument `name`, found by keyword or else at `position`."""
         node = self.caller_info.node
         if node is None:
             return None
         for keyword in node.keywords:
             if keyword.arg == name:
-                return node_to_range(keyword.value)
+                return keyword.value
+        # After a `*args`, positions no longer map to arguments.
+        if position is not None and position < len(node.args):
+            if not any(isinstance(arg, ast.Starred) for arg in node.args[: position + 1]):
+                return node.args[position]
         return None
 
     @overload

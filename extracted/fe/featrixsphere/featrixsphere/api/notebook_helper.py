@@ -27,6 +27,71 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _training_curves(metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize a ``GET /session/<id>/training_metrics`` response into
+    per-epoch series.
+
+    The route returns one of two shapes:
+      - ES timeline: ``{"source": "embedding_space_training", "data":
+        {"epochs", "train_loss", "val_loss", "learning_rate", "gradient_norm", ...}}``
+      - SP metrics: ``{"training_metrics": {"training_info": [{"epoch_idx",
+        "loss", "validation_loss", "hyperparameters": {"learning_rate"},
+        "metrics": {"accuracy", "auc", ...}}, ...], "final_metrics": {...}}}``
+
+    Returns ``{"source", "epochs", "train_loss", "val_loss", "learning_rate",
+    "gradient_norm", "accuracy", "auc", "final_metrics"}`` (lists hold None
+    where an epoch did not record a value). Raises ValueError on any other
+    shape rather than plotting an empty chart.
+    """
+    if 'data' in metrics and metrics.get('source') == 'embedding_space_training':
+        data = metrics.get('data') or {}
+        epochs = list(data.get('epochs') or [])
+        return {
+            'source': 'embedding_space',
+            'epochs': epochs,
+            'train_loss': list(data.get('train_loss') or []),
+            'val_loss': list(data.get('val_loss') or []),
+            'learning_rate': list(data.get('learning_rate') or []),
+            'gradient_norm': list(data.get('gradient_norm') or []),
+            'accuracy': [],
+            'auc': [],
+            'final_metrics': {},
+        }
+    if 'training_metrics' in metrics:
+        tm = metrics.get('training_metrics') or {}
+        # Per-epoch rows carry epoch_idx; the trailing best-checkpoint summary
+        # row (best_epoch/best_value/...) does not.
+        rows = [r for r in (tm.get('training_info') or [])
+                if isinstance(r, dict) and 'epoch_idx' in r]
+        epoch_metrics = [r.get('metrics') or {} for r in rows]
+        return {
+            'source': 'single_predictor',
+            'epochs': [r['epoch_idx'] + 1 for r in rows],
+            'train_loss': [r.get('loss') for r in rows],
+            'val_loss': [r.get('validation_loss') for r in rows],
+            'learning_rate': [(r.get('hyperparameters') or {}).get('learning_rate') for r in rows],
+            'gradient_norm': [],
+            'accuracy': [m.get('accuracy') for m in epoch_metrics],
+            'auc': [m.get('roc_auc') or m.get('auc') for m in epoch_metrics],
+            'final_metrics': tm.get('final_metrics') or {},
+        }
+    raise ValueError(
+        "Unrecognized training_metrics response (expected 'source'/'data' for an "
+        f"embedding space or 'training_metrics' for a predictor); got keys {sorted(metrics)}"
+    )
+
+
+def _present(epochs: List[Any], values: List[Any]) -> Tuple[List[Any], List[float]]:
+    """(epochs, values) pairs with the None values dropped."""
+    pairs = [(e, v) for e, v in zip(epochs, values) if v is not None]
+    return [e for e, _ in pairs], [float(v) for _, v in pairs]
+
+
+def _model_training_curves(model: Any) -> Dict[str, Any]:
+    metrics = model.get_training_metrics() if hasattr(model, 'get_training_metrics') else model.get_metrics()
+    return _training_curves(metrics)
+
+
 class FeatrixNotebookHelper:
     """
     Helper class for Jupyter notebook visualization.
@@ -83,8 +148,7 @@ class FeatrixNotebookHelper:
         except ImportError:
             raise ImportError("matplotlib is required for training_loss visualization")
 
-        # Get training metrics
-        metrics = model.get_training_metrics() if hasattr(model, 'get_training_metrics') else model.get_metrics()
+        curves = _model_training_curves(model)
 
         # Apply style
         if style == 'notebook':
@@ -97,8 +161,7 @@ class FeatrixNotebookHelper:
         fig, ax1 = plt.subplots(figsize=figsize)
 
         # Get loss history
-        loss_history = metrics.get('loss_history', metrics.get('training_loss', []))
-        epochs = list(range(1, len(loss_history) + 1))
+        epochs, loss_history = _present(curves['epochs'], curves['train_loss'])
 
         # Apply smoothing if requested
         if smooth and len(loss_history) > 10:
@@ -116,10 +179,10 @@ class FeatrixNotebookHelper:
 
         # Show learning rate if available and requested
         if show_learning_rate:
-            lr_history = metrics.get('lr_history', metrics.get('learning_rate', []))
+            lr_epochs, lr_history = _present(curves['epochs'], curves['learning_rate'])
             if lr_history:
                 ax2 = ax1.twinx()
-                ax2.plot(epochs[:len(lr_history)], lr_history, color='red', linestyle='--', label='Learning Rate')
+                ax2.plot(lr_epochs, lr_history, color='red', linestyle='--', label='Learning Rate')
                 ax2.set_ylabel('Learning Rate', color='red')
                 ax2.tick_params(axis='y', labelcolor='red')
                 ax2.set_yscale('log')
@@ -157,15 +220,37 @@ class FeatrixNotebookHelper:
             fig = notebook.embedding_space_3d(fm, interactive=True)
             fig.show()
         """
-        # Get projections from server
-        projections = fm.get_projections()
+        # Server shape: {"projections": {"coords": [{"x", "y", "z", "cluster_pre",
+        # "set_columns", "scalar_columns", "string_columns", ...}, ...], ...}}
+        response = fm.get_projections(limit=sample_size)
+        coords = (response.get('projections') or {}).get('coords') or []
+        coords = [c for c in coords if c.get('z') is not None]
 
-        points_3d = projections.get('3d', projections.get('pca_3d', []))
-        labels = projections.get('labels', [])
-        colors = projections.get('colors', projections.get(color_by, []))
-
-        if not points_3d:
+        if not coords:
             raise ValueError("No 3D projection data available")
+
+        points_3d = [(c['x'], c['y'], c['z']) for c in coords]
+        if color_by is None:
+            labels = [f"cluster {c.get('cluster_pre')}" for c in coords]
+            colors = [c.get('cluster_pre') for c in coords]
+        else:
+            values = []
+            for c in coords:
+                value = None
+                for group in ('scalar_columns', 'set_columns', 'string_columns'):
+                    cols = c.get(group) or {}
+                    if color_by in cols:
+                        value = cols[color_by]
+                        break
+                values.append(value)
+            if all(v is None for v in values):
+                raise ValueError(f"Column {color_by!r} not found in projection coords")
+            labels = [f"{color_by}={v}" for v in values]
+            if all(isinstance(v, (int, float)) or v is None for v in values):
+                colors = values
+            else:
+                categories = {v: i for i, v in enumerate(sorted({str(v) for v in values}))}
+                colors = [categories[str(v)] for v in values]
 
         if interactive:
             try:
@@ -263,9 +348,8 @@ class FeatrixNotebookHelper:
         except ImportError:
             raise ImportError("matplotlib is required for training_movie")
 
-        # Get training metrics
-        metrics = model.get_training_metrics() if hasattr(model, 'get_training_metrics') else model.get_metrics()
-        loss_history = metrics.get('loss_history', metrics.get('training_loss', []))
+        curves = _model_training_curves(model)
+        _, loss_history = _present(curves['epochs'], curves['train_loss'])
 
         if not loss_history:
             raise ValueError("No training history available")
@@ -334,19 +418,27 @@ class FeatrixNotebookHelper:
             fig = notebook.embedding_evolution(fm, epoch_range=(1, 50))
             fig.show()
         """
-        # This requires epoch-by-epoch projection data which may not be available
-        # Return a placeholder for now
         try:
             import plotly.graph_objects as go
         except ImportError:
             raise ImportError("plotly is required for embedding_evolution")
 
-        # Try to get evolution data
-        try:
-            metrics = fm.get_training_metrics()
-            evolution = metrics.get('embedding_evolution', [])
-        except Exception:
-            evolution = []
+        # Server shape: {"epoch_projections": {"epoch_<n>": {"epoch": n,
+        # "coords": [{"x", "y", "z", ...}, ...]}, ...}}
+        response = fm.get_epoch_projections(point_limit=sample_size)
+        evolution = []
+        for key, epoch_data in (response.get('epoch_projections') or {}).items():
+            if not key.startswith('epoch_') or not isinstance(epoch_data, dict):
+                continue
+            epoch = epoch_data.get('epoch')
+            if epoch is None:
+                continue
+            if epoch_range is not None and not (epoch_range[0] <= epoch <= epoch_range[1]):
+                continue
+            points = [(c['x'], c['y']) for c in (epoch_data.get('coords') or [])
+                      if c.get('x') is not None and c.get('y') is not None]
+            evolution.append({'epoch': epoch, 'points': points})
+        evolution.sort(key=lambda e: e['epoch'])
 
         if not evolution:
             # Create placeholder figure
@@ -434,11 +526,11 @@ class FeatrixNotebookHelper:
         colors = plt.cm.tab10(np.linspace(0, 1, len(models)))
 
         for i, model in enumerate(models):
-            metrics = model.get_training_metrics() if hasattr(model, 'get_training_metrics') else model.get_metrics()
-            loss_history = metrics.get('loss_history', metrics.get('training_loss', []))
+            curves = _model_training_curves(model)
+            epochs, loss_history = _present(curves['epochs'], curves['train_loss'])
 
             label = labels[i] if labels and i < len(labels) else f"Model {i+1}"
-            ax.plot(loss_history, color=colors[i], linewidth=2, label=label)
+            ax.plot(epochs, loss_history, color=colors[i], linewidth=2, label=label)
 
         ax.set_xlabel('Epoch')
         ax.set_ylabel('Loss')
@@ -474,32 +566,32 @@ class FeatrixNotebookHelper:
         except ImportError:
             raise ImportError("matplotlib is required")
 
-        metrics = fm.get_training_metrics()
+        curves = _training_curves(fm.get_training_metrics())
 
         fig, axes = plt.subplots(1, 3, figsize=figsize)
 
         # Loss curve
-        loss = metrics.get('loss_history', [])
+        loss_epochs, loss = _present(curves['epochs'], curves['train_loss'])
         if loss:
-            axes[0].plot(loss, 'b-', linewidth=2)
+            axes[0].plot(loss_epochs, loss, 'b-', linewidth=2)
             axes[0].set_title('Training Loss')
             axes[0].set_xlabel('Epoch')
             axes[0].set_ylabel('Loss')
             axes[0].grid(True, alpha=0.3)
 
         # Learning rate
-        lr = metrics.get('lr_history', [])
+        lr_epochs, lr = _present(curves['epochs'], curves['learning_rate'])
         if lr:
-            axes[1].semilogy(lr, 'r-', linewidth=2)
+            axes[1].semilogy(lr_epochs, lr, 'r-', linewidth=2)
             axes[1].set_title('Learning Rate')
             axes[1].set_xlabel('Epoch')
             axes[1].set_ylabel('LR')
             axes[1].grid(True, alpha=0.3)
 
         # Gradient norm if available
-        grad_norm = metrics.get('grad_norm_history', [])
+        gn_epochs, grad_norm = _present(curves['epochs'], curves['gradient_norm'])
         if grad_norm:
-            axes[2].plot(grad_norm, 'g-', linewidth=2)
+            axes[2].plot(gn_epochs, grad_norm, 'g-', linewidth=2)
             axes[2].set_title('Gradient Norm')
             axes[2].set_xlabel('Epoch')
             axes[2].set_ylabel('Norm')
@@ -538,30 +630,31 @@ class FeatrixNotebookHelper:
         except ImportError:
             raise ImportError("matplotlib is required")
 
-        metrics = predictor.get_metrics()
+        curves = _training_curves(predictor.get_metrics())
+        final_metrics = curves['final_metrics']
 
         fig, axes = plt.subplots(1, 3, figsize=figsize)
 
         # Loss curve
-        loss = metrics.get('loss_history', metrics.get('single_predictor', {}).get('loss_history', []))
+        loss_epochs, loss = _present(curves['epochs'], curves['train_loss'])
         if loss:
-            axes[0].plot(loss, 'b-', linewidth=2)
+            axes[0].plot(loss_epochs, loss, 'b-', linewidth=2)
             axes[0].set_title('Training Loss')
             axes[0].set_xlabel('Epoch')
             axes[0].set_ylabel('Loss')
             axes[0].grid(True, alpha=0.3)
 
         # Accuracy
-        accuracy = metrics.get('accuracy_history', metrics.get('single_predictor', {}).get('accuracy_history', []))
+        acc_epochs, accuracy = _present(curves['epochs'], curves['accuracy'])
         if accuracy:
-            axes[1].plot(accuracy, 'g-', linewidth=2)
+            axes[1].plot(acc_epochs, accuracy, 'g-', linewidth=2)
             axes[1].set_title('Accuracy')
             axes[1].set_xlabel('Epoch')
             axes[1].set_ylabel('Accuracy')
             axes[1].set_ylim(0, 1)
             axes[1].grid(True, alpha=0.3)
         else:
-            final_acc = metrics.get('single_predictor', {}).get('accuracy', predictor.accuracy)
+            final_acc = final_metrics.get('accuracy', predictor.accuracy)
             if final_acc:
                 axes[1].axhline(y=final_acc, color='g', linewidth=2)
                 axes[1].set_title(f'Final Accuracy: {final_acc:.4f}')
@@ -570,16 +663,16 @@ class FeatrixNotebookHelper:
                 axes[1].set_title('Accuracy')
 
         # AUC
-        auc_history = metrics.get('auc_history', metrics.get('single_predictor', {}).get('auc_history', []))
+        auc_epochs, auc_history = _present(curves['epochs'], curves['auc'])
         if auc_history:
-            axes[2].plot(auc_history, 'r-', linewidth=2)
+            axes[2].plot(auc_epochs, auc_history, 'r-', linewidth=2)
             axes[2].set_title('AUC')
             axes[2].set_xlabel('Epoch')
             axes[2].set_ylabel('AUC')
             axes[2].set_ylim(0, 1)
             axes[2].grid(True, alpha=0.3)
         else:
-            final_auc = metrics.get('single_predictor', {}).get('roc_auc', predictor.auc)
+            final_auc = final_metrics.get('roc_auc') or final_metrics.get('auc') or predictor.auc
             if final_auc:
                 axes[2].axhline(y=final_auc, color='r', linewidth=2)
                 axes[2].set_title(f'Final AUC: {final_auc:.4f}')

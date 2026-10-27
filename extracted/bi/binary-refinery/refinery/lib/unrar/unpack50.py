@@ -10,11 +10,11 @@ from refinery.lib.unrar.reader import BitInput
 from refinery.lib.unrar.unpack import RarUnpacker
 
 NC = 306
-DC = 64
+DCB = 64
+DCX = 80
 LDC = 16
 RC = 44
 BC = 20
-HUFF_TABLE_SIZE = NC + DC + RC + LDC
 LARGEST_TABLE_SIZE = 306
 MAX_QUICK_DECODE_BITS = 10
 MAX_UNPACK_FILTERS = 8192
@@ -162,14 +162,14 @@ def read_block_header(inp: BitInput, header: BlockHeader) -> bool:
 
     inp.addbits((8 - inp.in_bit) & 7)
 
-    if inp.remaining < 7:
+    if not inp.remaining:
         return False
 
     block_flags = inp.getbits() >> 8
     inp.addbits(8)
 
     byte_count = ((block_flags >> 3) & 3) + 1
-    if byte_count == 4:
+    if byte_count == 4 or inp.remaining < 1 + byte_count:
         return False
 
     header.header_size = 2 + byte_count
@@ -194,9 +194,15 @@ def read_block_header(inp: BitInput, header: BlockHeader) -> bool:
     return True
 
 
-def read_tables(inp: BitInput, header: BlockHeader, tables: BlockTables) -> bool:
+def read_tables(
+    inp: BitInput,
+    header: BlockHeader,
+    tables: BlockTables,
+    distance_codes: int,
+) -> bool:
     """
-    Read Huffman tables from a block.
+    Read Huffman tables from a block. The RAR 7 algorithm uses `DCX` distance codes instead of
+    `DCB` for distances beyond 4 GB.
     """
     if not header.table_present:
         return True
@@ -224,9 +230,10 @@ def read_tables(inp: BitInput, header: BlockHeader, tables: BlockTables) -> bool
 
     make_decode_tables(bit_length, tables.BD, BC)
 
-    table = bytearray(HUFF_TABLE_SIZE)
+    table_size = NC + distance_codes + RC + LDC
+    table = bytearray(table_size)
     i = 0
-    while i < HUFF_TABLE_SIZE:
+    while i < table_size:
         number = decode_number(inp, tables.BD)
         if number < 16:
             table[i] = number
@@ -240,7 +247,7 @@ def read_tables(inp: BitInput, header: BlockHeader, tables: BlockTables) -> bool
                 inp.addbits(7)
             if i == 0:
                 return False
-            while n > 0 and i < HUFF_TABLE_SIZE:
+            while n > 0 and i < table_size:
                 table[i] = table[i - 1]
                 i += 1
                 n -= 1
@@ -251,19 +258,27 @@ def read_tables(inp: BitInput, header: BlockHeader, tables: BlockTables) -> bool
             else:
                 n = ((inp.getbits() >> 9) & 0x7F) + 11
                 inp.addbits(7)
-            while n > 0 and i < HUFF_TABLE_SIZE:
+            while n > 0 and i < table_size:
                 table[i] = 0
                 i += 1
                 n -= 1
 
     make_decode_tables(table, tables.LD, NC)
     off = NC
-    make_decode_tables(table[off:], tables.DD, DC)
-    off += DC
+    make_decode_tables(table[off:], tables.DD, distance_codes)
+    off += distance_codes
     make_decode_tables(table[off:], tables.LDD, LDC)
     off += LDC
     make_decode_tables(table[off:], tables.RD, RC)
     return True
+
+
+def block_consumed(inp: BitInput, header: BlockHeader) -> bool:
+    """
+    Whether the reader has passed the end of the given block.
+    """
+    last = header.block_start + header.block_size - 1
+    return inp.in_addr > last or (inp.in_addr == last and inp.in_bit >= header.block_bit_size)
 
 
 def read_filter_data(inp: BitInput) -> int:
@@ -307,13 +322,15 @@ class Unpack50(RarUnpacker):
     def __init__(
         self,
         data: bytes | memoryview,
-        unp_size: int,
+        unp_size: int | None,
         win_size: int,
         solid: bool = False,
+        extended: bool = False,
     ):
         self._inp = BitInput(data)
         self._dest_size = unp_size
-        self._win_size = max(win_size, 0x40000)
+        self._distance_codes = DCX if extended else DCB
+        self._win_size = max(1 << (win_size - 1).bit_length(), 0x40000)
         self._win_mask = self._win_size - 1
         self._window = bytearray(self._win_size)
         self._solid = solid
@@ -328,6 +345,28 @@ class Unpack50(RarUnpacker):
         self._block_header = BlockHeader()
         self._block_tables = BlockTables()
         self._write_border = min(self._win_size, UNPACK_MAX_WRITE) & self._win_mask
+
+    def init_solid(self, data: bytes | memoryview, dest_size: int | None, extended: bool = False):
+        """
+        Reinitialize for the next file in a solid archive chain, which selects its own algorithm.
+        Filters never span two files.
+        """
+        super().init_solid(data, dest_size)
+        self._distance_codes = DCX if extended else DCB
+        self._filters = []
+
+    def _ran_out(self, inp: BitInput, header: BlockHeader) -> bool:
+        """
+        Whether the input ran out before the stream ended: before the file reached its size or, for
+        a file of unknown size, before the last block was consumed within the input.
+        """
+        if self._dest_size is None:
+            return not (
+                header.last_block
+                and block_consumed(inp, header)
+                and header.block_start + header.block_size <= len(inp.buf)
+            )
+        return self._ended_short((self._unp_ptr - self._wr_ptr) & self._win_mask)
 
     def _write_buf(self):
         """
@@ -396,14 +435,18 @@ class Unpack50(RarUnpacker):
         mask = self._win_mask
         win = self._window
 
-        if not read_block_header(inp, self._block_header):
-            return self._output
-        if not read_tables(inp, self._block_header, self._block_tables):
-            return self._output
-        self._tables_read = True
-
         hdr = self._block_header
         tbl = self._block_tables
+
+        if (
+            not read_block_header(inp, hdr)
+            or not read_tables(inp, hdr, tbl, self._distance_codes)
+            or not (self._tables_read or hdr.table_present)
+        ):
+            if self._ended_early((self._unp_ptr - self._wr_ptr) & mask):
+                self._raise_corrupt('RAR5.0 truncated or corrupt block header.')
+            return self._output
+        self._tables_read = True
 
         inp_len = len(inp.buf)
 
@@ -411,25 +454,26 @@ class Unpack50(RarUnpacker):
             self._unp_ptr &= mask
 
             if inp.in_addr >= inp_len:
-                if self._written + ((self._unp_ptr - self._wr_ptr) & mask) < self._dest_size:
+                if self._ran_out(inp, hdr):
                     self._raise_corrupt('RAR5.0 stream consumed past end of input.')
                 break
 
-            while (inp.in_addr > hdr.block_start + hdr.block_size - 1
-                or (inp.in_addr == hdr.block_start + hdr.block_size - 1
-                    and inp.in_bit >= hdr.block_bit_size)):
+            while block_consumed(inp, hdr):
                 if hdr.last_block:
                     self._write_buf()
                     return self._output
-                if not read_block_header(inp, hdr) or not read_tables(inp, hdr, tbl):
-                    if self._written + ((self._unp_ptr - self._wr_ptr) & mask) < self._dest_size:
+                if (
+                    not read_block_header(inp, hdr)
+                    or not read_tables(inp, hdr, tbl, self._distance_codes)
+                ):
+                    if self._ended_early((self._unp_ptr - self._wr_ptr) & mask):
                         self._raise_corrupt('RAR5.0 truncated or corrupt block header.')
                     self._write_buf()
                     return self._output
 
             if ((self._write_border - self._unp_ptr) & mask) < MAX_INC_LZ_MATCH and self._write_border != self._unp_ptr:
                 self._write_buf()
-                if self._written > self._dest_size:
+                if self._overran():
                     return self._output
 
             main_slot = decode_number(inp, tbl.LD)
@@ -452,7 +496,10 @@ class Unpack50(RarUnpacker):
 
                 if d_bits > 0:
                     if d_bits >= 4:
-                        if d_bits > 4:
+                        if d_bits > 36:
+                            distance += (inp.getbits64() >> (68 - d_bits)) << 4
+                            inp.addbits(d_bits - 4)
+                        elif d_bits > 4:
                             distance += (inp.getbits32() >> (36 - d_bits)) << 4
                             inp.addbits(d_bits - 4)
                         low_dist = decode_number(inp, tbl.LDD)

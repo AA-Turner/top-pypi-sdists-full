@@ -49,6 +49,8 @@ from .literals import (
     SaaSProductSortByType,
     SaaSProductVisibilityStringType,
     SortOrderType,
+    SubsidiaryAuthorizationSortByType,
+    SubsidiaryAuthorizationStatusStringType,
 )
 
 if sys.version_info >= (3, 12):
@@ -213,6 +215,19 @@ __all__ = (
     "SortTypeDef",
     "StartChangeSetRequestTypeDef",
     "StartChangeSetResponseTypeDef",
+    "SubsidiaryAuthorizationCreatedDateFilterDateRangeTypeDef",
+    "SubsidiaryAuthorizationCreatedDateFilterTypeDef",
+    "SubsidiaryAuthorizationEntityIdFilterTypeDef",
+    "SubsidiaryAuthorizationFiltersTypeDef",
+    "SubsidiaryAuthorizationLastModifiedDateFilterDateRangeTypeDef",
+    "SubsidiaryAuthorizationLastModifiedDateFilterTypeDef",
+    "SubsidiaryAuthorizationNameFilterTypeDef",
+    "SubsidiaryAuthorizationResourceIdFilterTypeDef",
+    "SubsidiaryAuthorizationResourceNameFilterTypeDef",
+    "SubsidiaryAuthorizationSortTypeDef",
+    "SubsidiaryAuthorizationStatusFilterTypeDef",
+    "SubsidiaryAuthorizationSubsidiaryAccountIdFilterTypeDef",
+    "SubsidiaryAuthorizationSummaryTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "UntagResourceRequestTypeDef",
@@ -477,6 +492,15 @@ class SaaSProductSummaryTypeDef(TypedDict):
     Visibility: NotRequired[SaaSProductVisibilityStringType]
 
 
+class SubsidiaryAuthorizationSummaryTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Status: NotRequired[str]
+    ResourceId: NotRequired[str]
+    ResourceName: NotRequired[str]
+    SubsidiaryAccountId: NotRequired[str]
+    CreatedDate: NotRequired[str]
+
+
 class ExpressPrivateOfferConfigurationSortTypeDef(TypedDict):
     SortBy: NotRequired[ExpressPrivateOfferConfigurationSortByType]
     SortOrder: NotRequired[SortOrderType]
@@ -504,6 +528,11 @@ class ResaleAuthorizationSortTypeDef(TypedDict):
 
 class SaaSProductSortTypeDef(TypedDict):
     SortBy: NotRequired[SaaSProductSortByType]
+    SortOrder: NotRequired[SortOrderType]
+
+
+class SubsidiaryAuthorizationSortTypeDef(TypedDict):
+    SortBy: NotRequired[SubsidiaryAuthorizationSortByType]
     SortOrder: NotRequired[SortOrderType]
 
 
@@ -742,6 +771,42 @@ class SaaSProductLastModifiedDateFilterDateRangeTypeDef(TypedDict):
     BeforeValue: NotRequired[str]
 
 
+class SubsidiaryAuthorizationCreatedDateFilterDateRangeTypeDef(TypedDict):
+    AfterValue: NotRequired[str]
+    BeforeValue: NotRequired[str]
+
+
+class SubsidiaryAuthorizationEntityIdFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
+
+
+class SubsidiaryAuthorizationNameFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
+    WildCardValue: NotRequired[str]
+
+
+class SubsidiaryAuthorizationResourceIdFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
+
+
+class SubsidiaryAuthorizationResourceNameFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
+    WildCardValue: NotRequired[str]
+
+
+class SubsidiaryAuthorizationStatusFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[SubsidiaryAuthorizationStatusStringType]]
+
+
+class SubsidiaryAuthorizationSubsidiaryAccountIdFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
+
+
+class SubsidiaryAuthorizationLastModifiedDateFilterDateRangeTypeDef(TypedDict):
+    AfterValue: NotRequired[str]
+    BeforeValue: NotRequired[str]
+
+
 class UntagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     TagKeys: Sequence[str]
@@ -871,6 +936,7 @@ class EntitySummaryTypeDef(TypedDict):
     ExpressPrivateOfferConfigurationSummary: NotRequired[
         ExpressPrivateOfferConfigurationSummaryTypeDef
     ]
+    SubsidiaryAuthorizationSummary: NotRequired[SubsidiaryAuthorizationSummaryTypeDef]
 
 
 class EntityTypeSortTypeDef(TypedDict):
@@ -883,6 +949,7 @@ class EntityTypeSortTypeDef(TypedDict):
     MachineLearningProductSort: NotRequired[MachineLearningProductSortTypeDef]
     OfferSetSort: NotRequired[OfferSetSortTypeDef]
     ExpressPrivateOfferConfigurationSort: NotRequired[ExpressPrivateOfferConfigurationSortTypeDef]
+    SubsidiaryAuthorizationSort: NotRequired[SubsidiaryAuthorizationSortTypeDef]
 
 
 class ExpressPrivateOfferConfigurationFiltersTypeDef(TypedDict):
@@ -946,6 +1013,14 @@ class ResaleAuthorizationLastModifiedDateFilterTypeDef(TypedDict):
 
 class SaaSProductLastModifiedDateFilterTypeDef(TypedDict):
     DateRange: NotRequired[SaaSProductLastModifiedDateFilterDateRangeTypeDef]
+
+
+class SubsidiaryAuthorizationCreatedDateFilterTypeDef(TypedDict):
+    DateRange: NotRequired[SubsidiaryAuthorizationCreatedDateFilterDateRangeTypeDef]
+
+
+class SubsidiaryAuthorizationLastModifiedDateFilterTypeDef(TypedDict):
+    DateRange: NotRequired[SubsidiaryAuthorizationLastModifiedDateFilterDateRangeTypeDef]
 
 
 class AmiProductFiltersTypeDef(TypedDict):
@@ -1092,6 +1167,17 @@ class SaaSProductFiltersTypeDef(TypedDict):
     LastModifiedDate: NotRequired[SaaSProductLastModifiedDateFilterTypeDef]
 
 
+class SubsidiaryAuthorizationFiltersTypeDef(TypedDict):
+    EntityId: NotRequired[SubsidiaryAuthorizationEntityIdFilterTypeDef]
+    Status: NotRequired[SubsidiaryAuthorizationStatusFilterTypeDef]
+    ResourceId: NotRequired[SubsidiaryAuthorizationResourceIdFilterTypeDef]
+    ResourceName: NotRequired[SubsidiaryAuthorizationResourceNameFilterTypeDef]
+    Name: NotRequired[SubsidiaryAuthorizationNameFilterTypeDef]
+    SubsidiaryAccountId: NotRequired[SubsidiaryAuthorizationSubsidiaryAccountIdFilterTypeDef]
+    CreatedDate: NotRequired[SubsidiaryAuthorizationCreatedDateFilterTypeDef]
+    LastModifiedDate: NotRequired[SubsidiaryAuthorizationLastModifiedDateFilterTypeDef]
+
+
 class ListAssessmentsResponseTypeDef(TypedDict):
     AssessmentSummaryList: list[AssessmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1124,6 +1210,7 @@ class EntityTypeFiltersTypeDef(TypedDict):
     ExpressPrivateOfferConfigurationFilters: NotRequired[
         ExpressPrivateOfferConfigurationFiltersTypeDef
     ]
+    SubsidiaryAuthorizationFilters: NotRequired[SubsidiaryAuthorizationFiltersTypeDef]
 
 
 class ListEntitiesRequestPaginateTypeDef(TypedDict):

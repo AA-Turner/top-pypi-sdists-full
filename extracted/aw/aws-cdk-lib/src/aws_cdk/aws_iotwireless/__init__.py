@@ -233,6 +233,7 @@ class CfnDestination(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -279,7 +280,7 @@ class CfnDestination(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0635097b142a55f017574117ff21a283060521e721f605e4ff6e5a9ed13e63d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "expression", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "expression", value)
 
     @builtins.property
     @jsii.member(jsii_name="expressionType")
@@ -292,7 +293,7 @@ class CfnDestination(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c52fb059cb57908dccbf654243c0e24547fefae3afcee7f9441366e93f7368f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "expressionType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "expressionType", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -305,7 +306,7 @@ class CfnDestination(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e4a7e2be1c3626a0831a317f8384bfaac10f081d96e1d52fdf7e7d168b531e14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -318,7 +319,7 @@ class CfnDestination(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__54343b07a7027d746812e326d1dd346e2f583fb1042ea98ffa3720e14655d56f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -331,7 +332,7 @@ class CfnDestination(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b60aa4ef5f47c4662f7208269db494d81166701afac30be03ebe87711d08ef4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -347,7 +348,7 @@ class CfnDestination(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__28773e7cb2f78fe606bd46c478d428f25a9d6768b2384a0d5eabc8886d06f5d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -667,6 +668,7 @@ class CfnDeviceProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -727,7 +729,7 @@ class CfnDeviceProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__37bc58d63a4729db23e942a768b31134889d07403a53d90d57a88c269501d5fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loRaWan", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -740,7 +742,7 @@ class CfnDeviceProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25caee2a3bcdb77269d5e10d73ce9e629c40f7a63107b51012a8ae652ea849bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -756,7 +758,7 @@ class CfnDeviceProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4afbd69995e29e676f14b8919081a76892c1a3dd232747696d84a67dd728424a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotwireless.CfnDeviceProfile.LoRaWANDeviceProfileProperty",
@@ -1417,6 +1419,7 @@ class CfnFuotaTask(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1490,7 +1493,7 @@ class CfnFuotaTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__78c1e683ef261ca9a0e323098857bde336b7b232a1debbe4ce45dedb26ca8745)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firmwareUpdateImage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firmwareUpdateImage", value)
 
     @builtins.property
     @jsii.member(jsii_name="firmwareUpdateRole")
@@ -1503,7 +1506,7 @@ class CfnFuotaTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__461c299fc6e5ef170d9d68ec3a0d4fd23e292ad17e487e422fa0ced5654b660c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firmwareUpdateRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firmwareUpdateRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="loRaWan")
@@ -1521,7 +1524,7 @@ class CfnFuotaTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__53ced8500df8e27b1785fe0afc435e424754dde0dc634914ed9fd44ab5b30ce8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loRaWan", value)
 
     @builtins.property
     @jsii.member(jsii_name="associateMulticastGroup")
@@ -1534,7 +1537,7 @@ class CfnFuotaTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__51d57cfccba3878e495806e2629c1b347cbfd7e7defe8b5465dd6bb995d141ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "associateMulticastGroup", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "associateMulticastGroup", value)
 
     @builtins.property
     @jsii.member(jsii_name="associateWirelessDevice")
@@ -1547,7 +1550,7 @@ class CfnFuotaTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__379374179bd98cbed6826061ba79e2ccdcb8f9d331dfad677cfb8ed97f739ee4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "associateWirelessDevice", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "associateWirelessDevice", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1560,7 +1563,7 @@ class CfnFuotaTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bbd259b9067a68c41327baaabf15d262b9fb84d09030f1cf4a7f0dd8e202ee92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="disassociateMulticastGroup")
@@ -1576,7 +1579,7 @@ class CfnFuotaTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c01c498cd349d14eb10d07e4f5e44c09c897b78b93d259561e5a16ba5e042381)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "disassociateMulticastGroup", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "disassociateMulticastGroup", value)
 
     @builtins.property
     @jsii.member(jsii_name="disassociateWirelessDevice")
@@ -1592,7 +1595,7 @@ class CfnFuotaTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b9cb4e1ac40f6c4cb8557e33d35c0e1b17c7dca5a1e5af474d269743b81f4c32)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "disassociateWirelessDevice", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "disassociateWirelessDevice", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1605,7 +1608,7 @@ class CfnFuotaTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2eacacaf44fc0b79b61f7bfe0ff15f515d32d411b03d265dc1950da37d4e1df4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1621,7 +1624,7 @@ class CfnFuotaTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__af87398fea4c8098bb165637d1ed67059206096bfeaa74f0f7e4bc4f155438a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotwireless.CfnFuotaTask.LoRaWANProperty",
@@ -2088,6 +2091,7 @@ class CfnMulticastGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2177,7 +2181,7 @@ class CfnMulticastGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c294e487d95b07e085a91c7f8a13feb7802783382655634e559a8b45c99c8ed1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loRaWan", value)
 
     @builtins.property
     @jsii.member(jsii_name="associateWirelessDevice")
@@ -2190,7 +2194,7 @@ class CfnMulticastGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ae2c095360e3b3956ec27a5a0391c8b9c6a1066c9419e78b18a128b1dce39cd3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "associateWirelessDevice", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "associateWirelessDevice", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2203,7 +2207,7 @@ class CfnMulticastGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8546711d1c48df42c3459de0d74a8bd074a39920589e487cf369cb45db970959)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="disassociateWirelessDevice")
@@ -2219,7 +2223,7 @@ class CfnMulticastGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c14cccbedbde81f7eab76271cf8904f266f0740eeae3b16d6d56f4c841f9bf2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "disassociateWirelessDevice", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "disassociateWirelessDevice", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2232,7 +2236,7 @@ class CfnMulticastGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9827482ae6bbc3367a4ad1ad70db1f6720ac74a9a8bff8d777c1b9974f2a0c22)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2248,7 +2252,7 @@ class CfnMulticastGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__27a605465487f3c8166eed5c794a991aa0323a4e726e6135514d21538a40f38a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotwireless.CfnMulticastGroup.LoRaWANProperty",
@@ -2685,6 +2689,7 @@ class CfnNetworkAnalyzerConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2733,7 +2738,7 @@ class CfnNetworkAnalyzerConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8c86a3d802557338c300cca0ece6752eb71025ac87c6ef07829166d2ff477df9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="traceContent")
@@ -2746,7 +2751,7 @@ class CfnNetworkAnalyzerConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec63757a5145f99a0f5ef3d5b25bbe5becfee81e77d099ee2f39369f195858f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "traceContent", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "traceContent", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2759,7 +2764,7 @@ class CfnNetworkAnalyzerConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__93e1a9911115880ebf27f7267ad38fa5bce7c66abe33ebbe75b2bf22eabf9156)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2775,7 +2780,7 @@ class CfnNetworkAnalyzerConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6b46f409840f000384f5933335a3a3f6ca1fc64ffa82bf977e2ecf1eab8bb21e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="wirelessDevices")
@@ -2791,7 +2796,7 @@ class CfnNetworkAnalyzerConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__345530c2c6feaa99816a9ee99013b64ff606afb8afa94b821fff9b5acdaf603b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "wirelessDevices", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "wirelessDevices", value)
 
     @builtins.property
     @jsii.member(jsii_name="wirelessGateways")
@@ -2807,7 +2812,7 @@ class CfnNetworkAnalyzerConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c2a89da82bb29c60f2cbd481009d94f8a49db119e080583ebad6fe6b40308f21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "wirelessGateways", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "wirelessGateways", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotwireless.CfnNetworkAnalyzerConfiguration.TraceContentProperty",
@@ -3176,6 +3181,7 @@ class CfnPartnerAccount(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3238,7 +3244,7 @@ class CfnPartnerAccount(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8aaf826ad1c2a370b17963e90c6207f7bb7314d3e7dc5cae931ff248746ba3fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountLinked", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accountLinked", value)
 
     @builtins.property
     @jsii.member(jsii_name="partnerAccountId")
@@ -3251,7 +3257,7 @@ class CfnPartnerAccount(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3e0bac11a48ea18aaab6b58e90043f92d7be541f658cdee62741f6c3c496ad6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "partnerAccountId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "partnerAccountId", value)
 
     @builtins.property
     @jsii.member(jsii_name="partnerType")
@@ -3264,7 +3270,7 @@ class CfnPartnerAccount(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__95b67a184faefbbc21a96bb714ed21601a9e1f59ee99b131697db7927e94ab59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "partnerType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "partnerType", value)
 
     @builtins.property
     @jsii.member(jsii_name="sidewalk")
@@ -3282,7 +3288,7 @@ class CfnPartnerAccount(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5dfc9914aae89e0f8eb197d8ffe2bc096aa60a82245d8f1a8724edd051f7d100)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sidewalk", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sidewalk", value)
 
     @builtins.property
     @jsii.member(jsii_name="sidewalkResponse")
@@ -3300,7 +3306,7 @@ class CfnPartnerAccount(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fe1611d5cb899b19b3746136128a84710ec89f4b9d8628afa53281d1714b6abb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sidewalkResponse", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sidewalkResponse", value)
 
     @builtins.property
     @jsii.member(jsii_name="sidewalkUpdate")
@@ -3318,7 +3324,7 @@ class CfnPartnerAccount(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__31e0971bf93851f4e3f9a7278252a08cda6e44ea93a8e7a0b793f3aa5bc028fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sidewalkUpdate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sidewalkUpdate", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3334,7 +3340,7 @@ class CfnPartnerAccount(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__da5c265354d811dc09b785b9e46927998e11bca13038834b76f0874d18d38cfa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotwireless.CfnPartnerAccount.SidewalkAccountInfoProperty",
@@ -3879,6 +3885,7 @@ class CfnServiceProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4097,7 +4104,7 @@ class CfnServiceProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d12a1731df94a26c15c2c629e69f05069e78147796ed92c827d35da4720ce385)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loRaWan", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4110,7 +4117,7 @@ class CfnServiceProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__495ecf85f557b8fb320530fa172728080da4333c5d1daf49554895e2ede03448)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -4126,7 +4133,7 @@ class CfnServiceProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e06c705f6bfd3ea15e35dda8a1e29b0c43e6f15d22947389e98e820e46ad578)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotwireless.CfnServiceProfile.LoRaWANServiceProfileProperty",
@@ -4788,6 +4795,7 @@ class CfnTaskDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4850,7 +4858,7 @@ class CfnTaskDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7e2140f6dd2fd5b773e37d8f7300ca14605b82d89631076e6aa400f13c633cc9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoCreateTasks", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoCreateTasks", value)
 
     @builtins.property
     @jsii.member(jsii_name="loRaWanUpdateGatewayTaskEntry")
@@ -4868,7 +4876,7 @@ class CfnTaskDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dba999a41533710976a33b0a1023c1222f1541c811f550a29499fa6d5675bf40)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loRaWanUpdateGatewayTaskEntry", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loRaWanUpdateGatewayTaskEntry", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4881,7 +4889,7 @@ class CfnTaskDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fb88f2db89785cd3e23338b9b79cdcdfeb8e47dcfc703bccb73087cc7c530dac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -4897,7 +4905,7 @@ class CfnTaskDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__302c9856183cfc94540db93d88e4bc1e952c85bd9598afb0ef7bed2bc6a84411)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="taskDefinitionType")
@@ -4910,7 +4918,7 @@ class CfnTaskDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fd5d538e8d4ed460e65c9ddac2d1d68fd4345c4afe7e403b77fa77f80136dee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "taskDefinitionType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "taskDefinitionType", value)
 
     @builtins.property
     @jsii.member(jsii_name="update")
@@ -4928,7 +4936,7 @@ class CfnTaskDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7873ddd4c5f9c059a1c30910bb0374ee468e180657a2870e1598db17895e714b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "update", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "update", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotwireless.CfnTaskDefinition.LoRaWANGatewayVersionProperty",
@@ -5723,6 +5731,7 @@ class CfnWirelessDevice(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5791,7 +5800,7 @@ class CfnWirelessDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8061cf48768d2d28b9433ea6b1db3222bac9893ee1a0c96bcdb98226cc2f3d03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "destinationName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "destinationName", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -5804,7 +5813,7 @@ class CfnWirelessDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b70c988e1950493c52e44208f809dafc1d545d18b89e9e2227674650c390bc4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -5817,7 +5826,7 @@ class CfnWirelessDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fc0b1687f73dd9eca4c02d192704c2293c20941495c350b0e122eea76052901)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="lastUplinkReceivedAt")
@@ -5830,7 +5839,7 @@ class CfnWirelessDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c6eb1d5a6add55c4de31d6a02d93e5a6c7b8f13ebd8c3e95893448a2464af2a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lastUplinkReceivedAt", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lastUplinkReceivedAt", value)
 
     @builtins.property
     @jsii.member(jsii_name="loRaWan")
@@ -5848,7 +5857,7 @@ class CfnWirelessDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8a9387fe5c912c19442cf1a22d4b80b3bfec7bfaeaeedfde3a48464707ac5e94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loRaWan", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -5861,7 +5870,7 @@ class CfnWirelessDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__79b8e8d3143dce00df934e2b0287a3a53fc9839551772e6cc273d592d0bc262f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="positioning")
@@ -5874,7 +5883,7 @@ class CfnWirelessDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e8c7b7fcf5ba7730b0ce3b8c924fe1fe208985f6c0d4fd68b55353bbe9d05b61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "positioning", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "positioning", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -5890,7 +5899,7 @@ class CfnWirelessDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__de98087af9f5a2df8b9078aef4604fb7a5d9b8ce62eab7c135763cdcf4911075)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="thingArn")
@@ -5903,7 +5912,7 @@ class CfnWirelessDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1062e2a4111f3f10850a14272256ebd97067e00cf02bb987304ac070474dc47f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "thingArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "thingArn", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotwireless.CfnWirelessDevice.AbpV10xProperty",
@@ -6833,6 +6842,48 @@ class CfnWirelessDeviceImportTask(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWirelessDeviceImportTask", [resource]))
 
+    @jsii.member(jsii_name="fromWirelessDeviceImportTaskArn")
+    @builtins.classmethod
+    def from_wireless_device_import_task_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_iotwireless_7664edfb.IWirelessDeviceImportTaskRef":
+        '''Creates a new IWirelessDeviceImportTaskRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a0c293252db3b2463ec5dfc198c9ca809a983a4ac7c329a34635fd53b19f6b97)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_iotwireless_7664edfb.IWirelessDeviceImportTaskRef", jsii.sinvoke(cls, "fromWirelessDeviceImportTaskArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromWirelessDeviceImportTaskId")
+    @builtins.classmethod
+    def from_wireless_device_import_task_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        wireless_device_import_task_id: builtins.str,
+    ) -> "_aws_iotwireless_7664edfb.IWirelessDeviceImportTaskRef":
+        '''Creates a new IWirelessDeviceImportTaskRef from a wirelessDeviceImportTaskId.
+
+        :param scope: -
+        :param id: -
+        :param wireless_device_import_task_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__50573423c06641c7238fcaa89088754c478960c1ce3fc1363300661b7fdde907)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument wireless_device_import_task_id", value=wireless_device_import_task_id, expected_type=type_hints["wireless_device_import_task_id"])
+        return typing.cast("_aws_iotwireless_7664edfb.IWirelessDeviceImportTaskRef", jsii.sinvoke(cls, "fromWirelessDeviceImportTaskId", [scope, id, wireless_device_import_task_id]))
+
     @jsii.member(jsii_name="isCfnWirelessDeviceImportTask")
     @builtins.classmethod
     def is_cfn_wireless_device_import_task(cls, x: typing.Any) -> builtins.bool:
@@ -6871,6 +6922,7 @@ class CfnWirelessDeviceImportTask(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7002,7 +7054,7 @@ class CfnWirelessDeviceImportTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3ededfdd755af77ac21339c21b25ba1960365538a55f8efb323ccb407643c330)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "destinationName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "destinationName", value)
 
     @builtins.property
     @jsii.member(jsii_name="sidewalk")
@@ -7020,7 +7072,7 @@ class CfnWirelessDeviceImportTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b94dcee288462d05aefdffb188ba06832b12dcea7d955f135c110c087bb3874)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sidewalk", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sidewalk", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7036,7 +7088,7 @@ class CfnWirelessDeviceImportTask(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__37f67b5df03fc789e404057fa4c7dc3cb0bf29a0dd71d20ccd91e499b959af24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotwireless.CfnWirelessDeviceImportTask.SidewalkProperty",
@@ -7664,6 +7716,7 @@ class CfnWirelessGateway(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7726,7 +7779,7 @@ class CfnWirelessGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bbc33250d661f7557837e50ada87180167d8574118707d139d2eb4fa49602882)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loRaWan", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loRaWan", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -7739,7 +7792,7 @@ class CfnWirelessGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8eca333f4fa126f8730b33bcbb64820d18aa68f08be068891c6a435cd321aa4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="lastUplinkReceivedAt")
@@ -7752,7 +7805,7 @@ class CfnWirelessGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__900eeac2e5cfdb156d0e28f493a73b729234aa361c7336134d543a0a22f3b460)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lastUplinkReceivedAt", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lastUplinkReceivedAt", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -7765,7 +7818,7 @@ class CfnWirelessGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc344d26426421b59939c05527ffa4450645002aaa7008eec620471cb3665ac8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7781,7 +7834,7 @@ class CfnWirelessGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__493d37495ffc45845617d2e1ba953b01719cb48c69682d0a6e27d0773456852b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="thingArn")
@@ -7794,7 +7847,7 @@ class CfnWirelessGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ff85efe4d13e96f495f18cda698b13ce262995db3a45e1f87de3a4d37d73aff8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "thingArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "thingArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="thingName")
@@ -7807,7 +7860,7 @@ class CfnWirelessGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3306c2dcc0fb9f5711e347f7795bc7c414ed553dac4e7c1a4de936a98fb073ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "thingName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "thingName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotwireless.CfnWirelessGateway.LoRaWANGatewayProperty",
@@ -9196,6 +9249,22 @@ def _typecheckingstub__9b81904b6ea4a40be4179e391a0bb52c165600b850295d5a6b580ad76
 
 def _typecheckingstub__0d121c90d7dfb0259cd82cd60fb07e4d513bab61d418ad9a9c01e74eba9f65ba(
     resource: _aws_iotwireless_7664edfb.IWirelessDeviceImportTaskRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0c293252db3b2463ec5dfc198c9ca809a983a4ac7c329a34635fd53b19f6b97(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50573423c06641c7238fcaa89088754c478960c1ce3fc1363300661b7fdde907(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    wireless_device_import_task_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

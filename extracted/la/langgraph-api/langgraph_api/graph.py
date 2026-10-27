@@ -374,7 +374,10 @@ async def get_graph(
                 CONFIG_KEY_RUNTIME,
             )
 
-            if use_langgraph_runtime:
+            if use_langgraph_runtime or access_context in (
+                "threads.read",
+                "threads.update",
+            ):
                 # xray draw calls runtime.override(), which the SDK ServerRuntime lacks (LSD-1713).
                 from langgraph.runtime import Runtime  # noqa: PLC0415
 

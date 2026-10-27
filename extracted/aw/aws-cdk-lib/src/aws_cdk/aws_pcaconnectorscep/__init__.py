@@ -184,6 +184,7 @@ class CfnChallenge(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -230,7 +231,7 @@ class CfnChallenge(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e8915b9dc72ee63e750d3ef96a5cb2aff8a0fa11b46fd75a91cbaf3be0bbba4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectorArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectorArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -245,7 +246,7 @@ class CfnChallenge(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02346c7d1384ddbe7e216be1ce5a2eaa7010ca8e5397d2d7987583123fa40455)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -444,6 +445,7 @@ class CfnConnector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -516,7 +518,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__772a20f66443bc64cac3bb4157e1e9369d67a7a8d2b4109d885cebc2c5d1d87b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateAuthorityArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificateAuthorityArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="mobileDeviceManagement")
@@ -534,7 +536,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0ad5d7a17f85a90225f468c73bd52466319e1c0daa9fee8bb5eb5ffcd32bd5c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mobileDeviceManagement", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mobileDeviceManagement", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -549,7 +551,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d236715afe6b31af4cde4435b078b9b7c3146267ef69426b668c4592a3fd9ddc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcEndpointId")
@@ -561,7 +563,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ba15bf38151925c8733bfce1278457d514387a234b42f012b04afe70b8fdfdc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcEndpointId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcEndpointId", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_pcaconnectorscep.CfnConnector.IntuneConfigurationProperty",

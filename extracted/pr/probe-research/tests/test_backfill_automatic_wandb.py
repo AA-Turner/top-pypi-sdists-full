@@ -12,6 +12,7 @@ from probe.cli.backfill_coverage import CoverageError
 from probe.sdk import journal
 from probe.sdk.transport import Transport
 from tests import test_backfill_wandb as history, test_import_jobs as job_tests
+from tests.backfill_plan_agent import patch_own_sleep
 from tests.test_backfill_scoped_orchestration import make_harness
 
 queued = job_tests.queued
@@ -157,7 +158,7 @@ def test_automatic_wandb_retry_reuses_scan_project_and_request(automatic_history
     job = enqueue(h, remote, approval)
     monkeypatch.setattr(tui, "review", lambda *a, **k: pytest.fail("Retry cannot prompt"))
     waits = []
-    monkeypatch.setattr(jobs.time, "sleep", lambda delay: waits.append(delay))
+    patch_own_sleep(monkeypatch, jobs, waits.append)
     remote.lose = lost
     run(job)
     assert waits == [2]

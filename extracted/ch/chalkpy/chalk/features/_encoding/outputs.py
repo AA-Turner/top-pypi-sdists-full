@@ -8,7 +8,7 @@ from chalk._gen.chalk.common.v1.online_query_pb2 import FeatureExpression
 from chalk.client.models import OutputExpression
 from chalk.features import Feature, FeatureWrapper, Resolver
 from chalk.features.feature_set import is_features_cls
-from chalk.features.feature_wrapper import feature_to_query_str
+from chalk.features.feature_wrapper import AliasedFeature, feature_to_query_str
 from chalk.features.filter import Filter
 from chalk.features.underscore import UnderscoreAttr, UnderscoreCall
 from chalk.features.underscore_features import NamedUnderscoreExpr, Underscore, process_named_underscore_expr
@@ -123,7 +123,9 @@ def encode_underscore_alias_proto(column_name: str, expr: Underscore) -> Feature
     )
 
 
-def encode_outputs(output: Sequence[Union[str, NamedUnderscoreExpr, Underscore, Any]]) -> EncodedOutputs:
+def encode_outputs(
+    output: Sequence[Union[str, NamedUnderscoreExpr, Underscore, AliasedFeature, Any]],
+) -> EncodedOutputs:
     """Returns a list of encoded outputs and warnings"""
     string_outputs: List[str] = []
     feature_expressions_base64: List[str] = []
@@ -137,6 +139,14 @@ def encode_outputs(output: Sequence[Union[str, NamedUnderscoreExpr, Underscore, 
             string_outputs.append(o.namespace)
         elif isinstance(o, Resolver):
             string_outputs.append(o.fqn.split(".")[-1])
+        elif isinstance(o, AliasedFeature):
+            fe = FeatureExpression(
+                namespace=o.resolve().root_namespace,
+                output_column_name=o.name,
+                expr=o.to_underscore()._to_proto(),  # pyright: ignore[reportPrivateUsage]
+            )
+            feature_expressions_proto.append(fe)
+            feature_expressions_base64.append(encode_feature_expression_base64(fe))
         elif isinstance(o, NamedUnderscoreExpr):
             fe = encode_feature_expression_proto(o)
             feature_expressions_proto.append(fe)

@@ -1029,14 +1029,12 @@ def test_a_wizard_logins_writes_follow_a_same_account_re_login(app, tmp_path):
     assert _bearers(app) == [STORED_B] + ["probe_pat_storedlogin_B_relogged_in"] * 3
 
 
-def test_the_wizard_records_its_new_logins_account(app, tmp_path, monkeypatch):
+def test_the_wizard_records_its_new_logins_account(app, tmp_path, monkeypatch, real_wizard_account_lookup):
     """Round 3, MED-3: the wizard's own record (conftest stubs it elsewhere)."""
-    import importlib
-
+    from probe.cli import setup
     from probe.sdk.journal import credential_fingerprint, recorded_account
 
-    setup = importlib.import_module("probe.cli.setup")
-    real = importlib.reload(setup)._record_login_account
+    real = setup._record_login_account
     with serve(app) as url:
         config.save_context({"base_url": url, "token": STORED_B})
         real(url, STORED_B, None)

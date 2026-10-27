@@ -191,6 +191,7 @@ class CfnSubscriptionProvider(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -266,7 +267,7 @@ class CfnSubscriptionProvider(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8fbf0a5c1af2f6037b1c66414a2ceb036013c96d3982e260af44c9eebba6da57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secretArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "secretArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="subscriptionProviderSource")
@@ -279,7 +280,7 @@ class CfnSubscriptionProvider(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c52ad86981dbe92dca660af842513edd4a58958186c7397a6629b5fa27e297fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscriptionProviderSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subscriptionProviderSource", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -295,7 +296,7 @@ class CfnSubscriptionProvider(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aeb0fa9de96fb77f7b71ab9ed9d2ab060a3f123974261db456e6c4e4553721ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.274.0",
+    "version": "2.275.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -217,6 +217,7 @@ kwargs = json.loads(
         "aws_cdk.aws_lex",
         "aws_cdk.aws_licensemanager",
         "aws_cdk.aws_licensemanagerlinuxsubscriptions",
+        "aws_cdk.aws_licensemanagerusersubscriptions",
         "aws_cdk.aws_lightsail",
         "aws_cdk.aws_location",
         "aws_cdk.aws_logs",
@@ -272,6 +273,7 @@ kwargs = json.loads(
         "aws_cdk.aws_pinpoint",
         "aws_cdk.aws_pinpointemail",
         "aws_cdk.aws_pipes",
+        "aws_cdk.aws_polly",
         "aws_cdk.aws_pricingplanmanager",
         "aws_cdk.aws_proton",
         "aws_cdk.aws_qbusiness",
@@ -546,6 +548,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_lex",
         "aws_cdk.interfaces.aws_licensemanager",
         "aws_cdk.interfaces.aws_licensemanagerlinuxsubscriptions",
+        "aws_cdk.interfaces.aws_licensemanagerusersubscriptions",
         "aws_cdk.interfaces.aws_lightsail",
         "aws_cdk.interfaces.aws_location",
         "aws_cdk.interfaces.aws_logs",
@@ -601,6 +604,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_pinpoint",
         "aws_cdk.interfaces.aws_pinpointemail",
         "aws_cdk.interfaces.aws_pipes",
+        "aws_cdk.interfaces.aws_polly",
         "aws_cdk.interfaces.aws_pricingplanmanager",
         "aws_cdk.interfaces.aws_proton",
         "aws_cdk.interfaces.aws_qbusiness",
@@ -694,7 +698,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.274.0.jsii.tgz"
+            "aws-cdk-lib@2.275.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"
@@ -706,7 +710,7 @@ kwargs = json.loads(
         "aws-cdk.asset-node-proxy-agent-v6>=2.1.3, <3.0.0",
         "aws-cdk.cloud-assembly-schema>=55.0.0, <56.0.0",
         "constructs>=10.5.0, <11.0.0",
-        "jsii>=1.141.0, <2.0.0",
+        "jsii>=1.142.0, <2.0.0",
         "publication>=0.0.3"
     ],
     "classifiers": [

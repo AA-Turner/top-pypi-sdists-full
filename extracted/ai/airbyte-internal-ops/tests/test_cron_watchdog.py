@@ -37,6 +37,13 @@ KNOWLEDGE_CONFIG = WatchedWorkflow(
     None,
     frozenset({"push", "schedule"}),
 )
+PLAYBOOK_SYNC_CONFIG = WatchedWorkflow(
+    "airbytehq/ai-skills",
+    "sync-playbooks.yml",
+    "Playbook Sync (Devin API)",
+    None,
+    frozenset({"push"}),
+)
 WORKFLOW = json.loads((FIXTURE_DIR / "workflow.json").read_text())
 
 
@@ -74,6 +81,24 @@ def _run_at(conclusion: str, timestamp: datetime) -> dict:
     data["conclusion"] = conclusion
     data["created_at"] = timestamp.isoformat()
     return data
+
+
+@pytest.mark.unit
+def test_watched_includes_playbook_sync() -> None:
+    assert (
+        "airbytehq/ai-skills",
+        "sync-playbooks.yml",
+        "Playbook Sync (Devin API)",
+        None,
+        frozenset({"push"}),
+    ) in cron_watchdog.WATCHED
+    assert (
+        "airbytehq/ai-skills",
+        "devin-knowledge-sync.yml",
+        "Knowledge Sync",
+        None,
+        frozenset({"push", "schedule"}),
+    ) in cron_watchdog.WATCHED
 
 
 @pytest.mark.unit
@@ -245,6 +270,74 @@ def test_knowledge_manual_success_does_not_silence_push_failure() -> None:
     assert status.latest_run is not None
     assert status.latest_run.event == "push"
     assert status.unhealthy_since == NOW - timedelta(minutes=30)
+
+
+@pytest.mark.unit
+def test_playbook_sync_manual_failure_is_ignored() -> None:
+    manual_failure = _run("failure", 5, event="workflow_dispatch")
+    push_success = _run("success", 30, event="push")
+
+    status = derive_status(
+        PLAYBOOK_SYNC_CONFIG, WORKFLOW, [manual_failure, push_success], NOW
+    )
+
+    assert status.unhealthy_since is None
+    assert status.latest_run is not None
+    assert status.latest_run.event == "push"
+
+
+@pytest.mark.unit
+def test_playbook_sync_old_push_success_is_not_stalled() -> None:
+    old_push_success = _run("success", 30 * 24 * 60, event="push")
+
+    status = derive_status(PLAYBOOK_SYNC_CONFIG, WORKFLOW, [old_push_success], NOW)
+
+    assert status.unhealthy_since is None
+
+
+@pytest.mark.unit
+def test_playbook_sync_push_failure_alerts() -> None:
+    push_failure = _run("failure", 180, event="push")
+    status = derive_status(PLAYBOOK_SYNC_CONFIG, WORKFLOW, [push_failure], NOW)
+
+    result = decide(
+        [status],
+        now=NOW,
+        previous_watchdog_start=NOW - timedelta(hours=1),
+    )
+
+    assert result.should_post
+    assert result.ping_oncall
+    assert "Playbook Sync (Devin API)" in result.fallback_text
+
+
+@pytest.mark.unit
+def test_playbook_sync_disabled_alerts_on_daily_tick() -> None:
+    workflow = {**WORKFLOW, "state": "disabled_manually"}
+    status = derive_status(PLAYBOOK_SYNC_CONFIG, workflow, [], NOW)
+    daily_now = datetime(2026, 1, 5, 17, 25, tzinfo=timezone.utc)
+
+    result = decide(
+        [status],
+        now=daily_now,
+        previous_watchdog_start=datetime(2026, 1, 5, 16, 25, tzinfo=timezone.utc),
+    )
+
+    assert result.ping_oncall
+    assert "*Playbook Sync (Devin API)* is disabled" in result.fallback_text
+
+
+@pytest.mark.unit
+def test_deleted_workflow_state_reports_disabled() -> None:
+    status = derive_status(
+        PLAYBOOK_SYNC_CONFIG,
+        {**WORKFLOW, "state": "deleted"},
+        [],
+        NOW,
+    )
+
+    assert status.disabled
+    assert status.unhealthy_since == NOW
 
 
 @pytest.mark.unit
@@ -487,6 +580,8 @@ def test_recovery_after_90_minutes_posts_without_ping() -> None:
     assert result.should_post
     assert not result.ping_oncall
     assert "recovered" in result.fallback_text
+    assert "*🔴 Needs attention*" not in result.fallback_text
+    assert "*🟢 Healthy*" in result.fallback_text
 
 
 @pytest.mark.unit
@@ -583,6 +678,90 @@ def test_disabled_workflow_pages_on_first_daily_tick() -> None:
     assert result.should_post
     assert result.ping_oncall
     assert "disabled" in result.fallback_text
+
+
+@pytest.mark.unit
+def test_daily_summary_groups_needs_attention_before_healthy_workflows() -> None:
+    daily_now = datetime(2026, 1, 5, 17, 25, tzinfo=timezone.utc)
+
+    def status(
+        label: str,
+        *,
+        state: str = "active",
+        conclusion: str = "success",
+        unhealthy_since: datetime | None = None,
+    ) -> WorkflowStatus:
+        config = WatchedWorkflow(
+            CONFIG.repo,
+            f"{label.lower().replace(' ', '-')}.yml",
+            label,
+            CONFIG.stall_grace_min,
+            CONFIG.health_events,
+        )
+        return WorkflowStatus(
+            config=config,
+            state=state,
+            runs=[Run(conclusion, daily_now, "", "schedule", label)],
+            unhealthy_since=unhealthy_since,
+        )
+
+    healthy_first = status("Healthy First")
+    unhealthy = status(
+        "Unhealthy Workflow",
+        conclusion="failure",
+        unhealthy_since=daily_now - timedelta(minutes=125),
+    )
+    disabled = status("Disabled Workflow", state="disabled_manually")
+    healthy_second = status("Healthy Second")
+    result = decide(
+        [healthy_first, unhealthy, disabled, healthy_second],
+        now=daily_now,
+        previous_watchdog_start=daily_now - timedelta(hours=1),
+    )
+
+    lines = result.fallback_text.splitlines()
+    needs_attention_index = lines.index("*🔴 Needs attention*")
+    healthy_index = lines.index("*🟢 Healthy*")
+    attention_lines = lines[needs_attention_index + 1 : healthy_index]
+    healthy_lines = lines[healthy_index + 1 :]
+    healthy_bullets = [line for line in healthy_lines if line.startswith("• ")]
+
+    assert needs_attention_index < healthy_index
+    assert any("• *Unhealthy Workflow*" in line for line in attention_lines)
+    assert any("• *Disabled Workflow*" in line for line in attention_lines)
+    assert all(line.startswith("• ") for line in attention_lines)
+    assert len(healthy_bullets) == 2
+    assert "*Healthy First*" in healthy_bullets[0]
+    assert "*Healthy Second*" in healthy_bullets[1]
+    assert all(line.startswith("• ") for line in healthy_lines)
+
+
+@pytest.mark.unit
+def test_workflow_with_error_is_not_in_status_groups() -> None:
+    healthy = _status(
+        conclusion="success", runs=[Run("success", NOW, "", "schedule", "Fixture")]
+    )
+    healthy.unhealthy_since = None
+    errored = _status(conclusion="success")
+    errored.config = WatchedWorkflow(
+        CONFIG.repo,
+        "errored.yml",
+        "Errored Workflow",
+        CONFIG.stall_grace_min,
+        CONFIG.health_events,
+    )
+    errored.error = "GitHub unavailable"
+
+    result = decide(
+        [healthy, errored],
+        now=NOW,
+        previous_watchdog_start=NOW - timedelta(hours=1),
+    )
+
+    assert "⚠️ could not check *Errored Workflow*: GitHub unavailable" in (
+        result.fallback_text
+    )
+    assert "• *Errored Workflow*" not in result.fallback_text
 
 
 @pytest.mark.unit

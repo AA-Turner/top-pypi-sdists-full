@@ -1345,6 +1345,7 @@ class Map(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -1661,6 +1662,7 @@ class PlaceIndex(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -2002,6 +2004,7 @@ class RouteCalculator(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -2459,6 +2462,7 @@ class Tracker(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -2802,6 +2806,7 @@ class ApiKey(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -2987,6 +2992,7 @@ class GeofenceCollection(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 

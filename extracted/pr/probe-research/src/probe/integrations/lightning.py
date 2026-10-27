@@ -120,6 +120,7 @@ except ImportError:  # pragma: no cover - exercised only without `lightning`
 
 import probe
 from probe.sdk import fluent, hashing, safe_warn
+from probe.sdk.config import env_run_id as _env_run_id
 
 from . import _checkpoints, _rank_lease
 from ._worker_exit import (  # noqa: F401 -- also read from here by tests
@@ -345,7 +346,7 @@ class ProbeLogger(Logger):
             if value is not None
         }
         kwargs.update(self._init_kwargs)
-        launcher_run = os.environ.get("PROBE_RUN_ID", "").strip()
+        launcher_run = _env_run_id()
         if launcher_run:
             # probe.init() refuses identity kwargs next to PROBE_RUN_ID (the
             # launcher already chose the run), which here would have disabled
@@ -596,7 +597,7 @@ class ProbeLogger(Logger):
         if status != "failed" or lease is None:
             return
         exc = sys.exc_info()[1]
-        launcher_run = os.environ.get("PROBE_RUN_ID", "").strip() == lease.run_id
+        launcher_run = _env_run_id() == lease.run_id
         verdict = _failed_verdict(exc, launcher_run=launcher_run)
         if verdict is not None:
             lease.release(verdict)

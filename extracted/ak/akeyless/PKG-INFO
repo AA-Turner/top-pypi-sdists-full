@@ -1,11 +1,13 @@
 Metadata-Version: 2.4
 Name: akeyless
-Version: 5.0.39
+Version: 5.0.40
 Summary: Akeyless API
 Home-page: https://www.akeyless.io/
 Author: Akeyless
 Author-email: support@akeyless.io
+License: Apache-2.0
 Keywords: OpenAPI,OpenAPI-Generator,Akeyless API
+Classifier: License :: OSI Approved :: Apache Software License
 License-File: LICENSE
 Requires-Dist: urllib3>=2.1.0
 Requires-Dist: six>=1.10
@@ -14,9 +16,11 @@ Requires-Dist: python-dateutil
 Requires-Dist: psutil>=7.0.0
 Dynamic: author
 Dynamic: author-email
+Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: keywords
+Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary

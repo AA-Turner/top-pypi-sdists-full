@@ -6,12 +6,14 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .clip_meetings_request_media import ClipMeetingsRequestMedia
     from .download_meetings_request_artifact import DownloadMeetingsRequestArtifact
     from .list_meetings_request_domain_match import ListMeetingsRequestDomainMatch
     from .list_meetings_request_participant_match import ListMeetingsRequestParticipantMatch
     from .list_meetings_request_sort_by import ListMeetingsRequestSortBy
     from .list_meetings_request_sort_direction import ListMeetingsRequestSortDirection
 _dynamic_imports: typing.Dict[str, str] = {
+    "ClipMeetingsRequestMedia": ".clip_meetings_request_media",
     "DownloadMeetingsRequestArtifact": ".download_meetings_request_artifact",
     "ListMeetingsRequestDomainMatch": ".list_meetings_request_domain_match",
     "ListMeetingsRequestParticipantMatch": ".list_meetings_request_participant_match",
@@ -42,6 +44,7 @@ def __dir__():
 
 
 __all__ = [
+    "ClipMeetingsRequestMedia",
     "DownloadMeetingsRequestArtifact",
     "ListMeetingsRequestDomainMatch",
     "ListMeetingsRequestParticipantMatch",

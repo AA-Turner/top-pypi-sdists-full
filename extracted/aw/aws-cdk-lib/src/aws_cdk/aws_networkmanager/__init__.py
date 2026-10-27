@@ -158,6 +158,41 @@ class CfnConnectAttachment(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForConnectAttachment")
+    @builtins.classmethod
+    def arn_for_connect_attachment(
+        cls,
+        resource: "_aws_networkmanager_440bf644.IConnectAttachmentRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ee1be6a9d104e822b3b538a22053ead64afb1897ec32bbbe03a3ced8ad8d6e7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConnectAttachment", [resource]))
+
+    @jsii.member(jsii_name="fromAttachmentId")
+    @builtins.classmethod
+    def from_attachment_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        attachment_id: builtins.str,
+    ) -> "_aws_networkmanager_440bf644.IConnectAttachmentRef":
+        '''Creates a new IConnectAttachmentRef from a attachmentId.
+
+        :param scope: -
+        :param id: -
+        :param attachment_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9e037d8713710ba9021433de3be9ec51641f433285ddda8f6ffd832125cf10a0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument attachment_id", value=attachment_id, expected_type=type_hints["attachment_id"])
+        return typing.cast("_aws_networkmanager_440bf644.IConnectAttachmentRef", jsii.sinvoke(cls, "fromAttachmentId", [scope, id, attachment_id]))
+
     @jsii.member(jsii_name="isCfnConnectAttachment")
     @builtins.classmethod
     def is_cfn_connect_attachment(cls, x: typing.Any) -> builtins.bool:
@@ -196,6 +231,7 @@ class CfnConnectAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -358,7 +394,7 @@ class CfnConnectAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e1019c9f66ae0f0b6c31480b08f0844a5328118d1f4beeb166ff2f71b6068b0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "coreNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "coreNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="edgeLocation")
@@ -371,7 +407,7 @@ class CfnConnectAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__65f8076caf77f777faab35b0ff1e31902eae6e5c1507ec93cdcdef28bd00b0bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "edgeLocation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "edgeLocation", value)
 
     @builtins.property
     @jsii.member(jsii_name="options")
@@ -389,7 +425,7 @@ class CfnConnectAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a3ec27706fe61280d3c2f24d80b9b25fadffd2d87cfb1922fb82b4b8309feeab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "options", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "options", value)
 
     @builtins.property
     @jsii.member(jsii_name="transportAttachmentId")
@@ -402,7 +438,7 @@ class CfnConnectAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f45177b471df4bf392fc7f3cd3a02af202d007968b4b8f463eab9717182e743e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transportAttachmentId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "transportAttachmentId", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkFunctionGroupName")
@@ -415,7 +451,7 @@ class CfnConnectAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1d4be38811824cef16f7576db94e35d0ea6676c13c9d2aadb66c5f50ea36c2f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkFunctionGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkFunctionGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="proposedSegmentChange")
@@ -433,7 +469,7 @@ class CfnConnectAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__84b1c89b7abda3eee8505aae6dbce09c5893b6a4187a20a6c43a4204cea40ffd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "proposedSegmentChange", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "proposedSegmentChange", value)
 
     @builtins.property
     @jsii.member(jsii_name="routingPolicyLabel")
@@ -446,7 +482,7 @@ class CfnConnectAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__11bacc7d8b07656c07b69ee8b045502def4634b2d0a4aad8774204ced9984958)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingPolicyLabel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routingPolicyLabel", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -462,7 +498,7 @@ class CfnConnectAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ffc7890372457410bdf1574c98526291062406f7166b95fd35ac58c7cbd3e98c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnConnectAttachment.ConnectAttachmentOptionsProperty",
@@ -1049,6 +1085,7 @@ class CfnConnectPeer(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1190,7 +1227,7 @@ class CfnConnectPeer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d6837b16f8b774f684a7de66e3e0192162c799f4ccc35d48270125b5a9867f69)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectAttachmentId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectAttachmentId", value)
 
     @builtins.property
     @jsii.member(jsii_name="peerAddress")
@@ -1203,7 +1240,7 @@ class CfnConnectPeer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c390f124a44254d44c9db6c9600d7d4bedeaa234040db5482b9da71be5ba3267)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "peerAddress", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "peerAddress", value)
 
     @builtins.property
     @jsii.member(jsii_name="bgpOptions")
@@ -1221,7 +1258,7 @@ class CfnConnectPeer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__09c2cde583ab1ee0b8539941f5f59464104e4b15a665812986be376af521cd7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bgpOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "bgpOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="coreNetworkAddress")
@@ -1234,7 +1271,7 @@ class CfnConnectPeer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2ccd872c8477548a54a56ce63aa9266f60d6d4a8ce8da83adaf0c37aa370d21d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "coreNetworkAddress", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "coreNetworkAddress", value)
 
     @builtins.property
     @jsii.member(jsii_name="insideCidrBlocks")
@@ -1250,7 +1287,7 @@ class CfnConnectPeer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6579db2e8401c4c460fad5541ac628299f109239ae0b747856b5b464e0fb2394)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "insideCidrBlocks", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "insideCidrBlocks", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnetArn")
@@ -1263,7 +1300,7 @@ class CfnConnectPeer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ae0ae5d1512a66892ff59daa2dd20f23758a07b8ed9e002ab8cf6d8282ee7620)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnetArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1279,7 +1316,7 @@ class CfnConnectPeer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__be35c1c86a9354575519ff51daf71188a8d6c995c7f05b5070cfc8f935af359f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnConnectPeer.BgpOptionsProperty",
@@ -1861,6 +1898,7 @@ class CfnConnection(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1934,7 +1972,7 @@ class CfnConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b71ca018c85f43415d7bbe2196e3cfac264e57d00597d082ef9b0d19ea5da60)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectedDeviceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectedDeviceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="deviceId")
@@ -1947,7 +1985,7 @@ class CfnConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__98e0a424efb703f56af672acf53a28c685664e6bfef713e44828a8452c1d8e80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deviceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deviceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalNetworkId")
@@ -1960,7 +1998,7 @@ class CfnConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__908c949553ae292d4ec49b5339723fd0c93b72bf29f100205e5b9166a5fa52f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectedLinkId")
@@ -1973,7 +2011,7 @@ class CfnConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ae295e7362f496d9b9505cb86874da43d52ebf64f143d0e6a5d5a9967066637)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectedLinkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectedLinkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1986,7 +2024,7 @@ class CfnConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__514315a6082c56180e13e0f131c0125374aa5fc9635f97e62cf75d727f00b050)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="linkId")
@@ -1999,7 +2037,7 @@ class CfnConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c068936ef77e1946f6bc95d3d6b03c6db37198a708413cbb2e4bc219b3f4490a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "linkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "linkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2015,7 +2053,7 @@ class CfnConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ba61a2dfdd10c752272e5ed0e884692812d1e963bf89a0dbf271b9d120f292ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -2339,6 +2377,7 @@ class CfnCoreNetwork(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2450,7 +2489,7 @@ class CfnCoreNetwork(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__86408588b749b814a7197fcea933176b0c59fa27af364e497dd8c35db9c2767b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -2466,7 +2505,7 @@ class CfnCoreNetwork(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__95fd0d184423074af0fbb9e444ffac5c0adbdbe161eb0520bbbd67705f54b4d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDocument", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2479,7 +2518,7 @@ class CfnCoreNetwork(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fd943ed85c9a7352421e16d77f69b1d40ca95e68eac8600af543194df8d324f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2495,7 +2534,7 @@ class CfnCoreNetwork(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96b99af1b4897054c775f7c57c33730e70cc058523a18542f6bac227d93d5e39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnCoreNetwork.CoreNetworkEdgeProperty",
@@ -2934,6 +2973,7 @@ class CfnCoreNetworkPrefixListAssociation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2967,7 +3007,7 @@ class CfnCoreNetworkPrefixListAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a8d85d968eeddc628cb014ea214498d9809145dd3d9bff4412eef437ab7f808a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "coreNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "coreNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="prefixListAlias")
@@ -2980,7 +3020,7 @@ class CfnCoreNetworkPrefixListAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40b4636bb2be3d4006826e345e0f09d87603cec2a95d972b5c5f46ef049ef8c0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "prefixListAlias", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "prefixListAlias", value)
 
     @builtins.property
     @jsii.member(jsii_name="prefixListArn")
@@ -2993,7 +3033,7 @@ class CfnCoreNetworkPrefixListAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4581cd569f36c3a605a324de776da1a7ac418b1135196bfb1a68f6f208d7703c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "prefixListArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "prefixListArn", value)
 
 
 @jsii.data_type(
@@ -3306,6 +3346,7 @@ class CfnCustomerGatewayAssociation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3339,7 +3380,7 @@ class CfnCustomerGatewayAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f23e31195cfb70367760a032bd3771e71ab9a3e41af843be539654bd26f895a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customerGatewayArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customerGatewayArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="deviceId")
@@ -3352,7 +3393,7 @@ class CfnCustomerGatewayAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b65adc2efb3c3657aee3b06f73070c15bae503de5f5b47afedb7a41ddb49d96a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deviceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deviceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalNetworkId")
@@ -3365,7 +3406,7 @@ class CfnCustomerGatewayAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9b47d831038fea5cc72a69621a49acee67d94496b914cdf714d36f59c8572340)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="linkId")
@@ -3378,7 +3419,7 @@ class CfnCustomerGatewayAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f1a9d0d94d8a37a3549e10ffcd4469d4dd99b00032e3bfcfe63c53b1b505a80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "linkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "linkId", value)
 
 
 @jsii.data_type(
@@ -3637,6 +3678,7 @@ class CfnDevice(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3714,7 +3756,7 @@ class CfnDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bfe93f5f35db9797ee30d721c0dc9a87d465bbfaee9d289f745d2ec564240fc8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="awsLocation")
@@ -3732,7 +3774,7 @@ class CfnDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4583117af731ea782790ab60127926847bd464d6c6710eae89844bbfd59bb491)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "awsLocation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "awsLocation", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -3745,7 +3787,7 @@ class CfnDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e735fe734530f45aa89056e48a9a7241fe5d210c4f83b0fad47adf9be3677fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="location")
@@ -3763,7 +3805,7 @@ class CfnDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4b88d3e1b4865be708f6cc69c3a68a598b6d1f850245deb4c3da99d1a4a2a4a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "location", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "location", value)
 
     @builtins.property
     @jsii.member(jsii_name="model")
@@ -3776,7 +3818,7 @@ class CfnDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__af59216267fbe291d9a86c89712257d97c0d6866de65577764718a5ab20e656f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "model", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "model", value)
 
     @builtins.property
     @jsii.member(jsii_name="serialNumber")
@@ -3789,7 +3831,7 @@ class CfnDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__391e1294cca69f190d4b32c42e15faead42d783500f2807a30c3f0ab04e10580)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serialNumber", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serialNumber", value)
 
     @builtins.property
     @jsii.member(jsii_name="siteId")
@@ -3802,7 +3844,7 @@ class CfnDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d356eccb03811c1a8c04efa44c470e4d99c9e5426ac16419449ff2c9e066b2e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "siteId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "siteId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3818,7 +3860,7 @@ class CfnDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__26c263b233a1cae0165c1b45058ac8409a2bfaff22af7d0609a990d166cef3fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -3831,7 +3873,7 @@ class CfnDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1c61590f79bc7db569a8dd74aab8282cec9db607de9dca86bfdb39ebe67ec719)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="vendor")
@@ -3844,7 +3886,7 @@ class CfnDevice(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4dfaeac3f3ef9890082ea071cb4a3ac124e205509c2a2fe6537128d482a516ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vendor", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vendor", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnDevice.AWSLocationProperty",
@@ -4342,6 +4384,7 @@ class CfnDirectConnectGatewayAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4509,7 +4552,7 @@ class CfnDirectConnectGatewayAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ad22167fa560acbe8f45a46dc0ebae9a9d2262bcf10f0afd53ad5ae8752a2e42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "coreNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "coreNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="directConnectGatewayArn")
@@ -4522,7 +4565,7 @@ class CfnDirectConnectGatewayAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d9ec258f47dc3aa824d076c4fc4dce5cb61b6a5e3f751fd0e3498a147026a337)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "directConnectGatewayArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "directConnectGatewayArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="edgeLocations")
@@ -4535,7 +4578,7 @@ class CfnDirectConnectGatewayAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8f477d5419a55c22d192b724265bf14727227dd604c87c0d669a011b8b8126fc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "edgeLocations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "edgeLocations", value)
 
     @builtins.property
     @jsii.member(jsii_name="routingPolicyLabel")
@@ -4548,7 +4591,7 @@ class CfnDirectConnectGatewayAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5a68ad78fac0cb928f695a5bed84643519be19ccf3f984643d5ae625b25ec8d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingPolicyLabel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routingPolicyLabel", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4564,7 +4607,7 @@ class CfnDirectConnectGatewayAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__568e96ec93691801c923bc5845c1f0843a2c1888c0cfe666a7ab382f4622c34c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnDirectConnectGatewayAttachment.ProposedNetworkFunctionGroupChangeProperty",
@@ -4995,6 +5038,7 @@ class CfnGlobalNetwork(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5056,7 +5100,7 @@ class CfnGlobalNetwork(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__687bcb75c383d4e165886566dd1dc83f1a59a373094804f566290ab73e7eb918)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "createdAt", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "createdAt", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -5069,7 +5113,7 @@ class CfnGlobalNetwork(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__19a1a1c3b45eed0a10e7c5e3bb7a960be34852e62b1241a92db880448eba0301)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="state")
@@ -5082,7 +5126,7 @@ class CfnGlobalNetwork(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e508ba7539997c330de7b50e216acbeb1af3dce4219dd2990d9a9808514b3dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "state", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -5098,7 +5142,7 @@ class CfnGlobalNetwork(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e1af222068741701cde749bdf31ed3994009b5ed482f7ae4e4901c954d350ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -5344,6 +5388,7 @@ class CfnLink(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5426,7 +5471,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__988888cdb37dacfb2adb77af73f778a15dd9db7b8586f6a4a0748cc7ae082b96)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bandwidth", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "bandwidth", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalNetworkId")
@@ -5439,7 +5484,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5259ab5861d067f6495afc71e1f3826c064c92b18d3401e69328a415b375f60b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="siteId")
@@ -5452,7 +5497,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__820ae0c9b3b49e33e7da67095da21a8f43e171b3d4aae4e715300b82480190f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "siteId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "siteId", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -5465,7 +5510,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c24e7374c54735ea9b48c8a23a947605911fd130fd389dcc21e481484b5ca689)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="provider")
@@ -5478,7 +5523,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__51a319abdcd33f238855c8baffca80d87f52d9a8d1ee39a68ebd9fa1f1b6a1ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provider", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "provider", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -5494,7 +5539,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3d04cb05f180d4cf6476de9fd9cb617bb7f8aafae4932b64bf61314e0e8bdf5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -5507,7 +5552,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9091a25b0a2281020308a09f55e57da148e2f12e522813a9ad84ab34db3d06a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnLink.BandwidthProperty",
@@ -5673,6 +5718,7 @@ class CfnLinkAssociation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5706,7 +5752,7 @@ class CfnLinkAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ed1cdb15e97d2900717e8b201967996154300677713c8143598891b7d417d675)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deviceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deviceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalNetworkId")
@@ -5719,7 +5765,7 @@ class CfnLinkAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96f86556261820395986ba7acbd7b8156cfa0a1672e1c38e2bb4cf7cd9c5fad1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="linkId")
@@ -5732,7 +5778,7 @@ class CfnLinkAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__67215c31eae75fa556251496e69b477a798d5564fa5dc3454d37ea75d2afe359)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "linkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "linkId", value)
 
 
 @jsii.data_type(
@@ -6118,6 +6164,7 @@ class CfnSite(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6195,7 +6242,7 @@ class CfnSite(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc8803e9a4461e26d551cc4a419b4cd5d0bada265b033a999052a427929cfb6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -6208,7 +6255,7 @@ class CfnSite(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46188c191417eab8a9ca7f0b8f39542585227143528c34a981df829dff8b3e73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="location")
@@ -6226,7 +6273,7 @@ class CfnSite(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f9fbc23ce76923bed7902ba8ee0048c3665c496e695387f60a440db911264548)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "location", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "location", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -6242,7 +6289,7 @@ class CfnSite(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4acfa4f7a596e57882e361fb67af36d8b498b641763fab5731de8c92e52197e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnSite.LocationProperty",
@@ -6578,6 +6625,7 @@ class CfnSiteToSiteVpnAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6749,7 +6797,7 @@ class CfnSiteToSiteVpnAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fba7832d3fd7c322d67c2d3ab554048476534725099669bbb27f6c353ee461a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "coreNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "coreNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpnConnectionArn")
@@ -6762,7 +6810,7 @@ class CfnSiteToSiteVpnAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fde85f146ddbfe5918124ff34f04b28072bbe0389091946f95c9fe8cd8980f34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpnConnectionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpnConnectionArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkFunctionGroupName")
@@ -6775,7 +6823,7 @@ class CfnSiteToSiteVpnAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d05a80c421708badd8d8e7880b7656cca7f73e2d563fc42313752e56912b35ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkFunctionGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkFunctionGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="proposedSegmentChange")
@@ -6793,7 +6841,7 @@ class CfnSiteToSiteVpnAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0d5770719477965190780ebbb69883c941393da5c6c09af57bdb312f48810fbf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "proposedSegmentChange", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "proposedSegmentChange", value)
 
     @builtins.property
     @jsii.member(jsii_name="routingPolicyLabel")
@@ -6806,7 +6854,7 @@ class CfnSiteToSiteVpnAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e763f0c4e1e7314bc1f549a5e1489e09001772a45a9eb183c49165046069ac58)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingPolicyLabel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routingPolicyLabel", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -6822,7 +6870,7 @@ class CfnSiteToSiteVpnAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fedbd82359a7000ba160b74b2d678e59cb496867f32af82ab2500c7e1a61da46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnSiteToSiteVpnAttachment.ProposedNetworkFunctionGroupChangeProperty",
@@ -7267,6 +7315,7 @@ class CfnTransitGatewayPeering(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7400,7 +7449,7 @@ class CfnTransitGatewayPeering(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__439082e4f08493cbbc6d80e894b6f4dfd77144360df686a8c6f3a8211c56db01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "coreNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "coreNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="transitGatewayArn")
@@ -7413,7 +7462,7 @@ class CfnTransitGatewayPeering(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f61bd1b63b20558994e70ffe5513360796b00386f6642583ee771667f950f000)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transitGatewayArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "transitGatewayArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7429,7 +7478,7 @@ class CfnTransitGatewayPeering(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__832f5e84db21f837c9c3c23bc334ca3604552518624f6a01c6743e9ad31fa391)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -7619,6 +7668,7 @@ class CfnTransitGatewayRegistration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7652,7 +7702,7 @@ class CfnTransitGatewayRegistration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3479609666aeb26b1973c2e635f65d0a6808b4152046244ab06699694f8afbee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="transitGatewayArn")
@@ -7665,7 +7715,7 @@ class CfnTransitGatewayRegistration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7660bc4e9fada811170861b820a6606047adea2f279a8d4735670e4fa3b4aec0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transitGatewayArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "transitGatewayArn", value)
 
 
 @jsii.data_type(
@@ -7865,6 +7915,7 @@ class CfnTransitGatewayRouteTableAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -8045,7 +8096,7 @@ class CfnTransitGatewayRouteTableAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cc057602684fcd6d30d72064e2609de0278fcd49507560ee02b7a0f7eea74a4b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "peeringId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "peeringId", value)
 
     @builtins.property
     @jsii.member(jsii_name="transitGatewayRouteTableArn")
@@ -8058,7 +8109,7 @@ class CfnTransitGatewayRouteTableAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e96460515a73cddc08c4eeb7c5c0d62b3470f6ba77019112fad9b6b67d9b4313)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transitGatewayRouteTableArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "transitGatewayRouteTableArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkFunctionGroupName")
@@ -8071,7 +8122,7 @@ class CfnTransitGatewayRouteTableAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2126f9a4fa55e495a14ebdde0f7ee58e0aecff60468e0630cb2ac77b72dbf3c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkFunctionGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkFunctionGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="proposedSegmentChange")
@@ -8089,7 +8140,7 @@ class CfnTransitGatewayRouteTableAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__833b64ddb00aa1bf9b86b7f76ee36148417740e18097f46e7c35c82b700f36f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "proposedSegmentChange", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "proposedSegmentChange", value)
 
     @builtins.property
     @jsii.member(jsii_name="routingPolicyLabel")
@@ -8102,7 +8153,7 @@ class CfnTransitGatewayRouteTableAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e38c863e60a979dd33072b5f4b0befbec4284e9d6aca5948e8fb6be52ad3c124)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingPolicyLabel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routingPolicyLabel", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -8118,7 +8169,7 @@ class CfnTransitGatewayRouteTableAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3b7316bcb7e40529995cb7c98b7c558e8ac3b24b7e6b5bcf786ac3da836b14a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnTransitGatewayRouteTableAttachment.ProposedNetworkFunctionGroupChangeProperty",
@@ -8555,6 +8606,41 @@ class CfnVpcAttachment(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForVpcAttachment")
+    @builtins.classmethod
+    def arn_for_vpc_attachment(
+        cls,
+        resource: "_aws_networkmanager_440bf644.IVpcAttachmentRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6ecb8222bb0a126f3893e7e38ff93217f1bf950664bea9a3146e2169fd6b7b98)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVpcAttachment", [resource]))
+
+    @jsii.member(jsii_name="fromAttachmentId")
+    @builtins.classmethod
+    def from_attachment_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        attachment_id: builtins.str,
+    ) -> "_aws_networkmanager_440bf644.IVpcAttachmentRef":
+        '''Creates a new IVpcAttachmentRef from a attachmentId.
+
+        :param scope: -
+        :param id: -
+        :param attachment_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5a9cbfd55c4f0f5e8645015279c1b35386da05b3099b1496eadec4750792fd9d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument attachment_id", value=attachment_id, expected_type=type_hints["attachment_id"])
+        return typing.cast("_aws_networkmanager_440bf644.IVpcAttachmentRef", jsii.sinvoke(cls, "fromAttachmentId", [scope, id, attachment_id]))
+
     @jsii.member(jsii_name="isCfnVpcAttachment")
     @builtins.classmethod
     def is_cfn_vpc_attachment(cls, x: typing.Any) -> builtins.bool:
@@ -8593,6 +8679,7 @@ class CfnVpcAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -8773,7 +8860,7 @@ class CfnVpcAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3dc45980bc0f76e5b64f54c910888f2fbc61f8035b57f4cc2da0873460ceb6d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "coreNetworkId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "coreNetworkId", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnetArns")
@@ -8786,7 +8873,7 @@ class CfnVpcAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__44eff42e1086acb3f04b3edb054dd6dc4f08bc4fde2b55e1211110fd05e54030)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnetArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcArn")
@@ -8799,7 +8886,7 @@ class CfnVpcAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__292ee8d1f17d2877219f1e655a187015b2e1a10520732d288dbc03f196471402)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="options")
@@ -8817,7 +8904,7 @@ class CfnVpcAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4df78b42bf8dafd3f4ef447404aa6d3bb210d4de6d8c8238c7b7509fee4e6dc1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "options", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "options", value)
 
     @builtins.property
     @jsii.member(jsii_name="proposedSegmentChange")
@@ -8835,7 +8922,7 @@ class CfnVpcAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e08a82721c316f3d57592bb6309e39f40fb575ea68e4532f8a4bb8f162f0e1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "proposedSegmentChange", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "proposedSegmentChange", value)
 
     @builtins.property
     @jsii.member(jsii_name="routingPolicyLabel")
@@ -8848,7 +8935,7 @@ class CfnVpcAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__91592f00e99a105af296f419454db20179b6ba59d9ac7c2237df42c018c8831d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingPolicyLabel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routingPolicyLabel", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -8864,7 +8951,7 @@ class CfnVpcAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__10a9a6020f018ebc6f503414f839aac623a810484c578e3cc55c00a2aabd965f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkmanager.CfnVpcAttachment.ProposedNetworkFunctionGroupChangeProperty",
@@ -9410,6 +9497,20 @@ def _typecheckingstub__d7415843def493b65c590878e3897c27e4c459f5d736fb5ee9738e5a1
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConnectAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ee1be6a9d104e822b3b538a22053ead64afb1897ec32bbbe03a3ced8ad8d6e7(
+    resource: _aws_networkmanager_440bf644.IConnectAttachmentRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e037d8713710ba9021433de3be9ec51641f433285ddda8f6ffd832125cf10a0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    attachment_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10827,6 +10928,20 @@ def _typecheckingstub__962ef8273d6d2d97a33b00603b7bf87793fdecfaae4031352d9cbc1bc
     proposed_segment_change: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnVpcAttachment.ProposedSegmentChangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     routing_policy_label: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ecb8222bb0a126f3893e7e38ff93217f1bf950664bea9a3146e2169fd6b7b98(
+    resource: _aws_networkmanager_440bf644.IVpcAttachmentRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a9cbfd55c4f0f5e8645015279c1b35386da05b3099b1496eadec4750792fd9d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    attachment_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

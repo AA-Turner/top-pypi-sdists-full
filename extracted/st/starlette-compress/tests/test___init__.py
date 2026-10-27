@@ -4,7 +4,10 @@ import asyncio
 import copy
 import random
 import sys
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from starlette.applications import Starlette
@@ -52,12 +55,10 @@ def test_compress_responses(test_client_factory: TestClientFactory):
         try:
             assert response.text == 'x' * 4000
         except AssertionError:
-            # TODO: remove after new zstd support in httpx
-            if encoding != 'zstd' or sys.version_info < (3, 14):
+            if encoding != 'zstd':
                 raise
-            from compression import zstd
 
-            assert zstd.decompress(response.content) == b'x' * 4000
+            assert _decompress_zstd(response.content) == b'x' * 4000
 
         assert response.headers['Content-Encoding'] == encoding
         assert int(response.headers['Content-Length']) < 4000
@@ -112,17 +113,17 @@ def test_compress_ignored_for_small_responses(test_client_factory: TestClientFac
 def test_compress_streaming_response(
     test_client_factory: TestClientFactory, chunk_size: int
 ):
-    random.seed(42)
     chunk_count = 70
+    randomizer = random.Random(42)
+    chunks = tuple(randomizer.randbytes(chunk_size) for _ in range(chunk_count))
+    expected = b''.join(chunks)
 
     def homepage(request: Request) -> StreamingResponse:
-        async def generator(count: int):
-            for _ in range(count):
-                # enough entropy is required for successful chunks
-                yield random.getrandbits(8 * chunk_size).to_bytes(chunk_size, 'big')
+        async def generator():
+            for chunk in chunks:
+                yield chunk
 
-        streaming = generator(chunk_count)
-        return StreamingResponse(streaming, media_type='text/plain')
+        return StreamingResponse(generator(), media_type='text/plain')
 
     app = Starlette(
         routes=[Route('/', endpoint=homepage)],
@@ -135,15 +136,10 @@ def test_compress_streaming_response(
         response = client.get('/', headers={'accept-encoding': encoding})
         assert response.status_code == 200
 
-        try:
-            assert len(response.content) == chunk_count * chunk_size
-        except AssertionError:
-            # TODO: remove after new zstd support in httpx
-            if encoding != 'zstd' or sys.version_info < (3, 14):
-                raise
-            from compression import zstd
-
-            assert len(zstd.decompress(response.content)) == chunk_count * chunk_size
+        response_body = response.content
+        if encoding == 'zstd' and response_body != expected:
+            response_body = _decompress_zstd(response_body)
+        assert response_body == expected
 
         assert response.headers['Content-Encoding'] == encoding
         assert 'Content-Length' not in response.headers
@@ -345,9 +341,10 @@ def test_classify_start_message_reads_raw_headers():
         == 'skip'
     )
     assert (
-        classify_start_message(
-            {'status': 200, 'headers': [(b'content-type', b'image/png')]}
-        )
+        classify_start_message({
+            'status': 200,
+            'headers': [(b'content-type', b'image/png')],
+        })
         == 'skip'
     )
     assert (
@@ -429,25 +426,13 @@ def _make_incremental_decompressor(encoding: str):
         return feed
 
     if encoding == 'br':
-        from platform import python_implementation
-
-        if python_implementation() == 'CPython':
-            try:
-                import brotli
-            except ModuleNotFoundError:
-                import brotlicffi as brotli
-        else:
-            try:
-                import brotlicffi as brotli
-            except ModuleNotFoundError:
-                import brotli
+        import brotli
 
         dec = brotli.Decompressor()
 
         def feed(data: bytes) -> bytes:
             out = dec.process(data)
-            # Native brotli may return large events in 32 KiB pieces
-            while True:
+            while not dec.is_finished():
                 more = dec.process(b'')
                 if not more:
                     break
@@ -495,6 +480,11 @@ def _make_incremental_decompressor(encoding: str):
     raise ValueError(encoding)
 
 
+def _decompress_zstd(data: bytes) -> bytes:
+    """Decode a complete zstd frame, including frames without a size header."""
+    return _make_incremental_decompressor('zstd')(data)
+
+
 async def run_asgi(
     app: ASGIApp,
     *,
@@ -539,14 +529,22 @@ def _sse_headers(
 
 
 @pytest.mark.parametrize('encoding', ['gzip', 'br', 'zstd'])
-def test_sse_per_encoding_incremental_flush(encoding: str):
+@pytest.mark.parametrize(
+    'message_parts',
+    [
+        pytest.param([b'data: one\n\n', b'data: two\n\n'], id='separate-events'),
+        pytest.param([b'data: one\n\ndata: two\n\n'], id='combined-events'),
+        pytest.param([b'data: hel', b'lo\n\n'], id='split-event'),
+        pytest.param([], id='empty-stream'),
+    ],
+)
+@pytest.mark.parametrize('terminal_body', [b'', b'data: final\n\n'])
+def test_sse_per_encoding_incremental_flush(
+    encoding: str, message_parts: list[bytes], terminal_body: bytes
+):
     """In-app after each body send: cumulative decoded plaintext equals events so far."""
     large = b'x' * (40 * 1024)
-    events = [
-        b'data: one\n\n',
-        b'data: two\n\n',
-        b'data: ' + large + b'\n\n',
-    ]
+    events = [*message_parts, b'data: ' + large + b'\n\n'] if message_parts else []
     captured: list[Message] = []
     dec = _make_incremental_decompressor(encoding)
     plain = b''
@@ -576,8 +574,8 @@ def test_sse_per_encoding_incremental_flush(encoding: str):
             assert plain == expected, (
                 f'{encoding}: after event, plain={plain!r} expected={expected!r}'
             )
-        await send({'type': 'http.response.body', 'body': b''})
-        assert plain == expected
+        await send({'type': 'http.response.body', 'body': terminal_body})
+        assert plain == expected + terminal_body
 
     middleware = CompressMiddleware(app)
 
@@ -602,17 +600,16 @@ def test_sse_per_encoding_incremental_flush(encoding: str):
     start_headers = {k.lower(): v for k, v in starts[0]['headers']}
     assert start_headers[b'content-encoding'] == encoding.encode()
     assert b'content-length' not in start_headers
-    assert plain == b''.join(events)
+    expected_plain = b''.join(events) + terminal_body
+    assert plain == expected_plain
 
     # Stream finalization: gzip/3.14-zstd .eof; brotli is_finished(); legacy zstd oneshot.
     if encoding == 'br':
         assert dec.is_finished()  # type: ignore[attr-defined]
-    elif encoding == 'gzip' or (
-        encoding == 'zstd' and sys.version_info >= (3, 14)
-    ):
+    elif encoding == 'gzip' or (encoding == 'zstd' and sys.version_info >= (3, 14)):
         assert dec.eof()  # type: ignore[attr-defined]
     else:
-        assert dec.legacy_frame_complete(b''.join(events))  # type: ignore[attr-defined]
+        assert dec.legacy_frame_complete(expected_plain)  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize('encoding', ['gzip', 'br', 'zstd', 'identity'])
@@ -688,9 +685,7 @@ def test_pathsend_event_stream(encoding: str, order: str):
             })
 
     middleware = CompressMiddleware(app)
-    sent = asyncio.run(
-        run_asgi(middleware, accept_encoding=encoding, pathsend=True)
-    )
+    sent = asyncio.run(run_asgi(middleware, accept_encoding=encoding, pathsend=True))
 
     if order == 'pathsend_first':
         types = [m['type'] for m in sent]
@@ -728,9 +723,7 @@ def test_sse_oneshot_under_pathsend_capable_scope(encoding: str):
         })
 
     middleware = CompressMiddleware(app)
-    sent = asyncio.run(
-        run_asgi(middleware, accept_encoding=encoding, pathsend=True)
-    )
+    sent = asyncio.run(run_asgi(middleware, accept_encoding=encoding, pathsend=True))
     starts = [m for m in sent if m['type'] == 'http.response.start']
     bodies = [m for m in sent if m['type'] == 'http.response.body']
     assert len(starts) == 1
@@ -746,18 +739,7 @@ def test_sse_oneshot_under_pathsend_capable_scope(encoding: str):
 
         assert gzip.decompress(bodies[0]['body']) == payload
     elif encoding == 'br':
-        from platform import python_implementation
-
-        if python_implementation() == 'CPython':
-            try:
-                import brotli
-            except ModuleNotFoundError:
-                import brotlicffi as brotli
-        else:
-            try:
-                import brotlicffi as brotli
-            except ModuleNotFoundError:
-                import brotli
+        import brotli
 
         assert brotli.decompress(bodies[0]['body']) == payload
     elif sys.version_info >= (3, 14):
@@ -847,236 +829,6 @@ def test_zerocopysend_visible_on_identity_path():
     assert b'content-encoding' not in headers
 
 
-class _RecordingFakeEncoder:
-    """Recording encoder for feed/finish contract tests."""
-
-    __slots__ = ('feed_calls', 'finish_chunks', 'plaintext')
-
-    def __init__(self, finish_chunks: list[bytes] | None = None) -> None:
-        self.feed_calls: list[tuple[bytes, bool]] = []
-        self.finish_chunks = finish_chunks if finish_chunks is not None else [b'F']
-        self.plaintext = b''
-
-    def feed(self, data: bytes, flush: bool):
-        self.feed_calls.append((data, flush))
-        self.plaintext += data
-        # Echo as a single chunk so wire/decode assertions can use it.
-        if data:
-            yield b'W' + data
-
-    def finish(self):
-        yield from self.finish_chunks
-
-
-def _drive_responder_with_fake(
-    *,
-    app_body_messages: list[Message],
-    finish_chunks: list[bytes] | None = None,
-    content_type: bytes = b'text/event-stream',
-    pathsend: bool = False,
-    extra_headers: list[tuple[bytes, bytes]] | None = None,
-) -> tuple[_RecordingFakeEncoder, list[Message], list[int]]:
-    """Run CompressionResponder with a recording fake encoder; return encoder, wire, CL args."""
-    encoder_holder: list[_RecordingFakeEncoder] = []
-    cl_args: list[int] = []
-
-    def oneshot(body: bytes) -> bytes:
-        return b'ONESHOT:' + body
-
-    def create_encoder(content_length: int) -> _RecordingFakeEncoder:
-        cl_args.append(content_length)
-        enc = _RecordingFakeEncoder(finish_chunks=finish_chunks)
-        encoder_holder.append(enc)
-        return enc
-
-    start_headers: list[tuple[bytes, bytes]] = [(b'content-type', content_type)]
-    if extra_headers:
-        start_headers.extend(extra_headers)
-
-    async def app(scope: Scope, receive: Receive, send: Send) -> None:
-        await send({
-            'type': 'http.response.start',
-            'status': 200,
-            'headers': start_headers,
-        })
-        for msg in app_body_messages:
-            await send(msg)
-
-    responder = CompressionResponder(app, 500, 'fake', oneshot, create_encoder)
-    sent: list[Message] = []
-
-    async def fake_send(message: Message) -> None:
-        sent.append(message)
-
-    async def fake_receive() -> Message:
-        return {'type': 'http.disconnect'}
-
-    scope: Scope = {
-        'type': 'http',
-        'method': 'GET',
-        'path': '/',
-        'headers': [],
-        'extensions': {},
-    }
-    if pathsend:
-        scope['extensions']['http.response.pathsend'] = {}
-    asyncio.run(responder(scope, fake_receive, fake_send))
-    return encoder_holder[0] if encoder_holder else _RecordingFakeEncoder(), sent, cl_args
-
-
-def test_fake_encoder_feed_two_events_one_message():
-    """2 events in 1 non-empty continuation → exactly one feed(data, flush=True)."""
-    two = b'data: a\n\ndata: b\n\n'
-    enc, sent, cl_args = _drive_responder_with_fake(
-        app_body_messages=[
-            {'type': 'http.response.body', 'body': two, 'more_body': True},
-            {'type': 'http.response.body', 'body': b''},
-        ],
-    )
-    assert cl_args == [-1]
-    assert enc.feed_calls == [(two, True)]
-    bodies = [m for m in sent if m['type'] == 'http.response.body']
-    # mid-stream echo + terminal from finish
-    mid = [m for m in bodies if m.get('more_body', False)]
-    assert any(m.get('body') == b'W' + two for m in mid)
-
-
-def test_fake_encoder_skips_empty_continuations():
-    """Empty mid-stream bodies never reach encoder.feed() (only non-empty do)."""
-    event = b'data: hi\n\n'
-    enc, _sent, cl_args = _drive_responder_with_fake(
-        app_body_messages=[
-            {'type': 'http.response.body', 'body': b'', 'more_body': True},
-            {'type': 'http.response.body', 'body': event, 'more_body': True},
-            {'type': 'http.response.body', 'body': b'', 'more_body': True},
-            {'type': 'http.response.body', 'body': b''},
-        ],
-    )
-    assert cl_args == [-1]
-    assert enc.feed_calls == [(event, True)]
-    assert all(data for data, _flush in enc.feed_calls)
-
-
-def test_streaming_pathsend_wrong_content_length_factory_minus_one():
-    """C2 pin: pathsend-capable + wrong CL + first more_body=True → factory(-1).
-
-    Reverting the stream-begin branch to pledge the header Content-Length would
-    make cl_args equal [999999] and fail this test.
-    """
-    payload = b'data: hello\n\n'
-    enc, _sent, cl_args = _drive_responder_with_fake(
-        app_body_messages=[
-            {'type': 'http.response.body', 'body': payload, 'more_body': True},
-            {'type': 'http.response.body', 'body': b''},
-        ],
-        pathsend=True,
-        extra_headers=[(b'content-length', b'999999')],
-    )
-    assert cl_args == [-1]
-    assert enc.feed_calls == [(payload, True)]
-
-
-def test_fake_encoder_feed_split_event_two_messages():
-    """1 event split across 2 messages → 2 feeds; decoded available after each app send."""
-    part1 = b'data: hel'
-    part2 = b'lo\n\n'
-    captured: list[Message] = []
-    encoder_holder: list[_RecordingFakeEncoder] = []
-
-    def oneshot(body: bytes) -> bytes:
-        return body
-
-    def create_encoder(content_length: int) -> _RecordingFakeEncoder:
-        enc = _RecordingFakeEncoder()
-        encoder_holder.append(enc)
-        return enc
-
-    async def app(scope: Scope, receive: Receive, send: Send) -> None:
-        await send({
-            'type': 'http.response.start',
-            'status': 200,
-            'headers': _sse_headers(),
-        })
-        await send({
-            'type': 'http.response.body',
-            'body': part1,
-            'more_body': True,
-        })
-        # After first app send, fake encoder has received part1
-        assert encoder_holder[0].plaintext == part1
-        assert encoder_holder[0].feed_calls == [(part1, True)]
-        await send({
-            'type': 'http.response.body',
-            'body': part2,
-            'more_body': True,
-        })
-        assert encoder_holder[0].plaintext == part1 + part2
-        assert encoder_holder[0].feed_calls == [(part1, True), (part2, True)]
-        await send({'type': 'http.response.body', 'body': b''})
-
-    responder = CompressionResponder(app, 500, 'fake', oneshot, create_encoder)
-
-    async def capture(message: Message) -> None:
-        captured.append(message)
-
-    async def fake_receive() -> Message:
-        return {'type': 'http.disconnect'}
-
-    scope: Scope = {
-        'type': 'http',
-        'method': 'GET',
-        'path': '/',
-        'headers': [],
-        'extensions': {},
-    }
-    asyncio.run(responder(scope, fake_receive, capture))
-    assert encoder_holder[0].feed_calls == [(part1, True), (part2, True)]
-
-
-@pytest.mark.parametrize(
-    'finish_chunks,expected_bodies',
-    [
-        # finish() yields zero chunks → exactly one empty terminal
-        ([], [{'type': 'http.response.body', 'body': b''}]),
-        # one chunk → it is the terminal
-        ([b'ONLY'], [{'type': 'http.response.body', 'body': b'ONLY'}]),
-        # many chunks → all but last nonterminal
-        (
-            [b'A', b'B', b'C'],
-            [
-                {'type': 'http.response.body', 'body': b'A', 'more_body': True},
-                {'type': 'http.response.body', 'body': b'B', 'more_body': True},
-                {'type': 'http.response.body', 'body': b'C'},
-            ],
-        ),
-    ],
-)
-def test_fake_encoder_terminal_invariant(
-    finish_chunks: list[bytes], expected_bodies: list[dict[str, Any]]
-):
-    """finish() chunk count pins the terminal body message shape."""
-    _, sent, _ = _drive_responder_with_fake(
-        app_body_messages=[
-            # empty stream: no feed, just finish on terminal
-            {'type': 'http.response.body', 'body': b''},
-        ],
-        finish_chunks=finish_chunks,
-    )
-    # commit-at-start for SSE, then terminal body only
-    bodies = [m for m in sent if m['type'] == 'http.response.body']
-    # Normalize missing more_body to False for comparison
-    normalized = []
-    for m in bodies:
-        entry: dict[str, Any] = {
-            'type': m['type'],
-            'body': m.get('body', b''),
-        }
-        if m.get('more_body', False):
-            entry['more_body'] = True
-        normalized.append(entry)
-    assert normalized == expected_bodies
-
-
 def test_sse_empty_continuations_compressed():
     """Compressed path emits nothing for empty mid-stream bodies (incl. first empty)."""
 
@@ -1158,69 +910,52 @@ def test_sse_empty_continuations_identity():
 
 
 def test_registry_lifecycle_streaming():
-    from starlette_compress._utils import (
-        _compress_content_types,
-        _streaming_content_types,
-    )
-
     ctype = 'application/x-test-sse-lifecycle'
-    assert ctype not in _compress_content_types
-    assert ctype not in _streaming_content_types
+
+    async def app(scope, receive, send):
+        await send({
+            'type': 'http.response.start',
+            'status': 200,
+            'headers': [(b'content-type', ctype.encode())],
+        })
+        await send({'type': 'http.response.body', 'body': b'hello'})
+
+    middleware = CompressMiddleware(app, minimum_size=500)
+
+    def response_is_compressed():
+        sent = asyncio.run(run_asgi(middleware, accept_encoding='gzip'))
+        headers = dict(sent[0]['headers'])
+        wire = b''.join(m.get('body', b'') for m in sent[1:])
+        if b'content-encoding' in headers:
+            import gzip
+
+            assert headers[b'content-encoding'] == b'gzip'
+            assert gzip.decompress(wire) == b'hello'
+            return True
+        assert wire == b'hello'
+        return False
+
+    assert not response_is_compressed()
     try:
-        add_compress_type(ctype)
-        assert ctype in _compress_content_types
-        assert ctype not in _streaming_content_types
-
+        add_compress_type(ctype.upper())
+        assert not response_is_compressed()
         add_compress_type(ctype, streaming=True)
-        assert ctype in _compress_content_types
-        assert ctype in _streaming_content_types
-
-        # plain re-add does not demote streaming membership
+        assert response_is_compressed()
         add_compress_type(ctype)
-        assert ctype in _streaming_content_types
-
-        # idempotent streaming add
+        assert response_is_compressed()
         add_compress_type(ctype, streaming=True)
-        assert ctype in _streaming_content_types
-
-        # case-insensitive registration
-        add_compress_type('Application/X-Other-Test', streaming=True)
-        assert 'application/x-other-test' in _compress_content_types
-        assert 'application/x-other-test' in _streaming_content_types
-
-        remove_compress_type(ctype)
-        assert ctype not in _compress_content_types
-        assert ctype not in _streaming_content_types
-
-        # remove clears both; re-add without streaming is non-streaming
+        assert response_is_compressed()
+        remove_compress_type(ctype.upper())
+        assert not response_is_compressed()
         add_compress_type(ctype)
-        assert ctype not in _streaming_content_types
-
-        # case-insensitive removal
-        remove_compress_type('Application/X-Other-Test')
-        assert 'application/x-other-test' not in _compress_content_types
-        assert 'application/x-other-test' not in _streaming_content_types
+        assert not response_is_compressed()
     finally:
         remove_compress_type(ctype)
-        remove_compress_type('application/x-other-test')
 
 
-def test_ordinary_stream_brotli_no_mid_flush():
-    """Buffered path: small brotli chunks emit nothing mid-stream (no per-chunk flush)."""
-    from platform import python_implementation
-
-    if python_implementation() == 'CPython':
-        try:
-            import brotli
-        except ModuleNotFoundError:
-            import brotlicffi as brotli
-    else:
-        try:
-            import brotlicffi as brotli
-        except ModuleNotFoundError:
-            import brotli
-
-    # Small compressible chunks — process() alone typically buffers
+@pytest.mark.parametrize('encoding', ['gzip', 'br', 'zstd'])
+def test_ordinary_stream_below_threshold_roundtrip(encoding):
+    """Ordinary streams below minimum_size still produce a complete encoded body."""
     chunks = [b'hello world ' * 10 for _ in range(5)]
 
     async def app(scope, receive, send):
@@ -1237,30 +972,14 @@ def test_ordinary_stream_brotli_no_mid_flush():
             })
         await send({'type': 'http.response.body', 'body': b''})
 
-    middleware = CompressMiddleware(app)
-    sent = asyncio.run(run_asgi(middleware, accept_encoding='br'))
+    middleware = CompressMiddleware(app, minimum_size=1000)
+    sent = asyncio.run(run_asgi(middleware, accept_encoding=encoding))
     bodies = [m for m in sent if m['type'] == 'http.response.body']
-    mid = [m for m in bodies if m.get('more_body', False)]
+    assert dict(sent[0]['headers'])[b'content-encoding'] == encoding.encode()
+    assert sum(not m.get('more_body', False) for m in bodies) == 1
 
-    # Reference: process()-only emits nothing mid-stream for these small chunks
-    mid_ref = []
-    ref2 = brotli.Compressor(quality=4)
-    for c in chunks:
-        out = ref2.process(c)
-        if out:
-            mid_ref.append(out)
-    assert mid_ref == [], 'sanity: process-only should not emit for small chunks'
-    # Middleware must not per-message flush on buffered path
-    assert mid == [], f'unexpected mid-stream brotli output: {mid!r}'
-
-    wire = b''.join(m.get('body', b'') for m in bodies)
-    dec = brotli.Decompressor()
-    plain = dec.process(wire)
-    while True:
-        more = dec.process(b'')
-        if not more:
-            break
-        plain += more
+    dec = _make_incremental_decompressor(encoding)
+    plain = b''.join(dec(m.get('body', b'')) for m in bodies)
     assert plain == b''.join(chunks)
 
 
@@ -1305,11 +1024,9 @@ def test_legacy_zstd_large_message_bounded_and_pledged():
     assert plain == payload
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 14), reason='legacy zstd only pre-3.14')
-def test_legacy_zstd_sse_mismatched_content_length_roundtrip():
+@pytest.mark.parametrize('pathsend', [False, True])
+def test_zstd_sse_mismatched_content_length_roundtrip(pathsend):
     """C2 regression: SSE with mismatched Content-Length must not raise ZstdError."""
-    import zstandard as zstd_mod
-
     events = [b'data: one\n\n', b'data: two\n\n', b'data: three\n\n']
     # Deliberately wrong Content-Length (would pledge wrong size to chunker pre-fix)
     wrong_cl = b'999999'
@@ -1329,7 +1046,7 @@ def test_legacy_zstd_sse_mismatched_content_length_roundtrip():
         await send({'type': 'http.response.body', 'body': b''})
 
     middleware = CompressMiddleware(app)
-    sent = asyncio.run(run_asgi(middleware, accept_encoding='zstd'))
+    sent = asyncio.run(run_asgi(middleware, accept_encoding='zstd', pathsend=pathsend))
     starts = [m for m in sent if m['type'] == 'http.response.start']
     bodies = [m for m in sent if m['type'] == 'http.response.body']
     assert len(starts) == 1
@@ -1339,10 +1056,9 @@ def test_legacy_zstd_sse_mismatched_content_length_roundtrip():
 
     wire = b''.join(m.get('body', b'') for m in bodies)
     expected = b''.join(events)
-    plain = zstd_mod.ZstdDecompressor().decompress(
-        wire, max_output_size=len(expected)
-    )
+    plain = _decompress_zstd(wire)
     assert plain == expected
+    assert sum(not m.get('more_body', False) for m in bodies) == 1
 
 
 @pytest.mark.parametrize(
@@ -1416,9 +1132,7 @@ def test_sse_headers_vary_merge_and_precompressed():
             'more_body': False,
         })
 
-    sent = asyncio.run(
-        run_asgi(CompressMiddleware(app_pre), accept_encoding='gzip')
-    )
+    sent = asyncio.run(run_asgi(CompressMiddleware(app_pre), accept_encoding='gzip'))
     headers = {k.lower(): v for k, v in sent[0]['headers']}
     assert headers[b'content-encoding'] == b'gzip'
     # original body not re-compressed (same length content)
@@ -1439,9 +1153,7 @@ def test_sse_content_encoding_identity_still_compressible():
             'more_body': False,
         })
 
-    sent = asyncio.run(
-        run_asgi(CompressMiddleware(app), accept_encoding='gzip')
-    )
+    sent = asyncio.run(run_asgi(CompressMiddleware(app), accept_encoding='gzip'))
     headers = {k.lower(): v for k, v in sent[0]['headers']}
     assert headers[b'content-encoding'] == b'gzip'
 
@@ -1459,9 +1171,7 @@ def test_identity_sse_preserves_content_length():
             'more_body': False,
         })
 
-    sent = asyncio.run(
-        run_asgi(CompressMiddleware(app), accept_encoding='identity')
-    )
+    sent = asyncio.run(run_asgi(CompressMiddleware(app), accept_encoding='identity'))
     headers = {k.lower(): v for k, v in sent[0]['headers']}
     assert b'content-encoding' not in headers
     assert headers[b'content-length'] == b'11'
@@ -1518,22 +1228,153 @@ def test_trailers_after_body_no_duplicate_start():
     )
 
 
-def test_repeated_start_raises():
+@pytest.mark.parametrize('accept_encoding', ['identity', 'gzip'])
+def test_repeated_start_raises_runtime_error_and_preserves_response(
+    accept_encoding,
+):
+    errors: list[RuntimeError] = []
+    original_start: Message = {
+        'type': 'http.response.start',
+        'status': 201,
+        'headers': [(b'content-type', b'text/plain'), (b'x-original', b'retained')],
+    }
+
+    async def app(scope, receive, send):
+        await send(original_start)
+        with pytest.raises(
+            RuntimeError,
+            match=r'http\.response\.start has already been received',
+        ) as caught:
+            await send({
+                'type': 'http.response.start',
+                'status': 500,
+                'headers': [(b'content-type', b'text/plain')],
+            })
+        errors.append(caught.value)
+        await send({'type': 'http.response.body', 'body': b'original'})
+
+    middleware = CompressMiddleware(
+        app, zstd=False, brotli=False, gzip=accept_encoding == 'gzip'
+    )
+    sent = asyncio.run(run_asgi(middleware, accept_encoding=accept_encoding))
+
+    starts = [message for message in sent if message['type'] == 'http.response.start']
+    bodies = [message for message in sent if message['type'] == 'http.response.body']
+    assert len(errors) == 1
+    assert len(starts) == 1
+    assert starts[0]['status'] == 201
+    assert starts[0]['headers'] == original_start['headers']
+    assert bodies == [{'type': 'http.response.body', 'body': b'original'}]
+
+
+@pytest.mark.parametrize(
+    ('setting', 'value', 'error_type', 'message'),
+    [
+        pytest.param(
+            'brotli_quality',
+            -1,
+            ValueError,
+            'brotli_quality must be between 0 and 11, got -1',
+            id='brotli-too-low',
+        ),
+        pytest.param(
+            'brotli_quality',
+            12,
+            ValueError,
+            'brotli_quality must be between 0 and 11, got 12',
+            id='brotli-too-high',
+        ),
+        pytest.param(
+            'brotli_quality',
+            1.5,
+            TypeError,
+            'brotli_quality must be an integer, got float',
+            id='brotli-wrong-type',
+        ),
+        pytest.param(
+            'gzip_level',
+            -1,
+            ValueError,
+            'gzip_level must be between 0 and 9, got -1',
+            id='gzip-too-low',
+        ),
+        pytest.param(
+            'gzip_level',
+            10,
+            ValueError,
+            'gzip_level must be between 0 and 9, got 10',
+            id='gzip-too-high',
+        ),
+        pytest.param(
+            'gzip_level',
+            '4',
+            TypeError,
+            'gzip_level must be an integer, got str',
+            id='gzip-wrong-type',
+        ),
+    ],
+)
+def test_enabled_codec_levels_are_validated_at_setup(
+    setting, value, error_type, message
+):
+    async def app(scope, receive, send):
+        return None
+
+    options = {'zstd': False, 'brotli': False, 'gzip': False, setting: value}
+    options['brotli' if setting == 'brotli_quality' else 'gzip'] = True
+
+    with pytest.raises(error_type) as caught:
+        CompressMiddleware(app, **options)
+
+    assert str(caught.value) == message
+
+
+@pytest.mark.parametrize(
+    ('setting', 'value', 'encoding'),
+    [
+        pytest.param('brotli_quality', 0, 'br', id='brotli-fastest'),
+        pytest.param('brotli_quality', 11, 'br', id='brotli-best'),
+        pytest.param('gzip_level', 0, 'gzip', id='gzip-fastest'),
+        pytest.param('gzip_level', 9, 'gzip', id='gzip-best'),
+    ],
+)
+def test_enabled_codec_level_boundaries_reach_the_provider(setting, value, encoding):
     async def app(scope, receive, send):
         await send({
             'type': 'http.response.start',
             'status': 200,
             'headers': [(b'content-type', b'text/plain')],
         })
-        await send({
-            'type': 'http.response.start',
-            'status': 200,
-            'headers': [(b'content-type', b'text/plain')],
-        })
+        await send({'type': 'http.response.body', 'body': b'x' * 1000})
 
-    middleware = CompressMiddleware(app)
-    with pytest.raises(AssertionError, match=r'repeated http\.response\.start'):
-        asyncio.run(run_asgi(middleware, accept_encoding='gzip'))
+    options = {'zstd': False, 'brotli': False, 'gzip': False, setting: value}
+    options['brotli' if setting == 'brotli_quality' else 'gzip'] = True
+    sent = asyncio.run(
+        run_asgi(
+            CompressMiddleware(app, minimum_size=1, **options),
+            accept_encoding=encoding,
+        )
+    )
+
+    headers = {name.lower(): value for name, value in sent[0]['headers']}
+    assert headers[b'content-encoding'] == encoding.encode()
+    assert any(message['type'] == 'http.response.body' for message in sent)
+
+
+def test_disabled_codec_levels_are_not_validated():
+    async def app(scope, receive, send):
+        return None
+
+    middleware = CompressMiddleware(
+        app,
+        zstd=False,
+        brotli=False,
+        brotli_quality=12,
+        gzip=False,
+        gzip_level=-1,
+    )
+
+    assert middleware.app is app
 
 
 def test_case_insensitive_event_stream_content_type():
@@ -1549,9 +1390,7 @@ def test_case_insensitive_event_stream_content_type():
             'more_body': False,
         })
 
-    sent = asyncio.run(
-        run_asgi(CompressMiddleware(app), accept_encoding='gzip')
-    )
+    sent = asyncio.run(run_asgi(CompressMiddleware(app), accept_encoding='gzip'))
     headers = {k.lower(): v for k, v in sent[0]['headers']}
     assert headers[b'content-encoding'] == b'gzip'
     # commit-at-start: Content-Length removed
@@ -1559,7 +1398,9 @@ def test_case_insensitive_event_stream_content_type():
 
 
 @pytest.mark.parametrize('encoding', ['gzip', 'br', 'zstd'])
-def test_sse_testclient_roundtrip(test_client_factory: TestClientFactory, encoding: str):
+def test_sse_testclient_roundtrip(
+    test_client_factory: TestClientFactory, encoding: str
+):
     async def gen():
         yield b'data: one\n\n'
         yield b'data: two\n\n'
@@ -1577,25 +1418,14 @@ def test_sse_testclient_roundtrip(test_client_factory: TestClientFactory, encodi
     assert response.headers['Content-Encoding'] == encoding
     assert 'Content-Length' not in response.headers
 
-    # httpx/TestClient auto-decompresses gzip and br; zstd may need manual decode
+    # httpx/TestClient may return raw zstd when its decoder is unavailable.
     try:
         assert response.content == b'data: one\n\ndata: two\n\n'
     except AssertionError:
-        # TODO: remove after new zstd support in httpx
-        if encoding != 'zstd' or sys.version_info < (3, 14):
-            if encoding == 'zstd':
-                import zstandard as zstd_mod
+        if encoding != 'zstd':
+            raise
 
-                assert (
-                    zstd_mod.ZstdDecompressor().decompress(response.content)
-                    == b'data: one\n\ndata: two\n\n'
-                )
-            else:
-                raise
-        else:
-            from compression import zstd
-
-            assert zstd.decompress(response.content) == b'data: one\n\ndata: two\n\n'
+        assert _decompress_zstd(response.content) == b'data: one\n\ndata: two\n\n'
 
 
 def test_mixed_case_managed_headers_oneshot():
@@ -1616,9 +1446,7 @@ def test_mixed_case_managed_headers_oneshot():
         })
         await send({'type': 'http.response.body', 'body': body})
 
-    sent = asyncio.run(
-        run_asgi(CompressMiddleware(app), accept_encoding='gzip')
-    )
+    sent = asyncio.run(run_asgi(CompressMiddleware(app), accept_encoding='gzip'))
     start = next(m for m in sent if m['type'] == 'http.response.start')
     raw = start['headers']
     # Exactly one of each managed name (case-insensitive), all lowercase wire names.
@@ -1661,9 +1489,7 @@ def test_mixed_case_streaming_content_length_removal():
         })
         await send({'type': 'http.response.body', 'body': b''})
 
-    sent = asyncio.run(
-        run_asgi(CompressMiddleware(app), accept_encoding='gzip')
-    )
+    sent = asyncio.run(run_asgi(CompressMiddleware(app), accept_encoding='gzip'))
     start = next(m for m in sent if m['type'] == 'http.response.start')
     names_lower = [n.lower() for n, _ in start['headers']]
     assert b'content-length' not in names_lower
@@ -1688,9 +1514,7 @@ def test_mixed_case_repeated_vary_coalesced():
         })
         await send({'type': 'http.response.body', 'body': b'x' * 1000})
 
-    sent = asyncio.run(
-        run_asgi(CompressMiddleware(app), accept_encoding='gzip')
-    )
+    sent = asyncio.run(run_asgi(CompressMiddleware(app), accept_encoding='gzip'))
     start = next(m for m in sent if m['type'] == 'http.response.start')
     vary_fields = [v for n, v in start['headers'] if n.lower() == b'vary']
     assert len(vary_fields) == 1
@@ -1717,9 +1541,7 @@ def test_mixed_case_skip_small_pathsend_byte_identical():
         })
         await send({'type': 'http.response.body', 'body': b'OK'})
 
-    sent = asyncio.run(
-        run_asgi(CompressMiddleware(small_app), accept_encoding='gzip')
-    )
+    sent = asyncio.run(run_asgi(CompressMiddleware(small_app), accept_encoding='gzip'))
     start = next(m for m in sent if m['type'] == 'http.response.start')
     assert start['headers'] == mixed
 
@@ -1738,9 +1560,7 @@ def test_mixed_case_skip_small_pathsend_byte_identical():
         })
         await send({'type': 'http.response.body', 'body': b'data'})
 
-    sent = asyncio.run(
-        run_asgi(CompressMiddleware(skip_app), accept_encoding='gzip')
-    )
+    sent = asyncio.run(run_asgi(CompressMiddleware(skip_app), accept_encoding='gzip'))
     start = next(m for m in sent if m['type'] == 'http.response.start')
     assert start['headers'] == skip_headers
 
@@ -2060,7 +1880,91 @@ def test_dispatch_multi_ae_second_field_and_latin1_and_remove_all():
     assert {n.lower(): v for n, v in start['headers']}[b'content-encoding'] == b'gzip'
 
 
-def test_version_is_1_8_0():
-    from starlette_compress import __version__
+@pytest.mark.parametrize(
+    'accept_encoding,expected_encoding',
+    [
+        ('zstd;q=0.1, gzip;q=1', 'zstd'),
+        ('*;q=1, zstd;q=0, br;q=0', 'gzip'),
+        ('zstd;q=invalid, br;q=0.2, gzip;q=1', 'br'),
+        ('zstd;q=0, br;q=0, gzip;q=0, identity;q=0', 'identity'),
+    ],
+)
+def test_negotiation_uses_positive_quality_then_server_priority(
+    accept_encoding, expected_encoding
+):
+    payload = b'ordinary response\n' * 100
 
-    assert __version__ == '1.8.0'
+    async def app(scope, receive, send):
+        await send({
+            'type': 'http.response.start',
+            'status': 200,
+            'headers': [(b'content-type', b'text/plain')],
+        })
+        await send({'type': 'http.response.body', 'body': payload})
+
+    sent = asyncio.run(
+        run_asgi(CompressMiddleware(app), accept_encoding=accept_encoding)
+    )
+    headers = dict(sent[0]['headers'])
+    assert headers.get(b'content-encoding', b'identity') == expected_encoding.encode()
+    wire = b''.join(m.get('body', b'') for m in sent[1:])
+    if expected_encoding == 'identity':
+        assert wire == payload
+    else:
+        assert _make_incremental_decompressor(expected_encoding)(wire) == payload
+    assert sent[-1].get('more_body', False) is False
+
+
+def test_shared_middleware_zstd_oneshot_across_loop_threads():
+    ready = Barrier(2, timeout=10)
+    payloads = {
+        '/one': bytes(range(256)) * 1024,
+        '/two': b'other response\n' * 20_000,
+    }
+
+    async def app(scope, receive, send):
+        await send({
+            'type': 'http.response.start',
+            'status': 200,
+            'headers': [(b'content-type', b'text/plain')],
+        })
+        ready.wait()
+        await send({
+            'type': 'http.response.body',
+            'body': payloads[scope['path']],
+        })
+
+    middleware = CompressMiddleware(app)
+
+    def request(path):
+        async def run():
+            sent = []
+
+            async def receive():
+                return {'type': 'http.disconnect'}
+
+            async def send(message):
+                sent.append(message)
+
+            for _ in range(8):
+                sent.clear()
+                await middleware(
+                    {
+                        'type': 'http',
+                        'method': 'GET',
+                        'path': path,
+                        'headers': [(b'accept-encoding', b'zstd')],
+                    },
+                    receive,
+                    send,
+                )
+                assert dict(sent[0]['headers'])[b'content-encoding'] == b'zstd'
+                assert _decompress_zstd(sent[1]['body']) == payloads[path]
+                assert sent[1].get('more_body', False) is False
+
+        asyncio.run(run())
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        futures = [workers.submit(request, path) for path in payloads]
+        for future in futures:
+            future.result(timeout=20)

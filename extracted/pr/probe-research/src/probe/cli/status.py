@@ -105,6 +105,7 @@ SCHEMA (v1). Change it only by adding fields; anything else bumps
                        "pending_lines": int | null, "pending_batches": int | null}],
         "recorders": [{"sid": str, "alive": bool, "recording": bool | null, "last": str, "failures": int}],
         "hook_hosts": [{"root": str, "pid": int}],
+        "hints_unreached": [{"sid": str, "harness": str | null, "deliverer": str | null, "missed": int | null}],
         "runs": [{"run": str, "pid": int, "since": float}],
         "imports": [{"job_id": str, "pid": int, "since": float}],
         "update": {
@@ -200,7 +201,11 @@ What the values mean:
   thread runs, also while it waits to try again; `recording`: it holds the
   session now, so it is the one recording it, null from a tap before 0.10.5;
   `last`: how its recorder last ended, `failures`: restarts after a failure). `hook_hosts`: its
-  warm hook hosts, one per plugin folder. `runs`: the runs a `probe exec` holds
+  warm hook hosts, one per plugin folder. `hints_unreached`: the sessions
+  whose hints its hint lane finds go unshown, by its word of the last 10
+  minutes (`harness`: the session's agent; `deliverer`: what handed them over,
+  a `service.hints.Deliverer`, null when none was seen; `missed`: hints that
+  missed their chance). `runs`: the runs a `probe exec` holds
   (the updater does not update under them). `imports`: the approved imports
   whose worker it started and watches (`probe wizard --action imports` has
   their progress). `update`: its updater -- a cycle
@@ -602,7 +607,8 @@ def _daemon(caps, *, config_readable: bool) -> dict:
 
 def _autoupdate_error() -> str | None:
     """Why `autoupdate.json` cannot be read, when it exists and cannot: its
-    reader then answers "off" (`autoupdate.load`), as the menu shows it."""
+    reader then answers as if nobody chose (`autoupdate.load`), as the menu
+    shows it: off, or on for the managed CLI (its default, never written)."""
     from probe.cli import autoupdate
 
     path = autoupdate.state_path()

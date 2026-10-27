@@ -144,6 +144,7 @@ from __future__ import annotations
 import abc
 import copy
 import inspect
+import itertools
 import os
 import sys
 
@@ -161,6 +162,7 @@ from collections import OrderedDict
 from enum import Enum
 from functools import partial, wraps
 from threading import Lock
+from types import EllipsisType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -171,6 +173,7 @@ from typing import (
     Iterable,
     Iterator,
     Mapping,
+    NamedTuple,
     TypeVar,
     cast,
     no_type_check,
@@ -178,6 +181,7 @@ from typing import (
 )
 
 from refinery.lib.argparser import ArgparseError, ArgumentParserWithKeywordHooks, HelpAction
+from refinery.lib.collector import collect_when_grown
 from refinery.lib.dependencies import dependency_accessor
 from refinery.lib.environment import Logger, LogLevel, environment, logger
 from refinery.lib.exceptions import (
@@ -188,9 +192,10 @@ from refinery.lib.exceptions import (
     RefineryPartialResult,
     RefineryPotentialUserError,
 )
-from refinery.lib.frame import MAGIC, MSIZE, Chunk, Framed, generate_frame_header
+from refinery.lib.frame import Chunk, ChunkFeed, Framed, Placement, generate_frame_header
+from refinery.lib.meta import MV, check_variable_names_of_unit
 from refinery.lib.structures import MemoryFile
-from refinery.lib.types import buf, isbuffer, isstream
+from refinery.lib.types import asbuffer, buf, isbuffer, isstream
 
 if TYPE_CHECKING:
     from argparse import _MutuallyExclusiveGroup
@@ -223,7 +228,7 @@ from refinery.lib.argformats import (
 from refinery.lib.tools import (
     documentation,
     exception_to_string,
-    lookahead,
+    is_terminal,
     normalize_to_display,
     normalize_to_identifier,
     one,
@@ -275,6 +280,45 @@ class Entry:
     An empty class marker. Any entry point unit (i.e. any unit that can be executed
     via the command line) is an instance of this class.
     """
+
+
+class _HelpFormatting(dict):
+    """
+    The fields that the help text of a `refinery.units.Arg` can refer to: its choices, its default
+    value and the name of its value.
+    """
+    def __init__(self, arg: Arg):
+        super().__init__()
+        self.arg = arg
+
+    def _pretty(self, default: bytes | int | str | slice):
+        if isinstance(default, (list, tuple, set)):
+            if not default:
+                return 'empty'
+            sentinel = next(iter(default))
+            if len(default) == 1:
+                return self._pretty(sentinel)
+            elif isinstance(sentinel, str):
+                return '"{}"'.format(' '.join((self._pretty(x) for x in default)))
+        if isinstance(default, slice):
+            parts = [default.start or '', default.stop or '', default.step or '']
+            default = ':'.join(str(x) for x in parts if x is not None)
+        if isinstance(default, int):
+            return default
+        if isinstance(default, str) or not isbuffer(default):
+            return default
+        default = bytes(default)
+        if default.isalnum():
+            return default.decode('latin-1')
+        return F'H:{default.hex()}'
+
+    def __missing__(self, key):
+        if key == 'choices':
+            return ', '.join(self.arg.kwargs['choices'])
+        if key == 'default':
+            return self._pretty(self.arg.kwargs['default'])
+        if key == 'varname':
+            return self.arg.kwargs.get('metavar', self.arg.destination)
 
 
 class Argument:
@@ -378,41 +422,9 @@ class Arg(Argument):
         Therefore, it is necessary to format the help text after all information has been
         compiled.
         """
-        class formatting(dict):
-            arg = self
-
-            def __pretty(self, default: bytes | int | str | slice):
-                if isinstance(default, (list, tuple, set)):
-                    if not default:
-                        return 'empty'
-                    sentinel = next(iter(default))
-                    if len(default) == 1:
-                        return self.__pretty(sentinel)
-                    elif isinstance(sentinel, str):
-                        return '"{}"'.format(' '.join((self.__pretty(x) for x in default)))
-                if isinstance(default, slice):
-                    parts = [default.start or '', default.stop or '', default.step or '']
-                    default = ':'.join(str(x) for x in parts if x is not None)
-                if isinstance(default, int):
-                    return default
-                if isinstance(default, str) or not isbuffer(default):
-                    return default
-                default = bytes(default)
-                if default.isalnum():
-                    return default.decode('latin-1')
-                return F'H:{default.hex()}'
-
-            def __missing__(self, key):
-                if key == 'choices':
-                    return ', '.join(self.arg.kwargs['choices'])
-                if key == 'default':
-                    return self.__pretty(self.arg.kwargs['default'])
-                if key == 'varname':
-                    return self.arg.kwargs.get('metavar', self.arg.destination)
-
         try:
             help_string: str = self.kwargs['help']
-            self.kwargs.update(help=help_string.format_map(formatting()))
+            self.kwargs.update(help=help_string.format_map(_HelpFormatting(self)))
         except Exception:
             pass
 
@@ -909,6 +921,10 @@ class ArgumentSpecification(_ArgumentSpecificationBase):
         self[dest] = argument
 
 
+def _wrapped_outputs(outputs: Iterable[buf]) -> Generator[Chunk]:
+    yield from map(Chunk.Wrap, outputs)
+
+
 def _UnitProcessorBoilerplate(operation: ProcType[buf]) -> ProcType[Chunk]:
     @wraps(operation)
     def wrapped(self: Unit, data: buf | None) -> Chunk | Iterable[Chunk] | None:
@@ -921,7 +937,7 @@ def _UnitProcessorBoilerplate(operation: ProcType[buf]) -> ProcType[Chunk]:
             return result
         elif not inspect.isgenerator(result):
             return Chunk(cast(bytearray | None, result))
-        return (Chunk.Wrap(r) for r in result)
+        return _wrapped_outputs(result)
     return wrapped
 
 
@@ -930,16 +946,15 @@ def _UnitFilterBoilerplate(
 ) -> Callable[[Any, Iterable[Chunk]], Iterable[Chunk]]:
     @wraps(operation)
     def peekfilter(self, chunks: Iterable[Chunk]) -> Iterable[Chunk]:
-        def _apply_args_to_head():
-            it = iter(chunks)
+        def _apply_args_to_head(it: Iterator[Chunk]):
             for chunk in it:
                 if chunk.visible:
                     yield self.args @ chunk
-                    break
-                else:
-                    yield chunk
-            yield from it
-        yield from operation(self, _apply_args_to_head())
+                    return
+                yield chunk
+                del chunk
+        it = iter(chunks)
+        yield from operation(self, itertools.chain(_apply_args_to_head(it), it))
     return peekfilter
 
 
@@ -959,6 +974,27 @@ class MissingFunction:
         return cast('_F', wraps(_)(cls()))
 
 
+class _Verdict(Enum):
+    """
+    The value that `refinery.units.Unit._exception_handler` returns for an exception that has to
+    reach the caller of the unit.
+    """
+    Raise = 0
+
+
+class _Run(NamedTuple):
+    """
+    A run of a unit: the iterator over its output, and whether its outputs are separated by line
+    breaks when they are written.
+    """
+    output: Generator[buf | Placement]
+    framebreak: bool
+
+
+_logger_locks: dict[Executable, int] = {}
+_logger_locks_guard = Lock()
+
+
 class Executable(ABCMeta):
     """
     This is the metaclass for refinery units. A class which is of this type is
@@ -975,6 +1011,7 @@ class Executable(ABCMeta):
     """
 
     _argument_specification: dict[str, Arg]
+    _logger: Logger | None
 
     def _infer_argspec(cls, parameters: Mapping[str, inspect.Parameter], args: ArgumentSpecification | None, module: str):
 
@@ -1047,6 +1084,7 @@ class Executable(ABCMeta):
     def __init__(cls, name: str, bases: tuple[type, ...], nmspc: dict[str, Any], abstract=False, docs='{}'):
         super().__init__(name, bases, nmspc)
         cls._argument_specification = args = ArgumentSpecification()
+        cls._logger = None
 
         cls_init = cls.__init__
         sig_init = inspect.signature(cls_init)
@@ -1180,23 +1218,26 @@ class Executable(ABCMeta):
         """
         The debug logger instance for the unit.
         """
-        try:
-            return cls._logger
-        except AttributeError:
-            pass
-        cls._logger = _logger = logger(cls.name)
+        if (_logger := cls._logger) is None:
+            cls._logger = _logger = logger(cls.name)
         return _logger
 
     @property
     def logger_locked(cls) -> bool:
-        try:
-            return cls._logger_locked
-        except AttributeError:
-            return False
+        """
+        This property is `True` while a unit of this class runs its own code. During that time,
+        changes to the log level of the class are ignored.
+        """
+        return cls in _logger_locks
 
-    @logger_locked.setter
-    def logger_locked(cls, value):
-        cls._logger_locked = value
+    def _lock_logger(cls):
+        with _logger_locks_guard:
+            _logger_locks[cls] = _logger_locks.get(cls, 0) + 1
+
+    def _unlock_logger(cls):
+        with _logger_locks_guard:
+            if (count := _logger_locks.pop(cls) - 1) > 0:
+                _logger_locks[cls] = count
 
 
 class DelayedArgumentProxy:
@@ -1361,6 +1402,69 @@ _SECRET_DEBUG_TIMING_FLAG = '--debug-timing'
 _SECRET_DEBUG_TRACES_FLAG = '--debug-traces'
 _SECRET_YAPPI_TIMING_FLAG = '--yappi-timing'
 
+_RECODING_SLICE_SIZE = 0x10000
+
+
+def _same_codec(a: str, b: str) -> bool:
+    """
+    Returns whether the two given names refer to the same codec.
+    """
+    import codecs
+    try:
+        return codecs.lookup(a).name == codecs.lookup(b).name
+    except LookupError:
+        return False
+
+
+def _recoded_slices(piece: buf, codec: str, encoding: str) -> Generator[bytes]:
+    """
+    Generates the given piece decoded from `codec` and encoded to `encoding`, one slice of bounded
+    size at a time. Bytes that cannot be decoded are escaped with backslashes; a character that
+    cannot be encoded raises an exception.
+    """
+    import codecs
+    decoder = codecs.getincrementaldecoder(codec)(errors='backslashreplace')
+    encoder = codecs.getincrementalencoder(encoding)()
+    step = _RECODING_SLICE_SIZE
+    with memoryview(piece) as view:
+        for start in range(0, len(view), step):
+            yield encoder.encode(decoder.decode(view[start:start + step]))
+    yield encoder.encode(decoder.decode(B'', True), True)
+
+
+def _can_be_recoded(piece: buf, codec: str, encoding: str) -> bool:
+    """
+    Returns whether all of the given piece can be decoded from `codec` and encoded to `encoding`.
+    """
+    try:
+        for _ in _recoded_slices(piece, codec, encoding):
+            pass
+    except Exception:
+        return False
+    return True
+
+
+def _write_recoded(stream: BinaryIO, piece: buf, codec: str, encoding: str) -> None:
+    """
+    Writes the given piece to a terminal with the given encoding: re-encoded if all of it can be,
+    otherwise as it is. A piece of at most one slice is re-encoded at once. A larger piece is
+    re-encoded one slice at a time, twice: once to check that all of it can be encoded, and once
+    to write it.
+    """
+    import codecs
+    if len(piece) <= _RECODING_SLICE_SIZE:
+        try:
+            recoded = codecs.encode(codecs.decode(piece, codec, 'backslashreplace'), encoding)
+        except Exception:
+            recoded = piece
+        stream.write(recoded)
+    elif _can_be_recoded(piece, codec, encoding):
+        for part in _recoded_slices(piece, codec, encoding):
+            if part:
+                stream.write(part)
+    else:
+        stream.write(piece)
+
 
 class Unit(UnitBase, abstract=True):
     """
@@ -1372,11 +1476,12 @@ class Unit(UnitBase, abstract=True):
     required_dependencies: set[str] | None = None
     optional_dependencies: dict[int, set[str]] | None = None
 
-    _buffer: buf
+    _buffer: bytes | bytearray
+    _offset: int
+    _reader: Iterator[bytes | bytearray] | None
     _source: BinaryIO | None
-    _target: BinaryIO | None
-    _framed: Framed | None
-    _chunks: Iterator[buf | Chunk] | None
+    _terminal: bool
+    _run: _Run | None
     console: bool
 
     @property
@@ -1384,13 +1489,15 @@ class Unit(UnitBase, abstract=True):
         return 'rb'
 
     def close(self) -> None:
-        if src := self.source:
-            src.close()
-        self._chunks = None
+        """
+        Ends the current run of this unit and of the units in its pipeline. A stream or file
+        descriptor that the caller passed in as input is not closed.
+        """
+        self.reset()
 
     @property
     def closed(self) -> bool:
-        return self._chunks is None
+        return self._run is None
 
     def fileno(self) -> int:
         return 0
@@ -1428,17 +1535,32 @@ class Unit(UnitBase, abstract=True):
             lines.append(line)
         return lines
 
-    def readline(self, limit: int = -1) -> bytes:
+    def readline(self, limit: int | None = -1) -> bytes:
+        if limit is None:
+            limit = -1
         line = bytearray()
-        while not line.endswith(B'\n') and (char := self.read1(1)):
-            line.extend(char)
+        while limit < 0 or len(line) < limit:
+            if not self._load():
+                break
+            buffer = self._buffer
+            start = self._offset
+            end = len(buffer)
+            if limit >= 0:
+                end = min(end, start + limit - len(line))
+            if (lf := buffer.find(B'\n', start, end)) >= 0:
+                end = lf + 1
+            with memoryview(buffer) as view:
+                line.extend(view[start:end])
+            self._offset = end
+            if lf >= 0:
+                break
         return line
 
     def __enter__(self):
         return self
 
     def __exit__(self, *_) -> None:
-        pass
+        self.close()
 
     @staticmethod
     def Requires(distribution: str, level: int = 0, info: str | None = None):
@@ -1530,7 +1652,14 @@ class Unit(UnitBase, abstract=True):
         """
         return getattr(self.args, 'lenient', 0)
 
-    def _exception_handler(self, exception: BaseException, data: buf | None):
+    def _exception_handler(self, exception: BaseException, data: buf | None) -> buf | _Verdict | None:
+        """
+        Handles an exception that was raised while processing the given input, or while producing
+        output when no input is given. Returns the output that replaces the failed one, `None` if
+        there is none, or `_Verdict.Raise` if the exception has to propagate: The caller then
+        re-raises it from its own handler, so that no frame in its traceback keeps a reference to
+        it.
+        """
         if isinstance(exception, RefineryPartialResult):
             if self.leniency >= 1:
                 return exception.partial
@@ -1538,22 +1667,20 @@ class Unit(UnitBase, abstract=True):
                 if not self.args.trypass:
                     self.log_warn(F'A partial result was returned, use the -L switch to retrieve it: {exception}')
                 return None
-            raise exception
+            return _Verdict.Raise
         elif self.leniency >= 1 and data is not None:
             return data
         elif self.args.trypass:
             return None
         elif self.log_level >= LogLevel.DETACHED:
-            raise exception
+            return _Verdict.Raise
         elif isinstance(exception, RefineryCriticalException):
             self.log_warn(F'critical error, terminating: {exception}')
-            raise exception
+            return _Verdict.Raise
         elif isinstance(exception, RefineryPotentialUserError):
             self.log_warn(str(exception))
         elif isinstance(exception, VariableMissing):
             self.log_warn('critical error:', exception.args[0])
-        elif isinstance(exception, GeneratorExit):
-            raise exception
         elif isinstance(exception, RefineryImportError):
             if isinstance(exception, RefineryImportMissing):
                 self.log_fail(F'dependency {exception.missing} is missing; run pip install {exception.install}')
@@ -1581,54 +1708,174 @@ class Unit(UnitBase, abstract=True):
         if self.log_debug():
             import traceback
             traceback.print_exc(file=sys.stderr)
+        return None
 
-    def output(self):
-        if not self._chunks:
-            self._chunks = iter(self._framehandler)
-        return self._chunks
+    def _start_run(self) -> _Run | None:
+        """
+        Returns the current run of this unit, and starts one if there is none. Starting a run reads
+        the start of its input, so an error raised there is handled like an error of the run: When
+        the unit handles it, the unit has no run and the result is `None`.
+        """
+        if (run := self._run) is not None:
+            return run
+        try:
+            framed = self._frame_handler()
+        except BaseException as B:
+            if self._escapes(B):
+                raise
+            return None
+        self._run = run = _Run(iter(framed), framed.framebreak)
+        return run
+
+    def _escapes(self, error: BaseException) -> bool:
+        """
+        Handles an error that a run of this unit raised while it started or while it produced an
+        output, and returns whether the error has to reach the caller, which then re-raises it.
+        """
+        if isinstance(error, KeyboardInterrupt):
+            return True
+        if isinstance(error, RefineryCriticalException):
+            return False
+        return self._exception_handler(error, None) is _Verdict.Raise
+
+    def _end_run(self, run: _Run | None) -> None:
+        """
+        Ends the given run if it is the current run of this unit. Its output is closed, so that
+        the data it holds is released at once, and the unit has no run until it is read again.
+        """
+        if run is not None and run is self._run:
+            self._run = None
+            run.output.close()
+
+    def _next_output(self, run: _Run, place: Callable[[Placement], Any] | None = None) -> Any:
+        """
+        Returns the next output of the given run, or `None` at its end or after an error, which is
+        handled by the unit's exception handler. If a function is given, a placement is replaced by
+        its result: the placement is transferred or serialized under the same error handling. An
+        error closes the output of the run, which holds no data afterwards even when the error was
+        raised while one of its outputs was placed.
+        """
+        try:
+            item = next(run.output)
+            if place is not None and isinstance(item, Placement):
+                item = place(item)
+            return item
+        except StopIteration:
+            return None
+        except BaseException as B:
+            run.output.close()
+            if self._escapes(B):
+                raise
+            return None
 
     def __next__(self) -> bytes | bytearray | Chunk:
-        while True:
-            try:
-                chunk = next(self.output())
-            except StopIteration:
-                raise
-            except RefineryCriticalException as R:
-                raise StopIteration from R
-            except BaseException as B:
-                self._exception_handler(B, None)
-                raise StopIteration from B
-            if not self.console and len(chunk) == MSIZE and chunk[:len(MAGIC)] == MAGIC:
-                continue
-            return chunk
+        if self.console or self._reader is not None:
+            if piece := self.read1():
+                return piece
+            raise StopIteration
+        if (run := self._start_run()) is not None:
+            while (item := self._next_output(run, Placement.transfer)) is not None:
+                if isinstance(item, Chunk):
+                    return item
+        raise StopIteration
 
-    @property
-    def _framehandler(self) -> Framed:
-        if self._framed:
-            return self._framed
+    def _stream(self, serialize: bool | None = None, terminal: bool = False) -> Generator[bytes | bytearray]:
+        """
+        Generates the output of this unit in the order in which it is written. Framed output
+        consists of the frame header and one chunk for each output: If `serialize` is true, the
+        chunks are serialized; if it is false, the header is omitted and only the data of each
+        chunk is generated; otherwise, each chunk is transferred to a unit in the same process.
+        Unframed output consists of the chunks, with line breaks between them where the command
+        line puts them; a short chunk is joined with its line break. For a terminal, the line
+        break follows each chunk immediately, so that a line is complete while the next is
+        computed; the line break of an empty chunk follows once another chunk does, so that a last
+        empty chunk adds no empty line. When the stream is closed before its end, the run that
+        produces it is closed as well: Nothing else reads its output.
+        """
+        separate = False
+        owed = False
+        outbox: list[bytes | bytearray] = []
+        if serialize is None:
+            place = Placement.transfer
+        elif serialize:
+            place = Placement.serialize
+        else:
+            place = None
+        if (run := self._start_run()) is None:
+            return
+        try:
+            while (item := self._next_output(run, place)) is not None:
+                trailer = False
+                if isinstance(item, tuple):
+                    pieces = item
+                    del item
+                    yield from pieces
+                    del pieces
+                    continue
+                if isinstance(item, Placement):
+                    item = item.chunk
+                elif isinstance(item, Chunk):
+                    last = separate
+                    separate = run.framebreak and not item.endswith(B'\n')
+                    if terminal:
+                        if owed:
+                            owed = False
+                            yield B'\n'
+                        if separate:
+                            if not item:
+                                owed = True
+                            elif len(item) < 0x1000:
+                                item = item + B'\n'
+                            else:
+                                trailer = True
+                    elif last:
+                        if len(item) < 0x1000:
+                            item = B'\n' + item
+                        else:
+                            yield B'\n'
+                elif serialize is False:
+                    continue
+                outbox.append(item)
+                del item
+                yield outbox.pop()
+                if trailer:
+                    yield B'\n'
+        except GeneratorExit:
+            self._end_run(run)
+            raise
 
+    def _frame_handler(self) -> Framed:
+        """
+        Returns a new frame handler for a run of this unit. Only the iterator over its output keeps
+        it, so that it releases the unit when the run ends.
+        """
         def normalized_action(data: Chunk) -> Generator[Chunk]:
             try:
                 yield from self.act(data)
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, GeneratorExit):
                 raise
             except BaseException as B:
-                result = self._exception_handler(B, data)
+                if (result := self._exception_handler(B, data)) is _Verdict.Raise:
+                    raise
                 message = str(B).strip() or 'unknown'
-                if result is not None:
-                    yield self.labelled(result, error=message)
+            else:
+                return
+            if result is not None:
+                yield self.labelled(result, error=message)
 
-        self._framed = Framed(
+        source = self.source
+        if isinstance(source, Unit) and not source.console and source._reader is None:
+            source = ChunkFeed(source._stream())
+
+        return Framed(
             normalized_action,
-            self.source,
+            source,
             self.filter,
             self.finish,
             self.args.nesting,
             self.args.squeeze,
-            self.console,
             self.FilterEverything,
         )
-        return self._framed
 
     def finish(self) -> Iterable[Chunk]:
         yield from ()
@@ -1642,15 +1889,15 @@ class Unit(UnitBase, abstract=True):
 
     def reset(self):
         """
-        Clear all data from the unit's input buffers.
+        Ends the current run of this unit and of the units in its pipeline, and clears the buffer of
+        its output stream.
         """
-        try:
-            if isinstance(source := self._source, Unit):
-                source.reset()
-        except AttributeError:
-            pass
-        self._framed = None
-        self._chunks = None
+        if isinstance(source := self.source, Unit):
+            source.reset()
+        self._end_run(self._run)
+        self._buffer = B''
+        self._offset = 0
+        self._reader = None
 
     @property
     def source(self):
@@ -1668,7 +1915,7 @@ class Unit(UnitBase, abstract=True):
         if isinstance(stream, self.__class__.__class__):
             stream = stream()
         if not isinstance(stream, self.__class__):
-            if not isstream(stream):
+            if not isinstance(stream, ChunkFeed) and not isstream(stream):
                 raise TypeError(F'Cannot connect object of type {type(stream).__name__} to unit.')
             self.reset()
         self._source = cast(BinaryIO, stream)
@@ -1701,12 +1948,6 @@ class Unit(UnitBase, abstract=True):
 
     def __pos__(self):
         return self
-
-    def __del__(self):
-        try:
-            self.close()
-        except Exception:
-            pass
 
     def __neg__(self) -> Unit:
         pipeline = []
@@ -1745,32 +1986,33 @@ class Unit(UnitBase, abstract=True):
         if isinstance(stream, Chunk):
             stream = [stream]
         if isinstance(stream, (list, tuple)):
-            def tochunk(t: str | buf | Chunk):
-                if isinstance(t, str):
-                    t = t.encode(self.codec)
-                return t if isinstance(t, Chunk) else Chunk(t)
-            chunks = [tochunk(t) for t in stream]
-            scopes = {t.scope for t in chunks}
-            stream = MemoryFile()
+            codec = self.codec
+            scopes = {t.scope if isinstance(t, Chunk) else 0 for t in stream}
             if len(scopes) != 1:
                 raise ValueError('Inconsistent scopes in iterable input')
-            chunk_scope = next(iter(scopes))
+            chunk_scope, = scopes
             frame_scope = max(chunk_scope, 1)
             delta = frame_scope - chunk_scope
-            stream.write(generate_frame_header(frame_scope))
-            for chunk in chunks:
-                stream.write(chunk.pack(delta))
+            plain = Chunk()
+
+            def taken(t: str | buf | Chunk):
+                if isinstance(t, str):
+                    t = t.encode(codec)
+                return t, (t if isinstance(t, Chunk) else plain)._moved(delta, 0)
+
+            header = generate_frame_header(frame_scope)
+            items = [taken(t) for t in stream]
+            stream = ChunkFeed(itertools.chain((header,), itertools.starmap(Chunk._received, items)))
             if delta:
                 self.args.nesting -= delta
-            stream.seekset(0)
         elif not isstream(stream):
             if isinstance(stream, str):
                 stream = stream.encode(self.codec)
             if isinstance(stream, int):
                 if stream > 0:
-                    stream = os.fdopen(stream, 'rb')
+                    stream = os.fdopen(stream, 'rb', closefd=False)
                 else:
-                    stream = open(os.devnull, 'rb')
+                    stream = MemoryFile(B'')
             else:
                 stream = MemoryFile(cast(buf, stream))
         self.reset()
@@ -1789,6 +2031,10 @@ class Unit(UnitBase, abstract=True):
 
     @overload
     def __or__(self, stream: type[bytearray]) -> bytearray:
+        ...
+
+    @overload
+    def __or__(self, stream: type[bytes]) -> bytes:
         ...
 
     @overload
@@ -1821,6 +2067,10 @@ class Unit(UnitBase, abstract=True):
 
     @overload
     def __or__(self, stream: list[type[_T]]) -> list[_T]:
+        ...
+
+    @overload
+    def __or__(self, stream: list[EllipsisType]) -> list[Chunk]:
         ...
 
     @overload
@@ -1875,7 +2125,7 @@ class Unit(UnitBase, abstract=True):
             if not stream:
                 stream = open(os.devnull, 'wb')
             else:
-                stream = os.fdopen(stream, 'wb')
+                stream = os.fdopen(stream, 'wb', closefd=False)
             with stream:
                 _ = self | stream
             return
@@ -1893,13 +2143,10 @@ class Unit(UnitBase, abstract=True):
             if converter is None:
                 stream.extend(self)
                 return stream
-            return [converter(chunk) for chunk in self]
+            return list(map(converter, self._collected()))
         elif isinstance(stream, set):
             if converter := get_converter(stream):
-                def converted():
-                    for chunk in self:
-                        yield converter(chunk)
-                return set(converted())
+                return set(map(converter, self._collected()))
             else:
                 stream.update(self)
                 return stream
@@ -1913,7 +2160,7 @@ class Unit(UnitBase, abstract=True):
             elif isinstance(convert, set):
                 deconflict = set
                 convert = one(convert)
-            for item in self:
+            for item in self._collected():
                 assert isinstance(item, Chunk)
                 value = item.meta.get(key)
                 if convert is not ...:
@@ -1947,87 +2194,135 @@ class Unit(UnitBase, abstract=True):
         if not stream.writable():
             raise ValueError('target stream is not writable')
 
-        self._target = stream
+        self._terminal = is_terminal(stream)
+        try:
+            if self._terminal:
+                self._write_to_terminal(stream)
+            else:
+                self._write_to_stream(stream)
+        finally:
+            self._terminal = False
+        return stream
 
-        def cname(x: str):
-            return x.lower().replace('-', '')
+    def _collected(self) -> Generator[bytes | bytearray | Chunk]:
+        """
+        Generates the outputs of this unit for a conversion into a collection. A conversion that
+        fails before the end drops this generator, and closing it closes the unit that it delegates
+        to: Nothing else reads its outputs.
+        """
+        yield from self
 
-        recode = self.isatty() and cname(self.codec) != cname(sys.stdout.encoding)
-        chunk = None
+    def _log_send_failure(self, error: OSError):
+        if isinstance(error, BrokenPipeError) or error.errno != 32:
+            # This happens when the next unit does not consume everything we send. For example, this
+            # can happen when a large file is read in chunks and the pick unit is used to select
+            # only the first few of these.
+            self.log_debug(F'cannot send to next unit: {error}')
 
-        for last, chunk in lookahead(self):
-            if (
-                not last
-                and self._framehandler.framebreak
-                and not chunk.endswith(B'\n')
-            ):
-                if not isinstance(chunk, bytearray):
-                    chunk = bytearray(chunk)
-                chunk.extend(B'\n')
-            if recode:
-                try:
-                    import codecs
-                    chunk = codecs.encode(codecs.decode(
-                        chunk, self.codec, errors='backslashreplace'), sys.stdout.encoding)
-                except Exception:
-                    pass
+    def _pieces_to_write(self, terminal: bool = False) -> Iterator[bytes | bytearray]:
+        """
+        Returns the pieces that this unit writes to a stream. When this unit was already read as a
+        stream, they continue that stream from its read position.
+        """
+        if self._reader is not None:
+            return iter(self.read1, B'')
+        return self._stream(self.console, terminal)
+
+    def _write_to_stream(self, stream: BinaryIO):
+        for piece in self._pieces_to_write():
             try:
-                stream.write(chunk)
+                stream.write(piece)
                 stream.flush()
             except AttributeError:
                 pass
             except (BrokenPipeError, OSError) as E:
-                if isinstance(E, BrokenPipeError) or E.errno != 32:
-                    # This happens when the next unit does not consume everything
-                    # we send. For example, this can happen when a large file is
-                    # read in chunks and the pick unit is used to select only the
-                    # first few of these.
-                    self.log_debug(F'cannot send to next unit: {E}')
+                self._log_send_failure(E)
                 break
+            del piece
+
+    def _write_to_terminal(self, stream: BinaryIO):
+        codec = self.codec
+        recoding: str | None = getattr(sys.stdout, 'encoding', None)
+        if recoding is not None and _same_codec(codec, recoding):
+            recoding = None
+        linebreak = True
+
+        for piece in self._pieces_to_write(True):
+            if not piece:
+                continue
+            linebreak = piece.endswith(B'\n')
+            try:
+                if recoding is None:
+                    stream.write(piece)
+                else:
+                    _write_recoded(stream, piece, codec, recoding)
+                stream.flush()
+            except AttributeError:
+                pass
+            except (BrokenPipeError, OSError) as E:
+                self._log_send_failure(E)
+                break
+            del piece
 
         try:
-            if self.isatty() and chunk and not chunk.endswith(B'\n'):
+            if not linebreak:
                 stream.write(B'\n')
                 stream.flush()
-        except (NameError, AttributeError):
+        except AttributeError:
             pass
 
-        return stream
+    def read(self, bytecount: int | None = -1) -> bytearray:
+        """
+        Reads bytes from the output stream of this unit; without a size, it reads to the end. The
+        stream contains the bytes that the unit writes on the command line; see `Unit.read1`.
+        """
+        if bytecount is None or bytecount < 0:
+            bytecount = -1
+        elif bytecount == 0:
+            return bytearray()
+        data = bytearray()
+        while (rest := bytecount - len(data)) != 0 and (piece := self.read1(rest)):
+            data.extend(piece)
+            del piece
+        return data
 
-    def read(self, bytecount: int = -1) -> bytes:
+    def _load(self) -> bool:
         """
-        Reads bytes from the output stream of this unit.
+        Makes sure that the unread rest of the output stream begins in the buffer, unless the
+        stream has ended.
         """
-        if not bytecount or bytecount < 0:
-            return self.read1()
-        bfr = bytearray(bytecount)
-        offset = 0
-        while offset < bytecount:
-            tmp = self.read1(bytecount - offset)
-            if not tmp:
-                del bfr[offset:]
-                break
-            end = offset + len(tmp)
-            bfr[offset:end] = tmp
-            offset = end
-        return bytes(bfr)
+        if self._offset < len(self._buffer):
+            return True
+        if (reader := self._reader) is None:
+            self._reader = reader = self._stream(True)
+        self._buffer = B''
+        self._offset = 0
+        for piece in reader:
+            if piece:
+                self._buffer = piece
+                return True
+        return False
 
-    def read1(self, bytecount: int = -1) -> bytes:
+    def read1(self, bytecount: int | None = -1) -> bytes | bytearray:
         """
-        Performs a single read against the output stream of this unit and returns
-        the result.
+        Performs a single read against the output stream of this unit and returns the result. The
+        stream contains the bytes that the unit writes on the command line: its outputs, separated
+        by line breaks where the command line separates them, or the serialized frame.
         """
-        try:
-            out = self._buffer or next(self.output())
-            if isinstance(out, Chunk) and out.scope > 0:
-                out = out.pack()
-            if bytecount and bytecount > 0:
-                out, self._buffer = out[:bytecount], out[bytecount:]
-            elif self._buffer:
-                self._buffer = B''
-            return out
-        except StopIteration:
+        if bytecount == 0 or not self._load():
             return B''
+        buffer = self._buffer
+        start = self._offset
+        end = len(buffer)
+        if bytecount is not None and bytecount > 0:
+            end = min(end, start + bytecount)
+        self._offset = end
+        if start == 0 and end == len(buffer):
+            self._buffer = B''
+            self._offset = 0
+            return buffer
+        with memoryview(buffer) as view:
+            return bytes(view[start:end])
 
     def act(self, data: Chunk) -> Generator[Chunk]:
         """
@@ -2038,10 +2333,8 @@ class Unit(UnitBase, abstract=True):
         the `--iff` switch which will prevent processing entirely when the input data
         does not match the unit's expected format.
         """
-        cls = self.__class__
         iff = self.args.iff
         lvl = self.log_level
-        ctr = 0
 
         if iff and not self.handles(data):
             if iff < 2:
@@ -2052,29 +2345,52 @@ class Unit(UnitBase, abstract=True):
             data = data
 
         self.log_level = lvl
-        cls.logger_locked = True
+        cls = self.__class__
+        logger = cls.logger
+        level = logger.level
+        count = 0
+        outbox = []
 
         try:
-            if self.args.reverse:
-                it = self.reverse(data)
-            else:
-                it = self.process(data)
-            assert it is not None
-            if isinstance(it, (bytes, bytearray, memoryview)):
-                it = (it,)
-            for out in it:
-                ctr += 1
-                assert isinstance(out, Chunk)
-                yield out
+            cls._lock_logger()
+            try:
+                if self.args.reverse:
+                    it = self.reverse(data)
+                else:
+                    it = self.process(data)
+                assert it is not None
+                if isinstance(it, (bytes, bytearray, memoryview)):
+                    outbox.append(it)
+                    it = iter(())
+                else:
+                    it = iter(it)
+            finally:
+                cls._unlock_logger()
+            while True:
+                if not outbox:
+                    if logger.level != level:
+                        logger.setLevel(level)
+                    cls._lock_logger()
+                    try:
+                        outbox.append(next(it))
+                    except StopIteration:
+                        break
+                    finally:
+                        cls._unlock_logger()
+                count += 1
+                assert isinstance(outbox[-1], Chunk)
+                yield outbox.pop()
+                collect_when_grown()
+            collect_when_grown()
         except BaseException:
-            if ctr > 0 or not self.args.trypass:
+            if count > 0 or not self.args.trypass:
                 raise
-            yield data
-        finally:
-            cls.logger_locked = False
+        else:
+            return
+        yield data
 
     def __call__(self, data: buf | Chunk | None = None) -> buf:
-        with MemoryFile(data) if data else open(os.devnull, 'rb') as stdin:
+        with MemoryFile(data or B'') as stdin:
             with MemoryFile() as stdout:
                 return (stdin | self | stdout).getvalue()
         return B''
@@ -2097,11 +2413,29 @@ class Unit(UnitBase, abstract=True):
         """
         if ___br___data is None:
             return None
-        elif not isinstance(___br___data, Chunk):
+        check_variable_names_of_unit(meta)
+        if not isinstance(___br___data, Chunk):
             ___br___data = Chunk(___br___data, meta=meta)
         elif meta:
             ___br___data.meta.update(meta)
         return ___br___data
+
+    @classmethod
+    def carved(cls, data: Chunk | buf, start: int, end: int, **meta) -> Chunk:
+        """
+        Label a chunk that was extracted from a region of the input with the bounds of that region.
+        Units that carve data out of a larger buffer use this to report where an item was found;
+        `end` is the position just after the region in the input, which is not the same as
+        `start + len(data)` for a unit that transcodes what it carves.
+        """
+        return cls.labelled(
+            data,
+            **{
+                MV.START: start,
+                MV.END: end,
+            },
+            **meta
+        )
 
     def process(self, data: Chunk, /) -> buf | None | Generator[buf]:
         return data
@@ -2163,10 +2497,7 @@ class Unit(UnitBase, abstract=True):
         """
         Checks whether the unit's output is currently connected to a terminal type IO stream.
         """
-        try:
-            return (t := self._target) is not None and t.isatty()
-        except AttributeError:
-            return False
+        return self._terminal
 
     @classmethod
     def _output(cls, *messages, clip=False) -> str:
@@ -2177,12 +2508,12 @@ class Unit(UnitBase, abstract=True):
                 message = exception_to_string(message)
             if isinstance(message, str):
                 return message
-            if isbuffer(message):
+            if b := asbuffer(message):
                 import codecs
-                assert isinstance(message, (bytes, bytearray, memoryview))
-                pmsg: str = codecs.decode(message, cls.codec, 'surrogateescape')
+                pmsg: str = codecs.decode(b, cls.codec, 'surrogateescape')
                 if not pmsg.isprintable():
-                    pmsg = message.hex().upper()
+                    import binascii
+                    pmsg = binascii.hexlify(b).decode('ascii')
                 return pmsg
             else:
                 import pprint
@@ -2325,18 +2656,21 @@ class Unit(UnitBase, abstract=True):
     #         the above __dict__ update unnecessary.
     #   clone._buffer = self._buffer
     #   clone._source = self._source
-        clone._target = None
-        clone._framed = None
-        clone._chunks = None
+        clone._terminal = False
+        clone._run = None
+        clone._buffer = B''
+        clone._offset = 0
+        clone._reader = None
         clone.args = copy.copy(self.args)
         return clone
 
     def __init__(self, **keywords):
         self._buffer = B''
+        self._offset = 0
+        self._reader = None
         self._source = None
-        self._target = None
-        self._framed = None
-        self._chunks = None
+        self._terminal = False
+        self._run = None
         self.console = False
 
         for key, value in dict(
@@ -2401,7 +2735,7 @@ class Unit(UnitBase, abstract=True):
                 yappi = _yappi
 
         if stream is None:
-            stream = open(os.devnull, 'rb') if sys.stdin.isatty() else sys.stdin.buffer
+            stream = open(os.devnull, 'rb') if is_terminal(sys.stdin) else sys.stdin.buffer
 
         with stream as source:
             try:

@@ -13,21 +13,21 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "grpcio==1.80.0",
-  "grpcio-tools==1.80.0",
   "requests==2.34.2",
   "pipreqs-fivetran==1.1.2",
   "prompt-toolkit==3.0.53",
   "pathspec==1.1.1",
+  "cryptography==49.0.0",
   "tqdm==4.70.0",
-  "cryptography==49.0.0"
+  "fivetran-connector-sdk-core>=0.1,<1",  # runs the connector locally; the latest of this major version (a new major version breaks this package). While it is 0.x, every release must stay compatible with this package
+  "typing-extensions>=4.7"
 ]
 
 [project.scripts]
-fivetran = "fivetran_connector_sdk.fivetran_shim:main"
+fivetran = "fivetran_connector_sdk_cli.fivetran_shim:main"
 
 [project.entry-points."fivetran_cli.plugins"]
-connector_sdk = "fivetran_connector_sdk.plugin:PLUGIN"
+connector_sdk = "fivetran_connector_sdk_cli.plugin:PLUGIN"
 
 [project.urls]
 Homepage = "https://fivetran.com/docs/connectors/connector-sdk"
@@ -38,38 +38,18 @@ Changelog = "https://fivetran.com/docs/connectors/connector-sdk/changelog"
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.hatch.build.targets.sdist]
-ignore-vcs = true
-exclude = [
-  "examples/",
-  "scripts/",
-  "tests/",
-  "fivetran_sdk/",
-]
-
-# The wheel ships the gRPC-based SDK (production) together with the part it shares (common), which is why this
-# file sits above both.
+# The open-source package: the in-process SDK (`fivetran_connector_sdk_cli`; its runner is the separate fivetran-connector-sdk-core), the code it shares with production
+# (`fivetran_connector_sdk_common`), the shared telemetry (`fivetran_cli_telemetry`), and a module that gives the SDK its public name (`fivetran_connector_sdk`). It has no gRPC
+# or protobuf. `build_package.sh` copies these directories and `../README.md` next to this file and builds there, so the
+# package needs nothing outside its own directory. The wheel that runs on the platform (with gRPC) is built from
+# `../production` and is not published to PyPI.
 [tool.setuptools]
 packages = [
   "fivetran_connector_sdk",
-  "fivetran_connector_sdk.protos",
+  "fivetran_connector_sdk_cli",
   "fivetran_connector_sdk_common",
+  "fivetran_cli_telemetry",
 ]
-
-[tool.setuptools.package-dir]
-fivetran_connector_sdk = "production/src/fivetran_connector_sdk"
-fivetran_connector_sdk_common = "common/src/fivetran_connector_sdk_common"
 
 [tool.setuptools.dynamic]
 version = {attr = "fivetran_connector_sdk_common.__version__"}
-
-[tool.hatch.build.targets.wheel]
-artifacts = [
-  "src/fivetran_customer_sdk/protos/__init__.py",
-  "src/fivetran_customer_sdk/protos/common_pb2_grpc.py",
-  "src/fivetran_customer_sdk/protos/common_pb2.py",
-  "src/fivetran_customer_sdk/protos/common_pb2.pyi",
-  "src/fivetran_customer_sdk/protos/connector_sdk_pb2_grpc.py",
-  "src/fivetran_customer_sdk/protos/connector_sdk_pb2.py",
-  "src/fivetran_customer_sdk/protos/connector_sdk_pb2.pyi",
-]

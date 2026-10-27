@@ -53,7 +53,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-from lib_log_rich.domain.enums import QueuePolicy
+from lib_log_rich.domain.enums import DiagnosticEvent, QueuePolicy
 from lib_log_rich.domain.events import LogEvent
 
 if TYPE_CHECKING:
@@ -134,7 +134,7 @@ class QueueWorkerState:
         if effective_timeout == 0.0:
             return
         self._emit_diagnostic(
-            "queue_shutdown_timeout",
+            DiagnosticEvent.QUEUE_SHUTDOWN_TIMEOUT,
             {"timeout": effective_timeout, "drain_completed": drain_completed},
         )
         raise RuntimeError("Queue worker failed to stop within the allotted timeout")
@@ -250,12 +250,6 @@ class QueueWorkerState:
 
     # Internal helpers -----------------------------------------------------
 
-    def _should_stop(self, item: LogEvent | None) -> bool:
-        """Check if worker should stop based on item and stop event."""
-        if item is None and self._stop_event.is_set():
-            return True
-        return self._stop_event.is_set() and self._queue.empty()
-
     def _process_worker_item(self, item: LogEvent) -> None:
         """Process a single log event through the worker."""
         if self._worker is None:
@@ -287,6 +281,10 @@ class QueueWorkerState:
         return True
 
     def _run(self) -> None:
+        # The stop signal (None) is the only exit. stop() raises its flag before it
+        # queues the signal, so "flag up, queue empty" also describes the moment in
+        # between; leaving then strands the signal, and stop() with no timeout
+        # waits on its task_done forever. Every stop path queues the signal.
         while True:
             item = self._queue.get()
             try:
@@ -297,9 +295,6 @@ class QueueWorkerState:
                 self._queue.task_done()
                 if self._queue.unfinished_tasks == 0:
                     self._drain_event.set()
-
-            if self._should_stop(item):
-                break
 
     def _handle_drop(self, event: LogEvent) -> None:
         payload = {
@@ -315,7 +310,7 @@ class QueueWorkerState:
             except Exception as exc:
                 LOGGER.error("Queue drop handler raised an exception; continuing", exc_info=exc)
                 self._emit_diagnostic(
-                    "queue_drop_callback_error",
+                    DiagnosticEvent.QUEUE_DROP_CALLBACK_ERROR,
                     {
                         **payload,
                         "exception": repr(exc),
@@ -328,28 +323,29 @@ class QueueWorkerState:
                 payload.get("logger"),
                 payload.get("level"),
             )
-        self._emit_diagnostic("queue_dropped", payload)
+        self._emit_diagnostic(DiagnosticEvent.QUEUE_DROPPED, payload)
 
     def _report_worker_exception(self, event: LogEvent, exc: Exception) -> None:
         LOGGER.error("Queue worker raised an exception; continuing", exc_info=exc)
         self._emit_diagnostic(
-            "queue_worker_error",
+            DiagnosticEvent.QUEUE_WORKER_ERROR,
             {"event_id": getattr(event, "event_id", None), "logger": getattr(event, "logger_name", None), "exception": repr(exc)},
         )
 
-    def _emit_diagnostic(self, name: str, payload: DiagnosticPayload) -> None:
+    def _emit_diagnostic(self, event: DiagnosticEvent, payload: DiagnosticPayload) -> None:
         if self._diagnostic is None:
             return
         try:
-            self._diagnostic(name, payload)
+            # The caller's hook receives the plain value string, as DIAGNOSTIC.md documents.
+            self._diagnostic(event.value, payload)
         except Exception as diagnostic_exc:
-            LOGGER.error("Queue diagnostic hook raised while reporting %s", name, exc_info=diagnostic_exc)
+            LOGGER.error("Queue diagnostic hook raised while reporting %s", event.value, exc_info=diagnostic_exc)
 
     def _note_degraded_drop_mode(self) -> None:
         if self._degraded_drop_mode:
             return
         self._degraded_drop_mode = True
-        self._emit_diagnostic("queue_degraded_drop_mode", {"reason": "worker_failed"})
+        self._emit_diagnostic(DiagnosticEvent.QUEUE_DEGRADED_DROP_MODE, {"reason": "worker_failed"})
 
     def _record_worker_success(self) -> None:
         if not self._worker_failed:
@@ -432,9 +428,9 @@ class QueueWorkerState:
         """Handle a dropped event by invoking callbacks and diagnostics."""
         self._handle_drop(event)
 
-    def emit_diagnostic(self, name: str, payload: DiagnosticPayload) -> None:
+    def emit_diagnostic(self, event: DiagnosticEvent, payload: DiagnosticPayload) -> None:
         """Emit a diagnostic event to the configured callback."""
-        self._emit_diagnostic(name, payload)
+        self._emit_diagnostic(event, payload)
 
     def note_degraded_drop_mode(self) -> None:
         """Mark the queue as operating in degraded drop mode."""
@@ -462,6 +458,14 @@ class QueueWorkerState:
     def enqueue_stop_signal(self, deadline: float | None) -> None:
         """Enqueue a stop signal, dropping items if needed to make room."""
         self._enqueue_stop_signal(deadline)
+
+    def wait_for_stop_request(self, timeout: float | None = None) -> bool:
+        """Block until stop() has raised its stop flag; return False on timeout.
+
+        stop() records whether pending items are dropped before it raises the
+        flag, so once this returns True the worker already sees that choice.
+        """
+        return self._stop_event.wait(timeout)
 
 
 __all__ = ["QueueWorkerState"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unearth
-Version: 0.18.3
+Version: 0.19.0
 Summary: A utility to fetch and download python packages
 Author-Email: Frost Ming <me@frostming.com>
 License-Expression: MIT
@@ -8,7 +8,6 @@ License-File: LICENSE
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -18,9 +17,9 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Project-URL: Homepage, https://github.com/frostming/unearth
 Project-URL: Documentation, https://unearth.readthedocs.io
 Project-URL: Changelog, https://github.com/frostming/unearth/releases
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: packaging>=20
-Requires-Dist: httpx<1,>=0.27.0
+Requires-Dist: httpx2<3,>=2.0
 Provides-Extra: keyring
 Requires-Dist: keyring; extra == "keyring"
 Provides-Extra: legacy
@@ -56,7 +55,7 @@ Unearth serves as a stable replacement for pip's `PackageFinder` API. It will fo
 
 ## Requirements
 
-unearth requires Python >=3.8
+unearth requires Python >=3.10
 
 ## Installation
 

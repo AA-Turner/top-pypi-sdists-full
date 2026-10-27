@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: igittigitt
-Version: 2.3.0
+Version: 2.3.1
 Summary: A spec-compliant .gitignore parser and path filter, 100% git-compatible, with an include/whitelist mode and a streaming, memory-bounded CLI
 Project-URL: Homepage, https://github.com/bitranox/igittigitt
 Project-URL: Repository, https://github.com/bitranox/igittigitt.git

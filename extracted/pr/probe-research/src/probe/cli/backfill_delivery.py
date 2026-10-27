@@ -90,8 +90,8 @@ def enqueue(coverage: Coverage, client, folder: Path, *, paths=None) -> tuple[in
             previous = client.delivery_state(correlation)
             common = {"correlation": correlation, "anchor": Anchor.PROJECT,
                       "anchor_id": row["project_id"], "name": intent["artifact_name"],
-                      # No manifest "notes": it is the project writer's input,
-                      # and files no longer carry notes.
+                      # No manifest "notes": files carry none. The draft
+                      # reads them from coverage (`backfill_reconstruction._note`).
                       "content_type": mimetypes.guess_type(row["path"])[0],
                       "meta": {"backfill": {"schema": "2", "source_id": coverage.source_id,
                                              "relative_path": row["path"],
@@ -179,7 +179,23 @@ def lines(coverage: Coverage, *, incomplete_walk: bool = False) -> list[str]:
             "Re-run with `--review-excluded` to classify them again."
         )
     if report["vanished"]:
-        result.append(f"{len(report['vanished']):,} previously observed files are absent; any existing remote records are retained.")
+        # Deleted files a walk rule leaves out anyway (a removed agent
+        # worktree) are absent too, but hold nothing: said, so the number
+        # reads for what it is.
+        out_by_rule = len(coverage.skipped_rules(on_disk=False))
+        result.append(
+            f"{len(report['vanished']):,} previously observed files are absent"
+            + (f" ({out_by_rule:,} of them in hidden folders or worktree copies the import skips, "
+               "so nothing waits for them)" if out_by_rule else "")
+            + "; any existing remote records are retained."
+        )
+    if report["skipped"]:
+        # Not absent: still on disk, and now outside the walk by its rules
+        # (`SkipRule`), so nothing waits for them to come back.
+        result.append(
+            f"{len(report['skipped']):,} previously observed files are now skipped "
+            "(hidden folders and worktree copies); anything uploaded from them stays on the server."
+        )
     if unfinished or incomplete_walk:
         result.append("Backfill is partial. Re-run to recover delivery and review remaining work.")
     elif report["references"]:

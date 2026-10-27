@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dulwich
-Version: 1.2.19
+Version: 1.2.20
 Summary: Python Git Library
 Author-email: Jelmer Vernooij <jelmer@jelmer.uk>
 License-Expression: Apache-2.0 OR GPL-2.0-or-later
@@ -32,6 +32,8 @@ Provides-Extra: https
 Requires-Dist: urllib3>=2.2.2; extra == "https"
 Provides-Extra: pgp
 Requires-Dist: gpg; extra == "pgp"
+Provides-Extra: sequoia
+Requires-Dist: pysequoia; extra == "sequoia"
 Provides-Extra: paramiko
 Requires-Dist: paramiko; extra == "paramiko"
 Provides-Extra: colordiff

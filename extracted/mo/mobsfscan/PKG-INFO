@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mobsfscan
-Version: 1.0.1
+Version: 1.1.0
 Summary: mobsfscan is a static analysis tool that can find insecure code patterns in your Android and iOS source code. Supports Java, Kotlin, Swift, and Objective C Code.
 Home-page: https://github.com/MobSF/mobsfscan
 Author: Ajin Abraham
@@ -16,13 +16,13 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: colorama>=0.4.5
-Requires-Dist: libsast>=3.1.8
+Requires-Dist: colorama>=0.4.6
+Requires-Dist: libsast>=3.1.9
 Requires-Dist: semgrep==1.172.0
 Requires-Dist: sarif-om>=1.0.4
 Requires-Dist: jschema-to-python>=1.2.3
-Requires-Dist: tabulate>=0.8.10
-Requires-Dist: xmltodict>=0.13.0
+Requires-Dist: tabulate>=0.10.0
+Requires-Dist: xmltodict>=1.0.4
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

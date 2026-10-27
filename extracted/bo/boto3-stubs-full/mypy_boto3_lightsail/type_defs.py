@@ -101,6 +101,8 @@ from .literals import (
     TierNameType,
     TreatMissingDataType,
     ViewerMinimumTlsProtocolVersionEnumType,
+    WafInspectionLevelEnumType,
+    WafPayloadTypeEnumType,
 )
 
 if sys.version_info >= (3, 12):
@@ -581,6 +583,20 @@ __all__ = (
     "UpdateRelationalDatabaseParametersResultTypeDef",
     "UpdateRelationalDatabaseRequestTypeDef",
     "UpdateRelationalDatabaseResultTypeDef",
+    "WafAcfpConfigOutputTypeDef",
+    "WafAcfpConfigTypeDef",
+    "WafAcfpConfigUnionTypeDef",
+    "WafAtpConfigOutputTypeDef",
+    "WafAtpConfigTypeDef",
+    "WafAtpConfigUnionTypeDef",
+    "WafBotControlConfigTypeDef",
+    "WafConfigTypeDef",
+    "WafResponseInspectionOutputTypeDef",
+    "WafResponseInspectionTypeDef",
+    "WafResponseInspectionUnionTypeDef",
+    "WafRuleOutputTypeDef",
+    "WafRuleTypeDef",
+    "WafRuleUnionTypeDef",
 )
 
 
@@ -1703,6 +1719,20 @@ class UpdateRelationalDatabaseRequestTypeDef(TypedDict):
     relationalDatabaseBlueprintId: NotRequired[str]
 
 
+class WafResponseInspectionOutputTypeDef(TypedDict):
+    successCodes: NotRequired[list[int]]
+    failureCodes: NotRequired[list[int]]
+
+
+class WafBotControlConfigTypeDef(TypedDict):
+    inspectionLevel: NotRequired[WafInspectionLevelEnumType]
+
+
+class WafResponseInspectionTypeDef(TypedDict):
+    successCodes: NotRequired[Sequence[int]]
+    failureCodes: NotRequired[Sequence[int]]
+
+
 class AccessKeyTypeDef(TypedDict):
     accessKeyId: NotRequired[str]
     secretAccessKey: NotRequired[str]
@@ -2560,6 +2590,26 @@ class RelationalDatabaseTypeDef(TypedDict):
     caCertificateIdentifier: NotRequired[str]
 
 
+class WafAcfpConfigOutputTypeDef(TypedDict):
+    payloadType: NotRequired[WafPayloadTypeEnumType]
+    creationPath: NotRequired[str]
+    registrationPagePath: NotRequired[str]
+    responseInspection: NotRequired[WafResponseInspectionOutputTypeDef]
+
+
+class WafAtpConfigOutputTypeDef(TypedDict):
+    loginPath: NotRequired[str]
+    payloadType: NotRequired[WafPayloadTypeEnumType]
+    usernameField: NotRequired[str]
+    passwordField: NotRequired[str]
+    responseInspection: NotRequired[WafResponseInspectionOutputTypeDef]
+
+
+WafResponseInspectionUnionTypeDef = Union[
+    WafResponseInspectionTypeDef, WafResponseInspectionOutputTypeDef
+]
+
+
 class GetBucketAccessKeysResultTypeDef(TypedDict):
     accessKeys: list[AccessKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3185,34 +3235,6 @@ class BucketTypeDef(TypedDict):
 
 
 BucketCorsConfigUnionTypeDef = Union[BucketCorsConfigTypeDef, BucketCorsConfigOutputTypeDef]
-
-
-class LightsailDistributionTypeDef(TypedDict):
-    name: NotRequired[str]
-    arn: NotRequired[str]
-    supportCode: NotRequired[str]
-    createdAt: NotRequired[datetime]
-    location: NotRequired[ResourceLocationTypeDef]
-    resourceType: NotRequired[ResourceTypeType]
-    alternativeDomainNames: NotRequired[list[str]]
-    status: NotRequired[str]
-    isEnabled: NotRequired[bool]
-    domainName: NotRequired[str]
-    bundleId: NotRequired[str]
-    certificateName: NotRequired[str]
-    origin: NotRequired[OriginTypeDef]
-    originPublicDNS: NotRequired[str]
-    defaultCacheBehavior: NotRequired[CacheBehaviorTypeDef]
-    cacheBehaviorSettings: NotRequired[CacheSettingsOutputTypeDef]
-    cacheBehaviors: NotRequired[list[CacheBehaviorPerPathTypeDef]]
-    ableToUpdateBundle: NotRequired[bool]
-    ipAddressType: NotRequired[IpAddressTypeType]
-    tags: NotRequired[list[TagTypeDef]]
-    viewerMinimumTlsProtocolVersion: NotRequired[str]
-    defaultRootObject: NotRequired[str]
-    customErrorResponses: NotRequired[list[DistributionCustomErrorResponseTypeDef]]
-
-
 CacheSettingsUnionTypeDef = Union[CacheSettingsTypeDef, CacheSettingsOutputTypeDef]
 
 
@@ -3357,6 +3379,28 @@ class GetRelationalDatabasesResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class WafRuleOutputTypeDef(TypedDict):
+    name: str
+    atpConfig: NotRequired[WafAtpConfigOutputTypeDef]
+    acfpConfig: NotRequired[WafAcfpConfigOutputTypeDef]
+    botControlConfig: NotRequired[WafBotControlConfigTypeDef]
+
+
+class WafAcfpConfigTypeDef(TypedDict):
+    payloadType: NotRequired[WafPayloadTypeEnumType]
+    creationPath: NotRequired[str]
+    registrationPagePath: NotRequired[str]
+    responseInspection: NotRequired[WafResponseInspectionUnionTypeDef]
+
+
+class WafAtpConfigTypeDef(TypedDict):
+    loginPath: NotRequired[str]
+    payloadType: NotRequired[WafPayloadTypeEnumType]
+    usernameField: NotRequired[str]
+    passwordField: NotRequired[str]
+    responseInspection: NotRequired[WafResponseInspectionUnionTypeDef]
+
+
 class GetSetupHistoryResultTypeDef(TypedDict):
     setupHistory: list[SetupHistoryTypeDef]
     nextPageToken: str
@@ -3425,49 +3469,6 @@ class UpdateBucketRequestTypeDef(TypedDict):
     readonlyAccessAccounts: NotRequired[Sequence[str]]
     accessLogConfig: NotRequired[BucketAccessLogConfigTypeDef]
     cors: NotRequired[BucketCorsConfigUnionTypeDef]
-
-
-class CreateDistributionResultTypeDef(TypedDict):
-    distribution: LightsailDistributionTypeDef
-    operation: OperationTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetDistributionsResultTypeDef(TypedDict):
-    distributions: list[LightsailDistributionTypeDef]
-    nextPageToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateDistributionRequestTypeDef(TypedDict):
-    distributionName: str
-    origin: InputOriginTypeDef
-    defaultCacheBehavior: CacheBehaviorTypeDef
-    bundleId: str
-    cacheBehaviorSettings: NotRequired[CacheSettingsUnionTypeDef]
-    cacheBehaviors: NotRequired[Sequence[CacheBehaviorPerPathTypeDef]]
-    ipAddressType: NotRequired[IpAddressTypeType]
-    tags: NotRequired[Sequence[TagTypeDef]]
-    certificateName: NotRequired[str]
-    viewerMinimumTlsProtocolVersion: NotRequired[ViewerMinimumTlsProtocolVersionEnumType]
-    enablePrivateOriginAccess: NotRequired[bool]
-    defaultRootObject: NotRequired[str]
-    customErrorResponses: NotRequired[Sequence[DistributionCustomErrorResponseTypeDef]]
-
-
-class UpdateDistributionRequestTypeDef(TypedDict):
-    distributionName: str
-    origin: NotRequired[InputOriginTypeDef]
-    defaultCacheBehavior: NotRequired[CacheBehaviorTypeDef]
-    cacheBehaviorSettings: NotRequired[CacheSettingsUnionTypeDef]
-    cacheBehaviors: NotRequired[Sequence[CacheBehaviorPerPathTypeDef]]
-    isEnabled: NotRequired[bool]
-    viewerMinimumTlsProtocolVersion: NotRequired[ViewerMinimumTlsProtocolVersionEnumType]
-    certificateName: NotRequired[str]
-    useDefaultCertificate: NotRequired[bool]
-    enablePrivateOriginAccess: NotRequired[bool]
-    defaultRootObject: NotRequired[str]
-    customErrorResponses: NotRequired[Sequence[DistributionCustomErrorResponseTypeDef]]
 
 
 class ContainerServiceTypeDef(TypedDict):
@@ -3566,6 +3567,15 @@ class GetDomainsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class WafConfigTypeDef(TypedDict):
+    isWafEnabled: NotRequired[bool]
+    wafRules: NotRequired[list[WafRuleOutputTypeDef]]
+
+
+WafAcfpConfigUnionTypeDef = Union[WafAcfpConfigTypeDef, WafAcfpConfigOutputTypeDef]
+WafAtpConfigUnionTypeDef = Union[WafAtpConfigTypeDef, WafAtpConfigOutputTypeDef]
+
+
 class GetInstanceResultTypeDef(TypedDict):
     instance: InstanceTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3616,6 +3626,40 @@ class GetCostEstimateResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class LightsailDistributionTypeDef(TypedDict):
+    name: NotRequired[str]
+    arn: NotRequired[str]
+    supportCode: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    location: NotRequired[ResourceLocationTypeDef]
+    resourceType: NotRequired[ResourceTypeType]
+    alternativeDomainNames: NotRequired[list[str]]
+    status: NotRequired[str]
+    isEnabled: NotRequired[bool]
+    domainName: NotRequired[str]
+    bundleId: NotRequired[str]
+    certificateName: NotRequired[str]
+    origin: NotRequired[OriginTypeDef]
+    originPublicDNS: NotRequired[str]
+    defaultCacheBehavior: NotRequired[CacheBehaviorTypeDef]
+    cacheBehaviorSettings: NotRequired[CacheSettingsOutputTypeDef]
+    cacheBehaviors: NotRequired[list[CacheBehaviorPerPathTypeDef]]
+    ableToUpdateBundle: NotRequired[bool]
+    ipAddressType: NotRequired[IpAddressTypeType]
+    tags: NotRequired[list[TagTypeDef]]
+    viewerMinimumTlsProtocolVersion: NotRequired[str]
+    defaultRootObject: NotRequired[str]
+    customErrorResponses: NotRequired[list[DistributionCustomErrorResponseTypeDef]]
+    waf: NotRequired[WafConfigTypeDef]
+
+
+class WafRuleTypeDef(TypedDict):
+    name: str
+    atpConfig: NotRequired[WafAtpConfigUnionTypeDef]
+    acfpConfig: NotRequired[WafAcfpConfigUnionTypeDef]
+    botControlConfig: NotRequired[WafBotControlConfigTypeDef]
+
+
 class CreateCertificateResultTypeDef(TypedDict):
     certificate: CertificateSummaryTypeDef
     operations: list[OperationTypeDef]
@@ -3626,3 +3670,53 @@ class GetCertificatesResultTypeDef(TypedDict):
     certificates: list[CertificateSummaryTypeDef]
     nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateDistributionResultTypeDef(TypedDict):
+    distribution: LightsailDistributionTypeDef
+    operation: OperationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetDistributionsResultTypeDef(TypedDict):
+    distributions: list[LightsailDistributionTypeDef]
+    nextPageToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+WafRuleUnionTypeDef = Union[WafRuleTypeDef, WafRuleOutputTypeDef]
+
+
+class CreateDistributionRequestTypeDef(TypedDict):
+    distributionName: str
+    origin: InputOriginTypeDef
+    defaultCacheBehavior: CacheBehaviorTypeDef
+    bundleId: str
+    cacheBehaviorSettings: NotRequired[CacheSettingsUnionTypeDef]
+    cacheBehaviors: NotRequired[Sequence[CacheBehaviorPerPathTypeDef]]
+    ipAddressType: NotRequired[IpAddressTypeType]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    certificateName: NotRequired[str]
+    viewerMinimumTlsProtocolVersion: NotRequired[ViewerMinimumTlsProtocolVersionEnumType]
+    enablePrivateOriginAccess: NotRequired[bool]
+    defaultRootObject: NotRequired[str]
+    customErrorResponses: NotRequired[Sequence[DistributionCustomErrorResponseTypeDef]]
+    enableWaf: NotRequired[bool]
+    wafRules: NotRequired[Sequence[WafRuleUnionTypeDef]]
+
+
+class UpdateDistributionRequestTypeDef(TypedDict):
+    distributionName: str
+    origin: NotRequired[InputOriginTypeDef]
+    defaultCacheBehavior: NotRequired[CacheBehaviorTypeDef]
+    cacheBehaviorSettings: NotRequired[CacheSettingsUnionTypeDef]
+    cacheBehaviors: NotRequired[Sequence[CacheBehaviorPerPathTypeDef]]
+    isEnabled: NotRequired[bool]
+    viewerMinimumTlsProtocolVersion: NotRequired[ViewerMinimumTlsProtocolVersionEnumType]
+    certificateName: NotRequired[str]
+    useDefaultCertificate: NotRequired[bool]
+    enablePrivateOriginAccess: NotRequired[bool]
+    defaultRootObject: NotRequired[str]
+    customErrorResponses: NotRequired[Sequence[DistributionCustomErrorResponseTypeDef]]
+    enableWaf: NotRequired[bool]
+    wafRules: NotRequired[Sequence[WafRuleUnionTypeDef]]

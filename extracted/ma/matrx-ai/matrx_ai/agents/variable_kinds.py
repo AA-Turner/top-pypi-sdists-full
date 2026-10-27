@@ -50,8 +50,8 @@ marker is stripped on the way into a prompt (KINDS_EVERYWHERE_PLAN §4.2 door
 1). This module never renders a prompt and never sees a runtime value — it
 converts DECLARATIONS.
 
-Contract + binding model: ``common-docs/systems/architecture/content-ir/FEATURE.md``
-§10d-C; ledger: ``aidream/docs/workflow/KIND_AGENT_INPUT_LEDGER.md``.
+This module describes variables in the field vocabulary; it never names or
+mints a kind (content-ir rule 28 — ``common-docs/systems/architecture/content-ir/FEATURE.md``).
 """
 
 from __future__ import annotations
@@ -792,9 +792,8 @@ def kind_fields_signature(fields: dict[str, dict[str, Any]]) -> str:
     """A stable signature of a field map — two agents whose variable contract
     is genuinely the same shape produce the same string.
 
-    This is what the promote-on-reuse binding model counts (§10d-C): a kind is
-    minted only where a variable contract is REUSED, so the platform never ends
-    up with 500 one-off names for 500 shapes nobody shares.
+    Used to tell when two agents declare the same variable contract. It is
+    never a kind's identity: no slug is ever derived from it (rule 28).
     """
     return json.dumps(
         {name: fields[name] for name in sorted(fields)},

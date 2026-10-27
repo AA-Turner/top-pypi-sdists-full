@@ -382,12 +382,14 @@ fn run_pep723_script() -> Result<()> {
     Checked 4 packages in [TIME]
     ");
 
-    // If the script contains a PEP 723 tag, it can omit the dependencies field.
+    // Omitting dependencies reuses the script environment and retains previously installed packages.
     let test_script = context.temp_dir.child("main.py");
     test_script.write_str(indoc! { r#"
         # /// script
         # requires-python = ">=3.11"
         # ///
+
+        import iniconfig
 
         print("Hello, world!")
        "#
@@ -4664,7 +4666,8 @@ fn run_active_script_environment() -> Result<()> {
         .child("foo")
         .assert(predicate::path::missing());
 
-    // Using `--active` should create the environment
+    // Using `--active` should initialize an empty directory.
+    context.temp_dir.child("foo").create_dir_all()?;
     uv_snapshot!(context.filters(), context.run()
         .arg("--active")
         .arg("--script")
@@ -4683,7 +4686,8 @@ fn run_active_script_environment() -> Result<()> {
     context
         .temp_dir
         .child("foo")
-        .assert(predicate::path::is_dir());
+        .child("pyvenv.cfg")
+        .assert(predicate::path::is_file());
 
     // Requesting a different Python version should invalidate the environment
     uv_snapshot!(context.filters(), context.run()
@@ -4705,6 +4709,32 @@ fn run_active_script_environment() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn run_active_script_environment_without_dependencies() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context.temp_dir.child("main.py").write_str(indoc! { r#"
+        # /// script
+        # requires-python = ">=3.12"
+        # ///
+
+        import sys
+
+        print(sys.prefix)
+        "#
+    })?;
+
+    uv_snapshot!(context.filters(), context.run()
+        .arg("--active")
+        .arg("main.py")
+        .env(EnvVars::VIRTUAL_ENV, "active"), @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    [TEMP_DIR]/active
+    ");
+
+    Ok(())
+}
+
 /// Regression test for <https://github.com/astral-sh/uv/issues/21364>.
 #[test]
 fn run_active_script_environment_non_virtualenv() -> Result<()> {
@@ -4714,7 +4744,6 @@ fn run_active_script_environment_non_virtualenv() -> Result<()> {
     test_script.write_str(indoc! { r#"
         # /// script
         # requires-python = ">=3.12"
-        # dependencies = []
         # ///
 
         print("Hello, world!")
@@ -4726,20 +4755,67 @@ fn run_active_script_environment_non_virtualenv() -> Result<()> {
     active_environment
         .child("important.txt")
         .write_str("important data")?;
+    // A directory named `pyvenv.cfg` does not make this a virtual environment.
+    active_environment.child("pyvenv.cfg").create_dir_all()?;
 
-    context
-        .run()
+    uv_snapshot!(context.filters(), context.run()
         .arg("--active")
         .arg("--script")
         .arg("main.py")
-        .env(EnvVars::VIRTUAL_ENV, "foo")
-        .assert()
-        .success();
+        .env(EnvVars::VIRTUAL_ENV, "foo"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Script environment at `[TEMP_DIR]/foo` cannot be replaced because it is a non-empty directory that is not a virtual environment
+    ");
 
-    active_environment.assert(predicate::path::is_dir());
-    // Silently deleting user data outside a virtual environment is undesirable.
     active_environment
         .child("important.txt")
+        .assert("important data");
+
+    Ok(())
+}
+
+/// A damaged script environment in uv's cache can be replaced even without a virtualenv marker.
+#[test]
+fn run_script_environment_cache_repair() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context.temp_dir.child("main.py").write_str(indoc! { r#"
+        # /// script
+        # requires-python = ">=3.12"
+        # dependencies = []
+        # ///
+
+        import sys
+
+        print(sys.prefix)
+        "#
+    })?;
+
+    let output = uv_snapshot!(context.filters(), context.run().arg("main.py"), @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    [CACHE_DIR]/environments-v2/main-[HASH]
+    ");
+
+    let environment = ChildPath::new(String::from_utf8(output.stdout)?.trim());
+    assert!(environment.path().starts_with(context.cache_dir.path()));
+    fs_err::remove_dir_all(&environment)?;
+    environment.create_dir_all()?;
+    environment
+        .child("stale.txt")
+        .write_str("stale cache data")?;
+
+    uv_snapshot!(context.filters(), context.run().arg("main.py"), @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    [CACHE_DIR]/environments-v2/main-[HASH]
+    ");
+
+    environment
+        .child("pyvenv.cfg")
+        .assert(predicate::path::is_file());
+    environment
+        .child("stale.txt")
         .assert(predicate::path::missing());
 
     Ok(())
@@ -5896,6 +5972,75 @@ fn detect_infinite_recursion() -> Result<()> {
     ");
 
     Ok(())
+}
+
+#[test]
+fn run_recursion_depth() {
+    let context = uv_test::test_context!("3.12");
+
+    // The current depth is allowed at the limit and incremented for the child.
+    uv_snapshot!(
+        context.filters(),
+        context.run()
+            .env(EnvVars::UV_RUN_RECURSION_DEPTH, "5")
+            .env(EnvVars::UV_RUN_MAX_RECURSION_DEPTH, "5")
+            .arg("python")
+            .arg("-c")
+            .arg("import os; print(os.environ['UV_RUN_RECURSION_DEPTH'])"), @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    6
+    "
+    );
+
+    // The next invocation exceeds the limit.
+    uv_snapshot!(
+        context.filters(),
+        context.run()
+            .env(EnvVars::UV_RUN_RECURSION_DEPTH, "6")
+            .env(EnvVars::UV_RUN_MAX_RECURSION_DEPTH, "5")
+            .arg("python"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: `uv run` was recursively invoked 6 times which exceeds the limit of 5
+
+    hint: If you are running a script with `uv run` in the shebang, you may need to include the `--script` flag
+    "
+    );
+}
+
+#[test]
+fn run_recursion_depth_empty() {
+    let context = uv_test::test_context!("3.12");
+
+    uv_snapshot!(
+        context.filters(),
+        context.run()
+            .env(EnvVars::UV_RUN_RECURSION_DEPTH, "")
+            .arg("python")
+            .arg("-c")
+            .arg("import os; print(os.environ['UV_RUN_RECURSION_DEPTH'])"), @"
+    exit_code: 0 (success)
+    ----- stdout -----
+    1
+    "
+    );
+}
+
+#[test]
+fn run_recursion_depth_invalid() {
+    let context = uv_test::test_context_with_versions!(&[]);
+
+    uv_snapshot!(
+        context.filters(),
+        context.run()
+            .env(EnvVars::UV_RUN_RECURSION_DEPTH, "invalid")
+            .arg("python"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Failed to parse environment variable `UV_RUN_RECURSION_DEPTH` with invalid value `invalid`: invalid digit found in string
+    "
+    );
 }
 
 #[test]

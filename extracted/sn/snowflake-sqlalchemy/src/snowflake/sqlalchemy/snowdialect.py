@@ -25,7 +25,7 @@ if TYPE_CHECKING:
         ReflectedTableComment,
     )
 
-from urllib.parse import unquote_plus
+from urllib.parse import unquote
 
 from snowflake.connector import errors as sf_errors
 from snowflake.connector.connection import SnowflakeConnection
@@ -58,6 +58,7 @@ except ImportError:  # snowflake-connector-python >= 5.x removed this helper
 import sqlalchemy.sql.sqltypes as sqltypes
 from snowflake.sqlalchemy.name_utils import _NameUtils
 from snowflake.sqlalchemy.structured_type_info_manager import _StructuredTypeInfoManager
+from sqlalchemy import __version__ as _sa_version
 from sqlalchemy import event as sa_vnt
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import util as sa_util
@@ -67,6 +68,7 @@ from sqlalchemy.engine.interfaces import (
     ReflectedUniqueConstraint,
 )
 from sqlalchemy.schema import Table
+from sqlalchemy.sql import compiler as _sa_sql_compiler
 from sqlalchemy.sql import text
 from sqlalchemy.sql.sqltypes import NullType
 from sqlalchemy.types import FLOAT, Date, DateTime, Float, Time
@@ -89,6 +91,7 @@ from .custom_types import (
     _CUSTOM_Date,
     _CUSTOM_DateTime,
     _CUSTOM_Float,
+    _CUSTOM_Interval,
     _CUSTOM_Time,
     _CUSTOM_Uuid,
 )
@@ -109,6 +112,9 @@ from .util import (
     parse_url_integer,
 )
 
+# SQLAlchemy 2.1; absent on 2.0.
+_AggregateOrderByStyle: Any = getattr(_sa_sql_compiler, "AggregateOrderByStyle", None)
+
 # Type aliases for the schema-wide reflection caches: {table_name: constraint}
 _PKIndex = dict[str, ReflectedPrimaryKeyConstraint]
 _UKIndex = dict[str, list[ReflectedUniqueConstraint]]
@@ -118,6 +124,7 @@ colspecs = {
     DateTime: _CUSTOM_DateTime,
     Time: _CUSTOM_Time,
     Float: _CUSTOM_Float,
+    sqltypes.Interval: _CUSTOM_Interval,
     sqltypes.Uuid: _CUSTOM_Uuid,
 }
 
@@ -223,16 +230,93 @@ _ENABLE_STRUCTURED_TYPE_JSON_DEPRECATION_MSG = (
 )
 
 
-def _split_database_namespace(database: str) -> tuple[str, str | None]:
-    """Split a URL database slot of the form ``"db"`` or ``"db/schema"``.
+def _split_on_unquoted_slash(text: str) -> list[str]:
+    """Split ``text`` on ``/`` that are not inside double-quoted identifiers.
 
-    Each ``/``-separated part is URL-decoded. Returns ``(database, schema)``
-    where ``schema`` is ``None`` when only a database is given.
+    Snowflake unquoted identifiers cannot contain ``/``, so an unquoted slash
+    is always the database/schema delimiter. Quoted identifiers may contain
+    slashes (and doubled ``""`` escapes). See
+    https://docs.snowflake.com/en/sql-reference/identifiers-syntax
+    """
+    parts: list[str] = []
+    buf: list[str] = []
+    in_quote = False
+    idx = 0
+    while idx < len(text):
+        char = text[idx]
+        if char == '"':
+            if in_quote and idx + 1 < len(text) and text[idx + 1] == '"':
+                buf.append('""')
+                idx += 2
+                continue
+            in_quote = not in_quote
+            buf.append(char)
+        elif char == "/" and not in_quote:
+            parts.append("".join(buf))
+            buf = []
+        else:
+            buf.append(char)
+        idx += 1
+    parts.append("".join(buf))
+    return parts
+
+
+def _url_path_identifiers_sa20(path: str) -> list[str]:
+    """Return the identifiers in the URL database path, each decoded once.
+
+    SQLAlchemy 2.0 ``make_url`` leaves the path percent-encoded, while
+    ``URL.create`` stores raw values; the ``URL`` object does not say which.
+    Snowflake identifier syntax tells them apart per identifier: unquoted
+    identifiers cannot contain ``%``, and an encoded identifier (e.g. from
+    ``snowflake.sqlalchemy.URL``) has ``"`` as ``%22``. So a part with ``%`` and
+    no raw ``"`` is an encoding, and a part with a raw ``"`` is a raw value
+    whose ``%`` is literal. Deciding per part keeps a raw ``"db"`` from
+    disabling decoding of an encoded schema (and vice versa).
+
+    Splitting before decoding is safe: an encoded part has no raw ``"`` or
+    ``/``. A decoded part is split again because an encoded ``%2F`` outside
+    quotes is still the namespace separator.
+
+    Use ``unquote``, not ``unquote_plus``: a literal ``+`` must stay ``+``.
+    """
+    parts: list[str] = []
+    for part in _split_on_unquoted_slash(path):
+        if '"' in part or "%" not in part:
+            parts.append(part)
+        else:
+            parts.extend(_split_on_unquoted_slash(unquote(part)))
+    return parts
+
+
+def _url_path_identifiers_sa21(path: str) -> list[str]:
+    """Return the identifiers in the URL database path without decoding them.
+
+    SQLAlchemy 2.1 ``make_url`` already percent-decodes the path; decoding again
+    would corrupt quoted identifiers that contain a literal ``%`` (``"a%20b"``
+    would become ``"a b"``).
+    """
+    return _split_on_unquoted_slash(path)
+
+
+# SQLAlchemy 2.1 percent-decodes the URL path in make_url; 2.0 does not.
+_SA_DECODES_URL_PATH = tuple(map(int, _sa_version.split(".")[:2])) >= (2, 1)
+_url_path_identifiers: Callable[[str], list[str]] = (
+    _url_path_identifiers_sa21 if _SA_DECODES_URL_PATH else _url_path_identifiers_sa20
+)
+
+
+def _split_database_namespace(database: str) -> tuple[str, str | None]:
+    """Split a URL database slot of the form ``db`` or ``db/schema``.
+
+    The identifiers come from the SQLAlchemy-version specific
+    ``_url_path_identifiers`` so both versions share the same Snowflake grammar:
+    unquoted ``/`` is the namespace separator, ``/`` inside ``"..."`` is part of
+    the identifier.
 
     Raises:
         sa_exc.ArgumentError: if more than two parts are present.
     """
-    name_spaces = [unquote_plus(e) for e in database.split("/")]
+    name_spaces = _url_path_identifiers(database)
     if len(name_spaces) == 1:
         return name_spaces[0], None
     if len(name_spaces) == 2:
@@ -317,6 +401,13 @@ class SnowflakeDialect(default.DefaultDialect):
 
     # target database treats the / division operator as “floor division”
     div_is_floordiv = False
+
+    # SQLAlchemy 2.1 added aggregate_order_by(); Snowflake requires
+    # ``agg(x) WITHIN GROUP (ORDER BY y)`` and rejects the default INLINE form
+    # ``agg(x ORDER BY y)`` with a SQL compilation error.  Attribute is absent
+    # on SA 2.0, where the construct does not exist.
+    if _AggregateOrderByStyle is not None:
+        aggregate_order_by_style = _AggregateOrderByStyle.WITHIN_GROUP
 
     # all str types must be converted in Unicode
     convert_unicode = True
@@ -517,11 +608,8 @@ class SnowflakeDialect(default.DefaultDialect):
 
         if "database" in opts:
             database, schema = _split_database_namespace(opts["database"])
-            # Preserve the original behavior: only a "db/schema" namespace
-            # rewrites opts; a bare database is left exactly as
-            # translate_connect_args produced it (not re-unquoted).
+            opts["database"] = database
             if schema is not None:
-                opts["database"] = database
                 opts["schema"] = schema
 
         if "host" in opts:
@@ -2171,6 +2259,12 @@ class SnowflakeDialect(default.DefaultDialect):
             ):
                 continue
             table_name = self.normalize_name(str(row[name_to_index_map["table"]]))
+            include_columns = [
+                self.normalize_name(column)
+                for column in parse_index_columns(
+                    row[name_to_index_map["included_columns"]]
+                )
+            ]
             indexes[table_name].append(
                 {
                     "name": self.normalize_name(row[name_to_index_map["name"]]),
@@ -2181,13 +2275,10 @@ class SnowflakeDialect(default.DefaultDialect):
                             row[name_to_index_map["columns"]]
                         )
                     ],
-                    "include_columns": [
-                        self.normalize_name(column)
-                        for column in parse_index_columns(
-                            row[name_to_index_map["included_columns"]]
-                        )
-                    ],
-                    "dialect_options": {},
+                    # SA 2.0 Inspector still reads include_columns; SA 2.1 moved
+                    # INCLUDE lists to dialect_options["{dialect}_include"].
+                    "include_columns": include_columns,
+                    "dialect_options": {"snowflake_include": include_columns},
                 }
             )
         return dict(indexes)  # type: ignore[arg-type]

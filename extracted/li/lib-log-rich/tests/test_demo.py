@@ -6,6 +6,7 @@ import pytest
 
 import lib_log_rich.demo as demo_module
 from lib_log_rich.demo import logdemo
+from lib_log_rich.domain import ConsoleTheme, DumpFormat
 from tests.os_markers import OS_AGNOSTIC
 
 if TYPE_CHECKING:
@@ -14,13 +15,22 @@ if TYPE_CHECKING:
 pytestmark = [OS_AGNOSTIC]
 
 
-def test_resolve_demo_theme_rejects_unknown() -> None:
-    with pytest.raises(ValueError, match="Unknown console theme"):
-        cast("Any", demo_module)._resolve_demo_theme("unknown-theme")
+@pytest.mark.parametrize(
+    ("parameter", "value", "enum_name"),
+    [
+        ("theme", "classic", "ConsoleTheme"),
+        ("theme", "unknown-theme", "ConsoleTheme"),
+        ("console_format_preset", "full", "FormatPreset"),
+        ("dump_format_preset", "full", "FormatPreset"),
+    ],
+)
+def test_logdemo_refuses_a_plain_string_for_theme_and_presets(parameter: str, value: str, enum_name: str) -> None:
+    with pytest.raises(TypeError, match=f"^{parameter} must be a member of {enum_name}, got '{value}'$"):
+        logdemo(**{parameter: cast("Any", value)})
 
 
 def test_demo_identity_falls_back_to_defaults() -> None:
-    service, environment = cast("Any", demo_module)._demo_identity(None, None, "classic")
+    service, environment = cast("Any", demo_module)._demo_identity(None, None, ConsoleTheme.CLASSIC)
     assert (service, environment) == ("logdemo", "demo-classic")
 
 
@@ -35,7 +45,7 @@ def test_demo_render_dump_returns_none_without_format() -> None:
         color=None,
         dump_format_preset=None,
         dump_format_template=None,
-        theme="classic",
+        theme=ConsoleTheme.CLASSIC,
         styles={},
     )
     assert payload is None
@@ -48,11 +58,11 @@ def test_logdemo_rejects_when_runtime_already_initialised(monkeypatch: pytest.Mo
 
 
 def test_logdemo_emits_events_for_classic_theme() -> None:
-    result = logdemo(theme="classic")
+    result = logdemo(theme=ConsoleTheme.CLASSIC)
     assert len(result.events) == 5
 
 
 def test_logdemo_writes_dump_to_target_path(tmp_path: Path) -> None:
     target = tmp_path / "demo.json"
-    logdemo(theme="classic", dump_format="json", dump_path=target)
+    logdemo(theme=ConsoleTheme.CLASSIC, dump_format=DumpFormat.JSON, dump_path=target)
     assert target.exists()

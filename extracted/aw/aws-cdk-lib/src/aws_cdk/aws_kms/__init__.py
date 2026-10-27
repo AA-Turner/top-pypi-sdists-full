@@ -652,6 +652,7 @@ class CfnAlias(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -686,7 +687,7 @@ class CfnAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__293c0aafbebd8a831d41848f3d7035971f2665e6401dfe8705989d1abae2c2c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "aliasName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "aliasName", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetKeyId")
@@ -699,7 +700,7 @@ class CfnAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e12c32dedd31d49587e236bb886a73e1a0ef34730815c73039721efa393b6fb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetKeyId", value)
 
 
 @jsii.data_type(
@@ -1019,6 +1020,7 @@ class CfnKey(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1078,7 +1080,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd3f4724ca140c9b1dca16904dd53ab0905d0688de411b0f60d4f538cb2ac4a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="bypassPolicyLockoutSafetyCheck")
@@ -1099,7 +1101,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ba782ca88c8b210d0c18f73ecee5e7266ed06b7428c903676aca9b26b6490443)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bypassPolicyLockoutSafetyCheck", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "bypassPolicyLockoutSafetyCheck", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1112,7 +1114,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__01ec2bc212e875693eedcd62e8c0a2303fbbcbb0c0520e369d7b6372f89ba8ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -1133,7 +1135,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d16a27f134df94f3471ae307ddaf158320e92fc426e0a715a044c762a591e56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableKeyRotation")
@@ -1151,7 +1153,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1949abfe35e26dd5174b35137bea94a550270331496fd2f865d63e22360c88de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableKeyRotation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableKeyRotation", value)
 
     @builtins.property
     @jsii.member(jsii_name="keySpec")
@@ -1164,7 +1166,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__00b8e7e0c6c26ba4d81ad2ec83a06ba02111a601de28c48a34e711a20bdb960d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keySpec", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keySpec", value)
 
     @builtins.property
     @jsii.member(jsii_name="keyUsage")
@@ -1177,7 +1179,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3644201e513b7c747f1fac050f42c4761013ce447fd095d4670a875776c68562)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyUsage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyUsage", value)
 
     @builtins.property
     @jsii.member(jsii_name="multiRegion")
@@ -1195,7 +1197,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6a81f5a9d29ef2c8fdbd0a5b47659d6f998118db687737549f32e443f43446da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiRegion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "multiRegion", value)
 
     @builtins.property
     @jsii.member(jsii_name="origin")
@@ -1208,7 +1210,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e82f572625e8bbed987a6ede9a751d501f7398289c234e243ea2f716f23608b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "origin", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "origin", value)
 
     @builtins.property
     @jsii.member(jsii_name="pendingWindowInDays")
@@ -1221,7 +1223,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1d3e524eda3827ec1d53e329afc207f3ef954caf7cf407b25faef721f3a2016d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pendingWindowInDays", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "pendingWindowInDays", value)
 
     @builtins.property
     @jsii.member(jsii_name="rotationPeriodInDays")
@@ -1234,7 +1236,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b766cb0a8ed53bed340510bfb429fb6a5f36d2f63f9c7718fb1f0c92f2fbc59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rotationPeriodInDays", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rotationPeriodInDays", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1250,7 +1252,7 @@ class CfnKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b85648b8166c62900697e128ab3a35c1360fdab37323145ed7b7c76dd91c4576)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -1792,6 +1794,7 @@ class CfnReplicaKey(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1851,7 +1854,7 @@ class CfnReplicaKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__54fc1b22cb7e48927490c2ff73a5afea9bb5bb4dd8e62a2a6f805d4bb26f967d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="primaryKeyArn")
@@ -1864,7 +1867,7 @@ class CfnReplicaKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__15fbb1b757e713b4a793995a5eb68370a6a6f742705620d66815b734fa8b2547)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "primaryKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "primaryKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1877,7 +1880,7 @@ class CfnReplicaKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__416fb26a5b9f08dd98d1c61865eacaf89a14839e250c7f61ec3485d272103112)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -1898,7 +1901,7 @@ class CfnReplicaKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb76d39656831fe315be03ed1109d35bd47e49d418dd22bdc531e5665db1e4c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="pendingWindowInDays")
@@ -1911,7 +1914,7 @@ class CfnReplicaKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__42cf7563707cf3efe01d1caeaa2ca0405b68188335ff4068637d0baa84d85621)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pendingWindowInDays", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "pendingWindowInDays", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1927,7 +1930,7 @@ class CfnReplicaKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc49d1ede5bfd6f35a0c93dafce91a41f79d39c2119895fac0fb0749478472b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -2873,6 +2876,7 @@ class Key(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_DUMMY_KEY_ID")
+    @builtins.classmethod
     def DEFAULT_DUMMY_KEY_ID(cls) -> builtins.str:
         '''The default key id of the dummy key.
 
@@ -2883,6 +2887,7 @@ class Key(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -4000,6 +4005,7 @@ class Alias(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

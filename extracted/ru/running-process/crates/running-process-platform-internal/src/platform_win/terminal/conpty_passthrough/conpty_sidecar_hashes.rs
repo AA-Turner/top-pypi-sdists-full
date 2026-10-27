@@ -20,11 +20,11 @@ pub(super) struct ExpectedAsset {
 // release checkout before wheel, binary, and crate builds.
 
 #[allow(dead_code)]
-pub(super) const EXPECTED_X64: Option<ExpectedAsset> = Some(ExpectedAsset { sha256_hex: "53671109385d034479451d4dda49a7d600e6bd876610c4efcac99892df41af7a", size_bytes: 353 });
+pub(super) const EXPECTED_X64: Option<ExpectedAsset> = Some(ExpectedAsset { sha256_hex: "6059bed556cc1859f0fb02977bb2c2fdfeaf642a10dfc02a48f5c7cc2ea13381", size_bytes: 353 });
 #[allow(dead_code)]
-pub(super) const EXPECTED_ARM64: Option<ExpectedAsset> = Some(ExpectedAsset { sha256_hex: "212c7fb3360c5c9b1cfa6a0cc60e7de88e5454308b81d18cba7fb255228ed75a", size_bytes: 351 });
+pub(super) const EXPECTED_ARM64: Option<ExpectedAsset> = Some(ExpectedAsset { sha256_hex: "83e752b1eb252a70fd3cb86b4e2d19a2a12a4042c0a12e639d9f2eadaf399dfb", size_bytes: 353 });
 #[allow(dead_code)]
-pub(super) const EXPECTED_X86: Option<ExpectedAsset> = Some(ExpectedAsset { sha256_hex: "9b7fb1e4dc0df68d6cc5d875c21a68c39956e669e095dfacb49d5aa99dfe13c6", size_bytes: 352 });
+pub(super) const EXPECTED_X86: Option<ExpectedAsset> = Some(ExpectedAsset { sha256_hex: "2463ebe733a556ab2f110cbc1c5f1378e409a68745241420c231fa9e4e8e715f", size_bytes: 353 });
 #[allow(dead_code)]
 pub(super) const EXPECTED_ARM: Option<ExpectedAsset> = None;
 

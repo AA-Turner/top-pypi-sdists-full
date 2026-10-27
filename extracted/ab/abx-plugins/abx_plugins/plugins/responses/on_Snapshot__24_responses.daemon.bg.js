@@ -160,10 +160,6 @@ async function ensureAliasDirectory(dir) {
       await fs.promises.unlink(dir);
       await fs.promises.mkdir(dir);
       await fs.promises.symlink(path.relative(dir, saved), indexPath);
-      const oldOutput = path.posix.join(PLUGIN_DIR, path.relative(OUTPUT_DIR, dir).split(path.sep).join("/"));
-      if (mainOutputPath === oldOutput) {
-        mainOutputPath = path.posix.join(oldOutput, path.basename(indexPath));
-      }
     }
   }
   symlinkDirectories.add(dir);
@@ -282,7 +278,6 @@ async function setupListener() {
       const isHtmlResponse =
         mimeBase === "text/html" ||
         ["html", "htm"].includes((extension || "").toLowerCase());
-      let candidateMainOutputPath = relativeOutputPath;
       if (isHtmlResponse) {
         const bodySize = bodyBuffer.length;
         if (
@@ -342,19 +337,15 @@ async function setupListener() {
               console.error(`ERROR: Cannot save response alias: ${message}`);
             }
           }
-          if (aliases[1].status === "fulfilled") {
-            candidateMainOutputPath = path.posix.join(
-              PLUGIN_DIR,
-              path.relative(OUTPUT_DIR, aliases[1].value).split(path.sep).join("/")
-            );
-          }
         }
       } catch (e) {
         // URL parsing or symlink creation failed, skip
       }
 
       if (isMainNavigationResponse) {
-        mainOutputPath = candidateMainOutputPath;
+        // Output manifests exclude symlink aliases. Report the captured file so
+        // viewers retain the main document instead of choosing a larger iframe.
+        mainOutputPath = relativeOutputPath;
       }
 
       // Calculate SHA256
@@ -433,13 +424,19 @@ function emitResult(
 }
 
 async function handleShutdown(signal) {
-  console.error(`\nReceived ${signal}, emitting final results...`);
+  console.error(`\nReceived ${signal}, finishing response capture...`);
   if (page && responseListener) {
     page.off("requestfinished", responseListener);
   }
+  // Distinguish pending body writes from collector shutdown: a final count
+  // alone cannot show which await prevented the terminal result from emitting.
+  const writesStarted = Date.now();
   await pendingResponseWork;
+  console.error(`Response writes finished after ${Date.now() - writesStarted}ms`);
   try {
+    const closeStarted = Date.now();
     await originalResponses?.close();
+    console.error(`Original response capture closed after ${Date.now() - closeStarted}ms`);
   } catch (error) {
     const message = `${error.name}: ${error.message}`;
     console.error(`ERROR: Cannot close response capture: ${message}`);

@@ -20,6 +20,7 @@ from guppylang_internals.definition.common import (
 from guppylang_internals.definition.parameter import ParamDef
 from guppylang_internals.diagnostic import Error, Help, Note
 from guppylang_internals.error import GuppyError, InternalGuppyError
+from guppylang_internals.frame_util import FrameSnapshot
 from guppylang_internals.ipython_inspect import is_running_ipython
 from guppylang_internals.span import SourceMap, Span, to_span
 from guppylang_internals.tys.param import Parameter
@@ -120,6 +121,19 @@ class CheckedField:
     ty: Type
 
 
+def is_guppy_unitary(value: object) -> bool:
+    """Checks whether a value is a `@guppy.unitary` class definition."""
+    from guppylang.defs import GuppyDefinition
+
+    from guppylang_internals.definition.function import RawFunctionDef
+
+    return (
+        isinstance(value, GuppyDefinition)
+        and isinstance(value.wrapped, RawFunctionDef)
+        and value.wrapped.unitary_class_at is not None
+    )
+
+
 def check_not_recursive(defn: ParsedRecursiveTypeDef, ctx: TypeParsingCtx) -> None:
     """Raises a user error if a struct, enum, or type alias depends on itself."""
     _check_not_recursive(defn, ctx, [defn.id], set())
@@ -196,7 +210,7 @@ def _is_parsed_recursive_type_def(
 
 
 def parse_py_class(
-    cls: type, defining_frame: FrameType, sources: SourceMap
+    cls: type, defining_frame: FrameType | FrameSnapshot, sources: SourceMap
 ) -> ast.ClassDef:
     """Parses a Python class object into an AST."""
     module = inspect.getmodule(cls)

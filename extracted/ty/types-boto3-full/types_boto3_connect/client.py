@@ -725,6 +725,8 @@ from .type_defs import (
     UpdateMetricContentRequestTypeDef,
     UpdateMetricMetadataRequestTypeDef,
     UpdateNotificationContentRequestTypeDef,
+    UpdateOutboundEmailContactMessageRequestTypeDef,
+    UpdateOutboundEmailContactMessageResponseTypeDef,
     UpdateParticipantAuthenticationRequestTypeDef,
     UpdateParticipantRoleConfigRequestTypeDef,
     UpdatePhoneNumberMetadataRequestTypeDef,
@@ -4555,6 +4557,16 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_notification_content.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#update_notification_content)
+        """
+
+    def update_outbound_email_contact_message(
+        self, **kwargs: Unpack[UpdateOutboundEmailContactMessageRequestTypeDef]
+    ) -> UpdateOutboundEmailContactMessageResponseTypeDef:
+        """
+        Updates the draft outbound email message for a contact.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_outbound_email_contact_message.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#update_outbound_email_contact_message)
         """
 
     def update_participant_authentication(

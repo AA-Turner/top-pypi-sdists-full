@@ -44,6 +44,7 @@ from chalk.features._encoding.protobuf import (
     serialize_message_file_descriptor,
 )
 from chalk.features._encoding.pyarrow import rich_to_pyarrow
+from chalk.parsed.materialized_feature_selection import materialized_feature_names
 
 TRich = TypeVar("TRich")
 from chalk.features._encoding.serialized_rich_type import SerializedRichType
@@ -204,6 +205,14 @@ class ToProtoConverter:
                 query_version=source.version,
                 input=source.input,
                 output=source.output,
+                output_expressions=[
+                    pb.NamedQueryOutputExpression(
+                        output_column_name=e.name,
+                        expr=e.expr._to_proto(),  # pyright: ignore[reportPrivateUsage]
+                        namespace=e.namespace or "",
+                    )
+                    for e in source.output_expressions
+                ],
                 additional_logged_features=source.additional_logged_features,
                 tags=source.tags,
                 description=source.description,
@@ -1777,7 +1786,10 @@ class ToProtoConverter:
             raise ValueError(f"Error converting resolver '{r.fqn}'") from e
 
     @staticmethod
-    def _convert_materialized_feature_view(view: MaterializedFeatureView) -> pb.MaterializedFeatureView:
+    def _convert_materialized_feature_view(
+        view: MaterializedFeatureView,
+        features_registry: "dict[str, type[Features]]",
+    ) -> pb.MaterializedFeatureView:
         from datetime import timedelta as _timedelta
 
         from chalk.utils.duration import timedelta_to_duration
@@ -1828,11 +1840,10 @@ class ToProtoConverter:
             update_cadence=update_cadence_str,
             observation_sampling_strategy=observation_sampling_strategy,
             background_compaction=view.background_compaction,
-            plannable=view.plannable,
+            queryable=view.queryable,
             resource_group=(view.resource_group or None),
+            features=list(materialized_feature_names(view, features_registry)),
         )
-        if view.features is not None:
-            kwargs["features"] = list(view.features)
         if view.lower_bound is not None:
             kwargs["lower_bound"] = datetime_to_proto_timestamp(view.lower_bound)
         if view.lookback_retention_period is not None:
@@ -1936,7 +1947,9 @@ class ToProtoConverter:
 
         materialized_feature_views: list[pb.MaterializedFeatureView] = []
         for view in materialized_feature_view_registry.values():
-            materialized_feature_views.append(ToProtoConverter._convert_materialized_feature_view(view))
+            materialized_feature_views.append(
+                ToProtoConverter._convert_materialized_feature_view(view, features_registry)
+            )
 
         return pb.Graph(
             feature_sets=feature_sets,

@@ -17,8 +17,7 @@ from lib_log_rich.adapters.rate_limiter import SlidingWindowRateLimiter
 from lib_log_rich.adapters.scrubber import RegexScrubber
 from lib_log_rich.application.ports.time import UnitOfWork
 from lib_log_rich.domain.dump import DumpFormat
-from lib_log_rich.domain.dump_filter import DumpFilter
-from lib_log_rich.domain.enums import QueuePolicy
+from lib_log_rich.domain.enums import FormatPreset, QueuePolicy
 from lib_log_rich.domain.events import LogEvent
 from lib_log_rich.domain.levels import LogLevel
 from lib_log_rich.runtime._factories import SystemClock, SystemIdentityProvider, UuidProvider
@@ -47,7 +46,7 @@ def example_event(bound_context: LogContext) -> LogEvent:
 def test_console_port_renders_event_with_rich_adapter(example_event: LogEvent) -> None:
     console = Console(file=StringIO(), record=True)
     # Use "full" preset to include logger_name in output
-    adapter = RichConsoleAdapter(console=console, format_preset="full")
+    adapter = RichConsoleAdapter(console=console, format_preset=FormatPreset.FULL)
     adapter.emit(example_event, colorize=False)
 
     output = console.export_text()
@@ -60,7 +59,6 @@ def test_dump_port_returns_payload_for_text_dump(example_event: LogEvent) -> Non
     payload = adapter.dump(
         [example_event],
         dump_format=DumpFormat.TEXT,
-        filters=DumpFilter(),
         colorize=False,
     )
 

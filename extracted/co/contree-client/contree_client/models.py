@@ -881,6 +881,21 @@ class InstanceSpawnRequest(ContreeModel):
             "default": False,
         },
     )
+    preserve_cwd: bool | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "Save the resolved initial working directory as the default in the "
+                "resulting image. An empty or omitted `cwd` resolves to the image's "
+                "current workdir, or `/` if none exists. The metadata file is opened "
+                "for writing only when its contents differ from the new value. "
+                "Directory changes made by the command do not change the saved value. "
+                "Requires `disposable: false` to retain the metadata in a resulting "
+                "image."
+            ),
+            "default": False,
+        },
+    )
     cwd: str | EllipsisType = field(
         default=...,
         metadata={
@@ -964,6 +979,7 @@ class InstanceSpawnRequest(ContreeModel):
             "shell": data.get("shell", ...),
             "env": data.get("env", ...),
             "preserve_env": data.get("preserve_env", ...),
+            "preserve_cwd": data.get("preserve_cwd", ...),
             "cwd": data.get("cwd", ...),
             "uid": data.get("uid", ...),
             "gid": data.get("gid", ...),
@@ -1337,6 +1353,21 @@ class OperationInstanceMetadata(ContreeModel):
             "default": False,
         },
     )
+    preserve_cwd: bool | EllipsisType = field(
+        default=...,
+        metadata={
+            "description": (
+                "Save the resolved initial working directory as the default in the "
+                "resulting image. An empty or omitted `cwd` resolves to the image's "
+                "current workdir, or `/` if none exists. The metadata file is opened "
+                "for writing only when its contents differ from the new value. "
+                "Directory changes made by the command do not change the saved value. "
+                "Requires `disposable: false` to retain the metadata in a resulting "
+                "image."
+            ),
+            "default": False,
+        },
+    )
     cwd: str | EllipsisType = field(
         default=...,
         metadata={
@@ -1421,6 +1452,7 @@ class OperationInstanceMetadata(ContreeModel):
             "shell": data.get("shell", ...),
             "env": data.get("env", ...),
             "preserve_env": data.get("preserve_env", ...),
+            "preserve_cwd": data.get("preserve_cwd", ...),
             "cwd": data.get("cwd", ...),
             "uid": data.get("uid", ...),
             "gid": data.get("gid", ...),

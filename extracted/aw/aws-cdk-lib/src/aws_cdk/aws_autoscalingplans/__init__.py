@@ -194,6 +194,20 @@ class CfnScalingPlan(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForScalingPlan")
+    @builtins.classmethod
+    def arn_for_scaling_plan(
+        cls,
+        resource: "_aws_autoscalingplans_680b3cf2.IScalingPlanRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__aef057b864a098a6828c050b3a604cdc1d4930c603cffeb022b4b02bb4136e45)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForScalingPlan", [resource]))
+
     @jsii.member(jsii_name="isCfnScalingPlan")
     @builtins.classmethod
     def is_cfn_scaling_plan(cls, x: typing.Any) -> builtins.bool:
@@ -232,6 +246,7 @@ class CfnScalingPlan(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -245,9 +260,21 @@ class CfnScalingPlan(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrScalingPlanArn")
+    def attr_scaling_plan_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the scaling plan.
+
+        :cloudformationAttribute: ScalingPlanArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrScalingPlanArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrScalingPlanName")
     def attr_scaling_plan_name(self) -> builtins.str:
-        '''
+        '''The name of the scaling plan.
+
+        Names cannot contain vertical bars, colons, or forward slashes.
+
         :cloudformationAttribute: ScalingPlanName
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrScalingPlanName"))
@@ -255,7 +282,10 @@ class CfnScalingPlan(
     @builtins.property
     @jsii.member(jsii_name="attrScalingPlanVersion")
     def attr_scaling_plan_version(self) -> builtins.str:
-        '''
+        '''The version number of the scaling plan.
+
+        This value is always 1.
+
         :cloudformationAttribute: ScalingPlanVersion
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrScalingPlanVersion"))
@@ -292,7 +322,7 @@ class CfnScalingPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5a721769056e4619e1ee277f601acfbdbe547965f1c733bf538c475beff7d51c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "applicationSource", value)
 
     @builtins.property
     @jsii.member(jsii_name="scalingInstructions")
@@ -310,7 +340,7 @@ class CfnScalingPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__84d46aca6fa846baa355545baca0b08763bb6b5f55f52e18f9dd85b2f276217c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scalingInstructions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scalingInstructions", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_autoscalingplans.CfnScalingPlan.ApplicationSourceProperty",
@@ -1743,6 +1773,12 @@ def _typecheckingstub__8845a217500d0a413cb4f3d41fb46473a55d2418ee7613a0fc607b2a0
     *,
     application_source: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPlan.ApplicationSourceProperty, typing.Dict[builtins.str, typing.Any]]],
     scaling_instructions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnScalingPlan.ScalingInstructionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aef057b864a098a6828c050b3a604cdc1d4930c603cffeb022b4b02bb4136e45(
+    resource: _aws_autoscalingplans_680b3cf2.IScalingPlanRef,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -12,18 +12,17 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING
 
-from lib_log_rich.domain import LogEvent, LogLevel
+from lib_log_rich.domain import DiagnosticEvent, DropReason, LogEvent, LogLevel
 
-from ._types import ProcessResult
+from ._types import FanOutCallable, ProcessResult
 
 if TYPE_CHECKING:
     import logging
 
     from lib_log_rich.application.ports import ConsolePort, GraylogPort, StructuredBackendPort
 
-    from ._pipeline import DiagnosticEmitter
+    from ._types import DiagnosticEmitter
 
-FanOutCallable = Callable[[LogEvent], list[str]]
 FanOutResultHandler = Callable[[LogEvent], ProcessResult]
 
 
@@ -56,7 +55,7 @@ def build_fan_out_handlers(
         def _safe_emit(callable_: Callable[[], None], adapter_name: str) -> None:
             try:
                 callable_()
-            except Exception as exc:  # pragma: no cover - defensive guard
+            except Exception as exc:
                 logger.exception(
                     "Adapter %s failed while emitting event %s: %s",
                     adapter_name,
@@ -65,7 +64,7 @@ def build_fan_out_handlers(
                 )
                 failed.append(adapter_name)
                 emit(
-                    "adapter_error",
+                    DiagnosticEvent.ADAPTER_ERROR,
                     {
                         "adapter": adapter_name,
                         "event_id": event.event_id,
@@ -92,24 +91,10 @@ def build_fan_out_handlers(
         """Fan out and return ProcessResult with success/failure status."""
         failed_adapters = fan_out(event)
         if failed_adapters:
-            emit(
-                "adapter_error",
-                {
-                    "event_id": event.event_id,
-                    "logger": event.logger_name,
-                    "level": event.level.name,
-                    "adapters": failed_adapters,
-                },
-            )
-            return ProcessResult(
-                ok=False,
-                reason="adapter_error",
-                event_id=event.event_id,
-                failed_adapters=failed_adapters,
-            )
+            return report_adapter_failure(emit, event, failed_adapters)
 
         emit(
-            "emitted",
+            DiagnosticEvent.EMITTED,
             {
                 "event_id": event.event_id,
                 "logger": event.logger_name,
@@ -121,4 +106,27 @@ def build_fan_out_handlers(
     return fan_out, finalise
 
 
-__all__ = ["FanOutCallable", "FanOutResultHandler", "build_fan_out_handlers"]
+def report_adapter_failure(emit: DiagnosticEmitter, event: LogEvent, failed_adapters: list[str]) -> ProcessResult:
+    """Send the once-per-event ``adapter_error`` diagnostic and return the failed result.
+
+    Shared by the inline path (``finalise``) and the queue worker, so a failure
+    is reported with the same payload whichever path delivered the event.
+    """
+    emit(
+        DiagnosticEvent.ADAPTER_ERROR,
+        {
+            "event_id": event.event_id,
+            "logger": event.logger_name,
+            "level": event.level.name,
+            "adapters": failed_adapters,
+        },
+    )
+    return ProcessResult(
+        ok=False,
+        reason=DropReason.ADAPTER_ERROR,
+        event_id=event.event_id,
+        failed_adapters=failed_adapters,
+    )
+
+
+__all__ = ["FanOutResultHandler", "build_fan_out_handlers", "report_adapter_failure"]

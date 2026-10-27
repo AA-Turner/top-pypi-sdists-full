@@ -1415,7 +1415,7 @@ def test_track_work_linking_names_only_relations_the_server_takes():
 
 def test_the_model_proxy_forwards_the_servers_pushed_settings(monkeypatch):
     """A bench worker hears the server's pushed daemon settings (`x-probe-*`:
-    context sizes, reader gate, writer gap and layout) as a live one does --
+    context sizes, writer gap and layout) as a live one does --
     before 10-14 only the retry hints were forwarded -- and nothing else."""
     import httpx
     from starlette.testclient import TestClient
@@ -1424,7 +1424,7 @@ def test_the_model_proxy_forwards_the_servers_pushed_settings(monkeypatch):
         assert request.headers["authorization"] == "Bearer the-real-key", "the real key goes upstream only"
         return httpx.Response(200, json={"id": "c", "object": "chat.completion", "created": 0, "model": "m",
                                          "choices": []},
-                              headers={"x-probe-writer-history": "lean", "x-probe-reader-gate": "shadow",
+                              headers={"x-probe-writer-history": "lean", "x-probe-writer-min-gap-s": "90",
                                        "x-should-retry": "false", "set-cookie": "s=1"})
 
     real = httpx.AsyncClient
@@ -1435,6 +1435,6 @@ def test_the_model_proxy_forwards_the_servers_pushed_settings(monkeypatch):
     with TestClient(app) as client:
         answer = client.post("/v1/companion/chat/completions", json={"model": "m", "messages": []},
                              headers={"Authorization": f"Bearer {fake.token}"})
-    assert answer.headers["x-probe-writer-history"] == "lean" and answer.headers["x-probe-reader-gate"] == "shadow"
+    assert answer.headers["x-probe-writer-history"] == "lean" and answer.headers["x-probe-writer-min-gap-s"] == "90"
     assert answer.headers["x-should-retry"] == "false"
     assert "set-cookie" not in answer.headers

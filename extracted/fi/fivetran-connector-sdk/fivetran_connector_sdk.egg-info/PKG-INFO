@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fivetran_connector_sdk
-Version: 2.13.1
+Version: 3.0.0
 Summary: Build custom connectors on Fivetran platform
 Author-email: Fivetran <developers@fivetran.com>
 Project-URL: Homepage, https://fivetran.com/docs/connectors/connector-sdk
@@ -11,14 +11,14 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: grpcio==1.80.0
-Requires-Dist: grpcio-tools==1.80.0
 Requires-Dist: requests==2.34.2
 Requires-Dist: pipreqs-fivetran==1.1.2
 Requires-Dist: prompt-toolkit==3.0.53
 Requires-Dist: pathspec==1.1.1
-Requires-Dist: tqdm==4.70.0
 Requires-Dist: cryptography==49.0.0
+Requires-Dist: tqdm==4.70.0
+Requires-Dist: fivetran-connector-sdk-core<1,>=0.1
+Requires-Dist: typing-extensions>=4.7
 
 # **fivetran-connector-sdk**
 [![Downloads](https://static.pepy.tech/badge/fivetran-connector-sdk)](https://pepy.tech/project/fivetran-connector-sdk)
@@ -58,6 +58,9 @@ Import required classes from fivetran_connector_sdk to begin writing your custom
 See our [Technical Reference](https://fivetran.com/docs/connectors/connector-sdk/technical-reference#update) and [Connector Development Concepts](https://fivetran.com/docs/connector-sdk/building-connectors/connector-sdk-concepts) documentation for more details.
 
 You can also refer to our [existing examples](https://github.com/fivetran/connector_sdk) to better understand Fivetran's Connector SDK and start creating custom data connectors.
+
+## **Run against an Iceberg catalog**
+`fivetran run` runs your connector like `fivetran debug` and writes what it emits to the Iceberg REST catalog that the file given with `--destination-file` describes, or, when that is not given, that the `destination.json` in your project folder (beside your `connector.py`) describes. Its settings are in the [fivetran-connector-sdk-core](https://pypi.org/project/fivetran-connector-sdk-core/) documentation.
 
 ## **Maintenance**
 This package is actively maintained by Fivetran Developers. Please reach out to our [Support team](https://support.fivetran.com/hc/en-us) for any inquiries.

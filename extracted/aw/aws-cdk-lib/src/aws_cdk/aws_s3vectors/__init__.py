@@ -236,6 +236,7 @@ class CfnIndex(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -295,7 +296,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c823d66dd49125b2784b64987a69c1442232d36162528420c812cdaf0483bb62)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataType", value)
 
     @builtins.property
     @jsii.member(jsii_name="dimension")
@@ -308,7 +309,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__709ca3449db711fe8736cb15c71a260517a124f93ed8f0f8ea0fd07224b34491)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dimension", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dimension", value)
 
     @builtins.property
     @jsii.member(jsii_name="distanceMetric")
@@ -324,7 +325,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fd2e189f3b0010c6a77fa4f43ad73f492b5e1099536bd12a0ebe077c09648a0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "distanceMetric", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "distanceMetric", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfiguration")
@@ -342,7 +343,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3562181b475724860644b029c5aa0b0da6ef36ffc910f5b75f4a2ca99b0ad526)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="indexName")
@@ -355,7 +356,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2aff851423be8566880565e79db1928638490e19822427a39ecb4692fac23aba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "indexName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "indexName", value)
 
     @builtins.property
     @jsii.member(jsii_name="metadataConfiguration")
@@ -373,7 +374,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__adf0789238c3ff54ec752516d17506a5dc3025daf5543ed37b3703a9638c6ce3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metadataConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metadataConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -389,7 +390,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__be4bbbd8df829f30f21de18dbcd012115700ffb27edd6ce3da3b491d6d136392)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="vectorBucketArn")
@@ -402,7 +403,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dac369cc81e6a72eae40497750fec7e4bb88a8f4e2eb0a59dcbce3ecef2449ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vectorBucketArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vectorBucketArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="vectorBucketName")
@@ -415,7 +416,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__626d4bf5143365f338c97aea670a95f8c1fbfa0ad3a9cc00928821e5edb04014)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vectorBucketName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vectorBucketName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3vectors.CfnIndex.EncryptionConfigurationProperty",
@@ -917,6 +918,7 @@ class CfnVectorBucket(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -981,7 +983,7 @@ class CfnVectorBucket(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__476996e4c3089c3364c3345d4c51c4d606b950b97248fc4afa1b8517c670f8f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -997,7 +999,7 @@ class CfnVectorBucket(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b052022df884995ff323390b18015ff823b8b7d5553482a7666cc8e2bfda4e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="vectorBucketName")
@@ -1010,7 +1012,7 @@ class CfnVectorBucket(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1879d6c9fc256da4dcb55ff2cd68263944a788d8c99c5f1e425ad9e64192a268)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vectorBucketName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vectorBucketName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3vectors.CfnVectorBucket.EncryptionConfigurationProperty",
@@ -1214,6 +1216,7 @@ class CfnVectorBucketPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1247,7 +1250,7 @@ class CfnVectorBucketPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13f1a283deb175d320cdff8d43b010c30ccafabd7821351f0b5c86ca7a48b31b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policy", value)
 
     @builtins.property
     @jsii.member(jsii_name="vectorBucketArn")
@@ -1260,7 +1263,7 @@ class CfnVectorBucketPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ba261025c54aa0fb18a9b5b2e3fab72be4ad30d1d852fc5f1492aa6911a8aad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vectorBucketArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vectorBucketArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="vectorBucketName")
@@ -1273,7 +1276,7 @@ class CfnVectorBucketPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cca6053ffe0f77fd07d26cceada81f3e3e9e5b832049344b1f7d88c006f06d45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vectorBucketName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vectorBucketName", value)
 
 
 @jsii.data_type(

@@ -406,6 +406,10 @@ ACK_ACKED = "acked"
 ACK_DELIVERED_TO_AGENT = "delivered_to_agent"
 #: Which daemon polls and acks: its machine's id (`app/sessions/messages.py`).
 DAEMON_INSTANCE_HEADER = "X-Probe-Daemon-Instance"
+#: When this daemon's agent was last active in the session (ISO 8601, UTC): the
+#: server moves a message not yet shown to the daemon whose agent was active
+#: more than a minute later (`app/sessions/messages.py` AGENT_ACTIVE_HEADER).
+AGENT_ACTIVE_HEADER = "X-Probe-Agent-Active-At"
 
 
 class AckResult(StrEnum):
@@ -414,20 +418,24 @@ class AckResult(StrEnum):
     RECORDED = "recorded"
     #: Another daemon of the session holds the message's delivery: drop this copy.
     LEASE_LOST = "lease_lost"
+    #: Probe has no such message for the session (404: erased, or a server from
+    #: before the route): saying it again changes nothing.
+    GONE = "gone"
     #: No answer, or one that says nothing: say it again at the next poll.
     RETRY = "retry"
 
 
 async def session_messages(env: dict[str, str], session_id: str, instance: str,
-                           held: "list[str] | None" = None) -> dict | None:
+                           held: "list[str] | None" = None, active_at: "str | None" = None) -> dict | None:
     """`{"messages", "revoked"}` (`GET /v1/sessions/{id}/messages`).
     `messages`: those Probe holds for this session that its agent has not been
     shown and no other daemon holds, oldest first, each now leased to this
     daemon (`instance`) for 2 minutes: `[{"id", "body", "created_at",
     "acked_at", "sender": {"kind", "name", "session_title"}}]`. `revoked`: of
     `held` (the ids this daemon has a waiting copy of), those it may no longer
-    deliver. None when Probe could not say -- no
-    answer, a server from before the route, a session it has not recorded (404),
+    deliver. `active_at`: when this daemon's agent was last active, said in
+    AGENT_ACTIVE_HEADER (none: the lease alone decides, as before it). None when
+    Probe could not say -- no answer, a server from before the route, a session it has not recorded (404),
     one this key may not read (403: another person's, or none's), a 5xx, a
     body that is no listing -- and the poller asks again later; it never raises
     for those. `KeyRefused` when Probe refused the key itself."""
@@ -435,8 +443,11 @@ async def session_messages(env: dict[str, str], session_id: str, instance: str,
     try:
         async with await _client(env) as client:
             client.timeout = httpx.Timeout(SESSION_MESSAGES_TIMEOUT_S)
+            headers = {DAEMON_INSTANCE_HEADER: instance}
+            if active_at:
+                headers[AGENT_ACTIVE_HEADER] = active_at
             resp = await client.get(f"/v1/sessions/{segment}/messages", params={"held": list(held or [])},
-                                    headers={DAEMON_INSTANCE_HEADER: instance})
+                                    headers=headers)
     except httpx.HTTPError:
         return None
     _refuse_key(resp)
@@ -454,17 +465,19 @@ async def session_messages(env: dict[str, str], session_id: str, instance: str,
 
 
 async def ack_session_message(env: dict[str, str], session_id: str, message_id: str, state: str,
-                              instance: str) -> AckResult:
+                              instance: str, *, timeout: float = SESSION_MESSAGES_TIMEOUT_S) -> AckResult:
     """Tell Probe where message `message_id` got to (`POST /v1/sessions/{id}/
     messages/{mid}/ack`): `acked` once it is in the agent's mailbox,
     `delivered_to_agent` once a hook took it. RECORDED when Probe took it;
     LEASE_LOST (409) when another daemon of the session holds the message;
-    RETRY for anything else, and the poller says it again at its next poll (an
-    ack is idempotent). `KeyRefused` when Probe refused the key itself."""
+    GONE (404) when Probe has no such message; RETRY for anything else, and
+    the poller says it again at its next poll (an ack is idempotent).
+    `KeyRefused` when Probe refused the key itself. `timeout`: per network
+    step (the receipts of what the hooks showed use a short one)."""
     segment, mid = quote(session_id, safe=""), quote(str(message_id), safe="")
     try:
         async with await _client(env) as client:
-            client.timeout = httpx.Timeout(SESSION_MESSAGES_TIMEOUT_S)
+            client.timeout = httpx.Timeout(timeout)
             resp = await client.post(f"/v1/sessions/{segment}/messages/{mid}/ack", json={"state": state},
                                      headers={DAEMON_INSTANCE_HEADER: instance})
     except httpx.HTTPError:
@@ -472,6 +485,8 @@ async def ack_session_message(env: dict[str, str], session_id: str, message_id: 
     _refuse_key(resp)
     if resp.status_code == 200:
         return AckResult.RECORDED
+    if resp.status_code == 404:
+        return AckResult.GONE
     return AckResult.LEASE_LOST if resp.status_code == 409 else AckResult.RETRY
 
 

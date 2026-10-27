@@ -7,6 +7,7 @@ import itertools
 import struct
 
 from datetime import datetime, timedelta, timezone
+from typing import Callable, Iterator
 
 from refinery.lib.id import buffer_offset
 from refinery.lib.iso import FileSystemType
@@ -237,6 +238,74 @@ def _has_rr(system_use: bytes | memoryview, susp_offset: int) -> bool:
     return entry is not None
 
 
+def _fat_datetime(entry: bytes | memoryview) -> datetime | None:
+    time_val = struct.unpack_from('<H', entry, 22)[0]
+    date_val = struct.unpack_from('<H', entry, 24)[0]
+    if date_val == 0:
+        return None
+    try:
+        return datetime(
+            ((date_val >> 9) & 0x7F) + 1980,
+            (date_val >> 5) & 0xF,
+            date_val & 0x1F,
+            (time_val >> 11) & 0x1F,
+            (time_val >> 5) & 0x3F,
+            (time_val & 0x1F) * 2,
+        )
+    except (ValueError, OverflowError):
+        return None
+
+
+def _walk_fat_directory(
+    dir_data: bytes | memoryview,
+    prefix: str,
+    depth: int,
+    extract_chain: Callable[[int, int], bytes],
+    cluster_bytes: int,
+    walked: set[int],
+) -> Iterator[tuple[str, datetime | None, bytes]]:
+    """
+    Generates a *(path, date, content)* triple for every file in the given FAT directory and in
+    its subdirectories, each subdirectory in place of its entry. The cluster chain of a file or
+    directory is read by `extract_chain` from its first cluster and its size. A subdirectory whose
+    first cluster is in `walked` was listed already and is skipped; the others are added to it.
+    """
+    if depth > 16:
+        return
+    for i in range(0, len(dir_data) - 31, 32):
+        entry = dir_data[i:i + 32]
+        if entry[0] == 0:
+            break
+        if entry[0] == 0xE5:
+            continue
+        attr = entry[11]
+        if attr == 0x0F or attr & 0x08:
+            continue
+        raw_name = bytes(entry[0:8]).rstrip(b' ')
+        raw_ext = bytes(entry[8:11]).rstrip(b' ')
+        try:
+            fname = raw_name.decode('ascii')
+            if raw_ext:
+                fname += '.' + raw_ext.decode('ascii')
+        except (UnicodeDecodeError, ValueError):
+            continue
+        fname = fname.lower()
+        cluster = struct.unpack_from('<H', entry, 26)[0]
+        size = struct.unpack_from('<I', entry, 28)[0]
+        dt = _fat_datetime(entry)
+        full_path = F'{prefix}/{fname}' if prefix else fname
+        if attr & 0x10:
+            if fname in ('.', '..') or cluster in walked:
+                continue
+            walked.add(cluster)
+            sub = extract_chain(cluster, cluster_bytes * 256)
+            yield from _walk_fat_directory(
+                sub, full_path, depth + 1, extract_chain, cluster_bytes, walked
+            )
+        else:
+            yield full_path, dt, extract_chain(cluster, size)
+
+
 def _parse_fat_image(
     data: memoryview | bytes,
 ) -> list[tuple[str, datetime | None, bytes]] | None:
@@ -294,8 +363,10 @@ def _parse_fat_image(
     def extract_chain(start: int, size: int) -> bytes:
         result = bytearray()
         remaining = size
+        chain: set[int] = set()
         c = start
-        while c >= 2 and c < end_mark and remaining > 0:
+        while c >= 2 and c < end_mark and remaining > 0 and c not in chain:
+            chain.add(c)
             cluster_off = data_offset + (c - 2) * cluster_bytes
             chunk = min(cluster_bytes, remaining)
             if cluster_off + chunk > len(data):
@@ -305,63 +376,8 @@ def _parse_fat_image(
             c = next_cluster(c)
         return bytes(result[:size])
 
-    def parse_datetime(entry: bytes | memoryview) -> datetime | None:
-        time_val = struct.unpack_from('<H', entry, 22)[0]
-        date_val = struct.unpack_from('<H', entry, 24)[0]
-        if date_val == 0:
-            return None
-        try:
-            return datetime(
-                ((date_val >> 9) & 0x7F) + 1980,
-                (date_val >> 5) & 0xF,
-                date_val & 0x1F,
-                (time_val >> 11) & 0x1F,
-                (time_val >> 5) & 0x3F,
-                (time_val & 0x1F) * 2,
-            )
-        except (ValueError, OverflowError):
-            return None
-
-    files: list[tuple[str, datetime | None, bytes]] = []
-
-    def walk_directory(
-        dir_data: bytes | memoryview,
-        prefix: str,
-        depth: int = 0,
-    ) -> None:
-        if depth > 16:
-            return
-        for i in range(0, len(dir_data) - 31, 32):
-            entry = dir_data[i:i + 32]
-            if entry[0] == 0:
-                break
-            if entry[0] == 0xE5:
-                continue
-            attr = entry[11]
-            if attr == 0x0F or attr & 0x08:
-                continue
-            raw_name = bytes(entry[0:8]).rstrip(b' ')
-            raw_ext = bytes(entry[8:11]).rstrip(b' ')
-            try:
-                fname = raw_name.decode('ascii')
-                if raw_ext:
-                    fname += '.' + raw_ext.decode('ascii')
-            except (UnicodeDecodeError, ValueError):
-                continue
-            fname = fname.lower()
-            cluster = struct.unpack_from('<H', entry, 26)[0]
-            size = struct.unpack_from('<I', entry, 28)[0]
-            dt = parse_datetime(entry)
-            full_path = F'{prefix}/{fname}' if prefix else fname
-            if attr & 0x10:
-                if fname in ('.', '..'):
-                    continue
-                sub = extract_chain(cluster, cluster_bytes * 256)
-                walk_directory(sub, full_path, depth + 1)
-            else:
-                files.append((full_path, dt, extract_chain(cluster, size)))
-
-    walk_directory(data[root_dir_offset:root_dir_offset + root_dir_size], '')
+    root = data[root_dir_offset:root_dir_offset + root_dir_size]
+    files = list(_walk_fat_directory(root, '', 0, extract_chain, cluster_bytes, set()))
     return files or None
 
 
@@ -643,18 +659,25 @@ class ISO9660Archive:
             return base
         return name
 
-    def select_filesystem(self, fs: FileSystemType) -> None:
+    def select_filesystem(self, fs: FileSystemType) -> bool:
+        """
+        Read the directory tree of the given file system and return whether the image contains it.
+        The directory tree remains unchanged when the image has no volume descriptor for it, and
+        Rock Ridge falls back to plain ISO 9660 names when the primary volume lacks its extensions.
+        """
+        vd = self._joliet_vd if fs is FileSystemType.JOLIET else self._primary_vd
+        if vd is None:
+            return False
         if fs is self.filesystem_type:
-            return
-        if fs is FileSystemType.JOLIET and self._joliet_vd:
-            self._read_directory_tree(self._joliet_vd, is_joliet=True)
-        elif fs is FileSystemType.RR and self._primary_vd:
-            self._read_directory_tree(self._primary_vd, is_joliet=False)
-            if not self._has_rr:
-                self.filesystem_type = FileSystemType.ISO
-        elif fs is FileSystemType.ISO and self._primary_vd:
+            return True
+        if fs is FileSystemType.JOLIET:
+            self._read_directory_tree(vd, is_joliet=True)
+        elif fs is FileSystemType.RR:
+            self._read_directory_tree(vd, is_joliet=False)
+        elif fs is FileSystemType.ISO:
             self._has_rr = False
-            self._read_directory_tree_plain(self._primary_vd)
+            self._read_directory_tree_plain(vd)
+        return fs is self.filesystem_type
 
     def _read_directory_tree_plain(self, vd: VolumeDescriptor) -> None:
         root = vd.root_dir_record

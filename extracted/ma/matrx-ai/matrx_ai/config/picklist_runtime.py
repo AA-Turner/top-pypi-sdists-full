@@ -721,18 +721,26 @@ def _report_unresolved(var_name: str, kind: str = "picklist_unresolved") -> None
 SOURCE_SET_KIND = "source_set"
 
 
+def _envelope_of(value: Any) -> str | None:
+    """The envelope a dict names (standalone twin of aidream's ``resource_context.envelope_of``)."""
+    if not isinstance(value, dict):
+        return None
+    # Old spelling: stored education-kit rows and npm-pinned outside apps (matrx-extend, matrx-local) still send `__kind`.
+    name = value.get("envelope") or value.get("__kind")
+    return name if isinstance(name, str) else None
+
+
 def _as_source_set(value: Any) -> dict[str, Any] | None:
     if isinstance(value, dict):
-        return value if value.get("__kind") == SOURCE_SET_KIND else None
-    if isinstance(value, str) and '"__kind"' in value and SOURCE_SET_KIND in value:
+        return value if _envelope_of(value) == SOURCE_SET_KIND else None
+    if isinstance(value, str) and SOURCE_SET_KIND in value and ('"envelope"' in value or '"__kind"' in value):
         import json
 
         try:
             parsed = json.loads(value)
         except ValueError:
             return None
-        is_set = isinstance(parsed, dict) and parsed.get("__kind") == SOURCE_SET_KIND
-        return parsed if is_set else None
+        return parsed if _envelope_of(parsed) == SOURCE_SET_KIND else None
     return None
 
 

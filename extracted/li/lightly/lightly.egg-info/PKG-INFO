@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: lightly
-Version: 1.5.26
-Summary: A deep learning package for self-supervised learning
+Version: 1.6.0
+Summary: A deep learning package for self-supervised learning and world models
 Author-email: Lightly Team <team@lightly.ai>
 License: Copyright (c) 2018 The Python Packaging Authority
         
@@ -39,82 +39,34 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: certifi>=14.05.14
 Requires-Dist: hydra-core>=1.0.0
-Requires-Dist: lightly_utils~=0.0.0
 Requires-Dist: numpy>=1.18.1
-Requires-Dist: python_dateutil>=2.5.3
-Requires-Dist: requests>=2.27.0
-Requires-Dist: six>=1.10
 Requires-Dist: tqdm>=4.44
 Requires-Dist: torch
 Requires-Dist: torchvision
-Requires-Dist: pydantic>=1.10.5
 Requires-Dist: pytorch_lightning>=1.0.4
-Requires-Dist: urllib3>=1.25.3
-Requires-Dist: aenum>=3.1.11
 Provides-Extra: all
-Requires-Dist: lightly[dev,matplotlib,minimal,timm,video]; extra == "all"
-Provides-Extra: dev
-Requires-Dist: sphinx; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-forked; extra == "dev"
-Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: pytest-mock; extra == "dev"
-Requires-Dist: responses; extra == "dev"
-Requires-Dist: docutils<=0.16; extra == "dev"
-Requires-Dist: sphinx-copybutton; extra == "dev"
-Requires-Dist: sphinx-design; extra == "dev"
-Requires-Dist: sphinx-gallery; extra == "dev"
-Requires-Dist: sphinx-tabs; extra == "dev"
-Requires-Dist: sphinx-reredirects; extra == "dev"
-Requires-Dist: sphinx_rtd_theme; extra == "dev"
-Requires-Dist: matplotlib; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: opencv-python; extra == "dev"
-Requires-Dist: scikit-learn; extra == "dev"
-Requires-Dist: pandas; extra == "dev"
-Requires-Dist: toml; extra == "dev"
-Requires-Dist: torchmetrics; extra == "dev"
-Requires-Dist: ruff==0.12.7; extra == "dev"
-Requires-Dist: mypy==1.4.1; extra == "dev"
-Requires-Dist: types-python-dateutil; extra == "dev"
-Requires-Dist: types-toml; extra == "dev"
-Requires-Dist: types-requests; extra == "dev"
-Requires-Dist: types-PyYAML; extra == "dev"
-Requires-Dist: nbformat; extra == "dev"
-Requires-Dist: jupytext; extra == "dev"
+Requires-Dist: lightly[matplotlib,minimal,timm,video]; extra == "all"
 Provides-Extra: minimal
-Requires-Dist: torch>=1.10.0; extra == "minimal"
-Requires-Dist: torchvision>=0.11.0; extra == "minimal"
-Requires-Dist: pytorch_lightning>=1.6; extra == "minimal"
-Provides-Extra: openapi
-Requires-Dist: python_dateutil>=2.5.3; extra == "openapi"
-Requires-Dist: setuptools>=21.0.0; extra == "openapi"
-Requires-Dist: urllib3>=1.25.3; extra == "openapi"
-Requires-Dist: pydantic>=1.10.5; extra == "openapi"
-Requires-Dist: aenum>=3.1.11; extra == "openapi"
 Provides-Extra: timm
 Requires-Dist: timm>=0.9.9; extra == "timm"
 Provides-Extra: video
-Requires-Dist: av>=8.0.3; python_version >= "3.8" and extra == "video"
+Requires-Dist: av>=8.0.3; extra == "video"
 Provides-Extra: matplotlib
 Requires-Dist: matplotlib>=3; extra == "matplotlib"
 Dynamic: license-file
 
 <a name="top"></a>
-![LightlySSL self-supervised learning Logo](docs/logos/lightly_SSL_logo_crop.png)
+![LightlySSL self-supervised learning Logo](https://raw.githubusercontent.com/lightly-ai/lightly/master/docs/logos/lightly_SSL_logo_crop.png)
 
 [![GitHub](https://img.shields.io/github/license/lightly-ai/lightly)](https://github.com/lightly-ai/lightly/blob/master/LICENSE.txt)
 [![Unit Tests](https://github.com/lightly-ai/lightly/workflows/Unit%20Tests/badge.svg)](https://github.com/lightly-ai/lightly/actions/workflows/test.yml)
@@ -125,7 +77,7 @@ Dynamic: license-file
 [![Twitter](https://img.shields.io/twitter/follow/LightlyAI)](https://x.com/LightlyAI)
 
 
-Lightly**SSL** is a computer vision framework for self-supervised learning.
+Lightly**SSL** is a computer vision framework for self-supervised learning and latent world models.
 
 - [Documentation](https://docs.lightly.ai/self-supervised-learning/)
 - [Github](https://github.com/lightly-ai/lightly)
@@ -137,11 +89,12 @@ a single command, please contact sales@lightly.ai.
 
 We've also built a whole platform on top, with additional features for active learning
 and [data curation](https://docs.lightly.ai/docs/what-is-lightly). If you're interested in the
-Lightly Worker Solution to easily process millions of samples and run [powerful algorithms](https://docs.lightly.ai/docs/customize-a-selection)
+LightlyStudio, our all-in-one product for [data curation and labeling](https://docs.lightly.ai/studio/)
 on your data, check out [lightly.ai](https://www.lightly.ai). It's free to get started!
 
 ## News 🚀
 
+* October 26, 2026 - LightlySSL now trains world models! Learn how a scene responds to actions with [LeWM](https://arxiv.org/abs/2603.19312) and plan with it in our [new tutorial](https://docs.lightly.ai/self-supervised-learning/tutorials/package/tutorial_lewm.html). 🌍
 * May 28, 2026 - We now have [LeJEPA](https://arxiv.org/pdf/2511.08544) support for self-supervised learning! 🧬 
 * March 23, 2026 - Check out our latest open-source project [LightlyStudio](https://github.com/lightly-ai/lightly-studio) to visualize, annotate, and manage your data with ease! 🔍
 * April 15, 2025 - We are excited to announce that you can now leverage SSL and distillation pretraining in just a few lines of code! We've worked hard to make self-supervised learning even more accessible with our new project [LightlyTrain](https://github.com/lightly-ai/lightly-train). Head over there to get started and supercharge your models! ⚡️
@@ -151,6 +104,26 @@ on your data, check out [lightly.ai](https://www.lightly.ai). It's free to get s
 <span>&nbsp;&nbsp;&nbsp;&nbsp;</span>
 <a href="https://github.com/lightly-ai/lightly-studio"><img src="https://storage.googleapis.com/lightly-public/studio/lightlystudio_standard_horizontal_dark.png" alt="LightlyStudio" height="40"/></a>
 </p>
+
+## World Models 🌍
+
+A world model learns how a scene responds to actions. [LeWM](https://arxiv.org/abs/2603.19312)
+learns it from raw frames and actions, then plans by imagining the outcome of
+each move in its own embedding space.
+
+<p align="center">
+<img src="https://raw.githubusercontent.com/lightly-ai/lightly/master/docs/assets/lewm_planning.gif" alt="Four agents planned by LeWM pass through a door to reach their goals" width="480"/>
+</p>
+<p align="center"><em>Each agent (orange) gets only a picture of its goal (white box). LeWM finds a way through the door.<br/>It learned from random play: no rewards, no labels, no map of the room.</em></p>
+
+```bash
+pip install "lightly[timm]"  # LeWM needs PyTorch 2.0+
+```
+
+- [Tutorial: Train a World Model and Plan with It](https://docs.lightly.ai/self-supervised-learning/tutorials/package/tutorial_lewm.html)
+- [Example script](https://github.com/lightly-ai/lightly/blob/master/examples/pytorch/lewm.py)
+- [LeWM docs](https://docs.lightly.ai/self-supervised-learning/examples/lewm.html)
+- [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/lewm.ipynb)
 
 ## Features
 
@@ -191,13 +164,21 @@ and PyTorch Lightning distributed examples for all models to kickstart your proj
 | DINOv2         | 2023 | [paper](https://arxiv.org/abs/2304.07193) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/dinov2.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/dinov2.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/dinov2.ipynb) | <!-- 14/04/2023 -->
 | FroSSL         | 2023 | [paper](https://arxiv.org/abs/2310.02903) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/frossl.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/frossl.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/frossl.ipynb) | <!-- 04/10/2023 -->
 | AIM            | 2024 | [paper](https://arxiv.org/abs/2401.08541) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/aim.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/aim.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/aim.ipynb) | <!-- 16/01/2024 -->
+| CAPI           | 2025 | [paper](https://arxiv.org/abs/2502.08769) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/capi.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/capi.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/capi.ipynb) | <!-- 12/02/2025 -->
 | LeJEPA         | 2025 | [paper](https://arxiv.org/abs/2511.08544) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/lejepa.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/lejepa.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/lejepa.ipynb) | <!-- 11/11/2025 -->
 | Pixio          | 2025 | [paper](https://arxiv.org/abs/2512.15715) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/pixio.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/pixio.ipynb) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch_Lightning-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch_lightning/pixio.ipynb) | <!-- 17/12/2025 -->
+
+**World models**:
+
+| Model          | Year | Paper | Docs | Colab (PyTorch) |
+|----------------|------|-------|------|-----------------|
+| LeWM           | 2026 | [paper](https://arxiv.org/abs/2603.19312) | [docs](https://docs.lightly.ai/self-supervised-learning/examples/lewm.html) | [![Open In Colab](https://img.shields.io/badge/Colab-PyTorch-blue?logo=googlecolab)](https://colab.research.google.com/github/lightly-ai/lightly/blob/master/examples/notebooks/pytorch/lewm.ipynb) |
 
 ## Tutorials
 
 Want to jump to the tutorials and see Lightly in action?
 
+- [Train a World Model and Plan with It](https://docs.lightly.ai/self-supervised-learning/tutorials/package/tutorial_lewm.html)
 - [Train MoCo on CIFAR-10](https://docs.lightly.ai/self-supervised-learning/tutorials/package/tutorial_moco_memory_bank.html)
 - [Train SimCLR on Clothing Data](https://docs.lightly.ai/self-supervised-learning/tutorials/package/tutorial_simclr_clothing.html)
 - [Train SimSiam on Satellite Images](https://docs.lightly.ai/self-supervised-learning/tutorials/package/tutorial_simsiam_esa.html)
@@ -212,7 +193,7 @@ Community and partner projects:
 
 ## Quick Start
 
-Lightly requires **Python 3.7+**. We recommend installing Lightly in a **Linux** or **OSX** environment. Python 3.13 is not yet supported, as PyTorch itself lacks Python 3.13 compatibility.
+Lightly requires **Python 3.8+**. We recommend installing Lightly in a **Linux** or **OSX** environment. Python 3.13 is not yet supported, as PyTorch itself lacks Python 3.13 compatibility.
 
 ### Dependencies
 
@@ -421,7 +402,7 @@ See the [benchmarking scripts](./benchmarks/imagenet/) for details.
 | DINO            | Res50    | 128        | 100    | 68.2        | 72.5          | 49.9     | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_resnet50_dino_2023-06-06_13-59-48/pretrain/version_0/events.out.tfevents.1686052799.Machine2.482599.0)        | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_resnet50_dino_2023-06-06_13-59-48/pretrain/version_0/checkpoints/epoch%3D99-step%3D1000900.ckpt)       |
 | DINO            | ViT-S/16    | 128        | 100    | 73.3        | 79.8          | 67.5     | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_vits14_dino_2025-02-16_16-03-14/pretrain/version_0/events.out.tfevents.1739718198.compute-03-ubuntu-4x4090.2832462.0)        | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_vits14_dino_2025-02-16_16-03-14/pretrain/version_0/checkpoints/epoch%3D99-step%3D1000900.ckpt)       |
 | iBOT            | ViT-S/16    | 128        | 100    | 72.2        | 78.3          | 65.4     | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_vits16_ibot_2025-07-10_13-47-17/pretrain/version_0/events.out.tfevents.1752148040.compute-01-ubuntu-2x4090.253473.0)        | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_vits16_ibot_2025-07-10_13-47-17/pretrain/version_0/checkpoints/epoch%3D99-step%3D1000900.ckpt)       |
-| LeJEPA          | ViT-S/16    | 512        | 100    | 64.0        | 78.7          | 47.1     | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_vits16_lejepa_2026-05-20_17-59-16/pretrain/version_0/metrics_plot.png)                                                             | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_vits16_lejepa_2026-05-20_17-59-16/pretrain/version_0/checkpoints/epoch%3D099-val_online_cls_top1%3D0.5623.ckpt)       |
+| LeJEPA\*\*      | ViT-S/16    | 512        | 100    | 64.0        | 78.7          | 47.1     | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_vits16_lejepa_2026-05-20_17-59-16/pretrain/version_0/metrics_plot.png)                                                             | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_vits16_lejepa_2026-05-20_17-59-16/pretrain/version_0/checkpoints/epoch%3D099-val_online_cls_top1%3D0.5623.ckpt)       |
 | MAE             | ViT-B/16 | 256        | 100    | 46.0        | 81.3          | 11.2     | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_vitb16_mae_2024-02-25_19-57-30/pretrain/version_0/events.out.tfevents.1708887459.Machine2.1092409.0)          | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_vitb16_mae_2024-02-25_19-57-30/pretrain/version_0/checkpoints/epoch%3D99-step%3D500400.ckpt)           |
 | MoCoV2          | Res50    | 256        | 100    | 61.5        | 74.3          | 41.8     | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_resnet50_mocov2_2024-02-18_10-29-14/pretrain/version_0/events.out.tfevents.1708248562.Machine2.439033.0)      | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_resnet50_mocov2_2024-02-18_10-29-14/pretrain/version_0/checkpoints/epoch%3D99-step%3D500400.ckpt)      |
 | SimCLR\*        | Res50    | 256        | 100    | 63.2        | 73.9          | 44.8     | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_resnet50_simclr_2023-06-22_09-11-13/pretrain/version_0/events.out.tfevents.1687417883.Machine2.33270.0)       | [link](https://lightly-ssl-checkpoints.s3.amazonaws.com/imagenet_resnet50_simclr_2023-06-22_09-11-13/pretrain/version_0/checkpoints/epoch%3D99-step%3D500400.ckpt)      |
@@ -433,6 +414,8 @@ See the [benchmarking scripts](./benchmarks/imagenet/) for details.
 
 _\*We use square root learning rate scaling instead of linear scaling as it yields
 better results for smaller batch sizes. See Appendix B.1 in the [SimCLR paper](https://arxiv.org/abs/2002.05709)._
+
+_\*\*The LeJEPA numbers were published in [#1935](https://github.com/lightly-ai/lightly/pull/1935) (`a08c5c35`) and predate the loss fix in [#2023](https://github.com/lightly-ai/lightly/pull/2023), which adds the global views to SIGReg and the invariance term. They will be updated after a re-run._
 
 ### ImageNet100
 
@@ -459,11 +442,16 @@ Head to the [documentation](https://docs.lightly.ai/self-supervised-learning/) a
 
 ## Development
 
-To install dev dependencies (for example to contribute to the framework) you can use the following command:
+We use [uv](https://github.com/astral-sh/uv) to manage dependencies. To set up a
+development environment (for example to contribute to the framework) you can use the
+following command:
 
 ```
-pip3 install -e ".[dev]"
+make install-dev
 ```
+
+This installs the package with all extras and development dependencies, and sets up the
+pre-commit hooks. You do not need to activate the virtual environment manually.
 
 For more information about how to contribute have a look [here](CONTRIBUTING.md).
 
@@ -486,7 +474,7 @@ make test
 To test a specific file or directory use:
 
 ```
-pytest <path to file or directory>
+uv run --frozen pytest <path to file or directory>
 ```
 
 ### Code Formatting
@@ -562,7 +550,7 @@ You can find out more about the company and it's services by following the links
 - [Homepage](https://www.lightly.ai)
 - [LightlyTrain](https://docs.lightly.ai/train/stable/index.html)
 - [Web-App](https://app.lightly.ai)
-- [Lightly Solution Documentation (Lightly Worker & API)](https://docs.lightly.ai/)
+- [LightlyStudio](https://docs.lightly.ai/studio/)
 - [Lightly's AwesomeSSL](https://github.com/lightly-ai/awesome-self-supervised-learning) (collection of SSL papers)
 
 [Back to top🚀](#top)

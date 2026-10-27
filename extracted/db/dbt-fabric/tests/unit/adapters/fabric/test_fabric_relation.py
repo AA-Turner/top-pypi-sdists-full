@@ -1,3 +1,5 @@
+import pytest
+
 from dbt.adapters.fabric.fabric_relation import FabricRelation
 from dbt.adapters.fabric.relation_configs import FabricRelationType
 
@@ -32,6 +34,25 @@ class TestFabricRelationQuoted:
 
 
 class TestFabricRelationRenderLimited:
+    @pytest.mark.parametrize(
+        ("limit", "expected"),
+        [
+            (None, "[mydb].[dbo].[my_table]"),
+            (0, "(select * from [mydb].[dbo].[my_table] where 1=0)"),
+            (10, "(select TOP 10 * from [mydb].[dbo].[my_table])"),
+        ],
+    )
+    def test_explicit_alias_suppresses_generated_alias(self, limit, expected):
+        relation = FabricRelation.create(
+            database="mydb",
+            schema="dbo",
+            identifier="my_table",
+            type=FabricRelationType.Table,
+            limit=limit,
+        ).incorporate(require_alias=False)
+
+        assert str(relation) == expected
+
     def test_no_limit(self):
         r = FabricRelation.create(
             database="mydb",
@@ -49,10 +70,10 @@ class TestFabricRelationRenderLimited:
             type=FabricRelationType.Table,
             limit=0,
         )
-        result = r.render_limited()
-        assert "where 1=0" in result
-        assert "[mydb].[dbo].[my_table]" in result
-        assert "select *" in result
+        assert (
+            r.render_limited()
+            == "(select * from [mydb].[dbo].[my_table] where 1=0) _dbt_limit_subq_my_table"
+        )
 
     def test_limit_positive(self):
         r = FabricRelation.create(
@@ -62,10 +83,10 @@ class TestFabricRelationRenderLimited:
             type=FabricRelationType.Table,
             limit=10,
         )
-        result = r.render_limited()
-        assert "TOP 10" in result
-        assert "[mydb].[dbo].[my_table]" in result
-        assert "select TOP 10 *" in result
+        assert (
+            r.render_limited()
+            == "(select TOP 10 * from [mydb].[dbo].[my_table]) _dbt_limit_subq_my_table"
+        )
 
 
 class TestFabricRelationRendering:

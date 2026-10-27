@@ -2444,7 +2444,7 @@ class CacheControl(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e91ec86b5db9fd0adbdf92c09f3f261542c3e4ebbeab952dd3a6971eb634cd31)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "value", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "value", value)
 
 
 class CloudFormationCreateReplaceChangeSetAction(

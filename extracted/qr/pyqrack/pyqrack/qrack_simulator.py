@@ -452,7 +452,7 @@ class QrackSimulator:
         Qrack.qrack_lib.Exp(
             self.sid,
             len(b),
-            QrackSimulator._ulonglong_byref(b),
+            QrackSimulator._int_byref(b),
             ctypes.c_double(ph),
             QrackSimulator._ulonglong_byref(q),
         )
@@ -971,7 +971,7 @@ class QrackSimulator:
         Qrack.qrack_lib.MCExp(
             self.sid,
             len(b),
-            QrackSimulator._ulonglong_byref(b),
+            QrackSimulator._int_byref(b),
             ctypes.c_double(ph),
             len(cs),
             QrackSimulator._ulonglong_byref(cs),
@@ -3117,7 +3117,7 @@ class QrackSimulator:
         if len(b) != len(q):
             raise RuntimeError("Lengths of list parameters are mismatched.")
         result = Qrack.qrack_lib.JointEnsembleProbability(
-            self.sid, len(b), QrackSimulator._ulonglong_byref(b), q
+            self.sid, len(b), QrackSimulator._int_byref(b), q
         )
         self._throw_if_error()
         return result

@@ -18,6 +18,7 @@
 #include "picosha2.h"
 #include <functional>
 #include <memory>
+#include <new>
 
 // python under 3.13 doesn't have PyDict_ContainsString, so we implement it ourselves
 #if PY_VERSION_HEX < 0x030D0000
@@ -221,6 +222,9 @@ namespace {
         static bool type_creation_locked = false;
         static std::unordered_set<TwoStringTuple> tmp_type_attr_set;
         static std::unordered_map<uintptr_t, PyObjectStorage> tmp_type_allowed_code_map;
+        static std::vector<PyObjectStorage> tmp_type_need_call; // use vector to avoid of the dealloc after python end
+        static std::unordered_map<std::string, PyObjectStorage> tmp_type_attr_dict;
+
         static std::unordered_map<uintptr_t, std::unique_ptr<std::shared_mutex>> all_type_mutex;
         static std::unordered_map<uintptr_t, PyObjectStorage> type_need_call;
         static std::unordered_map<uintptr_t, std::unordered_set<TwoStringTuple>> all_type_attr_set;
@@ -316,6 +320,8 @@ clean_all_storages() noexcept
     AllData::type_allowed_code_map.clear();
     AllData::tmp_type_attr_set.clear();
     AllData::tmp_type_allowed_code_map.clear();
+    AllData::tmp_type_need_call.clear();
+    AllData::tmp_type_attr_dict.clear();
     AllData::type_creation_locked = false;
     AllData::all_type_mutex.clear();
     AllData::type_need_call.clear();
@@ -384,6 +390,20 @@ is_class_code(uintptr_t typ_id, PyCodeObject* code) noexcept
         }
     }
     return false;
+}
+
+static PyObject*
+get_type_need_call(uintptr_t typ_id) noexcept
+{
+    if (::AllData::type_need_call.find(typ_id) != ::AllData::type_need_call.end()){
+        return ::AllData::type_need_call[typ_id];
+    }
+    if (::AllData::type_creation_locked && ::AllData::all_type_attr_set.find(typ_id) == ::AllData::all_type_attr_set.end()) {
+        if (!::AllData::tmp_type_need_call.empty()) {
+            return ::AllData::tmp_type_need_call.back();
+        }
+    }
+    return nullptr;
 }
 
 static bool
@@ -647,10 +667,7 @@ id_getattr(uintptr_t final_id, const std::string& attr_name, PyObject* obj, PyOb
 
     std::string obj_private_name;
     std::string typ_private_name;
-    PyObject* obj_need_call = NULL;
-    if (::AllData::type_need_call.find(final_id) != ::AllData::type_need_call.end()) {
-        obj_need_call = ::AllData::type_need_call[final_id];
-    }
+    PyObject* obj_need_call = get_type_need_call(final_id);
     if (obj_need_call) {
         auto private_name_result = custom_random_string(obj_id, attr_name, obj_need_call);
         if (!private_name_result.ok) {
@@ -774,10 +791,7 @@ id_setattr(uintptr_t final_id, const std::string& attr_name, PyObject* obj, PyOb
 
     std::string obj_private_name;
     std::string typ_private_name;
-    PyObject* obj_need_call = NULL;
-    if (::AllData::type_need_call.find(final_id) != ::AllData::type_need_call.end()) {
-        obj_need_call = ::AllData::type_need_call[final_id];
-    }
+    PyObject* obj_need_call = get_type_need_call(final_id);
     if (obj_need_call) {
         auto private_name_result = custom_random_string(obj_id, attr_name, obj_need_call);
         if (!private_name_result.ok) {
@@ -827,12 +841,7 @@ type_setattr(uintptr_t main_type, PyObject* typ, const std::string& attr_name, P
     }
     uintptr_t target_type = (uintptr_t) typ;
     std::string final_key;
-    PyObject* type_need_call;
-    if (::AllData::type_need_call.find(target_type) != ::AllData::type_need_call.end()) {
-        type_need_call = ::AllData::type_need_call[target_type];
-    } else {
-        type_need_call = NULL;
-    }
+    PyObject* type_need_call = get_type_need_call(target_type);
     if (type_need_call) {
         auto private_name_result = custom_random_string(target_type, attr_name, type_need_call);
         if (!private_name_result.ok) {
@@ -873,10 +882,7 @@ id_delattr(uintptr_t final_id, const std::string& attr_name, PyObject* obj, PyOb
 
     std::string obj_private_name;
     std::string typ_private_name;
-    PyObject* obj_need_call = NULL;
-    if (::AllData::type_need_call.find(final_id) != ::AllData::type_need_call.end()) {
-        obj_need_call = ::AllData::type_need_call[final_id];
-    }
+    PyObject* obj_need_call = get_type_need_call(final_id);
     if (obj_need_call) {
         auto private_name_result = custom_random_string(obj_id, attr_name, obj_need_call);
         if (!private_name_result.ok) {
@@ -928,12 +934,7 @@ type_delattr(uintptr_t main_type, PyObject* typ, const std::string& attr_name) n
 {
     uintptr_t target_type = (uintptr_t) typ;
     std::string final_key;
-    PyObject* type_need_call;
-    if (::AllData::type_need_call.find(target_type) != ::AllData::type_need_call.end()) {
-        type_need_call = ::AllData::type_need_call[target_type];
-    } else {
-        type_need_call = NULL;
-    }
+    PyObject* type_need_call = get_type_need_call(target_type);
     if (type_need_call) {
         auto private_name_result = custom_random_string(target_type, attr_name, type_need_call);
         if (!private_name_result.ok) {
@@ -2511,10 +2512,7 @@ type_get_final_attr(uintptr_t main_type, uintptr_t target_type, const std::strin
     }
     for (auto& type : chain) {
         std::string key;
-        PyObject* need_call = NULL;
-        if (::AllData::type_need_call.find(type) != ::AllData::type_need_call.end()) {
-            need_call = ::AllData::type_need_call[type];
-        }
+        PyObject* need_call = get_type_need_call(type);
         if (need_call != NULL) {
             auto private_name_result = custom_random_string(type, name, need_call);
             if (!private_name_result.ok) {
@@ -2531,6 +2529,12 @@ type_get_final_attr(uintptr_t main_type, uintptr_t target_type, const std::strin
             if (item_set.find(key) != item_set.end()) {
                 PyObject* obj = item_set[key];
                 return obj;
+            } else if (::AllData::type_creation_locked && ::AllData::all_type_attr_set.find(main_type) == ::AllData::all_type_attr_set.end()) {
+                // now we can only use name instead of key on ::AllData::tmp_type_attr_dict[name]
+                if (::AllData::tmp_type_attr_dict.find(name) != ::AllData::tmp_type_attr_dict.end()) {
+                    PyObject* obj = ::AllData::tmp_type_attr_dict[name];
+                    return obj;
+                }
             }
             return -1; // main_type has no such attribute -> not found
         }
@@ -2743,9 +2747,6 @@ struct PrivateAttrCreationData
     std::unordered_set<std::string> private_attrs_vector_string;
     std::vector<uintptr_t> all_need_analyse_base;
     std::unordered_map<std::string, PyObjectStorage> need_remove_itself;
-    // Class-body attributes whose name is private to a parent class: stored
-    // separately in all_type_subclass_attr[parent][this class].
-    std::unordered_map<uintptr_t, std::unordered_map<std::string, PyObjectStorage>> need_remove_subclass;
     PyObject* private_func = nullptr;
     PyObject* base_kwds = nullptr;
     PyObject* name = nullptr;
@@ -2759,10 +2760,14 @@ struct PrivateAttrCreationData
     void lock() noexcept {
         if (!locked) {
             lock_.lock();
+            AllData::type_creation_locked = true;
             locked = true;
             AllData::tmp_type_allowed_code_map = code_map;
             AllData::tmp_type_attr_set = private_attrs_set;
-            AllData::type_creation_locked = true;
+            AllData::tmp_type_attr_dict = need_remove_itself;
+            if (private_func) {
+                ::AllData::tmp_type_need_call.push_back(private_func);
+            }
         }
     }
 
@@ -2770,6 +2775,8 @@ struct PrivateAttrCreationData
         if (locked) {
             AllData::tmp_type_allowed_code_map.clear();
             AllData::tmp_type_attr_set.clear();
+            ::AllData::tmp_type_need_call.clear();
+            AllData::tmp_type_attr_dict.clear();
             AllData::type_creation_locked = false;
             locked = false;
             lock_.unlock();
@@ -2788,7 +2795,6 @@ struct PrivateAttrCreationData
         PRIVATEATTR_CREATION_DATA_CLEAR(base_kwds);
 
         need_remove_itself.clear();
-        need_remove_subclass.clear();
         code_map.clear();
         if (locked) {
             unlock();
@@ -3048,7 +3054,7 @@ PrivateAttrType_preprocess(PyObject* args, PyObject* kwds, PrivateAttrCreationDa
         }
     }
 
-    std::function<uintptr_t(std::string)> need_remove_to_subclass = [&data](std::string attr_name){
+    std::function<uintptr_t(const std::string&)> need_remove_to_subclass = [&data](const std::string& attr_name){
         for (auto& base: data.all_need_analyse_base) {
             if (type_private_attr(base, attr_name)) {
                 return base;
@@ -3391,34 +3397,6 @@ PrivateAttrType_postprocess(PyObject* new_type, PrivateAttrCreationData& data) n
             final_key = default_random_string(type_id, key);
         }
         ::AllData::type_attr_dict[type_id][final_key] = value;
-    }
-
-    for (auto& [i, map]: data.need_remove_subclass) {
-        if (::AllData::all_type_subclass_attr.find(i) == ::AllData::all_type_subclass_attr.end()) {
-            ::AllData::all_type_subclass_attr[i] = {};
-        }
-        if (::AllData::all_type_subclass_mutex.find(i) == ::AllData::all_type_subclass_mutex.end()) {
-            ::AllData::all_type_subclass_mutex[i].clear();
-        }
-        if (::AllData::all_type_subclass_attr[i].find(type_id) == ::AllData::all_type_subclass_attr[i].end()) {
-            ::AllData::all_type_subclass_attr[i][type_id] = {};
-        }
-        if (::AllData::all_type_subclass_mutex[i].find(type_id) == ::AllData::all_type_subclass_mutex[i].end()) {
-            ::AllData::all_type_subclass_mutex[i][type_id] = std::make_unique<std::shared_mutex>();
-        }
-        for (auto& [key, value]: map) {
-            std::string final_key;
-            if (data.private_func) {
-                auto private_name_result = custom_random_string(type_id, key, data.private_func);
-                if (!private_name_result.ok) {
-                    return false;
-                }
-                final_key = private_name_result.value;
-            } else {
-                final_key = default_random_string(type_id, key);
-            }
-            ::AllData::all_type_subclass_attr[i][type_id][final_key] = value;
-        }
     }
 
     if (data.private_func) {
@@ -4166,7 +4144,10 @@ static PyTypeObject PrivateTempType = {
 static PyObject*
 prepare_for_PrivateAttr(PyObject* /*self*/, PyObject* args, PyObject* kwargs) noexcept
 {
-    PrivateAttrCreationData* tmp_data = new PrivateAttrCreationData();
+    PrivateAttrCreationData* tmp_data = new(std::nothrow) PrivateAttrCreationData();
+    if (!tmp_data) {
+        return PyErr_NoMemory();
+    }
     if (!PrivateAttrType_preprocess(args, kwargs, *tmp_data, "private_attribute.prepare")) {
         tmp_data->clear();
         delete tmp_data;

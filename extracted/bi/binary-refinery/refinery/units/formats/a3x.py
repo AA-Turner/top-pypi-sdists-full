@@ -8,10 +8,13 @@ import struct
 from enum import Enum
 from typing import Generator, Iterable, NamedTuple
 
-from refinery.lib.dt import date_from_timestamp
+from refinery.lib.dt import filetime
 from refinery.lib.fast.a3x import a3x_decompress, a3x_decrypt
 from refinery.lib.id import buffer_contains
+from refinery.lib.scripts.au3.functions import AUTOIT_FUNCTION_NAMES
+from refinery.lib.scripts.au3.lexer import ascii_lower
 from refinery.lib.structures import MemoryFile, Struct, StructReader
+from refinery.lib.tools import exception_to_string
 from refinery.units.formats import PathExtractorUnit, UnpackResult
 
 A3X_KEYWORDS = [
@@ -514,7 +517,19 @@ A3X_OPCODES = {
 
 _PRETTY: dict[str, str] = {}
 _PRETTY.update((name.lower(), name) for name in A3X_APICALLS)
+_PRETTY.update(AUTOIT_FUNCTION_NAMES)
 _PRETTY.update((name.lower(), name) for name in A3X_KEYWORDS)
+
+
+def _pretty(name: str) -> str:
+    """
+    The spelling the decompiler prints for a name the bytecode holds: the documented spelling of
+    the keyword or builtin it names where the two differ in ASCII case alone, and the stored name
+    otherwise. Python's `str.lower` also folds characters outside ASCII — U+212A KELVIN SIGN into
+    `k` — while whether AutoIt does is unpinned, so a user function or a variable spelled with one
+    keeps its stored name: the lookup folds through `refinery.lib.scripts.au3.lexer.ascii_lower`.
+    """
+    return _PRETTY.get(ascii_lower(name), name)
 
 
 def a3x_number_representation(value: float | int) -> str:
@@ -534,36 +549,60 @@ def a3x_number_representation(value: float | int) -> str:
         return RF'{value!s}'
 
 
-def a3x_decompile(bytecode: bytearray | memoryview) -> Generator[tuple[int, str]]:
-    class _decompiler(dict):
-        def __missing__(self, key):
-            if key == 's':
-                string = reader.read_length_prefixed_string()
-                return _PRETTY.get(string.lower(), string)
-            elif key == 'r':
-                string = reader.read_length_prefixed_string()
-                return '"{}"'.format(string.replace('"', '""'))
-            elif key == 'k':
-                return A3X_KEYWORDS[reader.u32()]
-            elif key == 'a':
-                return A3X_APICALLS[reader.u32()]
-            elif key == 'i':
-                number = reader.i32()
-            elif key == 'q':
-                number = reader.i64()
-            elif key == 'd':
-                number = reader.f64()
-            else:
-                raise KeyError(key)
-            if number < 0 and tokens and tokens[~0] == '+':
-                number = -number
-                tokens[~0] = '-'
-            return a3x_number_representation(number)
+class _Operands(dict):
+    """
+    Formats the operands of an AutoIt bytecode instruction: each format field reads the next
+    operand of the kind that the field names from the reader. A negative number that follows a
+    plus sign turns the sign into a minus.
+    """
+    def __init__(self, reader: A3xReader, tokens: list[str]):
+        super().__init__()
+        self.reader = reader
+        self.tokens = tokens
 
-    decompiler = _decompiler()
+    def __missing__(self, key):
+        reader = self.reader
+        tokens = self.tokens
+        if key == 's':
+            return _pretty(reader.read_length_prefixed_string())
+        elif key == 'r':
+            string = reader.read_length_prefixed_string()
+            return '"{}"'.format(string.replace('"', '""'))
+        elif key == 'k':
+            return A3X_KEYWORDS[reader.u32()]
+        elif key == 'a':
+            return _pretty(A3X_APICALLS[reader.u32()])
+        elif key == 'i':
+            number = reader.i32()
+        elif key == 'q':
+            number = reader.i64()
+        elif key == 'd':
+            number = reader.f64()
+        else:
+            raise KeyError(key)
+        if number < 0 and tokens and tokens[~0] == '+':
+            number = -number
+            tokens[~0] = '-'
+        return a3x_number_representation(number)
+
+
+_BLOCK_ENDS = frozenset((
+    'endfunc',
+    'endif',
+    'endselect',
+    'endswitch',
+    'endwith',
+    'next',
+    'until',
+    'wend',
+))
+
+
+def a3x_decompile(bytecode: bytearray | memoryview) -> Generator[tuple[int, str]]:
     reader = A3xReader(memoryview(bytecode))
     num_lines = reader.u32()
     tokens: list[str] = []
+    decompiler = _Operands(reader, tokens)
     expected_terminators: list[str] = []
     line = 0
 
@@ -594,11 +633,11 @@ def a3x_decompile(bytecode: bytearray | memoryview) -> Generator[tuple[int, str]
                 expected_terminators.append('endselect')
             elif lt[0] == 'switch':
                 expected_terminators.append('endswitch')
-            elif lt[0] == 'func':
+            elif lt[0] == 'func' or lt[:2] == ['volatile', 'func']:
                 expected_terminators.append('endfunc')
             elif lt[0] == 'with':
                 expected_terminators.append('endwith')
-            elif lt[0].startswith('end') or lt[0] in {'next', 'until', 'wend'}:
+            elif lt[0] in _BLOCK_ENDS:
                 try:
                     expected = expected_terminators.pop()
                 except IndexError:
@@ -680,7 +719,7 @@ class A3xReader(StructReader[memoryview]):
         H = self.u32()
         L = self.u32()
         T = (H << 32) | L
-        return date_from_timestamp((T - 116444736000000000) / 10000000)
+        return filetime(T)
 
     def read_length_prefixed_string(self):
         length = self.i32()
@@ -746,12 +785,23 @@ class A3xRecord(Struct):
             for line in codecs.decode(self.data, 'utf16').splitlines():
                 yield line.encode(a3x.codec)
             return
-        if self.type == A3xType.SCRIPT:
+        if self.holds_bytecode:
             a3x.log_info('decompiler:', self.path)
             for indent, line in a3x_decompile(self.data):
                 yield F'{indent * 4 * " "}{line}'.encode(a3x.codec)
             return
+        if self.type == A3xType.SCRIPT:
+            yield from self.data.splitlines()
+            return
         yield self.data
+
+    @property
+    def holds_bytecode(self) -> bool:
+        """
+        Whether the record holds compiled bytecode: an `AUTOIT SCRIPT` record of the current
+        format does, while the older format stores the script source there as ANSI text.
+        """
+        return self.type == A3xType.SCRIPT and self.encryption_type.is_current
 
     def is_script(self):
         return self.type in (
@@ -818,7 +868,7 @@ class a3x(PathExtractorUnit):
     def unpack(self, data: bytearray):
         view = memoryview(data)
         cursor = 0
-        errors: dict[int, Exception] = {}
+        errors: dict[int, str] = {}
         script_count = 0
         truncated: set[A3xRecord] = set()
         intact: set[A3xRecord] = set()
@@ -833,71 +883,74 @@ class a3x(PathExtractorUnit):
                     record.path,
                     record.extract,
                     srcpath=record.src_path,
-                    created=record.created.isoformat(' ', 'seconds'),
-                    written=record.written.isoformat(' ', 'seconds'),
+                    created=record.created and record.created.isoformat(' ', 'seconds'),
+                    written=record.written and record.written.isoformat(' ', 'seconds'),
                 )
 
-        while cursor < len(view):
-            self.log_debug(F'searching at offset 0x{cursor:08X}')
-            nc = data.find(A3xScript.MAGIC, cursor)
-            if nc >= 0:
-                cursor = nc
-            else:
-                rp = data.find(A3xRecord.MAGIC, cursor) - A3xScript.WIDTH
-                if rp <= cursor:
-                    break
-                cursor = rp
-            try:
-                script = A3xScript.Parse(view[cursor:])
-            except Exception as E:
-                errors[cursor] = E
-                cursor += 1
-                continue
-            else:
-                valid = script.has_valid_magic()
-                if valid:
-                    _m = 'correct'
+        last_error: Exception | None = None
+        try:
+            while cursor < len(view):
+                self.log_debug(F'searching at offset 0x{cursor:08X}')
+                nc = data.find(A3xScript.MAGIC, cursor)
+                if nc >= 0:
+                    cursor = nc
                 else:
-                    _m = 'invalid'
-                if not script.body:
-                    cursor += A3xScript.WIDTH
-                    if not script.has_valid_magic():
-                        cursor += len(A3xRecord.MAGIC)
+                    rp = data.find(A3xRecord.MAGIC, cursor) - A3xScript.WIDTH
+                    if rp <= cursor:
+                        break
+                    cursor = rp
+                try:
+                    script = A3xScript.Parse(view[cursor:])
+                except Exception as E:
+                    errors[cursor] = exception_to_string(E)
+                    last_error = E
+                    cursor += 1
                     continue
-                if script.truncated:
-                    _a = 'truncated'
-                    truncated.update(script.body)
                 else:
-                    script_count += 1
-                    _a = 'intact'
-                    intact.update(script.body)
-                self.log_info(
-                    F'{_a} script of type', script.type,
-                    F'and length 0x{len(script):08X}',
-                    F'with {len(script.body)} records and {_m} magic:',
-                    script.magic
-                )
-                cursor += len(script)
-                if script.truncated:
-                    if not script.has_valid_magic():
-                        cursor += len(A3xRecord.MAGIC)
-                    continue
+                    valid = script.has_valid_magic()
+                    if valid:
+                        _m = 'correct'
+                    else:
+                        _m = 'invalid'
+                    if not script.body:
+                        cursor += A3xScript.WIDTH
+                        if not script.has_valid_magic():
+                            cursor += len(A3xRecord.MAGIC)
+                        continue
+                    if script.truncated:
+                        _a = 'truncated'
+                        truncated.update(script.body)
+                    else:
+                        script_count += 1
+                        _a = 'intact'
+                        intact.update(script.body)
+                    self.log_info(
+                        F'{_a} script of type', script.type,
+                        F'and length 0x{len(script):08X}',
+                        F'with {len(script.body)} records and {_m} magic:',
+                        script.magic
+                    )
+                    cursor += len(script)
+                    if script.truncated:
+                        if not script.has_valid_magic():
+                            cursor += len(A3xRecord.MAGIC)
+                        continue
 
-            yield from _package(script.body)
+                yield from _package(script.body)
 
-        remaining = truncated - intact
-        if remaining:
-            self.log_warn('emitting records from truncated scripts')
-            yield from _package(remaining)
-            return
-        elif truncated:
-            self.log_debug('good news: intact scripts contained all records from truncated scripts')
-        if script_count == 0:
-            error = None
-            for offset, error in errors.items():
-                self.log_warn(F'error at offset 0x{offset:08X}:', error)
-            if error:
-                raise error
+            remaining = truncated - intact
+            if remaining:
+                self.log_warn('emitting records from truncated scripts')
+                yield from _package(remaining)
+                return
+            elif truncated:
+                self.log_debug('good news: intact scripts contained all records from truncated scripts')
+            if script_count == 0 and last_error is not None:
+                for offset, error in errors.items():
+                    self.log_warn(F'error at offset 0x{offset:08X}:', error)
+                raise last_error
+        finally:
+            del last_error
 
     @classmethod
     def handles(cls, data) -> bool | None:

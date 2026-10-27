@@ -43,7 +43,7 @@ use uv_threads::initialize_rayon_once;
 use uv_types::{BuildContext, BuildStack};
 
 use crate::archive::Archive;
-use crate::download::variant_compatible;
+use crate::download::check_wheel_variant_compatibility;
 use crate::error::PythonVersion;
 use crate::extracted_wheel::{ExtractedWheel, HashedWheel, WheelExtractor};
 use crate::hash::http_hash_algorithms;
@@ -227,9 +227,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             Dist::Built(built) => {
                 check_supported_wheel_variant(built)?;
                 let wheel = self.get_wheel(built, hashes).await?;
-                if !variant_compatible(&wheel.filename, &wheel.archive)? {
-                    return Err(Error::IncompatibleWheelVariant(Box::new(wheel.filename)));
-                }
+                check_wheel_variant_compatibility(&wheel.filename, &wheel.archive)?;
                 Ok(wheel)
             }
             // TODO(konsti): Support source distributions that build variant wheels.
@@ -640,10 +638,11 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             HashValidation::Any(_) | HashValidation::All(_) => hashes.validation.into(),
         };
 
+        // Box the full-wheel futures to keep their state out of metadata-only requests.
         // Fetch the entire wheel only when we need to compute a hash for resolution.
         // TODO(charlie): Request the hashes via a separate method, to reduce the coupling in this API.
         if hash_policy == ArchiveHashPolicy::Generate {
-            let wheel = self.get_wheel(dist, hash_policy).await?;
+            let wheel = Box::pin(self.get_wheel(dist, hash_policy)).await?;
             // If the metadata was provided by the user directly, prefer it.
             let metadata = if let Some(metadata) =
                 self.dependency_metadata(dist.name(), Some(dist.version()))
@@ -687,7 +686,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
 
                 // If the request failed due to an error that could be resolved by
                 // downloading the wheel directly, try that.
-                let wheel = self.get_wheel(dist, hash_policy).await?;
+                let wheel = Box::pin(self.get_wheel(dist, hash_policy)).await?;
                 let metadata = wheel.metadata()?;
                 let hashes = wheel.hashes;
                 Ok(ArchiveMetadata {

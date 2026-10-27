@@ -55,7 +55,6 @@ from pg8000.core import (
 from pg8000.exceptions import DatabaseError, Error, InterfaceError
 from pg8000.types import Range
 
-
 __version__ = ver
 
 # Copyright (c) 2007-2009, Mathieu Fenniak

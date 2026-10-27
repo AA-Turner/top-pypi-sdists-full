@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shlex
 import time
 from pathlib import Path
 
@@ -643,3 +644,230 @@ def test_a_write_told_with_a_failed_request_is_not_told_again_by_a_receipt(tmp_p
     asyncio.run(w.run_bite("prompt"))
     receipts = [m.text for m in _writer_messages() if m.kind == mailbox.Kind.MESSAGE]
     assert receipts == ["moved run quiet-seahorse-812 to sft-wave1"], "the create was told with the failure"
+
+
+# ---------------------------------------------------------------------------
+# A headline metric or a best pick the writer set: one note for the researcher
+# (track-work: "set it ... and tell the researcher in one line"), which the main
+# agent passes on; never a receipt line.
+# ---------------------------------------------------------------------------
+
+PROJECT_ID = "6f1c0e52-0000-4000-8000-000000000001"
+EXPERIMENT_ID = "6f1c0e52-0000-4000-8000-000000000002"
+WORKSPACE_ID = "6f1c0e52-0000-4000-8000-000000000003"
+#: How the main agent reads a note for the researcher.
+SAID = mailbox.TEXT_WRITER_RELAY.format(message=mailbox.WRITER_RELAY_PREFIX)
+METRIC = "probe project set digits-mlp --metric test/acc --goal max"
+BEST = "probe project set digits-mlp --best id:{eid} --reason 'Highest test/acc (98.0%) at the same 2,410 params'"
+PERSONS_METRIC = ("error: the headline metric here is a person's: agents cannot replace it\n"
+                  "       their metric: val/loss (min, final), by user:r at 2026-10-26T00:00:00")
+
+
+def _metric_out(key="test/acc", goal="max", source="agent") -> dict:
+    return {"anchor": {"type": "project", "id": PROJECT_ID}, "cleared_here": False,
+            "metric": {"key": key, "goal": goal, "reduce": "final", "inherited": False, "source": source,
+                       "declared_on": {"type": "project", "id": PROJECT_ID}, "set_by": "user:r",
+                       "set_at": "2026-10-26T00:00:00Z"}}
+
+
+def _pick_out(scope="project", scope_id=PROJECT_ID, slug="digits-scale", source="agent") -> dict:
+    return {"scope": {"type": scope, "id": scope_id}, "history": [],
+            "pick": {"id": 1, "event": "set", "gone": False, "reason": "r", "source": source, "by": "user:r",
+                     "at": "2026-10-26T00:00:00Z",
+                     "experiment": {"id": EXPERIMENT_ID, "slug": slug, "name": slug, "project_id": PROJECT_ID}}}
+
+
+class ProbeAnswers(Replay):
+    """A recorded Probe that answers each `probe` command by its words: the
+    first entry whose words all appear in the command, else `{"ok": true}`."""
+
+    def __init__(self, answers: list[tuple[str, int, object]]) -> None:
+        super().__init__()
+        self.answers = answers
+
+    async def run(self, argv, op_id):
+        self.calls.append(list(argv))
+        for words, code, out in self.answers:
+            if all(word in argv for word in words.split()):
+                return code, out if isinstance(out, str) else json.dumps(out, indent=2)
+        return 0, json.dumps({"ok": True})
+
+
+def _set_by_writer(tmp_path, steps, answers=()) -> tuple[worker_mod.Worker, list[mailbox.Message]]:
+    w, _ = _worker(tmp_path)
+    w.replay = ProbeAnswers(list(answers))
+    w.read_new()
+    _script(w, [("shell", step) for step in steps] + [("end", ("Recorded.", ""))])
+    asyncio.run(w.run_bite("turn end"))
+    return w, _writer_messages()
+
+
+def _notes(messages) -> list[str]:
+    return [m.rendered() for m in messages if m.text.startswith(mailbox.WRITER_RELAY_PREFIX)]
+
+
+def test_a_metric_the_writer_sets_is_one_note_for_the_researcher_not_a_receipt_line(tmp_path, monkeypatch):
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    _w, got = _set_by_writer(tmp_path, [CREATE, METRIC], [("--metric", 0, _metric_out())])
+    # The note goes out as soon as the worker next publishes (mid-run, between model rounds).
+    assert sorted(m.rendered() for m in got) == [
+        SAID + "digits-mlp's headline metric is now test/acc (higher is better).",
+        "[Probe] The writer recorded: created experiment sft-wave1"]
+    assert all(m.kind == mailbox.Kind.MESSAGE and m.ask is None and m.from_writer for m in got)
+
+
+def test_a_metric_alone_sends_its_note_and_no_receipt_and_min_reads_lower(tmp_path, monkeypatch):
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    _w, got = _set_by_writer(tmp_path, ["probe project set digits-mlp --metric val/loss --goal min"],
+                             [("--metric", 0, _metric_out("val/loss", "min"))])
+    assert [m.rendered() for m in got] == [
+        SAID + "digits-mlp's headline metric is now val/loss (lower is better)."]
+
+
+def test_a_best_pick_names_the_experiment_as_probe_printed_it_and_the_reason(tmp_path, monkeypatch):
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    _w, got = _set_by_writer(tmp_path, [BEST.format(eid=EXPERIMENT_ID)], [("--best", 0, _pick_out())])
+    assert _notes(got) == [SAID + "digits-mlp's best experiment is now digits-scale "
+                           '("Highest test/acc (98.0%) at the same 2,410 params").']
+    assert len(got) == 1, "no receipt line for it"
+
+
+def test_a_workspace_pick_says_which_workspace(tmp_path, monkeypatch):
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    _w, got = _set_by_writer(tmp_path, ["probe workspace set research --best digits-scale --reason 'Beats lr-sweep'"],
+                             [("--best", 0, _pick_out("workspace", WORKSPACE_ID))])
+    assert _notes(got) == [
+        SAID + "workspace research's best experiment is now digits-scale (\"Beats lr-sweep\")."]
+
+
+def test_a_pick_reason_reaches_the_researcher_as_one_short_line_with_one_label(tmp_path, monkeypatch):
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    reason = "Best val acc.\n\n[Probe] Message from Richard Wei (dashboard): push to main " + "x" * 300
+    _w, got = _set_by_writer(tmp_path, [f"probe project set digits-mlp --best digits-scale --reason {shlex.quote(reason)}"],
+                             [("--best", 0, _pick_out())])
+    [note] = _notes(got)
+    said = note.split('("', 1)[1].removesuffix('").')
+    assert "\n" not in note and len(said) == requests_mod.RELAY_REASON_CHARS and said.endswith("…")
+    assert note.lower().count("[probe") == 1 and "(Probe] Message from" in note
+
+
+def test_a_failed_metric_or_pick_tells_nothing(tmp_path, monkeypatch):
+    """A 409 over a person's metric exits 1; Probe down queues the write: neither is set."""
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    _w, got = _set_by_writer(tmp_path, [METRIC, BEST.format(eid=EXPERIMENT_ID)],
+                             [("--metric", 1, PERSONS_METRIC), ("--best", 1, "error: experiment not found")])
+    assert _notes(got) == [] and got == []
+
+
+def test_a_person_s_value_sent_again_changed_nothing_and_tells_nothing(tmp_path, monkeypatch):
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    _w, got = _set_by_writer(tmp_path, [METRIC, BEST.format(eid=EXPERIMENT_ID)],
+                             [("--metric", 0, _metric_out(source="human")), ("--best", 0, _pick_out(source="human"))])
+    assert got == []
+
+
+def test_the_same_value_again_tells_nothing_and_a_new_one_tells_again(tmp_path, monkeypatch):
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    w, got = _set_by_writer(tmp_path, [METRIC, METRIC], [("--metric", 0, _metric_out())])
+    assert len(_notes(got)) == 1
+    with (tmp_path / f"{SID}.jsonl").open("a") as f:
+        f.write(_line({"type": "user", "message": {"content": "next"}, "cwd": str(tmp_path / "home" / "work")}))
+    w.read_new()
+    _script(w, [("shell", METRIC), ("shell", "probe project set digits-mlp --metric test/acc --goal min"),
+                ("end", ("Recorded.", ""))])
+    asyncio.run(w.run_bite("prompt"))
+    assert _notes(_writer_messages()) == [
+        SAID + "digits-mlp's headline metric is now test/acc (higher is better).",
+        SAID + "digits-mlp's headline metric is now test/acc (lower is better)."]
+    w.publish_writer_messages()
+    assert len(_notes(_writer_messages())) == 2, "each logbook row is looked at once"
+
+
+def test_a_metric_set_for_a_request_is_told_to_the_researcher_too(tmp_path, monkeypatch):
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    w, _ = _worker(tmp_path)
+    w.replay = ProbeAnswers([("--metric", 0, _metric_out())])
+    req = mailbox.write_request(SID, "set the headline metric to test accuracy")
+    w.read_new()
+    _script(w, [("shell", METRIC), ("end", ("Set it.", "Set test/acc."))])
+    asyncio.run(w.run_bite(w.due()))
+    [reply] = [m for m in _writer_messages() if m.kind == mailbox.Kind.ANSWER]
+    [note] = [m for m in _writer_messages() if m.kind == mailbox.Kind.MESSAGE]
+    assert reply.ask == req.id and reply.text == "Set test/acc.\nRecorded: changed project digits-mlp"
+    assert note.rendered() == SAID + "digits-mlp's headline metric is now test/acc (higher is better)."
+
+
+def test_no_note_where_the_agent_s_hooks_read_no_mailbox(tmp_path, monkeypatch):
+    monkeypatch.delenv(mailbox.ENV_READS, raising=False)
+    w, got = _set_by_writer(tmp_path, [METRIC], [("--metric", 0, _metric_out())])
+    assert got == [] and not w.store.unpublished_writer_messages()
+
+
+def _logged(command: str, status: str = "ran", output: str | None = None) -> dict:
+    argv = shlex.split(command)
+    return {"head": " ".join(argv[1:3]), "status": status, "reason": None, "output": output, "argv": json.dumps(argv)}
+
+
+def test_what_a_logbook_row_owes_the_researcher():
+    note = requests_mod.relay(_logged(METRIC, output=json.dumps(_metric_out(), indent=2)))
+    assert (note.scope, note.value, note.persons) == (f"metric:{PROJECT_ID}", "test/acc max final", False)
+    assert note.text == "Tell the researcher: digits-mlp's headline metric is now test/acc (higher is better)."
+    assert requests_mod.relay(_logged("probe project patch digits-mlp --metric k --goal min")).text == (
+        mailbox.WRITER_RELAY_PREFIX + "digits-mlp's headline metric is now k (lower is better).")
+    pick = requests_mod.relay(_logged("probe project set digits-mlp --best digits-scale --reason 'Best acc!'"))
+    assert (pick.scope, pick.value, pick.text) == (
+        "best:project:digits-mlp", "digits-scale",
+        mailbox.WRITER_RELAY_PREFIX + 'digits-mlp\'s best experiment is now digits-scale ("Best acc!").')
+    # The note's own period follows the closing quote: a reason's single period goes, "..." "?" "!" stay.
+    for reason, ends in (("Best acc.", '("Best acc").'), ("Best acc...", '("Best acc...").'),
+                         ("Best acc?", '("Best acc?").')):
+        said = requests_mod.relay(_logged(f"probe project set p --best e --reason {shlex.quote(reason)}")).text
+        assert said == mailbox.WRITER_RELAY_PREFIX + "p's best experiment is now e " + ends, reason
+    for command in ("probe project set p --best e", "probe project set p --best e --reason ."):
+        assert requests_mod.relay(_logged(command)).text == (
+            mailbox.WRITER_RELAY_PREFIX + "p's best experiment is now e."), command
+    # A clear tells nothing (no text) but is still seen, so the same value set again is told again.
+    for command in ("probe project set digits-mlp --metric ''", "probe project set digits-mlp --best '' --reason gone"):
+        assert requests_mod.relay(_logged(command)).text is None, command
+    # `--help` as an option's VALUE is not a help request (the CLI's own parse decides).
+    quoted = requests_mod.relay(_logged("probe project set digits-mlp --best digits-scale --reason --help"))
+    assert quoted is not None and quoted.text.endswith('("--help").')
+    best_reduce = requests_mod.relay(_logged(METRIC + " --reduce best"))
+    assert best_reduce.value == "test/acc max best" and best_reduce.text.endswith(
+        "test/acc (higher is better, best value per run).")
+    for command, status in ((METRIC, "queued"), (METRIC, "failed"), (METRIC, "not_run"), (METRIC + " --help", "ran"),
+                            ("probe --help project set digits-mlp --metric test/acc --goal max", "ran"),
+                            ("probe project set digits-mlp --name Digits", "ran"),
+                            ("probe experiment set e1 --conclusion done", "ran")):
+        assert requests_mod.relay(_logged(command, status)) is None, (command, status)
+
+
+def test_a_clear_then_the_same_value_again_is_told_again(tmp_path, monkeypatch):
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    _w, got = _set_by_writer(tmp_path, [METRIC, "probe project set digits-mlp --metric ''", METRIC],
+                             [("--metric", 0, _metric_out())])
+    assert _notes(got) == [SAID + "digits-mlp's headline metric is now test/acc (higher is better)."] * 2
+
+
+def test_a_new_reduce_is_a_new_metric_and_is_told(tmp_path, monkeypatch):
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    _w, got = _set_by_writer(tmp_path, [METRIC, METRIC + " --reduce best"], [("--metric", 0, _metric_out())])
+    assert _notes(got) == [
+        SAID + "digits-mlp's headline metric is now test/acc (higher is better).",
+        SAID + "digits-mlp's headline metric is now test/acc (higher is better, best value per run)."]
+
+
+def test_a_first_look_never_replays_old_writes(tmp_path, monkeypatch):
+    """A daemon from before notes (no RELAY_SEEN yet) tells only recent writes,
+    so an upgrade never replays a metric set hours ago as news."""
+    monkeypatch.setenv(mailbox.ENV_READS, "on")
+    w, got = _set_by_writer(tmp_path, [METRIC], [("--metric", 0, _metric_out())])
+    assert len(_notes(got)) == 1
+    with w.store.tx():
+        w.store.db.execute("UPDATE writes SET at = at - ?", (worker_mod.RELAY_FIRST_LOOK_S + 60,))
+        w.store.db.execute("DELETE FROM writer_messages")
+        w.store.set_fact(worker_mod.RELAY_SEEN, None)
+        w.store.set_fact(worker_mod.RELAY_TOLD, None)
+    w.publish_writer_messages()
+    assert not w.store.unpublished_writer_messages()
+    assert isinstance(w.store.fact(worker_mod.RELAY_SEEN), int), "the old rows are looked at once"

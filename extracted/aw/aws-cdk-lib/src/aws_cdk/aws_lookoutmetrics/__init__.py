@@ -200,6 +200,7 @@ class CfnAlert(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -247,7 +248,7 @@ class CfnAlert(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bca437e28138e0e51d01ea6b47ad80cc5df1f7e9796134c417b7df120770fed4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "action", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "action", value)
 
     @builtins.property
     @jsii.member(jsii_name="alertSensitivityThreshold")
@@ -260,7 +261,7 @@ class CfnAlert(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__16575316da180caba7d7b4d5bca451d1f5f4a58ac27976f3452052604cfeeab9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alertSensitivityThreshold", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alertSensitivityThreshold", value)
 
     @builtins.property
     @jsii.member(jsii_name="anomalyDetectorArn")
@@ -273,7 +274,7 @@ class CfnAlert(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6b0f01224b76c8ec6ed095f7d3914505315c1b87ad5c6bc322c51fc2182dd83d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "anomalyDetectorArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "anomalyDetectorArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="alertDescription")
@@ -286,7 +287,7 @@ class CfnAlert(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c25b3f5e9ac3683a05d71bfdb651b264c95f00f413c50591d5f27474ca682a9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alertDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alertDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="alertName")
@@ -299,7 +300,7 @@ class CfnAlert(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a3becde2093abb52b7666e46cd4095e177005405e86d6ea69e3f94b9f0519d0d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alertName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alertName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lookoutmetrics.CfnAlert.ActionProperty",
@@ -858,6 +859,7 @@ class CfnAnomalyDetector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -907,7 +909,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8b781658d3f414a12c1a279f742c28faf8517d54f6c4bb78a545064da65050d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "anomalyDetectorConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "anomalyDetectorConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="metricSetList")
@@ -925,7 +927,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__330a8461f141824d57906ef5a9c3660a9eb1a3a24dcf63724b3baff3125fdb5d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricSetList", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metricSetList", value)
 
     @builtins.property
     @jsii.member(jsii_name="anomalyDetectorDescription")
@@ -941,7 +943,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__18032fc3311c5d9f05368698835d2318d81a643b30222e23b5caa19113e42533)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "anomalyDetectorDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "anomalyDetectorDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="anomalyDetectorName")
@@ -954,7 +956,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e3d3884d4fbb282a3dfdfc2e9f5a32ab31ec34ceef9bbe86c037573ea6f57857)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "anomalyDetectorName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "anomalyDetectorName", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
@@ -967,7 +969,7 @@ class CfnAnomalyDetector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__de024c053da6aec678335abd185c8c42f862ff0569545085611551174f93883e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyArn", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lookoutmetrics.CfnAnomalyDetector.AnomalyDetectorConfigProperty",

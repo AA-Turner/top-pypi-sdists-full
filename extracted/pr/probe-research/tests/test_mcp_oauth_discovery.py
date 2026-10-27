@@ -101,3 +101,101 @@ def test_probe_env_wins_over_legacy(monkeypatch: pytest.MonkeyPatch) -> None:
     app = with_auth_and_health(_inner)
     res = _call(app, "/.well-known/oauth-protected-resource")
     assert json.loads(res["body"])["resource"] == "https://new.test"
+
+
+# -- why a request was refused --------------------------------------------------
+
+
+@pytest.fixture
+def refusals(caplog):
+    """The refusal log's lines. Its logger does not propagate (the hosted root
+    handler wraps lines), so the capture handler is attached to it directly."""
+    import logging
+
+    log = logging.getLogger("probe.mcp.auth")
+    log.addHandler(caplog.handler)
+    caplog.set_level("INFO", logger="probe.mcp.auth")
+    yield lambda: [r.getMessage() for r in caplog.records if r.getMessage().startswith("mcp 401")]
+    log.removeHandler(caplog.handler)
+
+
+@pytest.mark.parametrize("oauth", ["1", "0"], ids=["oauth-on", "oauth-off"])
+def test_the_helpers_no_token_placeholder_is_refused_without_asking_the_api(
+    monkeypatch, refusals, oauth
+) -> None:
+    """The Claude Code plugin's helper sends NO_TOKEN_PLACEHOLDER when the computer
+    holds no token (never nothing: a bare request draws "Needs authentication" and
+    a 15-minute skip in Claude Code). It is refused like a bad token, with the
+    wizard named, the API is never asked about it, and it never reaches a tool --
+    with OAuth discovery on or off (self-host)."""
+    from probe.mcp.server import NO_TOKEN_PLACEHOLDER
+    from probe.sdk.session_marker import WIZARD_HINT
+
+    monkeypatch.setenv("PROBE_MCP_OAUTH", oauth)
+    monkeypatch.setenv("PROBE_MCP_RESOURCE_URL", "https://mcp.test")
+    monkeypatch.setenv("PROBE_MCP_AUTH_SERVER", "https://api.test")
+
+    async def never(_token: str) -> bool:
+        raise AssertionError("asked the API about the placeholder")
+
+    app = with_auth_and_health(_inner, mcp_path="/mcp", token_rejected=never)
+    res = _call(app, "/mcp", headers=[
+        (b"authorization", f"Bearer {NO_TOKEN_PLACEHOLDER}".encode()),
+        (b"x-probe-client", b"plugin"),
+        (b"x-probe-client-version", b"0.200.0"),
+        (b"x-probe-agent", b"claude_code"),
+        (b"user-agent", b"claude-code/2.1.296 (external, cli)"),
+    ])
+    assert res["status"] == 401
+    body = json.loads(res["body"])
+    assert body == {"error": "invalid_token", "error_description": f"no Probe token on this computer: {WIZARD_HINT}"}
+    challenge = res["headers"].get("www-authenticate")
+    if oauth == "1":
+        # No resource_metadata: there is no sign-in for a client to start from it.
+        assert challenge == 'Bearer realm="research", error="invalid_token"'
+    else:
+        assert challenge is None
+    assert refusals() == [
+        "mcp 401 reason=no_token_on_device client=plugin/0.200.0 agent=claude_code user_agent=claude-code/2.1.296"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("headers", "rejected", "reason"),
+    [
+        ([], False, "missing"),
+        ([(b"authorization", b"Bearer probe_pat_gone")], True, "rejected"),
+        ([(b"authorization", b"Bearer \xff\xfe")], False, "rejected"),
+        ([(b"authorization", "Bearer probe_pat_é".encode())], False, "rejected"),
+    ],
+    ids=["missing", "refused", "undecodable", "non-ascii"],
+)
+def test_every_refusal_logs_its_reason_and_never_the_token(discovery_env, refusals, headers, rejected, reason) -> None:
+    async def rejects(_token: str) -> bool:
+        return rejected
+
+    app = with_auth_and_health(_inner, mcp_path="/mcp", token_rejected=rejects)
+    res = _call(app, "/mcp", headers=headers)
+    assert res["status"] == 401 and json.loads(res["body"]) == {"error": "invalid_token"}
+    assert "resource_metadata=" in res["headers"]["www-authenticate"]
+    (line,) = refusals()
+    assert line.startswith(f"mcp 401 reason={reason} ") and "probe_pat_gone" not in line
+
+
+def test_caller_text_is_logged_only_as_validated_fields(discovery_env, refusals) -> None:
+    """Every header but the token is caller-chosen text: a refusal logs only values
+    already validated (client kind/version, a known agent) and a User-Agent's
+    `product/version`, so a credential pasted into one never reaches the log."""
+
+    async def rejects(_token: str) -> bool:
+        return True
+
+    app = with_auth_and_health(_inner, mcp_path="/mcp", token_rejected=rejects)
+    _call(app, "/mcp", headers=[
+        (b"authorization", b"Bearer probe_pat_gone"),
+        (b"x-probe-client", b"plugin reason=missing"),
+        (b"x-probe-agent", b"x reason=missing"),
+        (b"user-agent", b"probe_pat_secret_in_the_user_agent"),
+    ])
+    (line,) = refusals()
+    assert line == "mcp 401 reason=rejected client=-/- agent=- user_agent=other"

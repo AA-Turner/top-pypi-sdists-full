@@ -53,8 +53,8 @@ COUNTS AS ML WORK": a definition, the ML work to record, setup (a note at
 most) and the work that is not ML work. It scopes SESSIONS, not what to keep
 inside ML work -- there "everything is recorded" still holds, and work that
 fits both lists is ML work. Its not-ML list is this block's "Do not call
-Probe for" line, the daemon reader's and the ML gate's, word for word
-(`tests/test_prose_anchors.py`, `tests/unit/test_companion_classify.py`).
+Probe for" line and the daemon reader's, word for word
+(`tests/test_prose_anchors.py`).
 
 THE PROMPT IS WRITTEN HERE, not composed. It lived in fragments in
 `probe/doctrine.py` until 2026-09-13, because the MCP instruction sheet once

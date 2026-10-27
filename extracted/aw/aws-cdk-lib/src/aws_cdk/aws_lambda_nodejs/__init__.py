@@ -285,6 +285,30 @@ an array of commands to run. Commands are chained with `&&`.
 The commands will run in the environment in which bundling occurs: inside the
 container for Docker bundling or on the host OS for local bundling.
 
+### Repeated esbuild arguments
+
+Use an array value in `esbuildArgs` for options that esbuild supports repeating.
+Each value becomes a separate CLI argument using `--flag:value` syntax; an empty
+array omits the option. Single-value options must use a string or boolean instead.
+For example:
+
+```python
+esbuild_args = {
+    "--alias": ["first=./first", "second=./second"],
+    "--pure": ["console.log", "console.debug"]
+}
+
+nodejs.NodejsFunction(self, "aliased-handler",
+    bundling=nodejs.BundlingOptions(
+        esbuild_args=esbuild_args
+    )
+)
+```
+
+This passes `--alias:first=./first`, `--alias:second=./second`,
+`--pure:console.log`, and `--pure:console.debug` to esbuild. Existing string and
+boolean values continue to work.
+
 ## Pre Compilation with TSC
 
 In some cases, `esbuild` may not yet support some newer features of the typescript language, such as,
@@ -578,7 +602,7 @@ class BundlingOptions(_aws_cdk_0cae9daa.DockerRunOptions):
         command_hooks: typing.Optional["ICommandHooks"] = None,
         define: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_image: typing.Optional["_aws_cdk_0cae9daa.DockerImage"] = None,
-        esbuild_args: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool]]] = None,
+        esbuild_args: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool, typing.Sequence[builtins.str]]]] = None,
         esbuild_version: typing.Optional[builtins.str] = None,
         external_modules: typing.Optional[typing.Sequence[builtins.str]] = None,
         footer: typing.Optional[builtins.str] = None,
@@ -620,7 +644,7 @@ class BundlingOptions(_aws_cdk_0cae9daa.DockerRunOptions):
         :param command_hooks: Command hooks. Default: - do not run additional commands
         :param define: Replace global identifiers with constant expressions. For example, ``{ 'process.env.DEBUG': 'true' }``. Another example, ``{ 'process.env.API_KEY': JSON.stringify('xxx-xxxx-xxx') }``. Default: - no replacements are made
         :param docker_image: A custom bundling Docker image. This image should have esbuild installed globally. If you plan to use ``nodeModules`` it should also have ``npm``, ``yarn``, ``bun`` or ``pnpm`` depending on the lock file you're using. See https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/aws-lambda-nodejs/lib/Dockerfile for the default image provided by aws-cdk-lib/aws-lambda-nodejs. Default: - use the Docker image provided by aws-cdk-lib/aws-lambda-nodejs
-        :param esbuild_args: Build arguments to pass into esbuild. For example, to add the `--log-limit <https://esbuild.github.io/api/#log-limit>`_ flag:: new NodejsFunction(scope, id, { ... bundling: { esbuildArgs: { "--log-limit": "0", } } }); Default: - no additional esbuild arguments are passed
+        :param esbuild_args: Build arguments to pass into esbuild. Use an array of strings for options that esbuild supports repeating, for example ``{ "--alias": ["first=./first", "second=./second"] }``. Each array item uses ``--flag:value`` syntax. An empty array omits the option. Single-value options must use a string or boolean instead. For example, to add the `--log-limit <https://esbuild.github.io/api/#log-limit>`_ flag:: new NodejsFunction(scope, id, { ... bundling: { esbuildArgs: { "--log-limit": "0", } } }); Default: - no additional esbuild arguments are passed
         :param esbuild_version: The version of esbuild to use when running in a Docker container. Default: - latest v0
         :param external_modules: A list of modules that should be considered as externals (already available in the runtime). Default: - no replacements are made
         :param footer: Use this to insert an arbitrary string at the end of generated JavaScript files. This is similar to banner which inserts at the beginning instead of the end. This is commonly used to insert comments Default: - no comments are passed
@@ -989,8 +1013,13 @@ class BundlingOptions(_aws_cdk_0cae9daa.DockerRunOptions):
     @builtins.property
     def esbuild_args(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool]]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool, typing.List[builtins.str]]]]:
         '''Build arguments to pass into esbuild.
+
+        Use an array of strings for options that esbuild supports repeating, for example
+        ``{ "--alias": ["first=./first", "second=./second"] }``. Each array item
+        uses ``--flag:value`` syntax. An empty array omits the option. Single-value
+        options must use a string or boolean instead.
 
         For example, to add the `--log-limit <https://esbuild.github.io/api/#log-limit>`_ flag::
 
@@ -1006,7 +1035,7 @@ class BundlingOptions(_aws_cdk_0cae9daa.DockerRunOptions):
         :default: - no additional esbuild arguments are passed
         '''
         result = self._values.get("esbuild_args")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool]]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool, typing.List[builtins.str]]]], result)
 
     @builtins.property
     def esbuild_version(self) -> typing.Optional[builtins.str]:
@@ -3080,7 +3109,7 @@ def _typecheckingstub__8049cd6c8eb3542b1c20a2677da2bd64b4125320c114432030729ac28
     command_hooks: typing.Optional[ICommandHooks] = None,
     define: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     docker_image: typing.Optional[_aws_cdk_0cae9daa.DockerImage] = None,
-    esbuild_args: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool]]] = None,
+    esbuild_args: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, builtins.bool, typing.Sequence[builtins.str]]]] = None,
     esbuild_version: typing.Optional[builtins.str] = None,
     external_modules: typing.Optional[typing.Sequence[builtins.str]] = None,
     footer: typing.Optional[builtins.str] = None,

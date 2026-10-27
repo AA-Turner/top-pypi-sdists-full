@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from zstandard import ZstdCompressor  # type: ignore
+from zstandard import ZstdCompressor
 
 from starlette_compress._responder import CompressionResponder
 
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from starlette.types import ASGIApp
-    from zstandard import ZstdCompressionChunker  # type: ignore
+    from zstandard import ZstdCompressionChunker
 
 
 class _ZstdLegacyStreamEncoder:
@@ -41,10 +41,8 @@ class ZstdResponder(CompressionResponder):
     __slots__ = ()
 
     def __init__(self, app: ASGIApp, minimum_size: int, level: int) -> None:
-        compressor = ZstdCompressor(level=level)
-
         def oneshot(body: bytes) -> bytes:
-            return compressor.compress(body)
+            return ZstdCompressor(level=level).compress(body)
 
         def create_encoder(content_length: int) -> _ZstdLegacyStreamEncoder:
             chunker = ZstdCompressor(level=level).chunker(content_length)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: salt
-Version: 3008.4
+Version: 3008.5
 Summary: Portable, distributed, remote execution and configuration management system
 Author-email: Thomas S Hatch <thatch45@gmail.com>
 License: Apache Software License 2.0
@@ -31,7 +31,7 @@ Requires-Dist: aiohttp>=3.14.1; python_version >= "3.10"
 Requires-Dist: apache-libcloud<3.9.1,>=3.8.0; python_version < "3.10"
 Requires-Dist: apache-libcloud>=3.9.1; python_version >= "3.10"
 Requires-Dist: attrs>=26.1.0; python_version >= "3.10"
-Requires-Dist: certifi>=2026.10.19
+Requires-Dist: certifi>=2026.10.23
 Requires-Dist: cffi>=2.0.0
 Requires-Dist: charset-normalizer>=3.4.7; python_version >= "3.10"
 Requires-Dist: cheroot>=11.1.2

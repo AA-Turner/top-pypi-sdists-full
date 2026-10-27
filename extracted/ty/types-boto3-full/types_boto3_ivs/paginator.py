@@ -14,6 +14,7 @@ Usage::
     from types_boto3_ivs.paginator import (
         ListAdConfigurationsPaginator,
         ListChannelsPaginator,
+        ListFailoverSlateConfigurationsPaginator,
         ListPlaybackKeyPairsPaginator,
         ListRecordingConfigurationsPaginator,
         ListStreamKeysPaginator,
@@ -25,6 +26,7 @@ Usage::
 
     list_ad_configurations_paginator: ListAdConfigurationsPaginator = client.get_paginator("list_ad_configurations")
     list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
+    list_failover_slate_configurations_paginator: ListFailoverSlateConfigurationsPaginator = client.get_paginator("list_failover_slate_configurations")
     list_playback_key_pairs_paginator: ListPlaybackKeyPairsPaginator = client.get_paginator("list_playback_key_pairs")
     list_recording_configurations_paginator: ListRecordingConfigurationsPaginator = client.get_paginator("list_recording_configurations")
     list_stream_keys_paginator: ListStreamKeysPaginator = client.get_paginator("list_stream_keys")
@@ -44,6 +46,8 @@ from .type_defs import (
     ListAdConfigurationsResponseTypeDef,
     ListChannelsRequestPaginateTypeDef,
     ListChannelsResponseTypeDef,
+    ListFailoverSlateConfigurationsRequestPaginateTypeDef,
+    ListFailoverSlateConfigurationsResponseTypeDef,
     ListPlaybackKeyPairsRequestPaginateTypeDef,
     ListPlaybackKeyPairsResponseTypeDef,
     ListRecordingConfigurationsRequestPaginateTypeDef,
@@ -63,6 +67,7 @@ else:
 __all__ = (
     "ListAdConfigurationsPaginator",
     "ListChannelsPaginator",
+    "ListFailoverSlateConfigurationsPaginator",
     "ListPlaybackKeyPairsPaginator",
     "ListRecordingConfigurationsPaginator",
     "ListStreamKeysPaginator",
@@ -109,6 +114,29 @@ class ListChannelsPaginator(_ListChannelsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/paginator/ListChannels.html#IVS.Paginator.ListChannels.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/paginators/#listchannelspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListFailoverSlateConfigurationsPaginatorBase = Paginator[
+        ListFailoverSlateConfigurationsResponseTypeDef
+    ]
+else:
+    _ListFailoverSlateConfigurationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListFailoverSlateConfigurationsPaginator(_ListFailoverSlateConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/paginator/ListFailoverSlateConfigurations.html#IVS.Paginator.ListFailoverSlateConfigurations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/paginators/#listfailoverslateconfigurationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListFailoverSlateConfigurationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListFailoverSlateConfigurationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs/paginator/ListFailoverSlateConfigurations.html#IVS.Paginator.ListFailoverSlateConfigurations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/paginators/#listfailoverslateconfigurationspaginator)
         """
 
 

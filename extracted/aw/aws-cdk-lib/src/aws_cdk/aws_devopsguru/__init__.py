@@ -144,6 +144,7 @@ class CfnLogAnomalyDetectionIntegration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -306,6 +307,7 @@ class CfnNotificationChannel(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -353,7 +355,7 @@ class CfnNotificationChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__99f146c8144832935a31424fa5b73be4a1c94b82c492846dc93af5c622327778)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "config", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "config", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsguru.CfnNotificationChannel.NotificationChannelConfigProperty",
@@ -735,6 +737,7 @@ class CfnResourceCollection(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -784,7 +787,7 @@ class CfnResourceCollection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__190553b64928ca35dedd8270f4831a7ae6fe3d91f6a7d73828303b5f2ee32926)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceCollectionFilter", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceCollectionFilter", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsguru.CfnResourceCollection.CloudFormationCollectionFilterProperty",

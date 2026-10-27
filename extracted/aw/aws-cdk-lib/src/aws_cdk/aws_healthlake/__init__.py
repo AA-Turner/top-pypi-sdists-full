@@ -206,6 +206,7 @@ class CfnDataTransformationProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -274,7 +275,7 @@ class CfnDataTransformationProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9ebc07ff74a99d99b611bf1ccdf04f15b0439f0941af32a0d3f29788ccd1b98e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "profileName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "profileName", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceFormat")
@@ -287,7 +288,7 @@ class CfnDataTransformationProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__15c904204562f714f3203e7b9697e0b749faa45d018ec8fcf28958a8a8a99056)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceFormat", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceFormat", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -300,7 +301,7 @@ class CfnDataTransformationProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a0295dd98c6aed49aaf7df89c6d4a3e2ff56e0dbaa8ec41340be48fd349e4b54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="profileDescription")
@@ -313,7 +314,7 @@ class CfnDataTransformationProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07be715f497b62f1ea6f103ef6fea6b01a1c3265134bef46ef3a2dbc49d2948b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "profileDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "profileDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="source")
@@ -331,7 +332,7 @@ class CfnDataTransformationProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0634fb098e12ecb4f06c1a886cb10ec45fdc1789d44fbefa8babca15e9440cb4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "source", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -347,7 +348,7 @@ class CfnDataTransformationProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bcd46233cb0eecf58baa705df6c53ad8c03fa75cd42a5011e9e49f0e82b0839a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_healthlake.CfnDataTransformationProfile.ExistingVersionedProfileSourceProperty",
@@ -825,6 +826,9 @@ class CfnFHIRDatastore(
             datastore_type_version="datastoreTypeVersion",
         
             # the properties below are optional
+            analytics_configuration=healthlake.CfnFHIRDatastore.AnalyticsConfigurationProperty(
+                status="status"
+            ),
             datastore_name="datastoreName",
             identity_provider_configuration=healthlake.CfnFHIRDatastore.IdentityProviderConfigurationProperty(
                 authorization_strategy="authorizationStrategy",
@@ -834,8 +838,14 @@ class CfnFHIRDatastore(
                 idp_lambda_arn="idpLambdaArn",
                 metadata="metadata"
             ),
+            nlp_configuration=healthlake.CfnFHIRDatastore.NlpConfigurationProperty(
+                status="status"
+            ),
             preload_data_config=healthlake.CfnFHIRDatastore.PreloadDataConfigProperty(
                 preload_data_type="preloadDataType"
+            ),
+            profile_configuration=healthlake.CfnFHIRDatastore.ProfileConfigurationProperty(
+                default_profiles=["defaultProfiles"]
             ),
             sse_configuration=healthlake.CfnFHIRDatastore.SseConfigurationProperty(
                 kms_encryption_config=healthlake.CfnFHIRDatastore.KmsEncryptionConfigProperty(
@@ -858,9 +868,12 @@ class CfnFHIRDatastore(
         id: builtins.str,
         *,
         datastore_type_version: builtins.str,
+        analytics_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.AnalyticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         datastore_name: typing.Optional[builtins.str] = None,
         identity_provider_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        nlp_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.NlpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         preload_data_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.PreloadDataConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        profile_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.ProfileConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sse_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.SseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -869,9 +882,12 @@ class CfnFHIRDatastore(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param datastore_type_version: The FHIR release version supported by the data store. Current support is for version ``R4`` .
+        :param analytics_configuration: The analytics configuration for the Data Store. Omitted when the Data Store can't carry analytics.
         :param datastore_name: The data store name (user-generated).
         :param identity_provider_configuration: The identity provider configuration selected when the data store was created.
+        :param nlp_configuration: The natural language processing (NLP) configuration for the Data Store.
         :param preload_data_config: The preloaded Synthea data configuration for the data store.
+        :param profile_configuration: The profile configuration for the Data Store.
         :param sse_configuration: The server-side encryption key configuration for a customer-provided encryption key specified for creating a data store.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
@@ -881,9 +897,12 @@ class CfnFHIRDatastore(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnFHIRDatastoreProps(
             datastore_type_version=datastore_type_version,
+            analytics_configuration=analytics_configuration,
             datastore_name=datastore_name,
             identity_provider_configuration=identity_provider_configuration,
+            nlp_configuration=nlp_configuration,
             preload_data_config=preload_data_config,
+            profile_configuration=profile_configuration,
             sse_configuration=sse_configuration,
             tags=tags,
         )
@@ -984,6 +1003,7 @@ class CfnFHIRDatastore(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1086,7 +1106,25 @@ class CfnFHIRDatastore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5808500ce498cbcd60021c25c05f2f5ec6982551bc42bc79b3964a61257718e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "datastoreTypeVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "datastoreTypeVersion", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="analyticsConfiguration")
+    def analytics_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.AnalyticsConfigurationProperty"]]:
+        '''The analytics configuration for the Data Store.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.AnalyticsConfigurationProperty"]], jsii.get(self, "analyticsConfiguration"))
+
+    @analytics_configuration.setter
+    def analytics_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.AnalyticsConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__48b59fb2d517976a56906ebcc57fb92dfc7f6e2d23147d161420e446a2faa389)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "analyticsConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="datastoreName")
@@ -1099,7 +1137,7 @@ class CfnFHIRDatastore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7a3d86ac6fd32fffececf8454df94145383c2e779b9b5f1a30896102278cd1a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "datastoreName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "datastoreName", value)
 
     @builtins.property
     @jsii.member(jsii_name="identityProviderConfiguration")
@@ -1117,7 +1155,25 @@ class CfnFHIRDatastore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__612b8cf4bba44e8e4744db8a7c2eaefe0b9bd601172c067d2c5a9feeb75cb14f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityProviderConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identityProviderConfiguration", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="nlpConfiguration")
+    def nlp_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.NlpConfigurationProperty"]]:
+        '''The natural language processing (NLP) configuration for the Data Store.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.NlpConfigurationProperty"]], jsii.get(self, "nlpConfiguration"))
+
+    @nlp_configuration.setter
+    def nlp_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.NlpConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2bbe4cfc2b2b0a37dccf3f5a9c609433f5d19e2ac8935e6f38e4242aa35beda8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nlpConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="preloadDataConfig")
@@ -1135,7 +1191,25 @@ class CfnFHIRDatastore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4b4d362bc0e9c9065e9f83741b0f46cfc52f253212d6a4551c7a2d9e4fd7e630)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preloadDataConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preloadDataConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="profileConfiguration")
+    def profile_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.ProfileConfigurationProperty"]]:
+        '''The profile configuration for the Data Store.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.ProfileConfigurationProperty"]], jsii.get(self, "profileConfiguration"))
+
+    @profile_configuration.setter
+    def profile_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.ProfileConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__89341d8d043b85e68367b040827fd01deb424f2eae611135a540ed93c97c1db7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "profileConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="sseConfiguration")
@@ -1153,7 +1227,7 @@ class CfnFHIRDatastore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d21d284c17f3b1e178b27b28fe912e0eaebeaa7ca9612eff81512c42f71c29d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sseConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sseConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1169,7 +1243,61 @@ class CfnFHIRDatastore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__28ffa2ce0bad1140b8ffa060738f5e180bc7033b7f2e9f274ce2d1d871b5d620)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_healthlake.CfnFHIRDatastore.AnalyticsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"status": "status"},
+    )
+    class AnalyticsConfigurationProperty:
+        def __init__(self, *, status: builtins.str) -> None:
+            '''The analytics configuration for the Data Store.
+
+            Omitted when the Data Store can't carry analytics.
+
+            :param status: The analytics status for the Data Store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-fhirdatastore-analyticsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_healthlake as healthlake
+                
+                analytics_configuration_property = healthlake.CfnFHIRDatastore.AnalyticsConfigurationProperty(
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b6f2b844d5ef21ed1095894c857fc033c1efdf827ae256317a47a25109037b56)
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "status": status,
+            }
+
+        @builtins.property
+        def status(self) -> builtins.str:
+            '''The analytics status for the Data Store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-fhirdatastore-analyticsconfiguration.html#cfn-healthlake-fhirdatastore-analyticsconfiguration-status
+            '''
+            result = self._values.get("status")
+            assert result is not None, "Required property 'status' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AnalyticsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_healthlake.CfnFHIRDatastore.CreatedAtProperty",
@@ -1445,6 +1573,58 @@ class CfnFHIRDatastore(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_healthlake.CfnFHIRDatastore.NlpConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"status": "status"},
+    )
+    class NlpConfigurationProperty:
+        def __init__(self, *, status: builtins.str) -> None:
+            '''The natural language processing (NLP) configuration for the Data Store.
+
+            :param status: The NLP status for the Data Store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-fhirdatastore-nlpconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_healthlake as healthlake
+                
+                nlp_configuration_property = healthlake.CfnFHIRDatastore.NlpConfigurationProperty(
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ed442f18f9e71f14c366ec00f7c04faf680dcd8a5af2c5ebf9ea7f8876badf34)
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "status": status,
+            }
+
+        @builtins.property
+        def status(self) -> builtins.str:
+            '''The NLP status for the Data Store.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-fhirdatastore-nlpconfiguration.html#cfn-healthlake-fhirdatastore-nlpconfiguration-status
+            '''
+            result = self._values.get("status")
+            assert result is not None, "Required property 'status' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NlpConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_healthlake.CfnFHIRDatastore.PreloadDataConfigProperty",
         jsii_struct_bases=[],
         name_mapping={"preload_data_type": "preloadDataType"},
@@ -1495,6 +1675,58 @@ class CfnFHIRDatastore(
 
         def __repr__(self) -> str:
             return "PreloadDataConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_healthlake.CfnFHIRDatastore.ProfileConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"default_profiles": "defaultProfiles"},
+    )
+    class ProfileConfigurationProperty:
+        def __init__(self, *, default_profiles: typing.Sequence[builtins.str]) -> None:
+            '''The profile configuration for the Data Store.
+
+            :param default_profiles: The FHIR profiles the Data Store validates resources against by default, for example us-core-3.1.1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-fhirdatastore-profileconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_healthlake as healthlake
+                
+                profile_configuration_property = healthlake.CfnFHIRDatastore.ProfileConfigurationProperty(
+                    default_profiles=["defaultProfiles"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8ab4fa7218a4113c5cb203568ef9c76d88c1da6f4b6ff0fcad70804b11678f42)
+                check_type(argname="argument default_profiles", value=default_profiles, expected_type=type_hints["default_profiles"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "default_profiles": default_profiles,
+            }
+
+        @builtins.property
+        def default_profiles(self) -> typing.List[builtins.str]:
+            '''The FHIR profiles the Data Store validates resources against by default, for example us-core-3.1.1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-healthlake-fhirdatastore-profileconfiguration.html#cfn-healthlake-fhirdatastore-profileconfiguration-defaultprofiles
+            '''
+            result = self._values.get("default_profiles")
+            assert result is not None, "Required property 'default_profiles' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProfileConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1567,9 +1799,12 @@ class CfnFHIRDatastore(
     jsii_struct_bases=[],
     name_mapping={
         "datastore_type_version": "datastoreTypeVersion",
+        "analytics_configuration": "analyticsConfiguration",
         "datastore_name": "datastoreName",
         "identity_provider_configuration": "identityProviderConfiguration",
+        "nlp_configuration": "nlpConfiguration",
         "preload_data_config": "preloadDataConfig",
+        "profile_configuration": "profileConfiguration",
         "sse_configuration": "sseConfiguration",
         "tags": "tags",
     },
@@ -1579,18 +1814,24 @@ class CfnFHIRDatastoreProps:
         self,
         *,
         datastore_type_version: builtins.str,
+        analytics_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.AnalyticsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         datastore_name: typing.Optional[builtins.str] = None,
         identity_provider_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.IdentityProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        nlp_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.NlpConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         preload_data_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.PreloadDataConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        profile_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.ProfileConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sse_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFHIRDatastore.SseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFHIRDatastore``.
 
         :param datastore_type_version: The FHIR release version supported by the data store. Current support is for version ``R4`` .
+        :param analytics_configuration: The analytics configuration for the Data Store. Omitted when the Data Store can't carry analytics.
         :param datastore_name: The data store name (user-generated).
         :param identity_provider_configuration: The identity provider configuration selected when the data store was created.
+        :param nlp_configuration: The natural language processing (NLP) configuration for the Data Store.
         :param preload_data_config: The preloaded Synthea data configuration for the data store.
+        :param profile_configuration: The profile configuration for the Data Store.
         :param sse_configuration: The server-side encryption key configuration for a customer-provided encryption key specified for creating a data store.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
@@ -1608,6 +1849,9 @@ class CfnFHIRDatastoreProps:
                 datastore_type_version="datastoreTypeVersion",
             
                 # the properties below are optional
+                analytics_configuration=healthlake.CfnFHIRDatastore.AnalyticsConfigurationProperty(
+                    status="status"
+                ),
                 datastore_name="datastoreName",
                 identity_provider_configuration=healthlake.CfnFHIRDatastore.IdentityProviderConfigurationProperty(
                     authorization_strategy="authorizationStrategy",
@@ -1617,8 +1861,14 @@ class CfnFHIRDatastoreProps:
                     idp_lambda_arn="idpLambdaArn",
                     metadata="metadata"
                 ),
+                nlp_configuration=healthlake.CfnFHIRDatastore.NlpConfigurationProperty(
+                    status="status"
+                ),
                 preload_data_config=healthlake.CfnFHIRDatastore.PreloadDataConfigProperty(
                     preload_data_type="preloadDataType"
+                ),
+                profile_configuration=healthlake.CfnFHIRDatastore.ProfileConfigurationProperty(
+                    default_profiles=["defaultProfiles"]
                 ),
                 sse_configuration=healthlake.CfnFHIRDatastore.SseConfigurationProperty(
                     kms_encryption_config=healthlake.CfnFHIRDatastore.KmsEncryptionConfigProperty(
@@ -1637,20 +1887,29 @@ class CfnFHIRDatastoreProps:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f7e172077b0d6f3f4825d2eeb030b9523f0239350078a907c09cabc7ce33420)
             check_type(argname="argument datastore_type_version", value=datastore_type_version, expected_type=type_hints["datastore_type_version"])
+            check_type(argname="argument analytics_configuration", value=analytics_configuration, expected_type=type_hints["analytics_configuration"])
             check_type(argname="argument datastore_name", value=datastore_name, expected_type=type_hints["datastore_name"])
             check_type(argname="argument identity_provider_configuration", value=identity_provider_configuration, expected_type=type_hints["identity_provider_configuration"])
+            check_type(argname="argument nlp_configuration", value=nlp_configuration, expected_type=type_hints["nlp_configuration"])
             check_type(argname="argument preload_data_config", value=preload_data_config, expected_type=type_hints["preload_data_config"])
+            check_type(argname="argument profile_configuration", value=profile_configuration, expected_type=type_hints["profile_configuration"])
             check_type(argname="argument sse_configuration", value=sse_configuration, expected_type=type_hints["sse_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "datastore_type_version": datastore_type_version,
         }
+        if analytics_configuration is not None:
+            self._values["analytics_configuration"] = analytics_configuration
         if datastore_name is not None:
             self._values["datastore_name"] = datastore_name
         if identity_provider_configuration is not None:
             self._values["identity_provider_configuration"] = identity_provider_configuration
+        if nlp_configuration is not None:
+            self._values["nlp_configuration"] = nlp_configuration
         if preload_data_config is not None:
             self._values["preload_data_config"] = preload_data_config
+        if profile_configuration is not None:
+            self._values["profile_configuration"] = profile_configuration
         if sse_configuration is not None:
             self._values["sse_configuration"] = sse_configuration
         if tags is not None:
@@ -1667,6 +1926,19 @@ class CfnFHIRDatastoreProps:
         result = self._values.get("datastore_type_version")
         assert result is not None, "Required property 'datastore_type_version' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def analytics_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.AnalyticsConfigurationProperty"]]:
+        '''The analytics configuration for the Data Store.
+
+        Omitted when the Data Store can't carry analytics.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-fhirdatastore.html#cfn-healthlake-fhirdatastore-analyticsconfiguration
+        '''
+        result = self._values.get("analytics_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.AnalyticsConfigurationProperty"]], result)
 
     @builtins.property
     def datastore_name(self) -> typing.Optional[builtins.str]:
@@ -1689,6 +1961,17 @@ class CfnFHIRDatastoreProps:
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.IdentityProviderConfigurationProperty"]], result)
 
     @builtins.property
+    def nlp_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.NlpConfigurationProperty"]]:
+        '''The natural language processing (NLP) configuration for the Data Store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-fhirdatastore.html#cfn-healthlake-fhirdatastore-nlpconfiguration
+        '''
+        result = self._values.get("nlp_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.NlpConfigurationProperty"]], result)
+
+    @builtins.property
     def preload_data_config(
         self,
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.PreloadDataConfigProperty"]]:
@@ -1698,6 +1981,17 @@ class CfnFHIRDatastoreProps:
         '''
         result = self._values.get("preload_data_config")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.PreloadDataConfigProperty"]], result)
+
+    @builtins.property
+    def profile_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.ProfileConfigurationProperty"]]:
+        '''The profile configuration for the Data Store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-healthlake-fhirdatastore.html#cfn-healthlake-fhirdatastore-profileconfiguration
+        '''
+        result = self._values.get("profile_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFHIRDatastore.ProfileConfigurationProperty"]], result)
 
     @builtins.property
     def sse_configuration(
@@ -1864,9 +2158,12 @@ def _typecheckingstub__5a84066c5df4c48a34d687987d48edfe8b65e8bda26e4da5f30db9c93
     id: builtins.str,
     *,
     datastore_type_version: builtins.str,
+    analytics_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     datastore_name: typing.Optional[builtins.str] = None,
     identity_provider_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    nlp_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.NlpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     preload_data_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.PreloadDataConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    profile_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.ProfileConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sse_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.SseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -1919,6 +2216,12 @@ def _typecheckingstub__5808500ce498cbcd60021c25c05f2f5ec6982551bc42bc79b3964a612
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__48b59fb2d517976a56906ebcc57fb92dfc7f6e2d23147d161420e446a2faa389(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFHIRDatastore.AnalyticsConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7a3d86ac6fd32fffececf8454df94145383c2e779b9b5f1a30896102278cd1a9(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -1931,8 +2234,20 @@ def _typecheckingstub__612b8cf4bba44e8e4744db8a7c2eaefe0b9bd601172c067d2c5a9feeb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2bbe4cfc2b2b0a37dccf3f5a9c609433f5d19e2ac8935e6f38e4242aa35beda8(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFHIRDatastore.NlpConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4b4d362bc0e9c9065e9f83741b0f46cfc52f253212d6a4551c7a2d9e4fd7e630(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFHIRDatastore.PreloadDataConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89341d8d043b85e68367b040827fd01deb424f2eae611135a540ed93c97c1db7(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFHIRDatastore.ProfileConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1945,6 +2260,13 @@ def _typecheckingstub__d21d284c17f3b1e178b27b28fe912e0eaebeaa7ca9612eff81512c42f
 
 def _typecheckingstub__28ffa2ce0bad1140b8ffa060738f5e180bc7033b7f2e9f274ce2d1d871b5d620(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6f2b844d5ef21ed1095894c857fc033c1efdf827ae256317a47a25109037b56(
+    *,
+    status: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1975,9 +2297,23 @@ def _typecheckingstub__a204f0ae0d6b5a9246c0ce66e5f12f0873c70941743ebe67b84b3bf96
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ed442f18f9e71f14c366ec00f7c04faf680dcd8a5af2c5ebf9ea7f8876badf34(
+    *,
+    status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2807add39d82212bb123d916748097e974e9ff969a2403ee51221376730abb77(
     *,
     preload_data_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ab4fa7218a4113c5cb203568ef9c76d88c1da6f4b6ff0fcad70804b11678f42(
+    *,
+    default_profiles: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1992,9 +2328,12 @@ def _typecheckingstub__ddeddf28afa132e70cf3cdeca1b03ad8c2e5de2f7786f5db94037eb39
 def _typecheckingstub__0f7e172077b0d6f3f4825d2eeb030b9523f0239350078a907c09cabc7ce33420(
     *,
     datastore_type_version: builtins.str,
+    analytics_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.AnalyticsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     datastore_name: typing.Optional[builtins.str] = None,
     identity_provider_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.IdentityProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    nlp_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.NlpConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     preload_data_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.PreloadDataConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    profile_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.ProfileConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sse_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFHIRDatastore.SseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

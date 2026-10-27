@@ -55,7 +55,7 @@ vec_env = model.get_env()
 obs = vec_env.reset()
 for i in range(1000):
     action, _states = model.predict(obs, deterministic=True)
-    obs, reward, done, info = vec_env.step(action)
+    obs, rewards, dones, info = vec_env.step(action)
     vec_env.render()
     # VecEnv resets automatically
     # if done:
@@ -90,10 +90,8 @@ setup(
             # Run tests and coverage
             "pytest",
             "pytest-cov",
-            "pytest-env",
-            "pytest-xdist",
             # Type check
-            "mypy>=1.9.0,<2",
+            "mypy>=1.9.0,<3",
             # Lint code and sort imports (flake8 and isort replacement)
             "ruff>=0.5.6",
             # Reformat

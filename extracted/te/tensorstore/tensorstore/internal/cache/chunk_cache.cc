@@ -344,9 +344,6 @@ struct WriteChunkImpl {
     auto domain = grid.GetCellDomain(component_index, entry.cell_indices());
     node->MarkSizeUpdated();
     auto& async_write_array = node->components()[component_index];
-    if (store_data_equal_to_fill_value) {
-      async_write_array.write_state.store_if_equal_to_fill_value = true;
-    }
     return async_write_array.BeginWrite(component_spec.array_spec, domain,
                                         std::move(chunk_transform), arena);
   }
@@ -358,8 +355,16 @@ struct WriteChunkImpl {
     auto& grid = GetOwningCache(entry).grid();
     const auto& component_spec = grid.components[component_index];
     auto domain = grid.GetCellDomain(component_index, entry.cell_indices());
-    node->components()[component_index].EndWrite(
-        component_spec.array_spec, domain, chunk_transform, success, arena);
+    auto& async_write_array = node->components()[component_index];
+    async_write_array.EndWrite(component_spec.array_spec, domain,
+                               chunk_transform, success, arena);
+    if (!success) {
+      node->MarkSizeUpdated();
+      return {};
+    }
+    if (store_data_equal_to_fill_value) {
+      async_write_array.write_state.store_if_equal_to_fill_value = true;
+    }
     node->is_modified = true;
     if (IsFullyOverwritten(*node)) {
       node->SetUnconditional();
@@ -378,9 +383,6 @@ struct WriteChunkImpl {
     using WriteArraySourceCapabilities =
         AsyncWriteArray::WriteArraySourceCapabilities;
     auto& async_write_array = node->components()[component_index];
-    if (store_data_equal_to_fill_value) {
-      async_write_array.write_state.store_if_equal_to_fill_value = true;
-    }
     auto status = async_write_array.WriteArray(
         component_spec.array_spec, domain, chunk_transform,
         [&]() -> Result<std::pair<TransformedSharedArray<const void>,
@@ -407,8 +409,14 @@ struct WriteChunkImpl {
       end_write_result = {status};
       return true;
     }
+    node->MarkSizeUpdated();
+    if (store_data_equal_to_fill_value) {
+      async_write_array.write_state.store_if_equal_to_fill_value = true;
+    }
     node->is_modified = true;
-    node->SetUnconditional();
+    if (IsFullyOverwritten(*node)) {
+      node->SetUnconditional();
+    }
     end_write_result = {node->OnModified(), node->transaction()->future()};
     return true;
   }
@@ -738,7 +746,7 @@ void ChunkCache::TransactionNode::DoApply(ApplyOptions options,
         execution::set_value(receiver, std::move(read_state));
       });
   if (this->IsUnconditional() || !this->is_modified) {
-    continuation(MakeReadyFuture());
+    std::move(continuation)(MakeReadyFuture());
     return;
   }
   this->Read({options.staleness_bound})

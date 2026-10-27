@@ -237,9 +237,7 @@ def check_nested_func_def(
     def_id = DefId.fresh()
     mono_args: Inst = ()
 
-    # Store nested functions in the call graph under their own DefIDs,
-    # although calls to them are not resolved yet
-    # (https://github.com/Quantinuum/guppylang/issues/2272)
+    # Store nested functions in the call graph under their own DefIDs.
     ENGINE.register_call_graph_node((def_id, mono_args))
     globals = ctx.globals
 
@@ -366,7 +364,9 @@ def check_signature(
     # Figure out if this is a method
     self_defn: ProtocolDef | TypeDef | None = None
     inputs = []
-    ctx = TypeParsingCtx(globals, param_var_mapping, allow_free_vars=True)
+    ctx = TypeParsingCtx(
+        globals, param_var_mapping, allow_free_vars=True, is_signature=def_id
+    )
     has_parent = def_id is not None and def_id in DEF_STORE.type_member_parents
 
     # Check if method doesn't have any arguments.

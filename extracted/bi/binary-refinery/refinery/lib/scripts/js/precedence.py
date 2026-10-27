@@ -9,6 +9,8 @@ rules (via `parens_required`) so it never strips a paren that is actually requir
 """
 from __future__ import annotations
 
+from typing import Generator
+
 from refinery.lib.scripts import Node
 from refinery.lib.scripts.js.model import (
     JsArrayExpression,
@@ -88,7 +90,18 @@ def _expression_precedence(node: Node) -> int:
         return _CONDITIONAL_PRECEDENCE
     if isinstance(node, (JsUnaryExpression, JsAwaitExpression, JsUpdateExpression)):
         return _UNARY_PRECEDENCE
+    if _is_negated_literal(node):
+        return _UNARY_PRECEDENCE
     return _PRIMARY_PRECEDENCE
+
+
+def _is_negated_literal(node: Node) -> bool:
+    """
+    Whether *node* is a numeric literal spelled as a negation rather than as a single token.
+    Negative zero has no literal form and is written `-0`, so a literal's class does not by itself
+    settle how the node binds; the spelling does, and that is what this reads.
+    """
+    return isinstance(node, JsNumericLiteral) and node.raw.startswith('-')
 
 
 def _leading_sign(node: Node) -> str | None:
@@ -101,6 +114,8 @@ def _leading_sign(node: Node) -> str | None:
         return node.operator
     if isinstance(node, JsUpdateExpression) and node.prefix and node.operator in ('++', '--'):
         return node.operator[0]
+    if _is_negated_literal(node):
+        return '-'
     return None
 
 
@@ -176,6 +191,7 @@ def parens_required(inner: Node, parent: Node | None, paren_node: Node) -> bool:
             and (
                 isinstance(inner, (JsUnaryExpression, JsAwaitExpression))
                 or (isinstance(inner, JsUpdateExpression) and inner.prefix)
+                or _is_negated_literal(inner)
             )
         ):
             return True
@@ -208,7 +224,7 @@ def parens_required(inner: Node, parent: Node | None, paren_node: Node) -> bool:
             if paren_node is not inner and _has_optional_in_spine(inner):
                 return True
             if isinstance(inner, JsNumericLiteral):
-                return not parent.computed
+                return _is_negated_literal(inner) or not parent.computed
             if not isinstance(inner, (
                 JsIdentifier,
                 JsMemberExpression,
@@ -252,16 +268,16 @@ def needs_parens(child: Node, parent: Node | None) -> bool:
     return parens_required(child, parent, child)
 
 
-def statement_needs_parens(expr: Node) -> bool:
+def left_spine(expr: Node) -> Generator[Node, None, None]:
     """
-    Return whether an expression statement consisting of *expr* must be parenthesized because its
-    leftmost token would otherwise start a block, function declaration, or class declaration. The
-    hazard propagates down the left spine, e.g. `({}).x` or `(function(){})()`.
+    The nodes whose first token is also the first token of *expr*, outermost first. Every rule about
+    where a bracket is needed to keep a position from being misread is a rule about that one token,
+    so each of them walks this chain: `({}).x` and `(function(){})()` are bracketed for what stands
+    at the far end of it, not for what stands at the top.
     """
     node: Node | None = expr
     while node is not None:
-        if isinstance(node, (JsObjectExpression, JsFunctionExpression, JsClassExpression, JsObjectPattern)):
-            return True
+        yield node
         if isinstance(node, JsMemberExpression):
             node = node.object
         elif isinstance(node, JsCallExpression):
@@ -277,5 +293,122 @@ def statement_needs_parens(expr: Node) -> bool:
         elif isinstance(node, JsUpdateExpression) and not node.prefix:
             node = node.argument
         else:
-            return False
+            return
+
+
+def _opens_a_let_declaration(node: Node) -> bool:
+    return (
+        isinstance(node, JsMemberExpression)
+        and node.computed
+        and isinstance(node.object, JsIdentifier)
+        and node.object.name == 'let'
+    )
+
+
+def opens_a_let_declaration(expr: Node) -> bool:
+    """
+    Whether *expr* begins with the two tokens `let [`. That is the one spelling a statement may not
+    read as an expression: `let` is an ordinary name everywhere else, so `let.a` and `let(1)` need
+    nothing, while `let[0]` written bare is a destructuring declaration and not the index the tree
+    holds. The same two tokens are refused at the head of a `for` and of a `for ... in`.
+    """
+    return any(map(_opens_a_let_declaration, left_spine(expr)))
+
+
+def opens_with_let(expr: Node) -> bool:
+    """
+    Whether *expr* begins with the name `let` at all. A `for ... of` head refuses that much: where a
+    statement asks what follows the name, this position does not, and `for (let.a of x)` is no
+    program even though `let.a;` is one.
+    """
+    return any(
+        isinstance(node, JsIdentifier) and node.name == 'let'
+        for node in left_spine(expr)
+    )
+
+
+def is_the_name_async(expr: Node) -> bool:
+    """
+    Whether *expr* is the name `async` and nothing more. A `for ... of` head refuses those two words
+    in a row, so `for (async of x)` is no program — but the refusal is of the pair and not of the
+    name, so `for (async.a of x)` and `for (async[0] of x)` need nothing: the word behind `async` is
+    then not `of`.
+    """
+    return isinstance(expr, JsIdentifier) and expr.name == 'async'
+
+
+def reads_an_in_operator(expr: Node | None) -> bool:
+    """
+    Whether *expr* holds an `in` that the head of a `for` would read as its own. The initializer is
+    the one expression position the grammar denies that operator, because the head has already
+    spent the word on `for ... in`, and the denial reaches as far as a bracket does not: through the
+    operands of an operator, the arms of a conditional, the members of a sequence, and the body an
+    arrow spells without braces.
+
+    A bracket ends it, so nothing inside a call, an index, an array, an object, a template hole or a
+    braced body is asked. Answering for text a bracket already covers would refuse where nothing
+    needs refusing — and a bracket around the whole initializer is never wrong, so the reach may
+    be over-stated but never under-stated.
+    """
+    if isinstance(expr, JsBinaryExpression) and expr.operator == 'in':
+        return True
+    if isinstance(expr, (JsAssignmentExpression, JsBinaryExpression, JsLogicalExpression)):
+        return reads_an_in_operator(expr.left) or reads_an_in_operator(expr.right)
+    if isinstance(expr, JsConditionalExpression):
+        return (
+            reads_an_in_operator(expr.test)
+            or reads_an_in_operator(expr.consequent)
+            or reads_an_in_operator(expr.alternate)
+        )
+    if isinstance(expr, JsSequenceExpression):
+        return any(map(reads_an_in_operator, expr.expressions))
+    if isinstance(expr, (JsAwaitExpression, JsUpdateExpression, JsYieldExpression)):
+        return reads_an_in_operator(expr.argument)
+    if isinstance(expr, JsUnaryExpression):
+        return reads_an_in_operator(expr.operand)
+    if isinstance(expr, (JsCallExpression, JsNewExpression)):
+        return reads_an_in_operator(expr.callee)
+    if isinstance(expr, JsTaggedTemplateExpression):
+        return reads_an_in_operator(expr.tag)
+    if isinstance(expr, JsMemberExpression):
+        return reads_an_in_operator(expr.object)
+    if isinstance(expr, JsArrowFunctionExpression):
+        return reads_an_in_operator(expr.body)
     return False
+
+
+def statement_needs_parens(expr: Node) -> bool:
+    """
+    Whether an expression statement made of *expr* has to be bracketed, because its first token
+    would otherwise open something a statement reads as its own: a block, a function or class
+    declaration, or the declaration that `let [` begins.
+    """
+    return any(
+        isinstance(node, (JsObjectExpression, JsFunctionExpression, JsClassExpression, JsObjectPattern))
+        or _opens_a_let_declaration(node)
+        for node in left_spine(expr)
+    )
+
+
+def for_initializer_needs_parens(expr: Node) -> bool:
+    """
+    Whether the initializer of a `for` has to be bracketed. It refuses the `let [` a statement
+    refuses, and the `in` that would end the head early.
+    """
+    return opens_a_let_declaration(expr) or reads_an_in_operator(expr)
+
+
+def for_in_target_needs_parens(expr: Node) -> bool:
+    """
+    Whether the assignment target of a `for ... in` has to be bracketed. The `in` behind it ends the
+    target, so the operator needs no refusing here; the `let [` that opens a declaration does.
+    """
+    return opens_a_let_declaration(expr)
+
+
+def for_of_target_needs_parens(expr: Node) -> bool:
+    """
+    Whether the assignment target of a `for ... of` has to be bracketed. This head refuses two bare
+    names outright, where the others refuse only what `let` opens.
+    """
+    return opens_with_let(expr) or is_the_name_async(expr)

@@ -66,6 +66,7 @@ from matrx_ai.graph_nodes.agent_action import (
     require_agent_host,
     resolve_step_agent_full,
     run_step_agent,
+    step_result_version,
 )
 from matrx_ai.graph_nodes.iteration_limit import resolve_step_iteration_limit
 from matrx_ai.graph_nodes.shared import (
@@ -258,6 +259,7 @@ def _record_spend(ctx: NodeExecutionContext, normalized: AiExecutionResult) -> N
     config_schema=AgentStartConfig,
     icon="bot",
     tags=("ai", "agent", "llm", "kinds"),
+    result_version=step_result_version,
 )
 async def agent_produce(
     ctx: NodeExecutionContext,

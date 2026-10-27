@@ -185,6 +185,7 @@ class CfnEmailContact(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -297,7 +298,7 @@ class CfnEmailContact(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ad40c0465cbabf41bb2abf49dcce2989a3b42139c67d0d593acc1d1d67028e58)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "emailAddress", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "emailAddress", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -310,7 +311,7 @@ class CfnEmailContact(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__71ded19921304e3a6ee545520c16e2621065bcf6a576b5305f984c994ac9fe5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -326,7 +327,7 @@ class CfnEmailContact(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6155552227ec0ef011be7e784ffc90ecfddac06545f4d44a087256c3ef2ee22b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_notificationscontacts.CfnEmailContact.EmailContactProperty",

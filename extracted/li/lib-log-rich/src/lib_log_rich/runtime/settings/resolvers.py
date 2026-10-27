@@ -5,15 +5,17 @@ from __future__ import annotations
 import os
 import sys
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import TYPE_CHECKING, TypeVar
 
 from pydantic import ValidationError
 
+from lib_log_rich.adapters._validation import describe_validation_error
 from lib_log_rich.domain import LogLevel
-from lib_log_rich.domain.enums import ConsoleStream, GraylogProtocol, QueuePolicy
+from lib_log_rich.domain.enums import ConsoleStream, ConsoleTheme, FormatPreset, GraylogProtocol, QueuePolicy
 from lib_log_rich.domain.palettes import CONSOLE_STYLE_THEMES
 
-from .models import (  # pyright: ignore[reportPrivateUsage]
+from .models import (
     DEFAULT_SCRUB_PATTERNS,
     ConsoleAppearance,
     ConsoleStylesInput,
@@ -27,7 +29,53 @@ from .models import (  # pyright: ignore[reportPrivateUsage]
 )
 
 if TYPE_CHECKING:
-    from pydantic_core import ErrorDetails
+    from collections.abc import Callable
+
+_EnumT = TypeVar("_EnumT")
+
+
+def _env_choice(name: str, parse: Callable[[str], _EnumT]) -> _EnumT | None:
+    """Parse environment variable ``name`` with ``parse``; unset or empty is ``None``.
+
+    Raises:
+        ValueError: Naming the variable, with ``parse``'s reason.
+    """
+    raw = os.getenv(name)
+    if not raw:
+        return None
+    try:
+        return parse(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name}: {exc}") from exc
+
+
+def _resolve_ring_buffer_checkpoint(config: RuntimeConfig) -> Path | None:
+    """Resolve the ring buffer's checkpoint file; ``LOG_RING_BUFFER_CHECKPOINT`` beats the config field.
+
+    An empty or blank variable counts as unset, as for the other ``LOG_*`` overrides.
+
+    Raises:
+        ValueError: When the chosen path is an existing directory, naming its source.
+    """
+    raw = (os.getenv("LOG_RING_BUFFER_CHECKPOINT") or "").strip()
+    if raw:
+        path, source = Path(raw), "LOG_RING_BUFFER_CHECKPOINT"
+    elif config.ring_buffer_checkpoint is not None:
+        path, source = config.ring_buffer_checkpoint, "ring_buffer_checkpoint"
+    else:
+        return None
+    if _is_existing_directory(path):
+        raise ValueError(f"{source}: {path} is a directory; give the path of a file")
+    return path
+
+
+def _is_existing_directory(path: Path) -> bool:
+    # Before Python 3.14 Path.is_dir() re-raises EACCES; a path that cannot be inspected
+    # is left for the checkpoint's own open() to report when it is first used.
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
 
 
 def _resolve_ring_buffer_size(config: RuntimeConfig) -> int:
@@ -49,24 +97,20 @@ def _resolve_ring_buffer_size(config: RuntimeConfig) -> int:
 
 
 def _resolve_payload_limits(config: RuntimeConfig) -> PayloadLimits:
-    """Normalize payload_limits to PayloadLimits instance."""
-    if config.payload_limits is None:
-        return PayloadLimits()
-    if isinstance(config.payload_limits, PayloadLimits):
-        return config.payload_limits
-    return PayloadLimits(**dict(config.payload_limits))
+    """Return the configured payload limits, else the defaults."""
+    return config.payload_limits or PayloadLimits()
 
 
 def _resolve_queue_settings(config: RuntimeConfig) -> tuple[int, QueuePolicy, float | None, float | None]:
     """Resolve all queue-related settings."""
     queue_size = resolve_queue_maxsize(config.queue_maxsize)
-    queue_policy = resolve_queue_policy(QueuePolicy.from_str(config.queue_full_policy))
+    queue_policy = resolve_queue_policy(config.queue_full_policy)
     queue_timeout = resolve_queue_timeout(config.queue_put_timeout)
     queue_stop_timeout = resolve_queue_stop_timeout(config.queue_stop_timeout)
     return queue_size, queue_policy, queue_timeout, queue_stop_timeout
 
 
-def _resolve_adapters(config: RuntimeConfig, graylog_level: LogLevel) -> tuple[Any, Any, Any]:
+def _resolve_adapters(config: RuntimeConfig, graylog_level: LogLevel) -> tuple[ConsoleAppearance, DumpDefaults, GraylogSettings]:
     """Resolve console, dump, and graylog adapter settings."""
     console_model = resolve_console(
         force_color=config.force_color,
@@ -104,40 +148,7 @@ def build_runtime_settings(*, config: RuntimeConfig) -> RuntimeSettings:
     try:
         return _build_runtime_settings(config)
     except ValidationError as exc:
-        raise ValueError(_describe_validation_error(exc)) from exc
-
-
-def _describe_validation_error(error: ValidationError) -> str:
-    """Render a validation error as ``field: reason`` clauses joined by ``; ``.
-
-    The library's own rendering carries model names, input echoes and a
-    documentation URL, none of which tells a caller what to change.
-
-    Example:
-        >>> from pydantic import BaseModel, field_validator
-        >>> class Probe(BaseModel):
-        ...     size: int
-        ...     @field_validator("size")
-        ...     @classmethod
-        ...     def _positive(cls, value: int) -> int:
-        ...         if value <= 0:
-        ...             raise ValueError("size must be positive")
-        ...         return value
-        >>> try:
-        ...     Probe(size=0)
-        ... except ValidationError as exc:
-        ...     print(_describe_validation_error(exc))
-        size: size must be positive
-    """
-    return "; ".join(_describe_error_line(line) for line in error.errors())
-
-
-def _describe_error_line(line: ErrorDetails) -> str:
-    """Render one entry of ``ValidationError.errors()``."""
-    cause = line.get("ctx", {}).get("error")
-    reason = str(cause) if cause is not None else str(line["msg"])
-    location = ".".join(str(part) for part in line["loc"])
-    return f"{location}: {reason}" if location else reason
+        raise ValueError(describe_validation_error(exc)) from exc
 
 
 def _build_runtime_settings(config: RuntimeConfig) -> RuntimeSettings:
@@ -146,6 +157,7 @@ def _build_runtime_settings(config: RuntimeConfig) -> RuntimeSettings:
     console_level, backend_level, graylog_level = resolve_levels(config.console_level, config.backend_level, config.graylog_level)
 
     ring_size = _resolve_ring_buffer_size(config)
+    ring_checkpoint = _resolve_ring_buffer_checkpoint(config)
     flags = resolve_feature_flags(
         enable_ring_buffer=config.enable_ring_buffer,
         enable_journald=config.enable_journald,
@@ -162,6 +174,7 @@ def _build_runtime_settings(config: RuntimeConfig) -> RuntimeSettings:
         backend_level=backend_level,
         graylog_level=graylog_level,
         ring_buffer_size=ring_size,
+        ring_buffer_checkpoint=ring_checkpoint,
         console=console_model,
         dump=dump_defaults,
         graylog=graylog_settings,
@@ -231,13 +244,11 @@ def resolve_feature_flags(
 
 
 def _resolve_console_stream(
-    console_stream: str,
+    console_stream: ConsoleStream,
     console_stream_target: object | None,
 ) -> tuple[ConsoleStream, object | None]:
     """Resolve and validate console stream settings."""
-    stream_candidate = os.getenv("LOG_CONSOLE_STREAM") or console_stream
-    stream_input = stream_candidate.strip().lower() if stream_candidate else ConsoleStream.STDERR.value
-    stream_enum = ConsoleStream.from_str(stream_input)
+    stream_enum = _env_choice("LOG_CONSOLE_STREAM", ConsoleStream.from_str) or console_stream
     stream_target = console_stream_target if stream_enum is ConsoleStream.CUSTOM else None
     if stream_enum is ConsoleStream.CUSTOM and stream_target is None:
         raise ValueError("console_stream_target must be provided when console stream is 'custom'")
@@ -248,29 +259,31 @@ def resolve_console(
     *,
     force_color: bool,
     no_color: bool,
-    console_theme: str | None,
+    console_theme: ConsoleTheme | None,
     console_styles: ConsoleStylesInput | None,
-    console_format_preset: str | None,
+    console_format_preset: FormatPreset | None,
     console_format_template: str | None,
-    console_stream: str,
+    console_stream: ConsoleStream,
     console_stream_target: object | None,
 ) -> ConsoleAppearance:
     """Blend console formatting inputs with environment overrides."""
     force = env_bool("LOG_FORCE_COLOR", force_color)
     no = env_bool("LOG_NO_COLOR", no_color)
     env_styles = parse_console_styles(os.getenv("LOG_CONSOLE_STYLES"))
-    theme = os.getenv("LOG_CONSOLE_THEME") or console_theme
-    preset = os.getenv("LOG_CONSOLE_FORMAT_PRESET") or console_format_preset
+    theme = _env_choice("LOG_CONSOLE_THEME", ConsoleTheme.from_str) or console_theme
+    preset = _env_choice("LOG_CONSOLE_FORMAT_PRESET", FormatPreset.from_str) or console_format_preset
     template = os.getenv("LOG_CONSOLE_FORMAT_TEMPLATE") or console_format_template
     stream_value, stream_target = _resolve_console_stream(console_stream, console_stream_target)
     explicit_styles = coerce_console_styles_input(console_styles)
     resolved_theme, resolved_styles = resolve_console_palette(theme, explicit_styles, env_styles)
+    configured_styles = _merge_styles(explicit_styles, env_styles) or None
 
     return ConsoleAppearance(
         force_color=force,
         no_color=no,
         theme=resolved_theme,
         styles=resolved_styles,
+        configured_styles=configured_styles,
         format_preset=preset,
         format_template=template,
         stream=stream_value,
@@ -280,27 +293,47 @@ def resolve_console(
 
 def resolve_dump_defaults(
     *,
-    dump_format_preset: str | None,
+    dump_format_preset: FormatPreset | None,
     dump_format_template: str | None,
 ) -> DumpDefaults:
     """Determine dump format defaults respecting environment overrides."""
-    preset = os.getenv("LOG_DUMP_FORMAT_PRESET") or dump_format_preset or "full"
+    env_preset = _env_choice("LOG_DUMP_FORMAT_PRESET", FormatPreset.from_str)
+    if env_preset is not None:
+        preset = _require_text_dump_preset(env_preset, source="LOG_DUMP_FORMAT_PRESET")
+    elif dump_format_preset is not None:
+        preset = _require_text_dump_preset(dump_format_preset, source="dump_format_preset")
+    else:
+        preset = FormatPreset.FULL
     template = os.getenv("LOG_DUMP_FORMAT_TEMPLATE") or dump_format_template
     return DumpDefaults(format_preset=preset, format_template=template)
+
+
+def _require_text_dump_preset(preset: FormatPreset, *, source: str) -> FormatPreset:
+    """Return ``preset`` when a text dump can render it.
+
+    Refused here, while settings are resolved, because a text dump has no
+    template for a console-only preset: accepted, every later dump would fail.
+
+    Raises:
+        ValueError: Naming ``source`` and the presets a text dump takes.
+    """
+    if preset.renders_in_text_dump:
+        return preset
+    allowed = ", ".join(member.value for member in FormatPreset if member.renders_in_text_dump)
+    raise ValueError(f"{source}: {preset.value} is a console-only preset; a text dump takes one of: {allowed}")
 
 
 def resolve_graylog(
     *,
     enable_graylog: bool,
     graylog_endpoint: tuple[str, int] | None,
-    graylog_protocol: str,
+    graylog_protocol: GraylogProtocol,
     graylog_tls: bool,
     graylog_level: LogLevel,
 ) -> GraylogSettings:
     """Resolve Graylog adapter settings with environment overrides."""
     enabled = env_bool("LOG_ENABLE_GRAYLOG", enable_graylog)
-    protocol_str = (os.getenv("LOG_GRAYLOG_PROTOCOL") or graylog_protocol).lower()
-    protocol = GraylogProtocol.from_str(protocol_str)
+    protocol = _env_choice("LOG_GRAYLOG_PROTOCOL", GraylogProtocol.from_str) or graylog_protocol
     tls = env_bool("LOG_GRAYLOG_TLS", graylog_tls)
     endpoint = coerce_graylog_endpoint(os.getenv("LOG_GRAYLOG_ENDPOINT"), graylog_endpoint)
     return GraylogSettings(enabled=enabled, endpoint=endpoint, protocol=protocol, tls=tls, level=graylog_level)
@@ -319,12 +352,16 @@ def resolve_queue_maxsize(default: int) -> int:
 
 
 def resolve_queue_policy(default: QueuePolicy) -> QueuePolicy:
-    """Normalise queue full handling policy."""
+    """Return ``LOG_QUEUE_FULL_POLICY`` when it names a policy, else ``default``.
+
+    An unparsable value falls back rather than refusing, as every other
+    ``LOG_QUEUE_*`` override does.
+    """
     candidate = os.getenv("LOG_QUEUE_FULL_POLICY")
     if candidate is None:
         return default
     try:
-        return QueuePolicy.from_str(candidate.strip().lower())
+        return QueuePolicy.from_str(candidate)
     except ValueError:
         return default
 
@@ -477,26 +514,46 @@ def _merge_styles(
     return styles
 
 
-def _apply_theme_defaults(styles: dict[str, str], theme: str) -> None:
-    """Apply theme palette defaults to styles dict without overwriting existing."""
-    theme_key = theme.strip().lower()
-    palette = CONSOLE_STYLE_THEMES.get(theme_key)
-    if palette:
-        for level, value in palette.items():
-            styles.setdefault(level.upper(), value)
+def _apply_theme_defaults(styles: dict[str, str], theme: ConsoleTheme) -> None:
+    """Apply theme palette defaults to styles dict without overwriting existing.
+
+    Palettes are keyed by level names already, the spelling the configured and
+    environment styles were normalised to on entry, so the keys merge as they are.
+    """
+    for level, value in CONSOLE_STYLE_THEMES[theme].items():
+        styles.setdefault(level, value)
 
 
 def resolve_console_palette(
-    theme: str | None,
+    theme: ConsoleTheme | None,
     explicit_styles: dict[str, str] | None,
     env_styles: dict[str, str] | None,
-) -> tuple[str | None, dict[str, str] | None]:
-    """Resolve final console theme and styles."""
+) -> tuple[ConsoleTheme | None, dict[str, str] | None]:
+    """Resolve final console theme and styles.
+
+    The theme is used as given: :func:`resolve_console` has already applied the
+    ``LOG_CONSOLE_THEME`` override before calling this.
+
+    Args:
+        theme: Palette name, or ``None`` for no palette defaults.
+        explicit_styles: Configured styles, keyed by level name.
+        env_styles: Styles parsed from ``LOG_CONSOLE_STYLES``, keyed by level name;
+            they win over ``explicit_styles``.
+
+    Returns:
+        The theme and the merged styles, palette defaults filling the levels no
+        style names; ``None`` for styles when nothing is set.
+
+    Example:
+        >>> resolve_console_palette(ConsoleTheme.CLASSIC, {"INFO": "green"}, {"ERROR": "red"})[1]["INFO"]
+        'green'
+        >>> resolve_console_palette(None, None, None)
+        (None, None)
+    """
     styles = _merge_styles(explicit_styles, env_styles)
-    resolved_theme = theme or (os.getenv("LOG_CONSOLE_THEME") if not styles else None)
-    if resolved_theme:
-        _apply_theme_defaults(styles, resolved_theme)
-    return resolved_theme, styles or None
+    if theme is not None:
+        _apply_theme_defaults(styles, theme)
+    return theme, styles or None
 
 
 __all__ = [

@@ -21,6 +21,7 @@ anything else, and say so.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -42,6 +43,13 @@ class BootstrapResult:
     """True only when THIS run performed a persistent install."""
     already_persistent: bool
     message: str
+    refused: bool = False
+    """Nothing was installed on purpose: an uninstall runs (its barrier is
+    LIVE), or uv is missing (the message says the exact command)."""
+    waiting: bool = False
+    """Installed and checked beside uv's own folder, which the first switch
+    moves only on a quiet machine: the `probe` on PATH is the old one until
+    then. Never "already installed": nothing is checked against the old one."""
 
 
 def _launcher_caches() -> tuple[str, ...]:
@@ -183,16 +191,26 @@ def installed_version() -> str | None:
 def ensure_persistent_install(*, dry_run: bool = False, target: str | None = None) -> BootstrapResult:
     """Install the CLI for real if this process is an ephemeral one.
 
-    Prefers uv, falls back to pipx. Deliberately never falls back to a bare
-    `pip install`: on a researcher's machine that usually means a conda or
-    system environment, and silently mutating it is how you break a training
-    run three days later.
+    Through the one installer (`install_pipeline.install_cli`: side by side,
+    under the install lock, checked before the switch), with uv. A pipx
+    install moves to uv's (the managed install); without uv it refuses with
+    the exact command. Deliberately never a bare `pip install`: on a
+    researcher's machine that usually means a conda or system environment,
+    and silently mutating it is how you break a training run three days
+    later. Never while an uninstall runs (its barrier is LIVE).
     """
-    if _resolves_on_path():
+    from . import install_pipeline
+
+    said = install_pipeline.refusal()
+    if said:
+        return BootstrapResult(installed=False, already_persistent=False, message=f"! {said}", refused=True)
+    foreign = None if dry_run else _foreign_to_move()
+    if foreign is None and _resolves_on_path():
+        note = "" if dry_run else _repair_layout()
         return BootstrapResult(
             installed=False,
             already_persistent=True,
-            message="",
+            message=note,
         )
 
     if dry_run:
@@ -210,6 +228,8 @@ def ensure_persistent_install(*, dry_run: bool = False, target: str | None = Non
     # the manifest's), so a stale throwaway copy never pins the install to
     # itself when a newer one exists.
     want = target if target and _at_least(target, __version__) else __version__
+    if foreign is not None and _at_least(behind, want):
+        want = behind  # moving a pipx install to uv's: never a downgrade
     # An installed copy THIS run is newer than: `npx probe-research` runs the
     # latest CLI in a throwaway environment exactly when the installed one is
     # behind. Bring it to this version, read from a fresh index. Unpinned, uv
@@ -217,16 +237,23 @@ def ensure_persistent_install(*, dry_run: bool = False, target: str | None = Non
     # a 0.206.0 wizard left 0.205.4 installed (2026-10-02), so every agent kept
     # calling the old CLI -- pi never saw the daemon its wizard had just set.
     result = install_persistent(f"{INSTALL_SPEC}=={want}")
+    if result.waiting:
+        return result  # the old `probe` answers until the switch: nothing to compare yet, nothing to move
+    if result.installed and foreign is not None:
+        from . import install_pipeline
+
+        moved = install_pipeline.migrate_foreign(foreign)
+        result = BootstrapResult(result.installed, result.already_persistent,
+                                 " ".join([result.message, *moved]).strip())
     after = installed_version()
     if result.installed and not (after and _at_least(after, want)):
-        installer = "uv tool install" if shutil.which("uv") else "pipx install"
         return BootstrapResult(
             installed=False,
             already_persistent=False,
             message=(
                 f"! the installed `probe` is still {after or behind} after installing {want}, "
                 "so your coding agents keep calling the old one. "
-                f"Run: {installer} --force '{INSTALL_SPEC}=={want}'"
+                f"Run: {_fix_command(want)}"
             ),
         )
     if result.installed:
@@ -236,6 +263,260 @@ def ensure_persistent_install(*, dry_run: bool = False, target: str | None = Non
             message=f"Updated the installed `probe` {behind} → {after}.",
         )
     return result
+
+
+def _shadowing_pip() -> tuple[str, str | None] | None:
+    """A pip install's `probe` that comes first on PATH, ahead of uv's: `(its
+    path, the Python that owns it)` -- that Python from the script's own `#!`
+    line, None when it cannot be read. Probe never runs the uninstall: that
+    env may be a project's, and the SDK lives there. None when there is none."""
+    from . import install_pipeline
+
+    try:
+        found = shutil.which("probe")
+        if not found or _is_throwaway(found):
+            return None
+        method = install_pipeline.foreign_install()
+        if method is None or method[0] != "pip" or os.path.realpath(method[1]) != os.path.realpath(found):
+            return None
+        return found, _script_python(found)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+#: pip's launcher for an interpreter path a `#!` line cannot hold (a space, too
+#: long): `#!/bin/sh`, then this line naming the Python.
+_SH_EXEC = re.compile(r"""^'''exec' (?:"([^"]+)"|(\S+)) "\$0" "\$@"$""")
+
+
+def _script_python(script: str) -> str | None:
+    """The Python a pip-installed console script runs: its `#!` line, or the
+    exec line of pip's `/bin/sh` launcher. None when the script cannot be
+    read or names no Python by its path (`#!/usr/bin/env python3` runs
+    whichever comes first on PATH)."""
+    try:
+        with open(script, "rb") as handle:
+            head = handle.read(4096).decode("utf-8", "replace").splitlines()
+    except OSError:
+        return None
+    if not head or not head[0].startswith("#!"):
+        return None
+    line = head[0][2:].strip()
+    quoted = re.match(r'"([^"]+)"', line)
+    python = quoted.group(1) if quoted else (line.split() or [""])[0]
+    if os.path.basename(python) == "sh":
+        launcher = _SH_EXEC.match(head[1].strip()) if len(head) > 1 else None
+        python = (launcher.group(1) or launcher.group(2)) if launcher else ""
+    if not os.path.isabs(python) or not os.path.basename(python).lower().startswith(("python", "pypy")):
+        return None
+    return python
+
+
+def _fix_command(version: str) -> str:
+    """What a person runs when the install did not take: `probe repair` where
+    the side-by-side layout is used (a `uv tool install --force` through its
+    link replaces it with a plain folder: plan R4), else the plain install.
+    When a pip install's `probe` comes first on PATH, that is the fix: its
+    path and the exact uninstall for its env (which Probe never runs)."""
+    from . import install_pipeline
+
+    shadow = _shadowing_pip()
+    if shadow is not None:
+        path, python = shadow
+        how = (f"`{python} -m pip uninstall {DIST}`" if python
+               else f"`pip uninstall {DIST}` run by the Python that owns {path}")
+        return (f"`{path}` (a pip install) comes first on PATH; remove it with {how} "
+                "(Probe does not run that for you), or put ~/.local/bin ahead of it on PATH")
+    if shutil.which("uv") is None:
+        return install_pipeline.UV_INSTALL + "; then npx probe-research repair"
+    try:
+        from probe._shared import installs
+
+        if install_pipeline.layout_usable(installs.tool_dir()):
+            return "npx probe-research repair"
+    except Exception:  # noqa: BLE001
+        pass
+    return f"uv tool install --force '{INSTALL_SPEC}=={version}'"
+
+
+def _foreign_to_move() -> tuple[str, str] | None:
+    """A pipx install of the CLI, which the managed (uv) install replaces
+    (plan R-T1); a pip install only when this run is a throwaway one (`npx`):
+    run from a pip environment, that environment is the person's own choice
+    (a project's, the SDK's), and stays. None when there is nothing to move."""
+    from . import install_pipeline, updater
+
+    try:
+        found = install_pipeline.foreign_install()
+    except Exception:  # noqa: BLE001
+        return None
+    if found is None:
+        return None
+    if found[0] == "pip" and updater.detect_install().method != updater.Method.EPHEMERAL:
+        return None
+    return found
+
+
+def _repair_layout() -> str:
+    """The cheap part of a same-version check, on every run that finds the
+    install current (no process started): the public scripts, `active.json`,
+    a stale uninstall barrier. A line for what it put right, else ""."""
+    from . import install_pipeline
+
+    try:
+        from probe._shared import handoff, installs
+
+        lines = []
+        tools = installs.tool_dir()
+        if os.name == "nt" or installs.tool_state(tools) not in (installs.ToolPath.LINKED, installs.ToolPath.PLAIN):
+            cleared = install_pipeline.clear_stale_barrier(tools)
+            return cleared or ""
+        if not installs.versions_root(tools).is_dir():
+            return ""
+        with handoff.install_lock(installs.versions_root(tools), wait_s=0):
+            from probe._shared import uninstall_barrier
+
+            cleared = uninstall_barrier.clear_stale()  # under the lock: no uninstall runs now
+            if cleared:
+                lines.append(cleared)
+            if uninstall_barrier.live():
+                return " ".join(lines)
+            lines.extend(installs.fix_record(tools))
+            made, _blocked = installs.ensure_shims(tools)
+            if made:
+                lines.append("put the `probe` command back: " + "; ".join(made))
+        return " ".join(lines)
+    except Exception:  # noqa: BLE001 -- busy (another update holds the lock), or unreadable: next time
+        return ""
+
+
+def verify_installed() -> BootstrapResult | None:
+    """A same-version reinstall (the wizard's install over a current CLI): a
+    health check of the active env -- its receipt, its update path's import,
+    the service's start -- and of the layout, repairing what fails (plan
+    clean-uninstall-reinstall R-T3: a broken active env is rebuilt in a new
+    generation folder and switched to). None where the side-by-side layout is
+    not used here, or nothing is installed through it."""
+    if os.name == "nt" or shutil.which("uv") is None:
+        return None
+    from probe import __version__
+
+    from . import install_pipeline
+
+    try:
+        from probe._shared import installs
+
+        tools = installs.tool_dir()
+        state = installs.tool_state(tools)
+        if state not in (installs.ToolPath.LINKED, installs.ToolPath.PLAIN, installs.ToolPath.DANGLING):
+            return None
+        env = installs.active(tools) or (installs.tool_env(tools) if state == installs.ToolPath.PLAIN else None)
+        version = (installs.env_version(env) if env is not None else None) or __version__
+    except Exception:  # noqa: BLE001
+        return None
+    if not install_pipeline.checkable(version):
+        return None  # too old for the check (it imports `probe.core.adopt`): the update brings it forward
+    # Never waits for another update's lock: one running is checked next time.
+    out = install_pipeline.install_cli(version, mode=install_pipeline.Mode.INSTALL, lock_wait_s=0)
+    if out.unmanaged:
+        return None
+    if out.refused:
+        return BootstrapResult(False, False, f"! {out.refused}", refused=True)
+    if out.busy:
+        return BootstrapResult(False, True, out.busy)
+    if out.waiting and not out.ok:
+        return BootstrapResult(False, True, f"Repaired `probe` {version}: {install_pipeline.QUIET_SWITCH} "
+                               f"({out.waiting})", waiting=True)
+    if not out.ok:
+        return BootstrapResult(False, False, "could not repair the installed `probe`: " + "; ".join(
+            out.problems or ["it did not end up working"]))
+    # The rest of a same-version check (R-T3): the OS keeper and lifeboat,
+    # runtime.json, and a service still on the env the switch replaced.
+    from . import repair
+
+    keeper = repair.repair_keeper(out)
+    service = repair.repair_service(out) if out.changed else repair.Part()
+    news = [line for line in keeper.lines if not line.endswith(": current")]
+    said = "; ".join([*out.lines, *([out.waiting] if out.waiting else []), *news, *service.lines,
+                      *(f"! {line}" for line in [*keeper.problems, *service.problems])])
+    if out.changed:
+        return BootstrapResult(True, False, f"Repaired the installed `probe` {out.version}: {said}")
+    return BootstrapResult(False, True, said)
+
+
+def _latest_release() -> str | None:
+    """The newest CLI the release manifest names, or None (offline, no route)."""
+    try:
+        from probe import version_policy
+
+        from . import updater
+
+        return updater.cli_latest(updater.fetch_latest(version_policy.base_url()))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _install_managed(version: str) -> BootstrapResult | None:
+    """`install_pipeline.install_cli` for `version` (`==X`, `@latest` or ""
+    for this run's own), as a BootstrapResult. None where the side-by-side
+    layout is not used (Windows, the versions folder on another filesystem)
+    and no link is at the tool path: the caller installs as before. Without
+    uv: refused, with the exact command (plan R-T1)."""
+    from probe import __version__
+
+    from . import install_pipeline
+
+    if os.name == "nt":
+        return None
+    wanted = version[2:] if version.startswith("==") else __version__ if not version else None
+    if shutil.which("uv") is None:
+        return BootstrapResult(False, False, f"! could not install `probe`: {install_pipeline.no_uv_message(wanted)}",
+                               refused=True)
+    try:
+        from probe._shared import installs
+
+        tools = installs.tool_dir()
+        usable = install_pipeline.layout_usable(tools)
+        linked = installs.is_link(installs.tool_env(tools))
+    except Exception:  # noqa: BLE001 -- unknown: as before
+        return None
+    if not usable:
+        return None
+    if wanted is None:
+        if not linked:
+            return None  # `@latest` over uv's own folder (or none): no link for `uv tool install` to write through
+        wanted = _latest_release()
+        if wanted is None:
+            return BootstrapResult(False, False, "could not install `probe`: the newest release could not be "
+                                   "read (offline?); run `npx probe-research repair` once you are online")
+    out = install_pipeline.install_cli(wanted, mode=install_pipeline.Mode.INSTALL)
+    if out.refused:
+        return BootstrapResult(False, False, f"! could not install `probe`: {out.refused}", refused=True)
+    if out.unmanaged:
+        return None
+    if out.busy:
+        return BootstrapResult(False, False, f"`probe` {wanted} was not installed now: {out.busy}")
+    if out.waiting and not out.ok:
+        # Installed, never "already installed": configure would check the old
+        # `probe` as if nothing happened, and say nothing of the switch.
+        return BootstrapResult(True, False, f"`probe` {wanted} is {install_pipeline.QUIET_SWITCH} ({out.waiting})",
+                               waiting=True)
+    if not out.ok:
+        reasons = "; ".join(out.problems) or "it did not end up working"
+        return BootstrapResult(False, False, f"could not install `probe` {wanted}: {reasons}")
+    note = "" if shutil.which("probe") else " Add ~/.local/bin to your PATH to use it in this shell."
+    if out.waiting:
+        note += f" ({out.waiting})"
+    if not out.changed:
+        return BootstrapResult(False, True, "; ".join(out.lines) + note if out.lines else note.strip())
+    return BootstrapResult(True, False, f"Installed `probe` {out.version} (uv, beside any running one).{note}")
+
+
+def installs_offline() -> bool:
+    """uv runs offline (`UV_OFFLINE`, any value uv reads as true)."""
+    from probe._shared import installs
+
+    return installs.uv_offline()
 
 
 def _persistent_tool_env(command: list[str], name: str) -> str | None:
@@ -265,6 +546,9 @@ def install_persistent(spec: str = INSTALL_SPEC) -> BootstrapResult:
     version = "@latest" if spec.endswith("@latest") else (
         "==" + spec.split("==", 1)[1] if "==" in spec else ""
     )
+    managed = _install_managed(version)
+    if managed is not None:
+        return managed
     injected: list[str] = []
     dropped = ""
     if shutil.which("uv"):
@@ -284,7 +568,7 @@ def install_persistent(spec: str = INSTALL_SPEC) -> BootstrapResult:
         from . import updater
 
         existing = _persistent_tool_env(["uv", "tool", "dir"], DIST)
-        kept = updater.kept_from_uv_receipt(existing) if existing else updater.KeptInstall()
+        kept = updater.faithful_kept_from_uv_receipt(existing) if existing else updater.KeptInstall()
         if kept is None:
             # Unlike `probe update`, which leaves such a receipt alone, this is
             # a (re)install: it goes ahead -- but says what it could not carry.
@@ -302,10 +586,12 @@ def install_persistent(spec: str = INSTALL_SPEC) -> BootstrapResult:
             kept or updater.KeptInstall(),
             force=existing is None,
             version=version,
-            refresh=bool(version) and not os.environ.get("UV_OFFLINE"),
+            refresh=bool(version) and not installs_offline(),
         )
-    elif shutil.which("pipx"):
+    elif shutil.which("pipx") and os.name == "nt":
         # pipx has no `@latest`; a plain install already resolves the newest.
+        # Windows only: elsewhere a machine without uv is refused with the
+        # command (`_install_managed`), and a pipx install moves to uv's.
         # Its recorded extras stay in the spec; injected packages go back in
         # after (`install --force` drops them).
         from . import updater

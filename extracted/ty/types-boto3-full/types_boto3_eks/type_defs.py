@@ -146,6 +146,7 @@ __all__ = (
     "ControlPlanePlacementResponseTypeDef",
     "ControlPlaneScalingConfigTypeDef",
     "ControlPlaneScalingTierInfoTypeDef",
+    "CrdManagementConfigurationTypeDef",
     "CreateAccessConfigRequestTypeDef",
     "CreateAccessEntryRequestTypeDef",
     "CreateAccessEntryResponseTypeDef",
@@ -248,6 +249,7 @@ __all__ = (
     "FargateProfileSelectorTypeDef",
     "FargateProfileSelectorUnionTypeDef",
     "FargateProfileTypeDef",
+    "GatewayApiConfigurationTypeDef",
     "HorizontalPodAutoscalerControllerConfigRequestTypeDef",
     "HorizontalPodAutoscalerControllerConfigResponseTypeDef",
     "HorizontalPodAutoscalerControllerVersionConfigTypeDef",
@@ -713,6 +715,10 @@ class ControlPlanePlacementResponseTypeDef(TypedDict):
     spreadLevel: NotRequired[SpreadLevelType]
 
 
+class CrdManagementConfigurationTypeDef(TypedDict):
+    managed: NotRequired[bool]
+
+
 class CreateAccessConfigRequestTypeDef(TypedDict):
     bootstrapClusterCreatorAdminPermissions: NotRequired[bool]
     authenticationMode: NotRequired[AuthenticationModeType]
@@ -1013,10 +1019,6 @@ LicenseTypeDef = TypedDict(
         "token": NotRequired[str],
     },
 )
-
-
-class ElasticLoadBalancingTypeDef(TypedDict):
-    enabled: NotRequired[bool]
 
 
 class ProviderTypeDef(TypedDict):
@@ -1565,6 +1567,10 @@ class RegisterClusterRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 
+class GatewayApiConfigurationTypeDef(TypedDict):
+    crds: NotRequired[CrdManagementConfigurationTypeDef]
+
+
 class CreateEksAnywhereSubscriptionRequestTypeDef(TypedDict):
     name: str
     term: EksAnywhereSubscriptionTermTypeDef
@@ -1799,19 +1805,6 @@ EksAnywhereSubscriptionTypeDef = TypedDict(
         "tags": NotRequired[dict[str, str]],
     },
 )
-
-
-class KubernetesNetworkConfigRequestTypeDef(TypedDict):
-    serviceIpv4Cidr: NotRequired[str]
-    ipFamily: NotRequired[IpFamilyType]
-    elasticLoadBalancing: NotRequired[ElasticLoadBalancingTypeDef]
-
-
-class KubernetesNetworkConfigResponseTypeDef(TypedDict):
-    serviceIpv4Cidr: NotRequired[str]
-    serviceIpv6Cidr: NotRequired[str]
-    ipFamily: NotRequired[IpFamilyType]
-    elasticLoadBalancing: NotRequired[ElasticLoadBalancingTypeDef]
 
 
 class EncryptionConfigOutputTypeDef(TypedDict):
@@ -2095,6 +2088,11 @@ class InsightCategorySpecificSummaryTypeDef(TypedDict):
     addonCompatibilityDetails: NotRequired[list[AddonCompatibilityDetailTypeDef]]
 
 
+class ElasticLoadBalancingTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+    gatewayApi: NotRequired[GatewayApiConfigurationTypeDef]
+
+
 class HorizontalPodAutoscalerControllerVersionConfigTypeDef(TypedDict):
     horizontalPodAutoscalerSyncPeriod: NotRequired[DurationParameterConfigTypeDef]
 
@@ -2352,6 +2350,19 @@ InsightTypeDef = TypedDict(
         "categorySpecificSummary": NotRequired[InsightCategorySpecificSummaryTypeDef],
     },
 )
+
+
+class KubernetesNetworkConfigRequestTypeDef(TypedDict):
+    serviceIpv4Cidr: NotRequired[str]
+    ipFamily: NotRequired[IpFamilyType]
+    elasticLoadBalancing: NotRequired[ElasticLoadBalancingTypeDef]
+
+
+class KubernetesNetworkConfigResponseTypeDef(TypedDict):
+    serviceIpv4Cidr: NotRequired[str]
+    serviceIpv6Cidr: NotRequired[str]
+    ipFamily: NotRequired[IpFamilyType]
+    elasticLoadBalancing: NotRequired[ElasticLoadBalancingTypeDef]
 
 
 class AssociateEncryptionConfigRequestTypeDef(TypedDict):

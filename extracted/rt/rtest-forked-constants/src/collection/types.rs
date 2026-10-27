@@ -1,39 +1,15 @@
-//! Collection types and traits.
+//! Collection nodes. Only directory and module branches can have children.
 
-use super::error::{CollectionResult, CollectionWarning};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-/// Location information for a test item
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct Location {
-    pub path: PathBuf,
-    pub line: Option<usize>,
-    pub name: String,
+#[derive(Debug)]
+pub enum CollectionNode {
+    Branch(CollectionBranch),
+    Test(String),
 }
 
-/// Base trait for all collectible nodes
-pub trait Collector: std::fmt::Debug {
-    /// Unique identifier for this node
-    fn nodeid(&self) -> &str;
-
-    /// Parent collector, if any
-    #[allow(dead_code)]
-    fn parent(&self) -> Option<&dyn Collector>;
-
-    /// Collect child nodes
-    #[expect(
-        clippy::type_complexity,
-        reason = "returns both child nodes and warnings"
-    )]
-    fn collect(&self) -> CollectionResult<(Vec<Box<dyn Collector>>, Vec<CollectionWarning>)>;
-
-    /// Get the path associated with this collector
-    #[allow(dead_code)]
-    fn path(&self) -> &Path;
-
-    /// Check if this is a test item (leaf node)
-    fn is_item(&self) -> bool {
-        false
-    }
+#[derive(Debug)]
+pub enum CollectionBranch {
+    Directory(PathBuf),
+    Module(PathBuf),
 }

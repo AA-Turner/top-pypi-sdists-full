@@ -217,6 +217,7 @@ PlatformTypeType = Literal[
     "ROCKY_LINUX8",
     "UBUNTU_PRO_2404",
     "WINDOWS",
+    "WINDOWS_11",
     "WINDOWS_SERVER_2016",
     "WINDOWS_SERVER_2019",
     "WINDOWS_SERVER_2022",

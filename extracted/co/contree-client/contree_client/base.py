@@ -1002,6 +1002,7 @@ class ContreeSyncClient(ContreeClientBase, ABC):
         shell: bool | EllipsisType = ...,
         env: dict[str, str] | None | EllipsisType = ...,
         preserve_env: bool | EllipsisType = ...,
+        preserve_cwd: bool | EllipsisType = ...,
         cwd: str | EllipsisType = ...,
         uid: int | EllipsisType = ...,
         gid: int | EllipsisType = ...,
@@ -1070,6 +1071,14 @@ class ContreeSyncClient(ContreeClientBase, ABC):
                 ``metadata/env`` after command execution. Setting a variable
                 to an empty string or ``null`` removes it from the preserved
                 environment.
+            preserve_cwd: Save the resolved initial working directory as the
+                default in the resulting image. An empty or omitted ``cwd``
+                resolves to the image's current workdir, or ``/`` if none
+                exists. The metadata file is opened for writing only when
+                its contents differ from the new value. Directory changes
+                made by the command do not change the saved value. Requires
+                ``disposable: false`` to retain the metadata in a resulting
+                image.
             cwd: Path to the working directory, must be absolute or a
                 special value the empty string. It means the default working
                 directory of the image or server default will be used. If
@@ -1097,6 +1106,7 @@ class ContreeSyncClient(ContreeClientBase, ABC):
             shell=shell,
             env=env,
             preserve_env=preserve_env,
+            preserve_cwd=preserve_cwd,
             cwd=cwd,
             uid=uid,
             gid=gid,
@@ -2671,6 +2681,7 @@ class ContreeAsyncClient(ContreeClientBase, ABC):
         shell: bool | EllipsisType = ...,
         env: dict[str, str] | None | EllipsisType = ...,
         preserve_env: bool | EllipsisType = ...,
+        preserve_cwd: bool | EllipsisType = ...,
         cwd: str | EllipsisType = ...,
         uid: int | EllipsisType = ...,
         gid: int | EllipsisType = ...,
@@ -2739,6 +2750,14 @@ class ContreeAsyncClient(ContreeClientBase, ABC):
                 ``metadata/env`` after command execution. Setting a variable
                 to an empty string or ``null`` removes it from the preserved
                 environment.
+            preserve_cwd: Save the resolved initial working directory as the
+                default in the resulting image. An empty or omitted ``cwd``
+                resolves to the image's current workdir, or ``/`` if none
+                exists. The metadata file is opened for writing only when
+                its contents differ from the new value. Directory changes
+                made by the command do not change the saved value. Requires
+                ``disposable: false`` to retain the metadata in a resulting
+                image.
             cwd: Path to the working directory, must be absolute or a
                 special value the empty string. It means the default working
                 directory of the image or server default will be used. If
@@ -2766,6 +2785,7 @@ class ContreeAsyncClient(ContreeClientBase, ABC):
             shell=shell,
             env=env,
             preserve_env=preserve_env,
+            preserve_cwd=preserve_cwd,
             cwd=cwd,
             uid=uid,
             gid=gid,

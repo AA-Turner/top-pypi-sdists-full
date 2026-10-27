@@ -56,6 +56,7 @@ from chalk.client.models import (
     ResourceRequests,
     ScheduledQueryRun,
     StreamResolverTestResponse,
+    TeamMember,
     UnloadResolvers,
     WhoAmIResponse,
     WorkflowExecutionInfo,
@@ -4068,6 +4069,39 @@ class ChalkClient:
         ...     return await add(x, y)
         >>> client = ChalkClient()
         >>> client.run_workflow(add_workflow, input={"x": 1, "y": 2})
+        """
+        ...
+
+    def list_team_members(self, include_deactivated: bool = False) -> "list[TeamMember]":
+        """List the members of your Chalk team.
+
+        Only active members are returned by default. Pass ``include_deactivated=True`` to
+        also return deactivated members, and check ``deactivated_at`` to tell them apart.
+        Results are fetched page by page behind the scenes, so the returned list is always
+        complete.
+
+        Requires the ``PERMISSION_TEAM_LIST`` permission. When creating a service token
+        in the Chalk dashboard, this is the "See the team members in your organization"
+        permission.
+
+        Parameters
+        ----------
+        include_deactivated
+            If ``True``, deactivated members are also returned. Defaults to ``False``,
+            which returns only active members.
+
+        Returns
+        -------
+        list[TeamMember]
+            One entry per team member, each with ``id``, ``name``, ``email``, and
+            ``deactivated_at``.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> active = client.list_team_members()
+        >>> everyone = client.list_team_members(include_deactivated=True)
         """
         ...
 

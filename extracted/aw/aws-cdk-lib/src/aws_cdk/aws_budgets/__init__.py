@@ -67,7 +67,7 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_budgets_2a674513.IBudgetRef)
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_budgets_2a674513.IBudgetRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnBudget(
     _aws_cdk_0cae9daa.CfnResource,
     metaclass=jsii.JSIIMeta,
@@ -184,7 +184,7 @@ class CfnBudget(
         *,
         budget: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.BudgetDataProperty", typing.Dict[builtins.str, typing.Any]]],
         notifications_with_subscribers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.NotificationWithSubscribersProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnBudget.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Budgets::Budget``.
 
@@ -244,6 +244,7 @@ class CfnBudget(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -261,6 +262,12 @@ class CfnBudget(
     def budget_ref(self) -> "_aws_budgets_2a674513.BudgetReference":
         '''A reference to a Budget resource.'''
         return typing.cast("_aws_budgets_2a674513.BudgetReference", jsii.get(self, "budgetRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -288,7 +295,7 @@ class CfnBudget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c95887cba36441131745a708716d40542977a1478eafb13e3649b0bddc03c19c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "budget", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "budget", value)
 
     @builtins.property
     @jsii.member(jsii_name="notificationsWithSubscribers")
@@ -306,25 +313,25 @@ class CfnBudget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__338a591d66627dac6d0524a4af3df9ae2f64ac27737f12b95bc7243a4566a5e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notificationsWithSubscribers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notificationsWithSubscribers", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceTags")
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.List["CfnBudget.ResourceTagProperty"]]:
         '''An optional list of tags to associate with the specified budget.'''
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ResourceTagProperty"]]]], jsii.get(self, "resourceTags"))
+        return typing.cast(typing.Optional[typing.List["CfnBudget.ResourceTagProperty"]], jsii.get(self, "resourceTags"))
 
     @resource_tags.setter
     def resource_tags(
         self,
-        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ResourceTagProperty"]]]],
+        value: typing.Optional[typing.List["CfnBudget.ResourceTagProperty"]],
     ) -> None:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c03097858c5aef99b0c71799e2e0ec8cbcfc49e31e5e257bb8efcdb48f4ac65a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceTags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_budgets.CfnBudget.AutoAdjustDataProperty",
@@ -2033,7 +2040,7 @@ class CfnBudgetProps:
         *,
         budget: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.BudgetDataProperty", typing.Dict[builtins.str, typing.Any]]],
         notifications_with_subscribers: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.NotificationWithSubscribersProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        resource_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnBudget.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        resource_tags: typing.Optional[typing.Sequence[typing.Union["CfnBudget.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnBudget``.
 
@@ -2180,7 +2187,7 @@ class CfnBudgetProps:
     @builtins.property
     def resource_tags(
         self,
-    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ResourceTagProperty"]]]]:
+    ) -> typing.Optional[typing.List["CfnBudget.ResourceTagProperty"]]:
         '''An optional list of tags to associate with the specified budget.
 
         Each tag consists of a key and a value, and each key must be unique for the resource.
@@ -2188,7 +2195,7 @@ class CfnBudgetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-budgets-budget.html#cfn-budgets-budget-resourcetags
         '''
         result = self._values.get("resource_tags")
-        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnBudget.ResourceTagProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.List["CfnBudget.ResourceTagProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2349,6 +2356,7 @@ class CfnBudgetsAction(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2400,7 +2408,7 @@ class CfnBudgetsAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6444694cd4e1cfe409941297d12b4f71c45625cb1357bf1a3b12f86d4a288f85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionThreshold", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionThreshold", value)
 
     @builtins.property
     @jsii.member(jsii_name="actionType")
@@ -2413,7 +2421,7 @@ class CfnBudgetsAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__93ee3f487b114766988c6712b16108f0a81084444e5dcb38f58aa6ca5c1ac0eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionType", value)
 
     @builtins.property
     @jsii.member(jsii_name="budgetName")
@@ -2426,7 +2434,7 @@ class CfnBudgetsAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__886294fdca463440eacd919c52ef223cd761321b3e92068ed0e10930b6c45bd8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "budgetName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "budgetName", value)
 
     @builtins.property
     @jsii.member(jsii_name="definition")
@@ -2444,7 +2452,7 @@ class CfnBudgetsAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__af7c0aaf6be25381fc5e59a606f980f8beb020b05d0d1b4e00097df9b213d1f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "definition", value)
 
     @builtins.property
     @jsii.member(jsii_name="executionRoleArn")
@@ -2457,7 +2465,7 @@ class CfnBudgetsAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__20f3acfbe196dceebb62052bc3a9709ca03c3cd1385bd0b8f47b14ebe24baea6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="notificationType")
@@ -2470,7 +2478,7 @@ class CfnBudgetsAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__53476f930c7990ef6a398f9ead465189ebfbebc41a5d5d7cb519d5ad1e21440e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notificationType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notificationType", value)
 
     @builtins.property
     @jsii.member(jsii_name="subscribers")
@@ -2488,7 +2496,7 @@ class CfnBudgetsAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d139b5f0aab0780aebc710ff294cf4038924446db4e70d8dd7ceaf018b79e653)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subscribers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subscribers", value)
 
     @builtins.property
     @jsii.member(jsii_name="approvalModel")
@@ -2501,7 +2509,7 @@ class CfnBudgetsAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cc9b0ed2b1fd2266f52e8858e29800b46ee5d46db67048e5fcafb370fe1d7fc3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "approvalModel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "approvalModel", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceTags")
@@ -2519,7 +2527,7 @@ class CfnBudgetsAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5c0b55478b3d0cc2e8da68677b4c8e94baa5da07866b29663a72a08753d6c596)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceTags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_budgets.CfnBudgetsAction.ActionThresholdProperty",
@@ -3360,7 +3368,7 @@ def _typecheckingstub__fcf9a7d2538a7b213b0959a8dca9ebac8bd9adbb67b3989e4ad2e983d
     *,
     budget: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.BudgetDataProperty, typing.Dict[builtins.str, typing.Any]]],
     notifications_with_subscribers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.NotificationWithSubscribersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3396,7 +3404,7 @@ def _typecheckingstub__338a591d66627dac6d0524a4af3df9ae2f64ac27737f12b95bc7243a4
     pass
 
 def _typecheckingstub__c03097858c5aef99b0c71799e2e0ec8cbcfc49e31e5e257bb8efcdb48f4ac65a(
-    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnBudget.ResourceTagProperty]]]],
+    value: typing.Optional[typing.List[CfnBudget.ResourceTagProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3544,7 +3552,7 @@ def _typecheckingstub__0bce15b7b8b999a87f796c503372a075fb7e77b171e9e458dd4b05e88
     *,
     budget: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.BudgetDataProperty, typing.Dict[builtins.str, typing.Any]]],
     notifications_with_subscribers: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.NotificationWithSubscribersProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    resource_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    resource_tags: typing.Optional[typing.Sequence[typing.Union[CfnBudget.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

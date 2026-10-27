@@ -141,7 +141,7 @@ def test_response_shapes(service_home):
     service_home.start()
     with service_home.connect() as conn:
         hello = conn.hello("app", "1.2.3")
-        assert set(hello) == {"service_version", "api", "pid", "started_at", "state", "caps"}
+        assert set(hello) == {"service_version", "api", "pid", "started_at", "state", "caps", "env"}
         assert hello["caps"] == sorted(protocol.CAPS) and protocol.Cap.ACTION_SANDBOX in hello["caps"]
         assert hello["api"] == 1 and isinstance(hello["pid"], int) and isinstance(hello["started_at"], float)
         assert hello["state"] in ("discovering", "running", "grace")

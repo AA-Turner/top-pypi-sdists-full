@@ -147,28 +147,73 @@ async def test_emits_failure_when_response_has_no_json(emitter_ctx: _CapturingEm
     assert p.match_count == 0
 
 
+def _registry(monkeypatch: pytest.MonkeyPatch, entries: dict[str, Any]) -> None:
+    """Stand in for content_ir.kind_definition: only ``entries`` are registered."""
+    import matrx_graph.kinds
+
+    async def fake_get_kind(slug: str) -> Any:
+        return entries.get(slug)
+
+    monkeypatch.setattr(matrx_graph.kinds, "get_kind", fake_get_kind)
+
+
+def _stamp(kind: str, version: int = 3) -> None:
+    import matrx_connect
+
+    ctx = matrx_connect.try_get_app_context()
+    ctx.metadata["structured_output_content_ir"] = {"kind": kind, "version": version}
+
+
 @pytest.mark.asyncio
-async def test_kind_verdict_is_stamped_only_for_bound_agent_contract(
-    emitter_ctx: _CapturingEmitter,
-) -> None:
+async def test_no_kind_without_a_contract(emitter_ctx: _CapturingEmitter) -> None:
     completed = _make_completed(WC_MEDICAL_RESPONSE_FORMAT, FINAL_TEXT_WITH_BARE_ARRAY)
     await _emit_structured_output_if_schema(completed)  # type: ignore[arg-type]
     assert emitter_ctx.captured[-1].kind is None
     assert emitter_ctx.captured[-1].kind_checked is False
 
-    import matrx_connect
 
-    ctx = matrx_connect.try_get_app_context()
-    ctx.metadata["structured_output_content_ir"] = {
-        "kind": "agent_io_agent_1_abcd1234_output",
-        "version": 3,
-    }
+@pytest.mark.asyncio
+async def test_an_unregistered_slug_never_goes_out_as_the_kind(
+    emitter_ctx: _CapturingEmitter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Content-IR rule 28: a machine-minted agent_io slug names no registered kind,
+    so the payload carries no kind and claims no check."""
+    _registry(monkeypatch, {})
+    _stamp("agent_io_agent_1_abcd1234_output")
+    completed = _make_completed(WC_MEDICAL_RESPONSE_FORMAT, FINAL_TEXT_WITH_BARE_ARRAY)
     await _emit_structured_output_if_schema(completed)  # type: ignore[arg-type]
     payload = emitter_ctx.captured[-1]
-    assert payload.kind == "agent_io_agent_1_abcd1234_output"
-    assert payload.kind_version == 3
+    assert payload.success is True
+    assert payload.kind is None
+    assert payload.kind_version is None
+    assert payload.kind_checked is False
+    assert payload.kind_errors == []
+
+
+@pytest.mark.asyncio
+async def test_a_registered_kind_is_checked_against_its_own_schema(
+    emitter_ctx: _CapturingEmitter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from matrx_graph.kinds import KindEntry
+
+    ok = KindEntry(slug="date_list", version=7, json_schema=WC_MEDICAL_SCHEMA_INNER)
+    wrong = KindEntry(slug="date_card", version=2, json_schema={"type": "array"})
+    _registry(monkeypatch, {"date_list": ok, "date_card": wrong})
+    completed = _make_completed(WC_MEDICAL_RESPONSE_FORMAT, FINAL_TEXT_WITH_BARE_ARRAY)
+
+    _stamp("date_list", version=99)
+    await _emit_structured_output_if_schema(completed)  # type: ignore[arg-type]
+    payload = emitter_ctx.captured[-1]
+    assert (payload.kind, payload.kind_version) == ("date_list", 7)
     assert payload.kind_checked is True
     assert payload.kind_errors == []
+
+    _stamp("date_card")
+    await _emit_structured_output_if_schema(completed)  # type: ignore[arg-type]
+    payload = emitter_ctx.captured[-1]
+    assert payload.kind == "date_card"
+    assert payload.kind_checked is True
+    assert payload.kind_errors, "an answer off its kind's schema must not read as a pass"
 
 
 @pytest.mark.asyncio

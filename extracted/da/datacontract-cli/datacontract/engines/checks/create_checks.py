@@ -32,11 +32,13 @@ from datacontract.engines.checks.custom_quality_check import (
     Instance,
     instantiate,
     placeholder_pattern,
+    sql_literal,
 )
 from datacontract.engines.checks.dimensions import default_dimension
 from datacontract.engines.checks.sql_guard import dialect_for_server_type, refusal_reason, sqlglot_dialect_by_name
 from datacontract.engines.checks.type_normalize import normalize_type_name
 from datacontract.engines.ibis.native_type import supports_native_type_introspection
+from datacontract.export.duckdb_type_converter import convert_to_duckdb_csv_type
 from datacontract.model.enum_values import get_enum_values
 from datacontract.model.map_type import get_map_key, get_map_value
 from datacontract.model.server import get_server_type
@@ -68,7 +70,7 @@ def is_check_types(server: Optional[Server]) -> bool:
     """Type checks only make sense where the data source carries real types."""
     if server is None:
         return True
-    return server.format not in ("json", "csv", "avro", "xml")
+    return server.format not in ("json", "csv", "avro", "xml", "xlsx")
 
 
 def to_schema_name(schema_object: SchemaObject, server_type: Optional[str]) -> str:
@@ -271,7 +273,9 @@ def _to_schema_checks(
     properties = schema_object.properties or []
     check_types = is_check_types(server)
     uses_raw_view = (
-        server is not None and server_type in _FILE_SERVER_TYPES and server.format in ("csv", "parquet", "json", "xml")
+        server is not None
+        and server_type in _FILE_SERVER_TYPES
+        and server.format in ("csv", "parquet", "json", "xml", "xlsx")
     )
 
     # A primary key is both not-null and unique. A composite key is unique as a
@@ -288,6 +292,7 @@ def _to_schema_checks(
     # of nested elements with children. The required top-level properties are still checked for presence.
     xml = server is not None and server.format == "xml"
     documents = server is not None and server.format in ("json", "xml")
+    xlsx = server is not None and server.format == "xlsx"
     if xml:
         # A record element that matches nothing would pass every other check
         checks.append(
@@ -319,6 +324,23 @@ def _to_schema_checks(
                     field=field,
                     metric=MetricType.FIELD_PRESENT,
                     uses_raw_view=uses_raw_view,
+                )
+            )
+
+        # A cell of the wrong type reads as NULL, so the checks of its column would miss it
+        if xlsx and not nested and convert_to_duckdb_csv_type(prop) != "VARCHAR":
+            type_errors = exp.to_identifier(f"{model}__type_errors__", quoted=True).sql(dialect="duckdb")
+            checks.append(
+                CheckSpec(
+                    key=f"{model}__{field}__field_type",
+                    category="schema",
+                    type="field_type",
+                    name=f"Check that field {field} has type {prop.logicalType or prop.physicalType}",
+                    model=model,
+                    field=field,
+                    metric=MetricType.CUSTOM_SQL,
+                    query=f"SELECT count(*) FROM {type_errors} WHERE field = {sql_literal(field, 'duckdb')}",
+                    threshold=Threshold(Op.EQ, 0),
                 )
             )
 
@@ -875,6 +897,7 @@ def _unexecuted_check(
     result: str = "warning",
     name: Optional[str] = None,
     dimension: Optional[str] = None,
+    warnings: Optional[List[str]] = None,
 ) -> List[CheckSpec]:
     """A rule the engine cannot run, reported rather than dropped."""
     return [
@@ -890,6 +913,7 @@ def _unexecuted_check(
             severity=quality.severity,
             preset_result=result,
             preset_reason=reason,
+            warnings=warnings,
         )
     ]
 
@@ -938,20 +962,29 @@ def _quality_rule_checks(
             check_key = f"{model}__{field}__quality_custom_check_{count}"
             check_type = "field_quality_custom"
         if field is not None and "[]" in field:
-            return _unexecuted_check(check_key, check_type, model, field, quality, _array_item_reason(field))
+            return _unexecuted_check(check_key, check_type, model, field, quality, _array_item_reason(field), "error")
         dialect = dialect_for_server_type(get_server_type(server))
         try:
             instance = instantiate(quality, model, field, dialect, custom_quality_checks)
             query = prepare_query(instance.query, model, field, server, instance)
         except CustomQualityCheckUnusable as e:
             return _unexecuted_check(
-                check_key, check_type, model, field, quality, e.reason, e.result, e.name, e.dimension
+                check_key, check_type, model, field, quality, e.reason, "error", e.name, e.dimension, e.warnings
             )
         rule = instance.quality
         refusal = refusal_reason(query, dialect)
         if refusal is not None:
             return _unexecuted_check(
-                check_key, check_type, model, field, rule, refusal, "failed", instance.name, rule.dimension
+                check_key,
+                check_type,
+                model,
+                field,
+                rule,
+                refusal,
+                "error",
+                instance.name,
+                rule.dimension,
+                instance.warnings,
             )
         return [
             CheckSpec(
@@ -967,6 +1000,7 @@ def _quality_rule_checks(
                 severity=rule.severity,
                 dimension=rule.dimension,
                 diagnostics=instance.diagnostics,
+                warnings=instance.warnings,
             )
         ]
     if quality.type == "sql":

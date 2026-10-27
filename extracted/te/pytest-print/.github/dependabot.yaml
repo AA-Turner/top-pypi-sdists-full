@@ -2,6 +2,10 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    labels:
+      - dependencies
+      - github_actions
+      - skip news
     schedule:
       interval: "weekly"
       day: "tuesday"
@@ -9,5 +13,15 @@ updates:
       github-actions:
         patterns:
           - "*"
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    labels:
+      - dependencies
+      - skip news
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
     cooldown:
       default-days: 7

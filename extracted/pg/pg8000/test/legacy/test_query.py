@@ -6,7 +6,6 @@ import pytest
 import pg8000
 from pg8000.converters import INET_ARRAY, INTEGER
 
-
 # Tests relating to the basic operation of the database driver, driven by the
 # pg8000 custom interface.
 

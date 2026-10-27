@@ -14,7 +14,7 @@ from .decoder import DeepLabV3Decoder, DeepLabV3PlusDecoder
 
 
 class DeepLabV3(SegmentationModel):
-    """DeepLabV3_ implementation from "Rethinking Atrous Convolution for Semantic Image Segmentation"
+    """`DeepLabV3`__ implementation from "Rethinking Atrous Convolution for Semantic Image Segmentation"
 
     Args:
         encoder_name: Name of the classification model that will be used as an encoder (a.k.a backbone)
@@ -24,7 +24,9 @@ class DeepLabV3(SegmentationModel):
             with shapes [(N, C, H, W),], for depth 1 - [(N, C, H, W), (N, C, H // 2, W // 2)] and so on).
             Default is 5
         encoder_weights: One of **None** (random initialization), **"imagenet"** (pre-training on ImageNet) and
-            other pretrained weights (see table with available weights for each encoder_name)
+            other pretrained weights (see table with available weights for each encoder_name).
+            For ``tu-`` encoders, set to **True** to download pretrained weights or **None** for
+            random initialization. The pretrained variant is defined in the encoder name
         decoder_channels: A number of convolution filters in ASPP module. Default is 256
         encoder_output_stride: Downsampling factor for last encoder features (see original paper for explanation)
         decoder_atrous_rates: Dilation rates for ASPP module (should be an iterable of 3 integer values)
@@ -38,20 +40,19 @@ class DeepLabV3(SegmentationModel):
         upsampling: Final upsampling factor. Default is **None** to preserve input-output spatial shape identity
         aux_params: Dictionary with parameters of the auxiliary output (classification head). Auxiliary output is build
             on top of encoder if **aux_params** is not **None** (default). Supported params:
-                - classes (int): A number of classes
-                - pooling (str): One of "max", "avg". Default is "avg"
-                - dropout (float): Dropout factor in [0, 1)
-                - activation (str): An activation function to apply "sigmoid"/"softmax"
-                    (could be **None** to return logits)
+
+            - classes (int): A number of classes
+            - pooling (str): One of "max", "avg". Default is "avg"
+            - dropout (float): Dropout factor in [0, 1)
+            - activation (str): An activation function to apply "sigmoid"/"softmax"
+              (could be **None** to return logits)
         kwargs: Arguments passed to the encoder class ``__init__()`` function. Applies only to ``timm`` models.
             Keys with ``None`` values are pruned before passing.
 
     Returns:
         ``torch.nn.Module``: **DeepLabV3**
 
-    .. _DeeplabV3:
-        https://arxiv.org/abs/1706.05587
-
+    .. __: https://arxiv.org/abs/1706.05587
     """
 
     @supports_config_loading
@@ -119,6 +120,7 @@ class DeepLabV3(SegmentationModel):
             )
         else:
             self.classification_head = None
+        self.name = "deeplabv3-{}".format(encoder_name)
 
     def load_state_dict(self, state_dict, *args, **kwargs):
         # For backward compatibility, previously Decoder module was Sequential
@@ -137,7 +139,7 @@ class DeepLabV3(SegmentationModel):
 
 
 class DeepLabV3Plus(SegmentationModel):
-    """DeepLabV3+ implementation from "Encoder-Decoder with Atrous Separable
+    """`DeepLabV3+`__ implementation from "Encoder-Decoder with Atrous Separable
     Convolution for Semantic Image Segmentation"
 
     Args:
@@ -148,7 +150,9 @@ class DeepLabV3Plus(SegmentationModel):
             with shapes [(N, C, H, W),], for depth 1 - [(N, C, H, W), (N, C, H // 2, W // 2)] and so on).
             Default is 5
         encoder_weights: One of **None** (random initialization), **"imagenet"** (pre-training on ImageNet) and
-            other pretrained weights (see table with available weights for each encoder_name)
+            other pretrained weights (see table with available weights for each encoder_name).
+            For ``tu-`` encoders, set to **True** to download pretrained weights or **None** for
+            random initialization. The pretrained variant is defined in the encoder name
         encoder_output_stride: Downsampling factor for last encoder features (see original paper for explanation)
         decoder_atrous_rates: Dilation rates for ASPP module (should be an iterable of 3 integer values)
         decoder_aspp_separable: Use separable convolutions in ASPP module. Default is True
@@ -162,20 +166,19 @@ class DeepLabV3Plus(SegmentationModel):
         upsampling: Final upsampling factor. Default is 4 to preserve input-output spatial shape identity.
         aux_params: Dictionary with parameters of the auxiliary output (classification head). Auxiliary output is build
             on top of encoder if **aux_params** is not **None** (default). Supported params:
-                - classes (int): A number of classes
-                - pooling (str): One of "max", "avg". Default is "avg"
-                - dropout (float): Dropout factor in [0, 1)
-                - activation (str): An activation function to apply "sigmoid"/"softmax"
-                    (could be **None** to return logits)
+
+            - classes (int): A number of classes
+            - pooling (str): One of "max", "avg". Default is "avg"
+            - dropout (float): Dropout factor in [0, 1)
+            - activation (str): An activation function to apply "sigmoid"/"softmax"
+              (could be **None** to return logits)
         kwargs: Arguments passed to the encoder class ``__init__()`` function. Applies only to ``timm`` models.
             Keys with ``None`` values are pruned before passing.
 
     Returns:
         ``torch.nn.Module``: **DeepLabV3Plus**
 
-    Reference:
-        https://arxiv.org/abs/1802.02611v3
-
+    .. __: https://arxiv.org/abs/1802.02611v3
     """
 
     @supports_config_loading
@@ -238,3 +241,4 @@ class DeepLabV3Plus(SegmentationModel):
             )
         else:
             self.classification_head = None
+        self.name = "deeplabv3plus-{}".format(encoder_name)

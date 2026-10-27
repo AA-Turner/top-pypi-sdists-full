@@ -20,6 +20,10 @@ A run with structural writes (create, fork, move, set, delete, edge) and no
 request in it sends one receipt naming the ones recorded: the main agent learns
 what the writer filed on its own, in at most RECEIPT_MAX_CHARS.
 
+A headline metric or a best pick the writer set (track-work: "set it ... and
+tell the researcher in one line") is told by a note of its own for the
+researcher (`relay`), never by a receipt: the main agent passes it on.
+
 Everything here is plain code over the logbook's rows: the write lists say what
 was recorded and what was not (and why, from its status and output), whatever
 the reply claims.
@@ -71,6 +75,24 @@ _TARGET = {"run": "run", "project": "project_id", "experiment": "experiment_id",
 MOVE_NAMES_SHOWN = 6
 #: Logbook lines that are not writes: lookups, and a skipped stretch's own line.
 _NOT_WRITES = frozenset({"skipped"})
+
+#: What the researcher is told, through the main agent, when the writer sets a
+#: project's headline metric or a best pick (`relay`). The main agent sees it
+#: as "[Probe] Tell the researcher: ..." (`mailbox.TEXT_WRITER_RELAY`). Richard's
+#: approved text (2026-10-26, `~/plans/swarm-visibility-gaps/PROPOSED-track-work.md`).
+RELAY_METRIC = mailbox.WRITER_RELAY_PREFIX + "{project}'s headline metric is now {key} ({way} is better{reduce})."
+#: ...ranked on each run's best value rather than its final one (`--reduce best`).
+RELAY_REDUCE_BEST = ", best value per run"
+#: The writer's reason is the model's words: quoted, so the main agent reads it as data.
+RELAY_PICK = mailbox.WRITER_RELAY_PREFIX + "{scope}'s best experiment is now {experiment} (\"{reason}\")."
+#: ...with no reason (the CLI and Probe refuse an agent's pick without one).
+RELAY_PICK_BARE = mailbox.WRITER_RELAY_PREFIX + "{scope}'s best experiment is now {experiment}."
+RELAY_WORKSPACE = "workspace {workspace}"
+RELAY_WAY = {"max": "higher", "min": "lower"}
+#: A pick's reason in a note is one line of at most this many characters.
+RELAY_REASON_CHARS = 200
+#: The commands whose metric or pick a note tells (`project patch` is `set`'s old, hidden name).
+_RELAYED = frozenset({"project set", "project patch", "workspace set"})
 
 
 @dataclass
@@ -244,6 +266,106 @@ def failure_reason(reason: str, writes: Writes | None = None) -> str:
     """A failed request's reason, with what its run already did ("partly done")."""
     done = _with_others(writes.done, writes.others_done) if writes is not None else []
     return f"{reason} (partly done: {joined(done, RECEIPT_MAX_CHARS)})" if done else reason
+
+
+@dataclass(frozen=True)
+class Relay:
+    """A note for the researcher: what it is about (`scope`: one project's metric,
+    or one project's or workspace's pick), the value it tells (a repeat of it
+    tells nothing), its text (None for a clear), and whether the value is a
+    person's (`persons`: the write changed nothing)."""
+    scope: str
+    value: str
+    #: None for a clear: it tells nothing, but a later set of the same value does.
+    text: str | None
+    persons: bool = False
+
+
+def _printed(output: str | None) -> dict:
+    """The record a command printed: its output's first JSON object, else {}."""
+    try:
+        value, _end = json.JSONDecoder().raw_decode((output or "").lstrip())
+    except ValueError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _field(value: dict, key: str) -> dict:
+    found = value.get(key)
+    return found if isinstance(found, dict) else {}
+
+
+def _line(value: object) -> str:
+    return " ".join(str(value or "").split())
+
+
+def _reason(text: object) -> str:
+    """A pick's reason as one line of at most RELAY_REASON_CHARS. The note's own
+    period follows its closing quote, so a single period ending the reason goes."""
+    line = _line(text)
+    if len(line) > RELAY_REASON_CHARS:
+        line = line[:RELAY_REASON_CHARS - 1].rstrip() + "…"
+    elif line.endswith(".") and not line.endswith(".."):
+        line = line[:-1].rstrip()
+    return line.replace('"', "'")  # it is quoted in the note
+
+
+def relay(row: sqlite3.Row) -> Relay | None:
+    """The note a logbook row owes the researcher: a `probe project set P --metric
+    KEY --goal max|min`, `project set P --best EXP --reason "..."` or `workspace set
+    W --best EXP --reason "..."` that ran (exit 0, not queued). None for anything
+    else: a clear (`--metric ""`, `--best ""`), a failure (an agent's write over a
+    person's metric or pick is a 409: exit 1), a help request. Read from the
+    command's words (the CLI's own parser) and the record it printed (its
+    experiment's slug, whose value it is), never the model's prose."""
+    if row["status"] != "ran":
+        return None
+    from probe.daemon import precheck
+
+    argv = _argv(row)
+    if argv[:1] != ["probe"]:
+        return None
+    try:
+        parsed = precheck.parse(argv[1:])
+    except Exception:  # noqa: BLE001 - an unparsed write tells nothing
+        return None
+    # The CLI's own help check (the command's flag or `probe --help`): `--reason
+    # --help` is a reason, not a help request.
+    if parsed.help or precheck.asks_help(argv[1:]) or parsed.path not in _RELAYED:
+        return None
+    head, p = parsed.path, parsed.params
+    printed = _printed(row["output"])
+    project = _line(p.get("project_id")) or "?"
+    if p.get("metric") is not None and head != "workspace set":
+        metric = _line(p.get("metric"))
+        anchor = _field(printed, "anchor").get("id") or project
+        if not metric:  # a clear: no note, but the same value set again is told again
+            return Relay(scope=f"metric:{anchor}", value="", text=None)
+        goal, reduce = _line(p.get("goal")), _line(p.get("reduce")) or "final"
+        return Relay(scope=f"metric:{anchor}", value=f"{metric} {goal} {reduce}",
+                     text=RELAY_METRIC.format(project=project, key=metric, way=RELAY_WAY.get(goal, goal),
+                                              reduce=RELAY_REDUCE_BEST if reduce == "best" else ""),
+                     persons=_field(printed, "metric").get("source") == "human")
+    if p.get("best") is None:
+        return None
+    best = _line(p.get("best"))
+    pick = _field(printed, "pick")
+    experiment = _field(pick, "experiment")
+    if head == "workspace set":
+        ref = _line(p.get("workspace_id")) or "?"
+        where, noun = RELAY_WORKSPACE.format(workspace=ref), "workspace"
+    else:
+        ref = project
+        where, noun = ref, "project"
+    scope = f"best:{noun}:{_field(printed, 'scope').get('id') or ref}"
+    if not best:  # a clear: no note, but the same pick set again is told again
+        return Relay(scope=scope, value="", text=None)
+    name = _line(experiment.get("slug")) or best
+    reason = _reason(p.get("reason"))
+    text = (RELAY_PICK.format(scope=where, experiment=name, reason=reason) if reason
+            else RELAY_PICK_BARE.format(scope=where, experiment=name))
+    return Relay(scope=scope, value=str(experiment.get("id") or name), text=text,
+                 persons=pick.get("source") == "human")
 
 
 def message(row: sqlite3.Row, session_id: str) -> mailbox.Message:

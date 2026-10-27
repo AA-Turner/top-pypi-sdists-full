@@ -195,6 +195,7 @@ class CfnGrant(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -253,7 +254,7 @@ class CfnGrant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0365c0a6e5122b9fa8e724dcae1d11a86ea3be7b9c43576ae3984046a8a866a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowedOperations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allowedOperations", value)
 
     @builtins.property
     @jsii.member(jsii_name="grantName")
@@ -266,7 +267,7 @@ class CfnGrant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5f4a134c7bb2f22cd48211ed5100e65a75fc658d9d8f836ea5c12000691c0cb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "grantName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "grantName", value)
 
     @builtins.property
     @jsii.member(jsii_name="homeRegion")
@@ -279,7 +280,7 @@ class CfnGrant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5031789a0d9f35bd09ee7810379dcbe0da55436888a38e9623b68c7226da0990)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "homeRegion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "homeRegion", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseArn")
@@ -292,7 +293,7 @@ class CfnGrant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e9ad1871340fca01eaad30a6180a827f5d9f498e7a913dbc15898d39ace8e741)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="principals")
@@ -308,7 +309,7 @@ class CfnGrant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2c571a4cf4f9bf1814a1015ca4a37680ca14b1356d42232abd8a71042c1e07bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "principals", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "principals", value)
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -321,7 +322,7 @@ class CfnGrant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__979cc3eeb34a65f4beb72557bbf7486f2c8b526da9a872d958b13f140f65edb0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -337,7 +338,7 @@ class CfnGrant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25ecdb93f9976dac7ee80e59b54502ad27f8d5b03ad158b0d7b9624810f732c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -681,6 +682,7 @@ class CfnLicense(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -736,7 +738,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf9994475a7c52b73f7bc27dcb24ebe97709f2662d5138be4da7b3c42265936d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "beneficiary", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "beneficiary", value)
 
     @builtins.property
     @jsii.member(jsii_name="consumptionConfiguration")
@@ -754,7 +756,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__284aa1e5a6876d4f451b6e5e8f93fdb375fc583828e7e8d36f280d50e762d790)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "consumptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "consumptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="entitlements")
@@ -772,7 +774,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__73e1a84fbc6ca70d5dacac620ef3f77aa87a4d9b60385a5f2899f10ab1aefd7d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "entitlements", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "entitlements", value)
 
     @builtins.property
     @jsii.member(jsii_name="homeRegion")
@@ -785,7 +787,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__543ec2abfa87082c6465bd9aa1ff4096a9a5ba669d3147343b69c96ff2f90d67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "homeRegion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "homeRegion", value)
 
     @builtins.property
     @jsii.member(jsii_name="issuer")
@@ -803,7 +805,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d8b07f82f3d197d61c5edecbc56261a03ad65f4f99d1bb7a3c7b629126bb6ce9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "issuer", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "issuer", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseName")
@@ -816,7 +818,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3e97ac745c4faabd1c139a343ce905672f7e647741a9827bd7f203b40fb8f01c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseName", value)
 
     @builtins.property
     @jsii.member(jsii_name="productName")
@@ -829,7 +831,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a2a880e38bf22471203328b40fbe7cfbc719574af83c33d27bfb321c125d66fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "productName", value)
 
     @builtins.property
     @jsii.member(jsii_name="productSku")
@@ -842,7 +844,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0e5b8b4e9b80cb8b0305a292b6c390efd67f677abdb467395dc1e4b849b9c418)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productSku", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "productSku", value)
 
     @builtins.property
     @jsii.member(jsii_name="validity")
@@ -860,7 +862,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__14bfd7eea976b95153acfc2c36f571a86f5e204050b842561bf3f488085a466b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "validity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "validity", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseMetadata")
@@ -878,7 +880,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5c94759710766169f67f670504ad6a0d56a36207b2a7008e6962da6595d9b62f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseMetadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseMetadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -891,7 +893,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f3a0bb88a6f2431e141da5aa1e0e1d94957e1ec7a904c8a0b4f79254b7ef6f01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -907,7 +909,7 @@ class CfnLicense(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d3d5654748f0ba764790ff72d866ee568074e0ba162b9ce72977bba8050b12fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicense.BorrowConfigurationProperty",
@@ -1620,6 +1622,7 @@ class CfnLicenseAssetGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1671,7 +1674,7 @@ class CfnLicenseAssetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f3bd6323563dab699ac4f56a2b8be33bf577eb047b1ad7b648129300e7eaba57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "associatedLicenseAssetRulesetArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "associatedLicenseAssetRulesetArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseAssetGroupConfigurations")
@@ -1689,7 +1692,7 @@ class CfnLicenseAssetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__340cb8b61867cff10d0f87786f4a341cff5fe7c9dc53e64930e02fe65785c798)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseAssetGroupConfigurations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseAssetGroupConfigurations", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1702,7 +1705,7 @@ class CfnLicenseAssetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b218cd3c7ad28e135e6494f201ffc4b62b1332a59401b8ad833c813c7ff9109)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1715,7 +1718,7 @@ class CfnLicenseAssetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bcef867bdea5e6ef1b5800b42043e013de4ddb6765f453856d7febe33e461b87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="properties")
@@ -1733,7 +1736,7 @@ class CfnLicenseAssetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9524f9ed559fd633bd91a0b86c39e5f5a6d07331db60925db048195db1add97d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "properties", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "properties", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1749,7 +1752,7 @@ class CfnLicenseAssetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c87603fb324b8b9768432501e47e47aa25028284d613ae1f69d1f58ba57da505)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetGroup.LicenseAssetGroupConfigurationProperty",
@@ -2191,6 +2194,7 @@ class CfnLicenseAssetRuleSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2239,7 +2243,7 @@ class CfnLicenseAssetRuleSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__525fd9dbe8cb0b4e5b67ba0b86a261c2521eac2baf72015a61b48e6486e0c83d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="rules")
@@ -2257,7 +2261,7 @@ class CfnLicenseAssetRuleSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c97dfd6a5a6871608f5bc0744d456839b806943055976e35981d7fbcd2c2a454)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rules", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2270,7 +2274,7 @@ class CfnLicenseAssetRuleSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e9abf4c54fba904f0a35e19401bd078be267956935a54d9ff60582ab955135ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2286,7 +2290,7 @@ class CfnLicenseAssetRuleSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc128a7be3b437201333f3b6713bc566c0df84f0e23a9da3991ccaf7faea26c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseAssetRuleSet.AndRuleStatementProperty",
@@ -3445,6 +3449,7 @@ class CfnLicenseConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3520,7 +3525,7 @@ class CfnLicenseConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__052283e87b8529510100fcc6eeb37d75697c35b8bdb4032dec2c6e46638513c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseCountingType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseCountingType", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3533,7 +3538,7 @@ class CfnLicenseConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__561c01754ae8725f52d9079f1ba7d5453e89ce838d40a5176e29877da92ed70d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -3546,7 +3551,7 @@ class CfnLicenseConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__456e5dbf29df334cca2c613345fd58295434b73e540420c8dac68ecfca0cfcc9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="disassociateWhenNotFound")
@@ -3564,7 +3569,7 @@ class CfnLicenseConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e84104b4def794bb828f53dbbf9ca9caccf12629d24cfdd174feb53d49acc29a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "disassociateWhenNotFound", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "disassociateWhenNotFound", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseCount")
@@ -3577,7 +3582,7 @@ class CfnLicenseConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f00e993c46fa8a91373052b0fadd845bc7ce62292d2352ed18240ca1ed0ecb36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseCount", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseCount", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseCountHardLimit")
@@ -3595,7 +3600,7 @@ class CfnLicenseConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6c39b148d33fd97ba3cbd918d1c07aa6415f135dac4931c2d07dec97f57cb90f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseCountHardLimit", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseCountHardLimit", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseExpiry")
@@ -3608,7 +3613,7 @@ class CfnLicenseConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf3fa9490e4cf8227d33cece66aeae4b960cff110834143082d7632e06a2fa63)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseExpiry", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseExpiry", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseRules")
@@ -3621,7 +3626,7 @@ class CfnLicenseConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__efffad35d55156ebde6452033a3bda13fffecf7e04c29380eae62836679ecc6a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseRules", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseRules", value)
 
     @builtins.property
     @jsii.member(jsii_name="productInformationList")
@@ -3639,7 +3644,7 @@ class CfnLicenseConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ab5dd094ee635ed5b23b1cca6cdf60d6497368b718a8581a087d80540f7faff1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "productInformationList", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "productInformationList", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3655,7 +3660,7 @@ class CfnLicenseConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fed43dc6a2b9929f2c52445b6292c1f7e2263ee55af8b0c081b46d168c1b9739)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseConfiguration.ProductInformationFilterProperty",
@@ -4476,6 +4481,7 @@ class CfnReportGenerator(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4556,7 +4562,7 @@ class CfnReportGenerator(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__938bf612b6cf7d7944f8abf3b7a102876cf17e9a7cde505f1cb36af2f7538be4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "reportContext", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "reportContext", value)
 
     @builtins.property
     @jsii.member(jsii_name="reportFrequency")
@@ -4574,7 +4580,7 @@ class CfnReportGenerator(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__71a315c579f1f65d36f0518071e38b00713645d515b817350ae03b89bd5eb6f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "reportFrequency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "reportFrequency", value)
 
     @builtins.property
     @jsii.member(jsii_name="reportGeneratorName")
@@ -4587,7 +4593,7 @@ class CfnReportGenerator(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f03e876ebedaabb72ec22d6df8cb5ead950e541a6a13e97f66be0feaf8d53a74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "reportGeneratorName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "reportGeneratorName", value)
 
     @builtins.property
     @jsii.member(jsii_name="reportType")
@@ -4600,7 +4606,7 @@ class CfnReportGenerator(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5cb0aafcad43651ac6633556dc398491d156fc9c9ba14e62914c2020380d938e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "reportType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "reportType", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -4613,7 +4619,7 @@ class CfnReportGenerator(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a5d6fb9f5b9f2e69164901bd90653c0dc8e6e406dd24ab4048fa6d25c330eb7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4629,7 +4635,7 @@ class CfnReportGenerator(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f89f2e4c58d960256c208a2b99012c5d584fa8f397fba2174d7832572b599ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_licensemanager.CfnReportGenerator.ReportContextProperty",

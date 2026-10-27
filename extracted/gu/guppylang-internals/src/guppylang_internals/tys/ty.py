@@ -21,6 +21,7 @@ from guppylang_internals.tys.common import (
     Visitor,
 )
 from guppylang_internals.tys.const import (
+    ComptimeConstValue,
     Const,
     ConstValue,
     ExistentialConstVar,
@@ -521,7 +522,7 @@ class FunctionType(ParametrizedTypeBase):
 
     @property
     def parametrized(self) -> bool:
-        """Whether the function is parametrized."""
+        """Whether the function is parameterized."""
         return len(self.params) > 0
 
     @cached_property
@@ -550,7 +551,7 @@ class FunctionType(ParametrizedTypeBase):
         """Computes the Hugr representation of the type."""
         if self.parametrized:
             raise InternalGuppyError(
-                "Tried to convert parametrised function type to Hugr. Use "
+                "Tried to convert parameterized function type to Hugr. Use "
                 "`to_hugr_poly` instead"
             )
         return self._to_hugr_function_type(ctx)
@@ -559,8 +560,8 @@ class FunctionType(ParametrizedTypeBase):
         """Computes the Hugr `PolyFuncType` representation of the type."""
         if self.parametrized:
             raise InternalGuppyError(
-                "Tried to convert parametrised function type to Hugr. This should have "
-                "been monomorphized away."
+                "Tried to convert parameterized function type to Hugr. This should "
+                "have been monomorphized away."
             )
         func_ty = self._to_hugr_function_type(ctx)
         return ht.PolyFuncType(params=[], body=func_ty)
@@ -592,10 +593,8 @@ class FunctionType(ParametrizedTypeBase):
         """Accepts a visitor on this type."""
         if not visitor.visit(self):
             for inp in self.inputs:
-                visitor.visit(inp)
-            visitor.visit(self.output)
-            for param in self.params:
-                visitor.visit(param)
+                inp.ty.visit(visitor)
+            self.output.visit(visitor)
 
     def transform(self, transformer: Transformer) -> "Type":
         """Accepts a transformer on this type."""
@@ -708,7 +707,7 @@ class FunctionDefType(TypeBase):
 
     @property
     def parametrized(self) -> bool:
-        """Whether the function is parametrized."""
+        """Whether the function is parameterized."""
         return self.sig.parametrized and not self.args
 
     def cast(self) -> "Type":
@@ -758,7 +757,7 @@ class FunctionDefType(TypeBase):
 
 @dataclass(frozen=True)
 class NestedFunctionDefType(FunctionDefType):
-    """Definition-specific type of a nested function materialised at runtime.
+    """Definition-specific type of a nested function materialized at runtime.
 
     Unlike global function items, we cannot compile nested function items into
     trivial Hugr types, thus we need a specific `to_hugr` implementation.
@@ -867,7 +866,13 @@ class StructType(ParametrizedTypeBase):
         from guppylang_internals.definition.util import CheckedField
         from guppylang_internals.tys.subst import Instantiator
 
-        inst = Instantiator(self.args)
+        inst = Instantiator(
+            self.args,
+            # Don't throw RequiresMonomorphization errors at this point. If some struct
+            # fields have generic comptime expressions, it's ok to preserve them without
+            # evaluation here.
+            require_monomorphization=False,
+        )
         return [CheckedField(f.name, f.ty.transform(inst)) for f in self.defn.fields]
 
     @cached_property
@@ -1072,11 +1077,11 @@ def unify(s: Type, t: Type, subst: "Subst | None") -> "Subst | None":
             return _unify_args(s, t, subst)
         case TupleType() as s, TupleType() as t:
             return _unify_args(s, t, subst)
-        case OpaqueType() as s, OpaqueType() as t if s.defn == t.defn:
+        case OpaqueType() as s, OpaqueType() as t if s.defn.id == t.defn.id:
             return _unify_args(s, t, subst)
-        case StructType() as s, StructType() as t if s.defn == t.defn:
+        case StructType() as s, StructType() as t if s.defn.id == t.defn.id:
             return _unify_args(s, t, subst)
-        case EnumType() as s, EnumType() as t if s.defn == t.defn:
+        case EnumType() as s, EnumType() as t if s.defn.id == t.defn.id:
             return _unify_args(s, t, subst)
         case _:
             return None
@@ -1086,6 +1091,11 @@ def unify_const(s: Const, t: Const, subst: "Subst | None") -> "Subst | None":
     if subst is None:
         return None
 
+    if isinstance(s, ComptimeConstValue):
+        s = s.try_resolve(require_monomorphization=True)
+    if isinstance(t, ComptimeConstValue):
+        t = t.try_resolve(require_monomorphization=True)
+
     match s, t:
         case ExistentialConstVar() as s_var, t:
             return _unify_const_var(s_var, t, subst)
@@ -1093,6 +1103,10 @@ def unify_const(s: Const, t: Const, subst: "Subst | None") -> "Subst | None":
             return _unify_const_var(t_var, s, subst)
         case ConstValue(value=c_value), ConstValue(value=d_value) if c_value == d_value:
             return subst
+        case ConstValue(), ComptimeConstValue():
+            return None
+        case ComptimeConstValue(), ConstValue():
+            return None
         case BoundVar(idx=s_idx), BoundVar(idx=t_idx) if s_idx == t_idx:
             return subst
         case _:
@@ -1149,7 +1163,7 @@ def _unify_const_var(
 def _unify_args(
     s: ParametrizedType, t: ParametrizedType, subst: "Subst"
 ) -> "Subst | None":
-    """Helper function for unification of type arguments of parametrised types."""
+    """Helper function for unification of type arguments of parameterized types."""
     if len(s.args) != len(t.args):
         return None
     for sa, ta in zip(s.args, t.args, strict=True):

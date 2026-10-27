@@ -62,14 +62,27 @@ log = logging.getLogger("probe.daemon.audit")
 CONSIDERED = "audit_considered"
 #: How many of the transcript's first lines are read to tell a person from a program,
 #: the longest line read whole (Codex's `session_meta` carries the instructions:
-#: 52 KB on the devbox, more with a long AGENTS.md) and the most read in all.
-HEAD_LINES = 20
+#: 52 KB on the devbox, more with a long AGENTS.md) and the most read in all. A T3
+#: Code session's tool list came at line 13 behind six hook lines (2026-10-26); each
+#: SessionStart hook a machine adds writes one more line before it.
+HEAD_LINES = 40
 LINE_CAP_BYTES = 4 * 1024 * 1024
 HEAD_CAP_BYTES = 8 * 1024 * 1024
 #: What a Claude Code transcript line says when a person is at the keyboard
 #: (`team_note_file.INTERACTIVE_ENTRYPOINTS`, the prompt hook's own list).
-#: Codex's `codex exec` names itself in the rollout's `session_meta.originator`.
+#: Codex's `codex exec` names itself in the rollout's `session_meta.originator`,
+#: and says `source: "exec"` even when an app's originator override reached it
+#: (a `codex exec` run from a T3 Code shell says `originator: "T3 Code"`).
 AUTOMATED_ORIGINATORS = frozenset({"codex_exec"})
+AUTOMATED_SOURCES = frozenset({"exec"})
+#: T3 Code (pingdotgg/t3code) is an app in which a person drives Claude Code through
+#: the Agent SDK, so its Claude sessions say `sdk-cli`, as `claude -p` does. What
+#: tells them apart is T3's own MCP server (`t3-code`), which T3 hands the SDK and
+#: so a `claude -p` started from a T3 shell does not get: Claude Code lists its
+#: tools in a `deferred_tools_delta` line (t3 0.1.2, 2026-10-26). No such line (tool
+#: search off, or the server connecting after the head is read) leaves a T3
+#: session a program's, as before; nothing the agent's shell inherits counts.
+T3_CODE_TOOL_PREFIX = "mcp__t3-code__"
 #: After an audit that changed nothing on the server (failed, cut short, never
 #: looked, a conflict), this machine waits this long before the next: the note
 #: stays due, and every new session would otherwise try again once the lease ends.
@@ -143,9 +156,13 @@ def instructions(due: str, *, today: str, folders: "list[Path]", draft: Path) ->
 def interactive(transcript: Path) -> bool:
     """Is a person driving this session? Read off the transcript's first lines:
     Claude Code's `entrypoint` (`cli`, an IDE) and Codex's `session_meta`
-    `originator` (`codex_exec` is a program), and a Codex sub-agent's
-    `source.subagent`. A DENY-list, as the prompt hook's
-    `team_note_file.session_is_automated`: what it cannot tell is a person."""
+    `originator` (`codex_exec` is a program), its `source` (`exec` is a program)
+    and a Codex sub-agent's `source.subagent`. A DENY-list, as the prompt hook's
+    `team_note_file.session_is_automated`: what it cannot tell is a person.
+
+    A program's entrypoint is not the last word in the head: T3 Code's Claude
+    sessions say `sdk-cli` too, and list T3's tools further down
+    (`_lists_t3_code_tools`). T3's Codex sessions name it as their `originator`."""
     from probe.cli.team_note_file import INTERACTIVE_ENTRYPOINTS
 
     head: list[bytes] = []
@@ -160,23 +177,46 @@ def interactive(transcript: Path) -> bool:
                 head.append(raw)
     except OSError:
         return True
+    program = False
     for raw in head:
         try:
             obj = json.loads(raw)
-        except ValueError:
+        except (ValueError, RecursionError):  # a line nested past the parser's depth
             continue
         if not isinstance(obj, dict):
             continue
+        if _lists_t3_code_tools(obj):
+            return True
+        if program:
+            continue
         entrypoint = obj.get("entrypoint")
         if isinstance(entrypoint, str) and entrypoint.strip():
-            return entrypoint.strip().lower() in INTERACTIVE_ENTRYPOINTS
+            if entrypoint.strip().lower() in INTERACTIVE_ENTRYPOINTS:
+                return True
+            program = True
+            continue
         payload = obj.get("payload") if obj.get("type") == "session_meta" else None
         if isinstance(payload, dict):
             source = payload.get("source")
             if isinstance(source, dict) and source.get("subagent"):
                 return False
+            if isinstance(source, str) and source.strip().lower() in AUTOMATED_SOURCES:
+                return False
             return str(payload.get("originator") or "").strip().lower() not in AUTOMATED_ORIGINATORS
-    return True
+    return not program
+
+
+def _lists_t3_code_tools(obj: dict) -> bool:
+    """Does this Claude Code line list T3 Code's `t3-code` MCP tools? Only the list
+    Claude Code writes itself (a `deferred_tools_delta` attachment) counts: a
+    prompt that merely names those tools is not T3."""
+    attachment = obj.get("attachment") if obj.get("type") == "attachment" else None
+    if not isinstance(attachment, dict) or attachment.get("type") != "deferred_tools_delta":
+        return False
+    names = attachment.get("addedNames")
+    return isinstance(names, list) and any(
+        isinstance(name, str) and name.startswith(T3_CODE_TOOL_PREFIX) for name in names
+    )
 
 
 def draft_dir(session_id: str) -> Path:
@@ -240,7 +280,7 @@ class AuditLane:
         with self.store.tx():
             self.store.set_fact(CONSIDERED, time.time())
         if not interactive(self.w.session.transcript):
-            log.info("audit: not in a session a program drives")
+            log.info("audit: a program drives this session")
             return False
         self.task = asyncio.ensure_future(self.run())
         return True

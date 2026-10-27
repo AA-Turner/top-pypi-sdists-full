@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import importlib
 import json
 import math
 import os
@@ -136,6 +137,49 @@ def _no_command_check(monkeypatch: pytest.MonkeyPatch) -> None:
         return None
 
     monkeypatch.setattr(command_check, "ask_probe", no_answer)
+
+
+@pytest.fixture(autouse=True)
+def _onboarding_prompts_pass(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """What the wizard gained on 2026-10-26: a bare launch on a device with no
+    Probe opens the guided install instead of the menu (`main._opens_onboarding`),
+    the install's Defaults step (`setup.run_defaults_step`), and the daemon's
+    consent before a key is minted from the sign-in (`setup.run_daemon_consent`).
+    The suite's menu, install and Who records tests were written before them and
+    script the screens around them, so here a fresh device still opens the menu,
+    the step answers Next with the picks it was given and the consent answers
+    yes. A module setting `FRESH_DEVICE_ONBOARDING = "real"` keeps the routing,
+    one setting `ONBOARDING_PROMPTS = "real"` keeps both prompts; a test stands
+    its own answer in."""
+    from probe.cli import setup
+
+    if getattr(request.module, "FRESH_DEVICE_ONBOARDING", None) != "real":
+        main = importlib.import_module("probe.cli.main")
+        monkeypatch.setattr(main, "_opens_onboarding", lambda *_a, **_kw: False)
+    if getattr(request.module, "ONBOARDING_PROMPTS", None) == "real":
+        return
+    monkeypatch.setattr(setup, "run_defaults_step", lambda pick, **_kw: (True, pick))
+    monkeypatch.setattr(setup, "run_daemon_consent", lambda sources: True)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_sign_in_mint(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test mints a daemon or capture key on a real server from a real sign-in
+    (`setup.mint_from_sign_in`): one call revokes that installation's live daemon
+    key. It answers None (the browser approval takes over), and an exported
+    `PROBE_TOKEN` never reaches a test. A test of the mint itself asks for the
+    `real_sign_in_mint` fixture and stands its own server in."""
+    monkeypatch.delenv("PROBE_TOKEN", raising=False)
+    if "real_sign_in_mint" in request.fixturenames:
+        return
+    from probe.cli import setup
+
+    monkeypatch.setattr(setup, "mint_from_sign_in", lambda *_a, **_kw: None)
+
+
+@pytest.fixture
+def real_sign_in_mint() -> None:
+    """Opt out of `_no_real_sign_in_mint`: the test fakes the server itself."""
 
 
 @pytest.fixture(autouse=True)
@@ -297,6 +341,28 @@ def real_computer_workspace() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _no_real_service_start(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    """No install-flow test starts a Probe service.
+
+    Every install entry ends with the service started (`install_pipeline.
+    start_service`: `client.ensure`, waiting for it to answer), which in a test
+    either spawns a real service from whatever interpreter runtime.json names
+    or adds a "not running yet" line to output the wizard's golden tests pin.
+    Replaced with a start that says nothing. Tests ABOUT it ask for
+    `real_service_start`."""
+    if "real_service_start" in request.fixturenames:
+        return
+    from probe.cli import install_pipeline
+
+    monkeypatch.setattr(install_pipeline, "start_service", lambda **_k: None)
+
+
+@pytest.fixture
+def real_service_start() -> None:
+    """Opt out of `_no_real_service_start`: the real `install_pipeline.start_service`."""
+
+
+@pytest.fixture(autouse=True)
 def _no_real_daemon_install(monkeypatch: pytest.MonkeyPatch) -> None:
     """No test may pip-install the daemon's AI libraries for real.
 
@@ -312,6 +378,23 @@ def _no_real_daemon_install(monkeypatch: pytest.MonkeyPatch) -> None:
         raise AssertionError("a test reached the real `probe daemon install` (pip)")
 
     monkeypatch.setattr(daemon_cli, "daemon_install", _explode)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_codex_hook_approval(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test may ask the machine's own Codex about Probe's hooks, or approve them.
+
+    The wizard, a recorder switch and the Codex plugin update approve Probe's
+    hooks through the `codex` on PATH (`codex_hooks.approve`), which writes the
+    approval into that Codex's own config.toml: on a dev box with Probe installed
+    in Codex, a test would approve hooks in the developer's real Codex, and
+    whether the wizard adds the step would depend on that Codex. Here Codex
+    cannot be asked. Tests of `approve` call the real one through its own module.
+    """
+    from probe.cli import codex_hooks, setup
+
+    monkeypatch.setattr(codex_hooks, "approve", lambda *_a, **_k: None)
+    monkeypatch.setattr(setup, "codex_hooks_waiting", lambda: False)
 
 
 @pytest.fixture(autouse=True)
@@ -444,15 +527,40 @@ def _no_real_device_state(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _no_real_wizard_account_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+def _no_real_wizard_account_lookup(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
     """The setup wizard records its new login's account with one `/v1/me`
     (#2041 round 3). Most wizard tests mint against the DEFAULT endpoint with a
     fake token, so the real lookup would reach production. Replaced by a no-op
-    here; `test_outbox_credential_stamp.py` calls the real one against a
-    served fake."""
+    here; `test_outbox_credential_stamp.py` asks for `real_wizard_account_lookup`
+    and calls the real one against a served fake. (It used to get it back with
+    `importlib.reload(setup)`, which re-created every class in the module for
+    the rest of the worker: `RunSummary(SummaryAction.UPDATE, ...)` built from
+    the test's earlier import then failed `is SummaryAction.UPDATE` and read
+    "Installed Probe in", failing 5 `test_wizard_summary.py` tests.)"""
+    if "real_wizard_account_lookup" in request.fixturenames:
+        return
     from probe.cli import setup
 
     monkeypatch.setattr(setup, "_record_login_account", lambda *a, **k: None, raising=False)
+
+
+@pytest.fixture
+def real_wizard_account_lookup() -> None:
+    """Opt out of `_no_real_wizard_account_lookup`: the wizard's real `/v1/me`."""
+
+
+@pytest.fixture(autouse=True)
+def _no_real_identity_lookup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An install holds the daemon key and the credential variables to the
+    signed-in account with `/v1/me` (`identity_check.whoami`, plan
+    clean-uninstall-reinstall R-T4). Most wizard tests sign in against the
+    DEFAULT endpoint with fake tokens: answered "unreachable" here (nothing is
+    dropped or flagged on it), never sent to production.
+    tests/test_reinstall_identity.py answers it per token itself."""
+    from probe.cli import identity_check
+
+    monkeypatch.setattr(identity_check, "whoami", lambda token, base_url: ("unreachable", None))
+    monkeypatch.setattr(identity_check, "_once", None)
 
 
 @pytest.fixture(autouse=True)

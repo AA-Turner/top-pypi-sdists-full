@@ -123,7 +123,6 @@ from __future__ import absolute_import, division
 from copy import deepcopy
 from math import log, exp, sqrt
 import sys
-import warnings
 import numpy as np
 from numpy import dot, zeros, eye, isscalar, shape
 import numpy.linalg as linalg
@@ -162,7 +161,9 @@ class KalmanFilter(object):
     Here is a filter that tracks position and velocity using a sensor that only
     reads position.
 
-    First construct the object with the required dimensionality.
+    First construct the object with the required dimensionality. Here the state
+    (`dim_x`) has 2 coefficients (position and velocity), and the measurement
+    (`dim_z`) has one. In FilterPy `x` is the state, `z` is the measurement.
 
     .. code::
 
@@ -192,27 +193,19 @@ class KalmanFilter(object):
             f.F = np.array([[1.,1.],
                             [0.,1.]])
 
-    Define the measurement function:
+    Define the measurement function. Here we need to convert a position-velocity
+    vector into just a position vector, so we use:
 
         .. code::
 
-        f.H = np.array([[1.,0.]])
+        f.H = np.array([[1., 0.]])
 
-    Define the covariance matrix. Here I take advantage of the fact that
-    P already contains np.eye(dim_x), and just multiply by the uncertainty:
-
-    .. code::
-
-        f.P *= 1000.
-
-    I could have written:
+    Define the state's covariance matrix P. 
 
     .. code::
 
         f.P = np.array([[1000.,    0.],
                         [   0., 1000.] ])
-
-    You decide which is more readable and understandable.
 
     Now assign the measurement noise. Here the dimension is 1x1, so I can
     use a scalar
@@ -227,7 +220,7 @@ class KalmanFilter(object):
 
         f.R = np.array([[5.]])
 
-    Note that this must be a 2 dimensional array, as must all the matrices.
+    Note that this must be a 2 dimensional array.
 
     Finally, I will assign the process noise. Here I will take advantage of
     another FilterPy library function:
@@ -240,15 +233,14 @@ class KalmanFilter(object):
 
     Now just perform the standard predict/update loop:
 
-    while some_condition_is_true:
-
     .. code::
 
-        z = get_sensor_reading()
-        f.predict()
-        f.update(z)
+        while some_condition_is_true:
+            z = get_sensor_reading()
+            f.predict()
+            f.update(z)
 
-        do_something_with_estimate (f.x)
+            do_something_with_estimate (f.x)
 
 
     **Procedural Form**
@@ -310,7 +302,7 @@ class KalmanFilter(object):
 
     x_prior : numpy.array(dim_x, 1)
         Prior (predicted) state estimate. The *_prior and *_post attributes
-        are for convienence; they store the  prior and posterior of the
+        are for convenience; they store the  prior and posterior of the
         current epoch. Read Only.
 
     P_prior : numpy.array(dim_x, dim_x)
@@ -326,16 +318,18 @@ class KalmanFilter(object):
         Last measurement used in update(). Read only.
 
     R : numpy.array(dim_z, dim_z)
-        Measurement noise matrix
+        Measurement noise covariance matrix. Also known as the
+        observation covariance.
 
     Q : numpy.array(dim_x, dim_x)
-        Process noise matrix
+        Process noise covariance matrix. Also known as the transition
+        covariance.
 
     F : numpy.array()
-        State Transition matrix
+        State Transition matrix. Also known as `A` in some formulation.
 
     H : numpy.array(dim_z, dim_x)
-        Measurement function
+        Measurement function. Also known as the observation matrix, or as `C`.
 
     y : numpy.array
         Residual of the update step. Read only.
@@ -407,10 +401,10 @@ class KalmanFilter(object):
         self.Q = eye(dim_x)               # process uncertainty
         self.B = None                     # control transition matrix
         self.F = eye(dim_x)               # state transition matrix
-        self.H = zeros((dim_z, dim_x))    # Measurement function
-        self.R = eye(dim_z)               # state uncertainty
+        self.H = zeros((dim_z, dim_x))    # measurement function
+        self.R = eye(dim_z)               # measurement uncertainty
         self._alpha_sq = 1.               # fading memory control
-        self.M = np.zeros((dim_z, dim_z)) # process-measurement cross correlation
+        self.M = np.zeros((dim_x, dim_z)) # process-measurement cross correlation
         self.z = np.array([[None]*self.dim_z]).T
 
         # gain and residual are computed during the innovation step. We
@@ -448,11 +442,10 @@ class KalmanFilter(object):
         Parameters
         ----------
 
-        u : np.array
-            Optional control vector. If not `None`, it is multiplied by B
-            to create the control input into the system.
+        u : np.array, default 0
+            Optional control vector.
 
-        B : np.array(dim_x, dim_z), or None
+        B : np.array(dim_x, dim_u), or None
             Optional control transition matrix; a value of None
             will cause the filter to use `self.B`.
 
@@ -473,6 +466,7 @@ class KalmanFilter(object):
             Q = self.Q
         elif isscalar(Q):
             Q = eye(self.dim_x) * Q
+
 
         # x = Fx + Bu
         if B is not None and u is not None:
@@ -501,6 +495,9 @@ class KalmanFilter(object):
             measurement for this update. z can be a scalar if dim_z is 1,
             otherwise it must be convertible to a column vector.
 
+            If you pass in a value of H, z must be a column vector the
+            of the correct size.
+
         R : np.array, scalar, or None
             Optionally provide R to override the measurement noise for this
             one call, otherwise  self.R will be used.
@@ -522,14 +519,13 @@ class KalmanFilter(object):
             self.y = zeros((self.dim_z, 1))
             return
 
-        z = reshape_z(z, self.dim_z, self.x.ndim)
-
         if R is None:
             R = self.R
         elif isscalar(R):
             R = eye(self.dim_z) * R
 
         if H is None:
+            z = reshape_z(z, self.dim_z, self.x.ndim)
             H = self.H
 
         # y = z - Hx
@@ -578,7 +574,7 @@ class KalmanFilter(object):
             Optional control vector. If non-zero, it is multiplied by B
             to create the control input into the system.
 
-        B : np.array(dim_x, dim_z), or None
+        B : np.array(dim_x, dim_u), or None
             Optional control transition matrix; a value of None
             will cause the filter to use `self.B`.
         """
@@ -676,6 +672,8 @@ class KalmanFilter(object):
         process noise and measurement noise are correlated as defined in
         the `self.M` matrix.
 
+        A partial derivation can be found in [1]
+
         If z is None, nothing is changed.
 
         Parameters
@@ -691,6 +689,12 @@ class KalmanFilter(object):
         H : np.array,  or None
             Optionally provide H to override the measurement function for this
             one call, otherwise  self.H will be used.
+
+        References
+        ----------
+
+        .. [1] Bulut, Y. (2011). Applied Kalman filter theory (Doctoral dissertation, Northeastern University).
+               http://people.duke.edu/~hpgavin/SystemID/References/Balut-KalmanFilter-PhD-NEU-2011.pdf
         """
 
         # set to None to force recompute
@@ -705,8 +709,6 @@ class KalmanFilter(object):
             self.y = zeros((self.dim_z, 1))
             return
 
-        z = reshape_z(z, self.dim_z, self.x.ndim)
-
         if R is None:
             R = self.R
         elif isscalar(R):
@@ -714,6 +716,7 @@ class KalmanFilter(object):
 
         # rename for readability and a tiny extra bit of speed
         if H is None:
+            z = reshape_z(z, self.dim_z, self.x.ndim)
             H = self.H
 
         # handle special case: if z is in form [[z]] but x is not a column
@@ -745,6 +748,78 @@ class KalmanFilter(object):
         self.P = self.P - dot(self.K, dot(H, self.P) + self.M.T)
 
         self.z = deepcopy(z)
+        self.x_post = self.x.copy()
+        self.P_post = self.P.copy()
+
+    def update_sequential(self, start, z_i, R_i=None, H_i=None):
+        """
+        Add a single input measurement (z_i) to the Kalman filter.
+        In sequential processing, inputs are processed one at a time.
+
+        Parameters
+        ----------
+        start : integer
+            Index of the first measurement input updated by this call.
+
+        z_i : np.array or scalar
+            Measurement of inputs for this partial update.
+
+        R_i : np.array, scalar, or None
+            Optionally provide R_i to override the measurement noise of
+            inputs for this one call, otherwise a slice of self.R will
+            be used.
+
+        H_i : np.array, or None
+            Optionally provide H[i] to override the partial measurement
+            function for this one call, otherwise a slice of self.H will
+            be used.
+        """
+
+        if isscalar(z_i):
+            length = 1
+        else:
+            length = len(z_i)
+        z_i = np.reshape(z_i, [length, 1])
+        stop = start + length
+
+        if R_i is None:
+            R_i = self.R[start:stop, start:stop]
+        elif isscalar(R_i):
+            R_i = eye(length) * R_i
+
+        if H_i is None:
+            H_i = self.H[start:stop]
+
+        H_i = np.reshape(H_i, [length, self.dim_x])
+
+        # y_i = z_i - H_i @ x
+        # error (residual) between measurement and prediction
+        y_i = z_i - dot(H_i, self.x)
+        self.y[start:stop] = y_i
+
+        # common subexpression for speed
+        PHT = dot(self.P, H_i.T)
+
+        # project system uncertainty into the measurement subspace
+        S_i = dot(H_i, PHT) + R_i
+
+        if length == 1:
+            K_i = PHT * (1.0 / S_i)
+        else:
+            K_i = dot(PHT, linalg.inv(S_i))
+
+        self.K[:,start:stop] = K_i
+        I_KH = self._I - np.dot(K_i, H_i)
+
+        # x = x + K_i @ y_i
+        # update state estimation with residual scaled by the kalman gain
+        self.x += dot(K_i, y_i)
+
+        # compute the posterior covariance
+        self.P = dot(dot(I_KH, self.P), I_KH.T) + dot(dot(K_i, R_i), K_i.T)
+
+        # save measurement component #i and the posterior state
+        self.z[start:stop] = z_i
         self.x_post = self.x.copy()
         self.P_post = self.P.copy()
 
@@ -858,11 +933,11 @@ class KalmanFilter(object):
             Fs = [np.array([[1., dt], [0, 1]] for dt in dts]
 
             (mu, cov, _, _) = kf.batch_filter(zs, Fs=Fs)
-            (xs, Ps, Ks) = kf.rts_smoother(mu, cov, Fs=Fs)
+            (xs, Ps, Ks, Pps) = kf.rts_smoother(mu, cov, Fs=Fs)
         """
 
         #pylint: disable=too-many-statements
-        n = np.size(zs, 0)
+        n = len(zs)
         if Fs is None:
             Fs = [self.F] * n
         if Qs is None:
@@ -919,7 +994,7 @@ class KalmanFilter(object):
 
     def rts_smoother(self, Xs, Ps, Fs=None, Qs=None, inv=np.linalg.inv):
         """
-        Runs the Rauch-Tung-Striebal Kalman smoother on a set of
+        Runs the Rauch-Tung-Striebel Kalman smoother on a set of
         means and covariances computed by a Kalman filter. The usual input
         would come from the output of `KalmanFilter.batch_filter()`.
 
@@ -998,16 +1073,28 @@ class KalmanFilter(object):
 
         return (x, P, K, Pp)
 
-    def get_prediction(self, u=0):
+    def get_prediction(self, u=None, B=None, F=None, Q=None):
         """
-        Predicts the next state of the filter and returns it without
-        altering the state of the filter.
+        Predict next state (prior) using the Kalman filter state propagation
+        equations and returns it without modifying the object.
 
         Parameters
         ----------
 
-        u : np.array
-            optional control input
+        u : np.array, default 0
+            Optional control vector.
+
+        B : np.array(dim_x, dim_u), or None
+            Optional control transition matrix; a value of None
+            will cause the filter to use `self.B`.
+
+        F : np.array(dim_x, dim_x), or None
+            Optional state transition matrix; a value of None
+            will cause the filter to use `self.F`.
+
+        Q : np.array(dim_x, dim_x), scalar, or None
+            Optional process noise matrix; a value of None will cause the
+            filter to use `self.Q`.
 
         Returns
         -------
@@ -1016,9 +1103,25 @@ class KalmanFilter(object):
             State vector and covariance array of the prediction.
         """
 
-        x = dot(self.F, self.x) + dot(self.B, u)
-        P = self._alpha_sq * dot(dot(self.F, self.P), self.F.T) + self.Q
-        return (x, P)
+        if B is None:
+            B = self.B
+        if F is None:
+            F = self.F
+        if Q is None:
+            Q = self.Q
+        elif isscalar(Q):
+            Q = eye(self.dim_x) * Q
+
+        # x = Fx + Bu
+        if B is not None and u is not None:
+            x = dot(F, self.x) + dot(B, u)
+        else:
+            x = dot(F, self.x)
+
+        # P = FPF' + Q
+        P = self._alpha_sq * dot(dot(F, self.P), F.T) + Q
+
+        return x, P
 
     def get_update(self, z=None):
         """
@@ -1074,6 +1177,7 @@ class KalmanFilter(object):
         Returns the residual for the given measurement (z). Does not alter
         the state of the filter.
         """
+        z = reshape_z(z, self.dim_z, self.x.ndim)
         return z - dot(self.H, self.x_prior)
 
     def measurement_of_state(self, x):
@@ -1131,7 +1235,7 @@ class KalmanFilter(object):
         mahalanobis : float
         """
         if self._mahalanobis is None:
-            self._mahalanobis = sqrt(float(dot(dot(self.y.T, self.SI), self.y)))
+            self._mahalanobis = sqrt(dot(dot(self.y.T, self.SI), self.y).item())
         return self._mahalanobis
 
     @property
@@ -1237,7 +1341,7 @@ class KalmanFilter(object):
                    self.dim_x, self.dim_x, P.shape)
 
         assert Q.shape == (self.dim_x, self.dim_x), \
-               "Shape of P must be ({},{}), but is {}".format(
+               "Shape of Q must be ({},{}), but is {}".format(
                    self.dim_x, self.dim_x, P.shape)
 
         assert F.shape == (self.dim_x, self.dim_x), \
@@ -1258,7 +1362,7 @@ class KalmanFilter(object):
 
         if H.shape[0] == 1:
             # r can be scalar, 1D, or 2D in this case
-            assert r_shape == () or r_shape == (1,) or r_shape == (1, 1), \
+            assert r_shape in [(), (1,), (1, 1)], \
             "R must be scalar or one element array, but is shaped {}".format(
                 r_shape)
         else:
@@ -1633,11 +1737,11 @@ def batch_filter(x, P, zs, Fs, Qs, Hs, Rs, Bs=None, us=None,
 
         (mu, cov, _, _) = kf.batch_filter(zs, Rs=R_list, Fs=Fs, Hs=Hs, Qs=None,
                                           Bs=None, us=None, update_first=False)
-        (xs, Ps, Ks) = kf.rts_smoother(mu, cov, Fs=Fs, Qs=None)
+        (xs, Ps, Ks, Pps) = kf.rts_smoother(mu, cov, Fs=Fs, Qs=None)
 
     """
 
-    n = np.size(zs, 0)
+    n = len(zs)
     dim_x = x.shape[0]
 
     # mean estimates from Kalman Filter
@@ -1687,7 +1791,7 @@ def batch_filter(x, P, zs, Fs, Qs, Hs, Rs, Bs=None, us=None,
 
 def rts_smoother(Xs, Ps, Fs, Qs):
     """
-    Runs the Rauch-Tung-Striebal Kalman smoother on a set of
+    Runs the Rauch-Tung-Striebel Kalman smoother on a set of
     means and covariances computed by a Kalman filter. The usual input
     would come from the output of `KalmanFilter.batch_filter()`.
 

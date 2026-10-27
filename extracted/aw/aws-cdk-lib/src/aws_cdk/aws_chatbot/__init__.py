@@ -264,6 +264,7 @@ class CfnCustomAction(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -310,7 +311,7 @@ class CfnCustomAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__971c2cee7a293449df3b3419302728ec27df82ae1516daa5cb2c681996802476)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="definition")
@@ -328,7 +329,7 @@ class CfnCustomAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__41389535b5493837a09f1517d05c57d5124e60def0c6ed02cfa3bcacf50f356a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "definition", value)
 
     @builtins.property
     @jsii.member(jsii_name="aliasName")
@@ -341,7 +342,7 @@ class CfnCustomAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__41def85ca04f9b6e2f09a7a4a94dcbf48f41f3f42b20008ab0c8375fde71a577)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "aliasName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "aliasName", value)
 
     @builtins.property
     @jsii.member(jsii_name="attachments")
@@ -359,7 +360,7 @@ class CfnCustomAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25bc30f27dad9105e157414d8573ef4725c2cbb4c8f636ccff8d8cd488d751ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attachments", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "attachments", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -375,7 +376,7 @@ class CfnCustomAction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__072e325a0c2ec8c68fa22d9b8fcacb74cdefc302e246f675cb7d82f02d9c1ad8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_chatbot.CfnCustomAction.CustomActionAttachmentCriteriaProperty",
@@ -960,6 +961,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1008,7 +1010,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__853492827ec4d32419905b108885cd7dfb3bfcc97356414d7093f3ffde1cc102)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configurationName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configurationName", value)
 
     @builtins.property
     @jsii.member(jsii_name="iamRoleArn")
@@ -1021,7 +1023,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__987e0ecb599ccda416801ac47ffed7c93c70f9b18e123c0844428e72e3358835)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "iamRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "iamRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="teamId")
@@ -1034,7 +1036,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__131496f4a9a76e788b24fe2d55a1ad079352bde04c2a3f0bfef8a70ac84c1005)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "teamId", value)
 
     @builtins.property
     @jsii.member(jsii_name="teamsChannelId")
@@ -1047,7 +1049,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d6145a2070eac7c951e39d32cc30d829704d9e69208b996decf844ab814b7565)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "teamsChannelId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "teamsChannelId", value)
 
     @builtins.property
     @jsii.member(jsii_name="teamsTenantId")
@@ -1060,7 +1062,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__150448116265d03ce90265c34fc82985640b935241cdd8bab0f49cc5e0fe172f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "teamsTenantId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "teamsTenantId", value)
 
     @builtins.property
     @jsii.member(jsii_name="customizationResourceArns")
@@ -1076,7 +1078,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__11efc1f4b5699a2254663cde691669f1d0c162272e0d5627190665ef98affc89)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customizationResourceArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customizationResourceArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="guardrailPolicies")
@@ -1092,7 +1094,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8a369a2e8b97e0da168bc82e338319cde3d1784e8fcc291e9f4bf92f07c0bcea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "guardrailPolicies", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "guardrailPolicies", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggingLevel")
@@ -1108,7 +1110,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3e63597aa6fc4d21805a68bc3ce43b4f04ccce5b12da474578d12919e547287)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingLevel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggingLevel", value)
 
     @builtins.property
     @jsii.member(jsii_name="snsTopicArns")
@@ -1121,7 +1123,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d06bfa455d3724be650436a618deed393ddc0dbcd35406db1f888de73d2babe7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snsTopicArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snsTopicArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1137,7 +1139,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__85a622952d9fea475beb11aa3753f5147c076bc04254dc91a4dbc14ee94b8b42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="teamsChannelName")
@@ -1150,7 +1152,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6b024a8c697915b8353191fc418871ddabafe006c942750d3ac38aa4c9d5c6c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "teamsChannelName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "teamsChannelName", value)
 
     @builtins.property
     @jsii.member(jsii_name="userRoleRequired")
@@ -1168,7 +1170,7 @@ class CfnMicrosoftTeamsChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0a5171a48ffb0d6c3dc8bec2e5eb8774e5e34370819690e508928a264f6e7eda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userRoleRequired", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userRoleRequired", value)
 
 
 @jsii.data_type(
@@ -1576,6 +1578,7 @@ class CfnSlackChannelConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1624,7 +1627,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__030a2b3ae9dec64c22063a44869eaa3d17e7c59f6584f8f1f0799b11e5230f0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configurationName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configurationName", value)
 
     @builtins.property
     @jsii.member(jsii_name="iamRoleArn")
@@ -1637,7 +1640,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d0d6b746086db3f0eee87f2bf185747639960cd160b132fc103d742a505cff83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "iamRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "iamRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="slackChannelId")
@@ -1650,7 +1653,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__947633a80a86abcda2924b84b36a3f15557a2db21530c5d6bbce145d2de2baa2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "slackChannelId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "slackChannelId", value)
 
     @builtins.property
     @jsii.member(jsii_name="slackWorkspaceId")
@@ -1663,7 +1666,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bcd6c259891d90515113fab2b366a0fa3fe65279fa991dfb0c55094b82dfe9a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "slackWorkspaceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "slackWorkspaceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="customizationResourceArns")
@@ -1679,7 +1682,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d0d0439ef3a58ce5c9660cc070abad2db1860848733177ed530f90e5b2c5aa14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customizationResourceArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customizationResourceArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="guardrailPolicies")
@@ -1695,7 +1698,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__501b5577e7827d442d9391d6001230a41ff67452706a19ec7b9752f0f819226a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "guardrailPolicies", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "guardrailPolicies", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggingLevel")
@@ -1711,7 +1714,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__246f0b4cf1dfb239b8a4368a76b6f46ebb97fa423b3bcb7bd914513d880e580e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingLevel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggingLevel", value)
 
     @builtins.property
     @jsii.member(jsii_name="snsTopicArns")
@@ -1724,7 +1727,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a484a8dbfe21a414edd0bce1d876d84d2ebba782d953f75cc942e74a58c6dc72)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snsTopicArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snsTopicArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1740,7 +1743,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eb9439037db7df11093794999deef5e51f41aae61f9736ab360d263ab9859fd6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="userRoleRequired")
@@ -1758,7 +1761,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4fdcebb1f70802057ca456714a5cc7c631ffe294962d8635781dfb0f0a08776f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userRoleRequired", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userRoleRequired", value)
 
 
 @jsii.data_type(
@@ -2452,6 +2455,7 @@ class SlackChannelConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

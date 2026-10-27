@@ -1446,6 +1446,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_0_1_0")
+    @builtins.classmethod
     def V1_0_1_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.0.1.0.
 
@@ -1455,6 +1456,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_0_1_1")
+    @builtins.classmethod
     def V1_0_1_1(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.0.1.1.
 
@@ -1464,6 +1466,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_0_1_2")
+    @builtins.classmethod
     def V1_0_1_2(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.0.1.2.
 
@@ -1473,6 +1476,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_0_2_1")
+    @builtins.classmethod
     def V1_0_2_1(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.0.2.1.
 
@@ -1482,6 +1486,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_0_2_2")
+    @builtins.classmethod
     def V1_0_2_2(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.0.2.2.
 
@@ -1491,6 +1496,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_0_3_0")
+    @builtins.classmethod
     def V1_0_3_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.0.3.0.
 
@@ -1500,6 +1506,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_0_4_0")
+    @builtins.classmethod
     def V1_0_4_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.0.4.0.
 
@@ -1509,6 +1516,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_0_4_1")
+    @builtins.classmethod
     def V1_0_4_1(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.0.4.1.
 
@@ -1518,6 +1526,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_0_5_0")
+    @builtins.classmethod
     def V1_0_5_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.0.5.0.
 
@@ -1527,6 +1536,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_1_0_0")
+    @builtins.classmethod
     def V1_1_0_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.1.0.0.
 
@@ -1536,6 +1546,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_1_1_0")
+    @builtins.classmethod
     def V1_1_1_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.1.1.0.
 
@@ -1545,6 +1556,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_2_0_0")
+    @builtins.classmethod
     def V1_2_0_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.2.0.0.
 
@@ -1554,6 +1566,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_2_0_1")
+    @builtins.classmethod
     def V1_2_0_1(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.2.0.1.
 
@@ -1563,6 +1576,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_2_0_2")
+    @builtins.classmethod
     def V1_2_0_2(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.2.0.2.
 
@@ -1572,6 +1586,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_2_1_0")
+    @builtins.classmethod
     def V1_2_1_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.2.1.0.
 
@@ -1581,6 +1596,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_2_1_1")
+    @builtins.classmethod
     def V1_2_1_1(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.2.1.1.
 
@@ -1590,6 +1606,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_2_1_2")
+    @builtins.classmethod
     def V1_2_1_2(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.2.1.2.
 
@@ -1599,6 +1616,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_3_0_0")
+    @builtins.classmethod
     def V1_3_0_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.3.0.0.
 
@@ -1608,6 +1626,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_3_1_0")
+    @builtins.classmethod
     def V1_3_1_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.3.1.0.
 
@@ -1617,6 +1636,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_3_2_0")
+    @builtins.classmethod
     def V1_3_2_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.3.2.0.
 
@@ -1626,6 +1646,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_3_2_1")
+    @builtins.classmethod
     def V1_3_2_1(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.3.2.1.
 
@@ -1635,6 +1656,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_3_3_0")
+    @builtins.classmethod
     def V1_3_3_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.3.3.0.
 
@@ -1644,6 +1666,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_3_4_0")
+    @builtins.classmethod
     def V1_3_4_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.3.4.0.
 
@@ -1653,6 +1676,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_4_0_0")
+    @builtins.classmethod
     def V1_4_0_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.4.0.0.
 
@@ -1662,6 +1686,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_4_1_0")
+    @builtins.classmethod
     def V1_4_1_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.4.1.0.
 
@@ -1671,6 +1696,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_4_2_0")
+    @builtins.classmethod
     def V1_4_2_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.4.2.0.
 
@@ -1680,6 +1706,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_4_3_0")
+    @builtins.classmethod
     def V1_4_3_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.4.3.0.
 
@@ -1689,6 +1716,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_4_4_0")
+    @builtins.classmethod
     def V1_4_4_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.4.4.0.
 
@@ -1698,6 +1726,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_4_5_0")
+    @builtins.classmethod
     def V1_4_5_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.4.5.0.
 
@@ -1707,6 +1736,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_4_5_1")
+    @builtins.classmethod
     def V1_4_5_1(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.4.5.1.
 
@@ -1716,6 +1746,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_4_6_0")
+    @builtins.classmethod
     def V1_4_6_0(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.4.6.0.
 
@@ -1725,6 +1756,7 @@ class EngineVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_4_6_1")
+    @builtins.classmethod
     def V1_4_6_1(cls) -> "EngineVersion":
         '''(experimental) Neptune engine version 1.4.6.1.
 
@@ -2361,6 +2393,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R4_2XLARGE")
+    @builtins.classmethod
     def R4_2_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r4.2xlarge.
 
@@ -2370,6 +2403,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R4_4XLARGE")
+    @builtins.classmethod
     def R4_4_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r4.4xlarge.
 
@@ -2379,6 +2413,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R4_8XLARGE")
+    @builtins.classmethod
     def R4_8_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r4.8xlarge.
 
@@ -2388,6 +2423,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R4_LARGE")
+    @builtins.classmethod
     def R4_LARGE(cls) -> "InstanceType":
         '''(experimental) db.r4.large.
 
@@ -2397,6 +2433,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R4_XLARGE")
+    @builtins.classmethod
     def R4_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r4.xlarge.
 
@@ -2406,6 +2443,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5_12XLARGE")
+    @builtins.classmethod
     def R5_12_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5.12xlarge.
 
@@ -2415,6 +2453,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5_16XLARGE")
+    @builtins.classmethod
     def R5_16_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5.16xlarge.
 
@@ -2424,6 +2463,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5_24XLARGE")
+    @builtins.classmethod
     def R5_24_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5.24xlarge.
 
@@ -2433,6 +2473,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5_2XLARGE")
+    @builtins.classmethod
     def R5_2_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5.2xlarge.
 
@@ -2442,6 +2483,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5_4XLARGE")
+    @builtins.classmethod
     def R5_4_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5.4xlarge.
 
@@ -2451,6 +2493,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5_8XLARGE")
+    @builtins.classmethod
     def R5_8_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5.8xlarge.
 
@@ -2460,6 +2503,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5_LARGE")
+    @builtins.classmethod
     def R5_LARGE(cls) -> "InstanceType":
         '''(experimental) db.r5.large.
 
@@ -2469,6 +2513,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5_XLARGE")
+    @builtins.classmethod
     def R5_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5.xlarge.
 
@@ -2478,6 +2523,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5D_12XLARGE")
+    @builtins.classmethod
     def R5_D_12_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5d.12xlarge.
 
@@ -2487,6 +2533,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5D_16XLARGE")
+    @builtins.classmethod
     def R5_D_16_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5d.16xlarge.
 
@@ -2496,6 +2543,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5D_24XLARGE")
+    @builtins.classmethod
     def R5_D_24_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5d.24xlarge.
 
@@ -2505,6 +2553,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5D_2XLARGE")
+    @builtins.classmethod
     def R5_D_2_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5d.2xlarge.
 
@@ -2514,6 +2563,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5D_4XLARGE")
+    @builtins.classmethod
     def R5_D_4_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5d.4xlarge.
 
@@ -2523,6 +2573,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5D_8XLARGE")
+    @builtins.classmethod
     def R5_D_8_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5d.8xlarge.
 
@@ -2532,6 +2583,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5D_LARGE")
+    @builtins.classmethod
     def R5_D_LARGE(cls) -> "InstanceType":
         '''(experimental) db.r5d.large.
 
@@ -2541,6 +2593,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R5D_XLARGE")
+    @builtins.classmethod
     def R5_D_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r5d.xlarge.
 
@@ -2550,6 +2603,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6G_12XLARGE")
+    @builtins.classmethod
     def R6_G_12_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6g.12xlarge.
 
@@ -2559,6 +2613,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6G_16XLARGE")
+    @builtins.classmethod
     def R6_G_16_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6g.16xlarge.
 
@@ -2568,6 +2623,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6G_2XLARGE")
+    @builtins.classmethod
     def R6_G_2_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6g.2xlarge.
 
@@ -2577,6 +2633,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6G_4XLARGE")
+    @builtins.classmethod
     def R6_G_4_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6g.4xlarge.
 
@@ -2586,6 +2643,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6G_8XLARGE")
+    @builtins.classmethod
     def R6_G_8_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6g.8xlarge.
 
@@ -2595,6 +2653,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6G_LARGE")
+    @builtins.classmethod
     def R6_G_LARGE(cls) -> "InstanceType":
         '''(experimental) db.r6g.large.
 
@@ -2604,6 +2663,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6G_XLARGE")
+    @builtins.classmethod
     def R6_G_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6g.xlarge.
 
@@ -2613,6 +2673,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6I_12XLARGE")
+    @builtins.classmethod
     def R6_I_12_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6i.12xlarge.
 
@@ -2622,6 +2683,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6I_16XLARGE")
+    @builtins.classmethod
     def R6_I_16_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6i.16xlarge.
 
@@ -2631,6 +2693,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6I_24XLARGE")
+    @builtins.classmethod
     def R6_I_24_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6i.24xlarge.
 
@@ -2640,6 +2703,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6I_2XLARGE")
+    @builtins.classmethod
     def R6_I_2_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6i.2xlarge.
 
@@ -2649,6 +2713,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6I_32XLARGE")
+    @builtins.classmethod
     def R6_I_32_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6i.32xlarge.
 
@@ -2658,6 +2723,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6I_4XLARGE")
+    @builtins.classmethod
     def R6_I_4_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6i.4xlarge.
 
@@ -2667,6 +2733,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6I_8XLARGE")
+    @builtins.classmethod
     def R6_I_8_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6i.8xlarge.
 
@@ -2676,6 +2743,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6I_LARGE")
+    @builtins.classmethod
     def R6_I_LARGE(cls) -> "InstanceType":
         '''(experimental) db.r6i.large.
 
@@ -2685,6 +2753,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="R6I_XLARGE")
+    @builtins.classmethod
     def R6_I_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.r6i.xlarge.
 
@@ -2694,6 +2763,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SERVERLESS")
+    @builtins.classmethod
     def SERVERLESS(cls) -> "InstanceType":
         '''(experimental) db.serverless.
 
@@ -2703,6 +2773,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="T3_MEDIUM")
+    @builtins.classmethod
     def T3_MEDIUM(cls) -> "InstanceType":
         '''(experimental) db.t3.medium.
 
@@ -2712,6 +2783,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="T4G_MEDIUM")
+    @builtins.classmethod
     def T4_G_MEDIUM(cls) -> "InstanceType":
         '''(experimental) db.t4g.medium.
 
@@ -2721,6 +2793,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2G_12XLARGE")
+    @builtins.classmethod
     def X2_G_12_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2g.12xlarge.
 
@@ -2730,6 +2803,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2G_16XLARGE")
+    @builtins.classmethod
     def X2_G_16_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2g.16xlarge.
 
@@ -2739,6 +2813,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2G_2XLARGE")
+    @builtins.classmethod
     def X2_G_2_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2g.2xlarge.
 
@@ -2748,6 +2823,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2G_4XLARGE")
+    @builtins.classmethod
     def X2_G_4_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2g.4xlarge.
 
@@ -2757,6 +2833,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2G_8XLARGE")
+    @builtins.classmethod
     def X2_G_8_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2g.8xlarge.
 
@@ -2766,6 +2843,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2G_LARGE")
+    @builtins.classmethod
     def X2_G_LARGE(cls) -> "InstanceType":
         '''(experimental) db.x2g.large.
 
@@ -2775,6 +2853,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2G_XLARGE")
+    @builtins.classmethod
     def X2_G_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2g.xlarge.
 
@@ -2784,6 +2863,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2IEDN_16XLARGE")
+    @builtins.classmethod
     def X2_IEDN_16_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2iedn.16xlarge.
 
@@ -2793,6 +2873,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2IEDN_24XLARGE")
+    @builtins.classmethod
     def X2_IEDN_24_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2iedn.24xlarge.
 
@@ -2802,6 +2883,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2IEDN_2XLARGE")
+    @builtins.classmethod
     def X2_IEDN_2_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2iedn.2xlarge.
 
@@ -2811,6 +2893,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2IEDN_32XLARGE")
+    @builtins.classmethod
     def X2_IEDN_32_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2iedn.32xlarge.
 
@@ -2820,6 +2903,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2IEDN_4XLARGE")
+    @builtins.classmethod
     def X2_IEDN_4_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2iedn.4xlarge.
 
@@ -2829,6 +2913,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2IEDN_8XLARGE")
+    @builtins.classmethod
     def X2_IEDN_8_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2iedn.8xlarge.
 
@@ -2838,6 +2923,7 @@ class InstanceType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="X2IEDN_XLARGE")
+    @builtins.classmethod
     def X2_IEDN_XLARGE(cls) -> "InstanceType":
         '''(experimental) db.x2iedn.xlarge.
 
@@ -2889,6 +2975,7 @@ class LogType(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-neptune-alpha.Log
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUDIT")
+    @builtins.classmethod
     def AUDIT(cls) -> "LogType":
         '''(experimental) Audit logs.
 
@@ -3001,6 +3088,7 @@ class ParameterGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -3050,6 +3138,7 @@ class ParameterGroupFamily(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NEPTUNE_1")
+    @builtins.classmethod
     def NEPTUNE_1(cls) -> "ParameterGroupFamily":
         '''(experimental) Family used by Neptune engine versions before 1.2.0.0.
 
@@ -3059,6 +3148,7 @@ class ParameterGroupFamily(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NEPTUNE_1_2")
+    @builtins.classmethod
     def NEPTUNE_1_2(cls) -> "ParameterGroupFamily":
         '''(experimental) Family used by Neptune engine versions 1.2.0.0 and later.
 
@@ -3068,6 +3158,7 @@ class ParameterGroupFamily(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NEPTUNE_1_3")
+    @builtins.classmethod
     def NEPTUNE_1_3(cls) -> "ParameterGroupFamily":
         '''(experimental) Family used by Neptune engine versions 1.3.0.0 and later.
 
@@ -3077,6 +3168,7 @@ class ParameterGroupFamily(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NEPTUNE_1_4")
+    @builtins.classmethod
     def NEPTUNE_1_4(cls) -> "ParameterGroupFamily":
         '''(experimental) Family used by Neptune engine versions 1.4.0.0 and later.
 
@@ -3386,6 +3478,7 @@ class SubnetGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -3647,6 +3740,7 @@ class ClusterParameterGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -3985,7 +4079,7 @@ class _DatabaseClusterBaseProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__721a33f2ac63870200aa60d71041dcd33751127df12a3b68bf3565830bbd1b57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableIamAuthentication", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableIamAuthentication", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, DatabaseClusterBase).__jsii_proxy_class__ = lambda : _DatabaseClusterBaseProxy
@@ -4357,6 +4451,7 @@ class DatabaseCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_NUM_INSTANCES")
+    @builtins.classmethod
     def DEFAULT_NUM_INSTANCES(cls) -> jsii.Number:
         '''(experimental) The default number of instances in the Neptune cluster if none are specified.
 
@@ -4366,6 +4461,7 @@ class DatabaseCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -4480,7 +4576,7 @@ class DatabaseCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__30d9003769fe67f506e5eef4e086e1d675631fe9c2aebbbbd03a81c06c10d5f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableIamAuthentication", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableIamAuthentication", value)
 
 
 @jsii.implements(IDatabaseInstance)
@@ -4547,6 +4643,7 @@ class DatabaseInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 

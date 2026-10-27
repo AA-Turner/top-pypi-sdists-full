@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nidaqmx
-Version: 1.6.0
+Version: 1.7.0
 Summary: Official NI-DAQmx Python API
 License: MIT
 Keywords: nidaqmx,nidaq,daqmx,daq
@@ -34,6 +34,7 @@ Requires-Dist: grpcio (>=1.49.0,<2.0) ; extra == "grpc"
 Requires-Dist: hightime (>=0.2.2)
 Requires-Dist: ni-grpcdevice-v1-proto (>=1.0.0) ; extra == "grpc"
 Requires-Dist: ni-protobuf-types (>=1.0.0) ; extra == "grpc"
+Requires-Dist: nitlsconfig[grpc] (>=1.0.0a4) ; extra == "grpc"
 Requires-Dist: nitypes (>=1.0.1)
 Requires-Dist: numpy (>=1.22) ; python_version >= "3.9" and python_version < "3.13"
 Requires-Dist: numpy (>=2.1) ; python_version >= "3.13" and python_version < "4.0"
@@ -178,6 +179,10 @@ check out the
 `examples directory in the 1.0.0 tag <https://github.com/ni/nidaqmx-python/tree/1.0.0/examples>`_.
 Newer examples may demonstrate features that are not available in older versions
 of **nidaqmx**.
+
+You can use tools such as ``pipx`` or ``uv`` to automatically install the
+required dependencies for an ``nidaqmx`` example program and run it. For
+example: ``pipx run voltage_sample.py`` or ``uv run voltage_sample.py``.
 
 Key Concepts in NI-DAQmx
 =========================

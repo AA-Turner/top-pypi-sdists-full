@@ -80,6 +80,7 @@ __all__ = (
     "ExemptionCertificateTypeDef",
     "FranceAdditionalInfoTypeDef",
     "GeorgiaAdditionalInfoTypeDef",
+    "GermanyAdditionalInfoTypeDef",
     "GetTaxExemptionTypesResponseTypeDef",
     "GetTaxInheritanceResponseTypeDef",
     "GetTaxRegistrationDocumentRequestTypeDef",
@@ -105,6 +106,7 @@ __all__ = (
     "MalaysiaAdditionalInfoOutputTypeDef",
     "MalaysiaAdditionalInfoTypeDef",
     "MalaysiaAdditionalInfoUnionTypeDef",
+    "MexicoAdditionalInfoTypeDef",
     "MonacoAdditionalInfoTypeDef",
     "PaginatorConfigTypeDef",
     "PhilippinesAdditionalInfoTypeDef",
@@ -198,6 +200,11 @@ class GeorgiaAdditionalInfoTypeDef(TypedDict):
     personType: PersonTypeType
 
 
+class GermanyAdditionalInfoTypeDef(TypedDict):
+    economicIdentificationNumber: NotRequired[str]
+    steuernummer: NotRequired[str]
+
+
 class GreeceAdditionalInfoTypeDef(TypedDict):
     contractingAuthorityCode: NotRequired[str]
 
@@ -223,6 +230,12 @@ class ItalyAdditionalInfoTypeDef(TypedDict):
 
 class KenyaAdditionalInfoTypeDef(TypedDict):
     personType: PersonTypeType
+
+
+class MexicoAdditionalInfoTypeDef(TypedDict):
+    taxRegime: NotRequired[str]
+    taxRegimeFullName: NotRequired[str]
+    cfdiUsageCode: NotRequired[str]
 
 
 class MonacoAdditionalInfoTypeDef(TypedDict):
@@ -440,6 +453,8 @@ class AdditionalInfoResponseTypeDef(TypedDict):
     chileAdditionalInfo: NotRequired[ChileAdditionalInfoTypeDef]
     franceAdditionalInfo: NotRequired[FranceAdditionalInfoTypeDef]
     monacoAdditionalInfo: NotRequired[MonacoAdditionalInfoTypeDef]
+    germanyAdditionalInfo: NotRequired[GermanyAdditionalInfoTypeDef]
+    mexicoAdditionalInfo: NotRequired[MexicoAdditionalInfoTypeDef]
 
 
 class TaxExemptionTypeTypeDef(TypedDict):
@@ -603,6 +618,8 @@ class AdditionalInfoRequestTypeDef(TypedDict):
     chileAdditionalInfo: NotRequired[ChileAdditionalInfoTypeDef]
     franceAdditionalInfo: NotRequired[FranceAdditionalInfoTypeDef]
     monacoAdditionalInfo: NotRequired[MonacoAdditionalInfoTypeDef]
+    germanyAdditionalInfo: NotRequired[GermanyAdditionalInfoTypeDef]
+    mexicoAdditionalInfo: NotRequired[MexicoAdditionalInfoTypeDef]
 
 
 class GetTaxRegistrationResponseTypeDef(TypedDict):

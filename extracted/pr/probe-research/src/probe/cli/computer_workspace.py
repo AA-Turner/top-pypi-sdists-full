@@ -141,12 +141,18 @@ def _create(client, *, default_name: str) -> dict | None:
         raise
 
 
-def _pin(row: dict, *, pinned: str | None) -> None:
+def _pin(row: dict, *, pinned: str | None, reset_project: bool = False) -> None:
     from probe.sdk.config import save_context
+    from probe.cli import workspace_limit_cmd
 
-    if pinned == str(row["id"]):
+    refused = workspace_limit_cmd.refusal_for_pin_move(str(row["id"]), what="this computer's workspace")
+    if refused:
+        raise ValueError(refused)
+    if row.get("writable") is False:
+        raise ValueError("Choose a workspace you can write to.")
+    if pinned == str(row["id"]) and not reset_project:
         return  # already this computer's: keep any active project with it
-    save_context({"workspace": {"id": str(row["id"]), "project": None}})
+    save_context({"workspace": workspace_limit_cmd.keep_limit_keys({"id": str(row["id"]), "project": None})})
 
 
 def _env_note(chosen: dict) -> list[str]:

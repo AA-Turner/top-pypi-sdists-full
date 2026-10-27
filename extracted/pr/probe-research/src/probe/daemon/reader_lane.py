@@ -45,7 +45,7 @@ from probe.daemon import alerts
 from probe.daemon import trace as trace_mod
 from probe.daemon import agent as agent_mod
 from probe.daemon import bite as bite_mod
-from probe.daemon import lease, mailbox, reader_gate, toolset
+from probe.daemon import lease, mailbox, toolset
 from probe.daemon.events import READER_STREAM
 from probe.daemon.events import Kind  # noqa: F401 -- re-exported: the reader tests read `rl.Kind`
 from probe.daemon.store import LANE_READ
@@ -89,10 +89,6 @@ READ_BACKOFF_S = 10.0
 #: The fact naming the events (and ask) a turn answered nothing on once
 #: (`agent.answered_nothing`): the next time on the same ones passes them over.
 READ_NO_ANSWER = "read_no_answer"
-#: Store fact: the last event the reader's gate passed over (ON). The reader's
-#: cursor stays behind it, so its next turn reads those events too; a prompt
-#: before it does not wake the reader again (`ReaderLane.mark`).
-GATE_SEEN = "read_gate_seen"
 READ_BACKOFF_CAP_S = 10 * 60.0
 #: Failed turns in a row before the researcher is told and open asks fail.
 READ_FAILURES_TO_REPORT = 2
@@ -134,7 +130,8 @@ Status = mailbox.Status
 
 
 class Outcome(StrEnum):
-    """How a reader turn ended (`read_turns.outcome`)."""
+    """How a reader turn ended (`read_turns.outcome`). A store an older CLI
+    wrote may also hold `skipped`: its reader gate's call, no reader turn."""
 
     SENT = "sent"
     ANSWERED = "answered"
@@ -142,9 +139,6 @@ class Outcome(StrEnum):
     PROSE = "prose"
     STOPPED = "stopped"
     FAILED = "failed"
-    #: The reader's gate said there was nothing to look at (`reader_gate`, ON):
-    #: no reader turn ran, only the gate's call.
-    SKIPPED = "skipped"
     #: The model route refused the turn's conversation as over its ceiling: the
     #: next turn starts it fresh (not a failure).
     FRESH = "over the ceiling: fresh"
@@ -220,7 +214,7 @@ def _checkins_off() -> bool:
 class ReaderLane:
     """The reader beside the writer, in the writer's process and event loop."""
 
-    def __init__(self, worker: "Worker", *, model=None, gate_model=None) -> None:
+    def __init__(self, worker: "Worker", *, model=None) -> None:
         self.w = worker
         self.store = worker.store
         self.sid = worker.session.session_id
@@ -231,7 +225,6 @@ class ReaderLane:
         self.store.on_read_turn_closed = lambda row: self.trace.end_run(row.pop("turn"), **row)
         self.clock = worker.clock
         self._model = model
-        self._gate_model = gate_model
         self.last_turn_at = float("-inf")
         self.next_attempt_at = 0.0
         self.failures = 0
@@ -304,7 +297,7 @@ class ReaderLane:
             mailbox.sweep(self.sid, now=now)
         trigger = self.due()
         if trigger is not None:
-            await self.wake(trigger)
+            await self.run_turn(trigger)
 
     def take_asks(self) -> None:
         for ask in mailbox.pending_asks(self.sid):
@@ -363,55 +356,32 @@ class ReaderLane:
     def cursor(self) -> int:
         return int(self.store.fact("read_cursor") or 0)
 
-    def mark(self) -> int:
-        """Where the next wake looks from: the cursor, or -- with the gate ON --
-        the last event the gate passed over, if that is later."""
-        from probe.daemon import model as model_mod
-
-        if model_mod.reader_gate_mode() == model_mod.GateMode.ON:
-            return max(self.cursor(), int(self.store.fact(GATE_SEEN) or 0))
-        return self.cursor()
-
-    def new_events(self, after: int | None = None) -> list:
-        """The events after the cursor (or `after`), at most READ_MAX_EVENTS and
-        about READ_MAX_CHARS as rendered (at least one): one window, oldest first."""
+    def new_events(self) -> list:
+        """The events after the cursor, at most READ_MAX_EVENTS and about
+        READ_MAX_CHARS as rendered (at least one): one window, oldest first."""
         out, used = [], 0
-        for ev in self.store.events_after(self.cursor() if after is None else after, READ_MAX_EVENTS):
+        for ev in self.store.events_after(self.cursor(), READ_MAX_EVENTS):
             used += bite_mod.reader_shown_chars(ev)
             if out and used > READ_MAX_CHARS:
                 break
             out.append(ev)
         return out
 
-    def next_window(self, after: int | None = None) -> list:
-        """The window a look reads after `after` (default the cursor). While a
-        prompt wakes the reader, the OLDEST (`new_events`): prompt turns read their
-        way through a backlog turn by turn. With prompt wakes off (Probe hints own
-        prompt time, `model.reader_prompt_wake`) nothing drains a backlog that way,
-        so the NEWEST, and the older unread events drop off when the cursor passes
-        them (as `_trim_backlog` after a gate's skip): a check-in, a gate's look
-        or an answer to an ask is about the work now, never hours behind."""
+    def next_window(self) -> list:
+        """The window a look reads after the cursor. While a prompt wakes the
+        reader, the OLDEST (`new_events`): prompt turns read their way through a
+        backlog turn by turn. With prompt wakes off (Probe hints own prompt time,
+        `model.reader_prompt_wake`) nothing drains a backlog that way, so the
+        NEWEST, and the older unread events drop off when the cursor passes them:
+        a check-in or an answer to an ask is about the work now, never hours
+        behind."""
         from probe.daemon import model as model_mod
 
-        start = self.cursor() if after is None else after
         # The window hints' check-ins (`_checkins_off`) drain no backlog either.
         if model_mod.reader_prompt_wake() and not _checkins_off():
-            return self.new_events(start)
+            return self.new_events()
         out, used = [], 0
-        for ev in reversed(self.store.events_upto(start, self.store.newest_seq(), READ_MAX_EVENTS)):
-            used += bite_mod.reader_shown_chars(ev)
-            if out and used > READ_MAX_CHARS:
-                break
-            out.append(ev)
-        return out[::-1]
-
-    def window_to(self, last: int) -> list:
-        """The newest events up to `last` after the cursor, as many as one turn
-        shows (READ_MAX_EVENTS, about READ_MAX_CHARS), oldest first: what a turn
-        after a gate's look reads -- the gate's own window, and as much of the
-        skipped backlog before it as still fits."""
-        out, used = [], 0
-        for ev in reversed(self.store.events_upto(self.cursor(), last, READ_MAX_EVENTS)):
+        for ev in reversed(self.store.events_upto(self.cursor(), self.store.newest_seq(), READ_MAX_EVENTS)):
             used += bite_mod.reader_shown_chars(ev)
             if out and used > READ_MAX_CHARS:
                 break
@@ -428,17 +398,10 @@ class ReaderLane:
             # judgment moves this cursor to the current turn (`Worker._catch_up`).
             # An ask is answered meanwhile, on no events (`run_turn`).
             return None
-        paused = getattr(self.w, "paused", None)
-        if paused is not None and paused():
-            # The ML gate paused the daemon (not ML work): no unasked turn. The
-            # cursor follows the current turn's start, so an ask -- or the end of
-            # the pause -- reads this turn, never the paused backlog.
-            self._skip_to_turn_start()
-            return None
         # One row, not the whole backlog. Its own messages (the `reader` stream) are
         # context for its next turn, never a reason for one.
-        mark = self.mark()
-        if not self.store.has_events_after(mark, other_than=READER_STREAM):
+        cursor = self.cursor()
+        if not self.store.has_events_after(cursor, other_than=READER_STREAM):
             return None
         # Anywhere in the backlog: a prompt past the first READ_MAX_EVENTS still wakes
         # the reader, which then reads its way to it turn by turn. With prompt wakes
@@ -446,7 +409,7 @@ class ReaderLane:
         # events wake below, as any others do.
         from probe.daemon import model as model_mod
 
-        if model_mod.reader_prompt_wake() and self.store.has_prompt_after(mark, new=True):
+        if model_mod.reader_prompt_wake() and self.store.has_prompt_after(cursor, new=True):
             return "prompt"
         if READ_EVERY_S > 0 and self.clock() - self.last_turn_at >= READ_EVERY_S:
             # Where the Probe service's window hints work for this session they
@@ -461,71 +424,6 @@ class ReaderLane:
     def _catching_up(self) -> bool:
         catching_up = getattr(self.w, "catching_up", None)
         return catching_up is not None and catching_up()
-
-    def _skip_to_turn_start(self) -> None:
-        start = self.store.first_seq_of_turn(self.store.current_turn())
-        if start is not None and start - 1 > self.cursor():
-            with self.store.tx():
-                self.store.set_fact("read_cursor", start - 1)
-
-    # -- the gate (daemon cost round 4, D) --------------------------------------
-    async def wake(self, trigger: str) -> TurnResult:
-        """A turn is due. An ask, or the gate OFF: the reader's turn. Else the
-        gate decides first: SHADOW records its verdict and the reader looks
-        anyway; ON skips the turn on a skip. A failed gate is a look."""
-        from probe.daemon import model as model_mod
-        from probe.daemon import worker as worker_mod
-
-        mode = model_mod.reader_gate_mode()
-        if mode == model_mod.GateMode.OFF or self.store.waiting_read_asks():
-            return await self.run_turn(trigger)
-        # The gate reads the next window after its mark (`next_window`: the oldest
-        # while prompts wake the reader, so every event is put to it once and none
-        # is passed over unread; the newest when they do not); in SHADOW (mark =
-        # cursor) that is exactly the window the reader turn reads.
-        judged = self.next_window(self.mark())
-        verdict = await reader_gate.decide(self._gate_model_for_turn(), read_session_text(),
-                                           self.build_prompt(judged, None, first=False, with_sent=True))
-        worker_mod._count_device_tokens(verdict.uncached_tokens, LANE_READ)
-        if mode == model_mod.GateMode.ON and not verdict.look and not self.store.waiting_read_asks():
-            return self._skipped(trigger, verdict, judged, str(mode))
-        events = self.window_to(judged[-1].seq) if judged else None
-        return await self.run_turn(trigger, gate=verdict, gate_mode=str(mode), judged=judged, events=events)
-
-    def _gate_model_for_turn(self):
-        if self._gate_model is not None:
-            return self._gate_model
-        from probe.daemon import model as model_mod
-
-        return model_mod.build(model_mod.endpoint(), model_mod.LANE_GATE)
-
-    def _skipped(self, trigger: str, verdict: "reader_gate.Verdict", events: list, mode: str) -> TurnResult:
-        """ON, and the gate said skip: a SKIPPED turn that cost the gate's call.
-        The cursor stays (the next turn reads these events too), the gate's mark
-        moves past them, and the unread backlog keeps to one turn's window."""
-        first, last = (events[0].seq, events[-1].seq) if events else (None, self.mark())
-        with self.store.tx():
-            turn_id = self.store.open_read_turn(trigger, None, first, last)
-        self.trace.start_run(turn_id, trigger=trigger, ask=None, history_messages=0, events=[first, last],
-                             gate=str(verdict.decision))
-        self.trace.write(verdict.trace_line([first, last], mode))
-        with self.store.tx():
-            self.store.set_fact(GATE_SEEN, last)
-            self._trim_backlog(last)
-            self.store.close_read_turn(turn_id, outcome=Outcome.SKIPPED, error=verdict.why or None, rounds=0,
-                                       **verdict.spent())
-        self.last_turn_at = self.clock()
-        self.next_attempt_at = 0.0
-        return TurnResult(Outcome.SKIPPED)
-
-    def _trim_backlog(self, upto: int) -> None:
-        """Inside a transaction: the events the gate passed over stay unread for
-        the reader's next turn, but no more than one turn shows -- the oldest drop
-        off (the cursor moves), the newest stay. Every one of them was put to the
-        gate first."""
-        kept = self.window_to(upto)
-        if kept and kept[0].seq - 1 > self.cursor():
-            self.store.set_fact("read_cursor", kept[0].seq - 1)
 
     # -- a turn -----------------------------------------------------------------
     def _fingerprint(self, instructions: str) -> str:
@@ -549,12 +447,10 @@ class ReaderLane:
             "</agent-memory-index>"
             for path, text in memory_mod.agent_memory_index(self.w._memory_index()))
 
-    def build_prompt(self, events: list, question: str | None, *, first: bool, with_sent: bool = False) -> str:
-        """`with_sent` alone (the gate's prompt): what was already sent, without
-        the memory index."""
+    def build_prompt(self, events: list, question: str | None, *, first: bool) -> str:
         parts = []
-        if first or with_sent:
-            head = self.memory_block() if first else ""
+        if first:
+            head = self.memory_block()
             if head:
                 parts.append(head)
             sent = self.store.sent_read_texts((mailbox.Kind.MESSAGE, mailbox.Kind.ANSWER), SENT_SHOWN)
@@ -607,11 +503,8 @@ class ReaderLane:
             conv = self.store.start_read_conversation(instructions, fingerprint)
         return conv, None
 
-    async def run_turn(self, trigger: str, *, gate: "reader_gate.Verdict | None" = None,
-                       gate_mode: str | None = None, judged: list | None = None,
-                       events: list | None = None) -> TurnResult:
-        """One reader turn over `events` (default: the next window after the
-        cursor). `gate`: the verdict on `judged`, recorded on the turn."""
+    async def run_turn(self, trigger: str) -> TurnResult:
+        """One reader turn over the next window after the cursor (`next_window`)."""
         from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
         from pydantic_ai.messages import ModelResponse, TextPart
         from pydantic_ai.usage import UsageLimits
@@ -622,10 +515,9 @@ class ReaderLane:
 
         asks = self.store.waiting_read_asks()
         ask = asks[0] if asks else None
-        if events is None:
-            # An ask while the first worker still reads the session's history: answered
-            # on no events, the cursor where it is (the history is judged first).
-            events = [] if self._catching_up() else self.next_window()
+        # An ask while the first worker still reads the session's history: answered
+        # on no events, the cursor where it is (the history is judged first).
+        events = [] if self._catching_up() else self.next_window()
         instructions = read_session_text()
         fingerprint = self._fingerprint(instructions)
         size = agent_mod.read_context_tokens()
@@ -659,15 +551,8 @@ class ReaderLane:
                                       trace=self.trace)
         self.trace.start_run(turn_id, trigger=trigger, ask=ask["id"] if ask else None,
                              history_messages=len(history or []), fresh=why_fresh,
-                             events=[events[0].seq if events else None, last_seq],
-                             gate=str(gate.decision) if gate is not None else None)
-        # The gate's call is part of what this wake cost.
-        spent = gate.spent() if gate is not None else {"input_tokens": 0, "cached_tokens": 0, "output_tokens": 0,
-                                                       "usd": 0.0}
-        if gate is not None:
-            judged = judged or []
-            self.trace.write(gate.trace_line([judged[0].seq if judged else None,
-                                              judged[-1].seq if judged else None], gate_mode or ""))
+                             events=[events[0].seq if events else None, last_seq])
+        spent = {"input_tokens": 0, "cached_tokens": 0, "output_tokens": 0, "usd": 0.0}
 
         def on_round(response: Any) -> None:
             u = response.usage

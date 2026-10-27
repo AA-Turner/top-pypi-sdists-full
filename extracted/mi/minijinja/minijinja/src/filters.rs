@@ -327,6 +327,17 @@ mod builtins {
         })
     }
 
+    fn fold_case(s: &str) -> String {
+        #[cfg(feature = "unicode")]
+        {
+            s.to_lowercase()
+        }
+        #[cfg(not(feature = "unicode"))]
+        {
+            s.to_ascii_lowercase()
+        }
+    }
+
     fn cmp_helper(a: &Value, b: &Value, case_sensitive: bool, reverse: bool) -> Ordering {
         let ordering = if !case_sensitive {
             if let (Some(a), Some(b)) = (a.as_str(), b.as_str()) {
@@ -487,14 +498,21 @@ mod builtins {
 
     /// Joins a sequence by a character
     ///
+    /// The separator is passed as the first argument or as `d`.  The
+    /// `attribute` argument can be set to an attribute or dotted path to
+    /// join that attribute of the items instead of the items themselves.
+    ///
     /// ```jinja
     /// {{ "Foo Bar Baz" | join(", ") }} -> foo, bar, baz
+    /// {{ users|join(", ", attribute="username") }}
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
     pub fn join(
         state: &mut State,
         value: &Value,
         joiner: Option<StringInput<'_>>,
+        attribute: Option<&str>,
+        kwargs: Kwargs,
     ) -> Result<Value, Error> {
         fn join_plain(iter: impl Iterator<Item = Value>, joiner: &str) -> Result<String, Error> {
             let mut output = String::new();
@@ -532,6 +550,16 @@ mod builtins {
             Ok(output)
         }
 
+        let joiner = match joiner {
+            Some(joiner) => Some(joiner),
+            None => ok!(kwargs.get::<Option<StringInput<'_>>>("d")),
+        };
+        let attribute = match attribute {
+            Some(attribute) => Some(attribute),
+            None => ok!(kwargs.get::<Option<&str>>("attribute")),
+        };
+        ok!(kwargs.assert_all_used());
+
         let joiner_str = joiner.as_ref().map(StringInput::as_str).unwrap_or_default();
         let iter = ok!(value.try_iter().map_err(|err| {
             Error::new(
@@ -540,6 +568,7 @@ mod builtins {
             )
             .with_source(err)
         }));
+        let iter = iter.map(|item| map_attribute(item, attribute));
 
         if matches!(state.auto_escape(), AutoEscape::None) {
             return Ok(Value::from(ok!(join_plain(iter, joiner_str))));
@@ -827,18 +856,43 @@ mod builtins {
 
     /// Sums up all the values in a sequence.
     ///
+    /// The filter accepts two arguments, positionally or by keyword:
+    ///
+    /// * `attribute`: can be set to an attribute or dotted path to sum up
+    ///   that attribute of the items.  Items without it are skipped.
+    /// * `start`: the value to start from (defaults to `0`).  Like in Jinja2
+    ///   this can also be a list to concatenate lists.
+    ///
     /// ```jinja
     /// {{ range(10)|sum }} -> 45
+    /// {{ range(10)|sum(start=10) }} -> 55
+    /// {{ items|sum(attribute="price") }}
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
-    pub fn sum(state: &State, values: Value) -> Result<Value, Error> {
-        let mut rv = Value::from(0);
+    pub fn sum(
+        state: &State,
+        values: Value,
+        attribute: Option<&str>,
+        start: Option<Value>,
+        kwargs: Kwargs,
+    ) -> Result<Value, Error> {
+        let attribute = match attribute {
+            Some(attribute) => Some(attribute),
+            None => ok!(kwargs.get::<Option<&str>>("attribute")),
+        };
+        let start = match start {
+            Some(start) => start,
+            None => ok!(kwargs.get::<Option<Value>>("start")).unwrap_or(Value::from(0)),
+        };
+        ok!(kwargs.assert_all_used());
+
+        let mut rv = start;
         let iter = ok!(state.undefined_behavior().try_iter(values));
-        for value in iter {
+        for value in iter.map(|item| map_attribute(item, attribute)) {
             ok!(value.check());
             if value.is_undefined() {
                 continue;
-            } else if !value.is_number() && value.kind() != ValueKind::Bool {
+            } else if rv.is_number() && !value.is_number() && value.kind() != ValueKind::Bool {
                 return Err(Error::new(
                     ErrorKind::InvalidOperation,
                     format!("can only sum numbers, got {}", value.kind()),
@@ -848,6 +902,15 @@ mod builtins {
         }
 
         Ok(rv)
+    }
+
+    /// Replaces an item with its attribute.  Invalid items are kept so that
+    /// their error is reported.
+    fn map_attribute(item: Value, attribute: Option<&str>) -> Value {
+        match attribute {
+            Some(attr) if item.check().is_ok() => item.get_path_or_default(attr, &Value::UNDEFINED),
+            _ => item,
+        }
     }
 
     /// Looks up an attribute.
@@ -1236,14 +1299,8 @@ mod builtins {
         if let Some(attr) = ok!(kwargs.get::<Option<&str>>("attribute")) {
             let keys: Vec<_> = attr
                 .split(',')
-                .filter_map(|key| {
-                    let trimmed = key.trim();
-                    if !key.is_empty() {
-                        Some(trimmed)
-                    } else {
-                        None
-                    }
-                })
+                .map(str::trim)
+                .filter(|key| !key.is_empty())
                 .collect();
 
             let mut keyed: Vec<_> = if keys.len() > 1 {
@@ -1251,10 +1308,15 @@ mod builtins {
                 items
                     .into_iter()
                     .map(|item| {
-                        let key = Value::from_iter(
-                            keys.iter()
-                                .map(|k| item.get_path_or_default(k, &Value::UNDEFINED)),
-                        );
+                        // Like in Jinja2, the parts of the key are compared
+                        // case insensitively unless case_sensitive is set.
+                        let key = Value::from_iter(keys.iter().map(|k| {
+                            let part = item.get_path_or_default(k, &Value::UNDEFINED);
+                            match part.as_str() {
+                                Some(s) if !case_sensitive => Value::from(fold_case(s)),
+                                _ => part,
+                            }
+                        }));
                         (Some(key), item)
                     })
                     .collect()

@@ -19,8 +19,8 @@ def clear_all_caches():
     """Clear all caches before the stress test."""
     from lib_log_rich.adapters import dump, scrubber
     from lib_log_rich.adapters.console import rich_console
-    from lib_log_rich.domain import analytics, levels
     from lib_log_rich.domain import dump as domain_dump
+    from lib_log_rich.domain import levels
     from lib_log_rich.runtime.settings import resolvers
 
     caches_to_clear = [
@@ -29,12 +29,9 @@ def clear_all_caches():
         scrubber.RegexScrubber._normalise_key,
         rich_console._resolve_template,
         dump._resolve_preset,
-        dump._resolve_theme_styles,
         domain_dump.DumpFormat.from_name,
-        dump._load_console_themes,
         resolvers.parse_console_styles,
         resolvers.parse_scrub_patterns,
-        analytics.SeverityMonitor._normalise_reason,
     ]
 
     for cache_func in caches_to_clear:
@@ -46,8 +43,8 @@ def get_cache_snapshot():
     """Get current cache statistics."""
     from lib_log_rich.adapters import dump, scrubber
     from lib_log_rich.adapters.console import rich_console
-    from lib_log_rich.domain import analytics, levels
     from lib_log_rich.domain import dump as domain_dump
+    from lib_log_rich.domain import levels
     from lib_log_rich.runtime.settings import resolvers
 
     stats = {}
@@ -58,12 +55,9 @@ def get_cache_snapshot():
         "RegexScrubber._normalise_key": scrubber.RegexScrubber._normalise_key,
         "_resolve_template": rich_console._resolve_template,
         "_resolve_preset": dump._resolve_preset,
-        "_resolve_theme_styles": dump._resolve_theme_styles,
         "DumpFormat.from_name": domain_dump.DumpFormat.from_name,
-        "_load_console_themes": dump._load_console_themes,
         "parse_console_styles": resolvers.parse_console_styles,
         "parse_scrub_patterns": resolvers.parse_scrub_patterns,
-        "SeverityMonitor._normalise_reason": analytics.SeverityMonitor._normalise_reason,
     }
 
     for name, func in cache_functions.items():

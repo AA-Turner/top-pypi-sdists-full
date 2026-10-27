@@ -144,6 +144,7 @@ from .literals import (
     GlobalConfigurationOutputLockingModeType,
     GlobalConfigurationOutputTimingSourceType,
     H264AdaptiveQuantizationType,
+    H264AllowExplicitWeightedPredictionType,
     H264ColorMetadataType,
     H264EntropyEncodingType,
     H264FlickerAqType,
@@ -299,6 +300,7 @@ from .literals import (
     NodeRoleType,
     NodeStateType,
     OutputUsageType,
+    PerceptualFilterStrengthType,
     PipelineIdType,
     PipelineLockingMethodType,
     PreferredChannelPipelineType,
@@ -427,6 +429,8 @@ __all__ = (
     "AutomaticInputFailoverSettingsUnionTypeDef",
     "Av1ColorSpaceSettingsOutputTypeDef",
     "Av1ColorSpaceSettingsTypeDef",
+    "Av1FilterSettingsOutputTypeDef",
+    "Av1FilterSettingsTypeDef",
     "Av1SettingsOutputTypeDef",
     "Av1SettingsTypeDef",
     "AvailBlankingTypeDef",
@@ -662,11 +666,13 @@ __all__ = (
     "GlobalConfigurationTypeDef",
     "H264ColorSpaceSettingsOutputTypeDef",
     "H264ColorSpaceSettingsTypeDef",
+    "H264FilterSettingsOutputTypeDef",
     "H264FilterSettingsTypeDef",
     "H264SettingsOutputTypeDef",
     "H264SettingsTypeDef",
     "H265ColorSpaceSettingsOutputTypeDef",
     "H265ColorSpaceSettingsTypeDef",
+    "H265FilterSettingsOutputTypeDef",
     "H265FilterSettingsTypeDef",
     "H265SettingsOutputTypeDef",
     "H265SettingsTypeDef",
@@ -904,6 +910,7 @@ __all__ = (
     "PauseStateScheduleActionSettingsOutputTypeDef",
     "PauseStateScheduleActionSettingsTypeDef",
     "PauseStateScheduleActionSettingsUnionTypeDef",
+    "PerceptualFilterSettingsTypeDef",
     "PipelineDetailTypeDef",
     "PipelineLockingSettingsTypeDef",
     "PipelinePauseStateSettingsTypeDef",
@@ -1228,6 +1235,10 @@ class AudioSilenceFailoverSettingsTypeDef(TypedDict):
 class Hdr10SettingsTypeDef(TypedDict):
     MaxCll: NotRequired[int]
     MaxFall: NotRequired[int]
+
+
+class PerceptualFilterSettingsTypeDef(TypedDict):
+    Strength: PerceptualFilterStrengthType
 
 
 class TimecodeBurninSettingsTypeDef(TypedDict):
@@ -3179,6 +3190,18 @@ class VideoSelectorColorSpaceSettingsTypeDef(TypedDict):
     Hdr10Settings: NotRequired[Hdr10SettingsTypeDef]
 
 
+class Av1FilterSettingsOutputTypeDef(TypedDict):
+    AutoFilterSettings: NotRequired[dict[str, Any]]
+    NoneFilterSettings: NotRequired[dict[str, Any]]
+    PerceptualFilterSettings: NotRequired[PerceptualFilterSettingsTypeDef]
+
+
+class Av1FilterSettingsTypeDef(TypedDict):
+    AutoFilterSettings: NotRequired[Mapping[str, Any]]
+    NoneFilterSettings: NotRequired[Mapping[str, Any]]
+    PerceptualFilterSettings: NotRequired[PerceptualFilterSettingsTypeDef]
+
+
 class FrameCaptureSettingsTypeDef(TypedDict):
     CaptureInterval: NotRequired[int]
     CaptureIntervalUnits: NotRequired[FrameCaptureIntervalUnitType]
@@ -4214,14 +4237,36 @@ class FrameCaptureCdnSettingsTypeDef(TypedDict):
     FrameCaptureS3Settings: NotRequired[FrameCaptureS3SettingsTypeDef]
 
 
+class H264FilterSettingsOutputTypeDef(TypedDict):
+    TemporalFilterSettings: NotRequired[TemporalFilterSettingsTypeDef]
+    BandwidthReductionFilterSettings: NotRequired[BandwidthReductionFilterSettingsTypeDef]
+    AutoFilterSettings: NotRequired[dict[str, Any]]
+    NoneFilterSettings: NotRequired[dict[str, Any]]
+    PerceptualFilterSettings: NotRequired[PerceptualFilterSettingsTypeDef]
+
+
 class H264FilterSettingsTypeDef(TypedDict):
     TemporalFilterSettings: NotRequired[TemporalFilterSettingsTypeDef]
     BandwidthReductionFilterSettings: NotRequired[BandwidthReductionFilterSettingsTypeDef]
+    AutoFilterSettings: NotRequired[Mapping[str, Any]]
+    NoneFilterSettings: NotRequired[Mapping[str, Any]]
+    PerceptualFilterSettings: NotRequired[PerceptualFilterSettingsTypeDef]
+
+
+class H265FilterSettingsOutputTypeDef(TypedDict):
+    TemporalFilterSettings: NotRequired[TemporalFilterSettingsTypeDef]
+    BandwidthReductionFilterSettings: NotRequired[BandwidthReductionFilterSettingsTypeDef]
+    AutoFilterSettings: NotRequired[dict[str, Any]]
+    NoneFilterSettings: NotRequired[dict[str, Any]]
+    PerceptualFilterSettings: NotRequired[PerceptualFilterSettingsTypeDef]
 
 
 class H265FilterSettingsTypeDef(TypedDict):
     TemporalFilterSettings: NotRequired[TemporalFilterSettingsTypeDef]
     BandwidthReductionFilterSettings: NotRequired[BandwidthReductionFilterSettingsTypeDef]
+    AutoFilterSettings: NotRequired[Mapping[str, Any]]
+    NoneFilterSettings: NotRequired[Mapping[str, Any]]
+    PerceptualFilterSettings: NotRequired[PerceptualFilterSettingsTypeDef]
 
 
 class Mpeg2FilterSettingsTypeDef(TypedDict):
@@ -4637,6 +4682,7 @@ class Av1SettingsOutputTypeDef(TypedDict):
     TemporalAq: NotRequired[Av1TemporalAqType]
     TimecodeInsertion: NotRequired[Av1TimecodeInsertionBehaviorType]
     BitDepth: NotRequired[Av1BitDepthType]
+    FilterSettings: NotRequired[Av1FilterSettingsOutputTypeDef]
 
 
 class Av1SettingsTypeDef(TypedDict):
@@ -4664,6 +4710,7 @@ class Av1SettingsTypeDef(TypedDict):
     TemporalAq: NotRequired[Av1TemporalAqType]
     TimecodeInsertion: NotRequired[Av1TimecodeInsertionBehaviorType]
     BitDepth: NotRequired[Av1BitDepthType]
+    FilterSettings: NotRequired[Av1FilterSettingsTypeDef]
 
 
 class AvailConfigurationTypeDef(TypedDict):
@@ -4857,7 +4904,7 @@ class H264SettingsOutputTypeDef(TypedDict):
     ColorMetadata: NotRequired[H264ColorMetadataType]
     ColorSpaceSettings: NotRequired[H264ColorSpaceSettingsOutputTypeDef]
     EntropyEncoding: NotRequired[H264EntropyEncodingType]
-    FilterSettings: NotRequired[H264FilterSettingsTypeDef]
+    FilterSettings: NotRequired[H264FilterSettingsOutputTypeDef]
     FixedAfd: NotRequired[FixedAfdType]
     FlickerAq: NotRequired[H264FlickerAqType]
     ForceFieldPictures: NotRequired[H264ForceFieldPicturesType]
@@ -4893,6 +4940,7 @@ class H264SettingsOutputTypeDef(TypedDict):
     TimecodeBurninSettings: NotRequired[TimecodeBurninSettingsTypeDef]
     MinQp: NotRequired[int]
     MinBitrate: NotRequired[int]
+    AllowExplicitWeightedPrediction: NotRequired[H264AllowExplicitWeightedPredictionType]
 
 
 class H264SettingsTypeDef(TypedDict):
@@ -4940,6 +4988,7 @@ class H264SettingsTypeDef(TypedDict):
     TimecodeBurninSettings: NotRequired[TimecodeBurninSettingsTypeDef]
     MinQp: NotRequired[int]
     MinBitrate: NotRequired[int]
+    AllowExplicitWeightedPrediction: NotRequired[H264AllowExplicitWeightedPredictionType]
 
 
 class H265SettingsOutputTypeDef(TypedDict):
@@ -4952,7 +5001,7 @@ class H265SettingsOutputTypeDef(TypedDict):
     BufSize: NotRequired[int]
     ColorMetadata: NotRequired[H265ColorMetadataType]
     ColorSpaceSettings: NotRequired[H265ColorSpaceSettingsOutputTypeDef]
-    FilterSettings: NotRequired[H265FilterSettingsTypeDef]
+    FilterSettings: NotRequired[H265FilterSettingsOutputTypeDef]
     FixedAfd: NotRequired[FixedAfdType]
     FlickerAq: NotRequired[H265FlickerAqType]
     GopClosedCadence: NotRequired[int]

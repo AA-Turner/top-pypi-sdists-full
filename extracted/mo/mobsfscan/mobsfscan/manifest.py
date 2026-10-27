@@ -1,21 +1,21 @@
 # -*- coding: utf_8 -*-
 """Parse Android manifest, network security config, and resource XML."""
+import json
 import re
 from operator import itemgetter
 from copy import deepcopy
 
 from xmltodict import parse
 
-import requests
-
-from concurrent.futures import ThreadPoolExecutor
-
 from mobsfscan.logger import init_logger
 from mobsfscan.manifest_metadata import metadata
+from mobsfscan.network import (
+    assetlinks_url,
+    fetch_all_assetlinks,
+)
 from mobsfscan.utils import (
     is_number,
     report_path,
-    valid_host,
 )
 
 logger = init_logger(__name__)
@@ -25,6 +25,9 @@ ANDROID_10_0_LEVEL = 29
 SENSITIVE_INPUT_NAME = re.compile(
     r'(?:password|passcode|pin|secret|otp|token)',
     re.IGNORECASE,
+)
+GOOGLE_API_KEY = re.compile(
+    r'(?<![A-Za-z0-9_])AIza[0-9A-Za-z_\-]{35}(?![A-Za-z0-9_])',
 )
 ANDROID_API_LEVEL_MAP = {
     '1': '1.0',
@@ -71,20 +74,33 @@ ANDROID_API_LEVEL_MAP = {
 def scan_manifest(xml_paths, validate_func):
     """Scan android manifest xml."""
     results = []
-    p = None
     for xml_path in xml_paths:
         try:
             if not validate_func(xml_path):
                 continue
-            p = parse(xml_path.read_text())
+            raw = xml_path.read_text(encoding='utf-8', errors='replace')
+        except Exception:
+            logger.warning('Failed to read XML: %s', xml_path)
+            continue
+        reported = report_path(xml_path)
+        findings = []
+        secret_material_checks(findings, reported, raw)
+        try:
+            parsed = parse(raw)
         except Exception:
             logger.warning('Failed to parse XML: %s', xml_path)
-        if p:
-            findings = do_checks(
-                report_path(xml_path), p)
-            if findings:
-                results.extend(findings)
+            parsed = None
+        if parsed:
+            findings.extend(do_checks(reported, parsed))
+        if findings:
+            results.extend(findings)
     return mobsfscan_format(results)
+
+
+def secret_material_checks(findings, xml_path, raw_text):
+    """Flag Google API keys in Android XML."""
+    if GOOGLE_API_KEY.search(raw_text):
+        add_finding(findings, xml_path, 'google_api_key')
 
 
 def mobsfscan_format(results):
@@ -348,6 +364,7 @@ class AppLinksCheck:
     def __init__(self, findings, xml_path):
         self.findings = findings
         self.xml_path = xml_path
+        self.well_knowns = []
 
     def check_in_intents(self, activity):
         """Check for browsable activities in Intents."""
@@ -370,36 +387,34 @@ class AppLinksCheck:
             elif isinstance(activities, list):
                 for act in activities:
                     self.check_in_intents(act)
+        for w_url, result in fetch_all_assetlinks(self.well_knowns).items():
+            self.check_result(w_url, result)
 
-    def check_url(self, w_url):
-        """Check URL."""
+    def check_result(self, w_url, result):
+        """Add a finding unless assetlinks.json was served correctly."""
+        if result is None:
+            logger.warning('Skipping App Link host that is not '
+                           'publicly routable: %s', w_url)
+            return
         rcode = 0
         iden = 'sha256_cert_fingerprints'
         rule = 'android_manifest_well_known_assetlinks'
-        status = True
-        try:
-            r = requests.get(
-                w_url,
-                allow_redirects=False,
-                timeout=5)
-            if not (str(r.status_code).startswith('2')
-                    and iden in str(r.json())):
-                status = False
-                rcode = r.status_code
-        except Exception:
-            status = False
-        if not status:
-            add_finding(
-                self.findings,
-                self.xml_path,
-                rule,
-                (w_url, rcode))
+        if not isinstance(result, Exception):
+            rcode, body = result
+            try:
+                if (str(rcode).startswith('2')
+                        and iden in str(json.loads(body))):
+                    return
+            except (ValueError, RecursionError):
+                pass
+        add_finding(
+            self.findings,
+            self.xml_path,
+            rule,
+            (w_url, rcode))
 
     def assetlinks_check(self, intent):
-        """Well known assetlink check."""
-        well_known_path = '/.well-known/assetlinks.json'
-        well_knowns = set()
-
+        """Collect well known assetlink URLs."""
         applink_data = intent.get('data')
         if isinstance(applink_data, dict):
             applink_data = [applink_data]
@@ -415,20 +430,15 @@ class AppLinksCheck:
                     and host
                     and host != '*'):
                 host = host.replace('*.', '').replace('#', '')
-                if not valid_host(host):
+                c_url = assetlinks_url(
+                    scheme,
+                    host,
+                    port if port and is_number(port) else None)
+                if not c_url:
+                    logger.warning('Skipping unsafe App Link host: %s', host)
                     continue
-                if port and is_number(port):
-                    c_url = f'{scheme}://{host}:{port}{well_known_path}'
-                else:
-                    c_url = f'{scheme}://{host}{well_known_path}'
-                well_knowns.add(c_url)
-        with ThreadPoolExecutor() as executor:
-            futures = []
-            for w_url in well_knowns:
-                futures.append(
-                    executor.submit(self.check_url, w_url))
-            for future in futures:
-                future.result()
+                if c_url not in self.well_knowns:
+                    self.well_knowns.append(c_url)
 
 
 class TaskHijackingChecks:

@@ -1,7 +1,8 @@
 """THE PAYOFF — a workflow node refuses bad input BEFORE the paid model call.
 
-This is what binding an agent's inputs to a kind is FOR (§10d-C). The chain,
-end to end, on a real agent:
+What a DESIGNED input kind buys a workflow step (never one minted from an
+agent's field names — content-ir rule 28). The chain, end to end, on a real
+agent's declarations:
 
     agent.definition.variable_definitions   (what the author declared)
       → variable_kinds.variable_definitions_to_kind_fields
@@ -87,7 +88,7 @@ LANGUAGE_PRACTICE_VARIABLES: list[dict[str, Any]] = [
     },
 ]
 
-AGENT_INPUT_KIND = "agent_input_focus_difficulty_count_study_material"
+AGENT_INPUT_KIND = "language_practice_request"
 
 
 # --- the node that would spend the money ------------------------------------

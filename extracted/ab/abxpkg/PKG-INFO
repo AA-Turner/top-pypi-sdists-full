@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: abxpkg
-Version: 1.13.68
+Version: 1.13.71
 Summary: System package manager interfaces with Python type hints
 Project-URL: Homepage, https://abxpkg.archivebox.io/
 Project-URL: Source, https://github.com/ArchiveBox/abxpkg
@@ -496,6 +496,8 @@ assert isinstance(curl, CurlBinary)                                 # CurlBinary
 print(curl.abspath, curl.version, curl.binprovider, curl.is_valid)  # Path(...) SemVer(...) BrewProvider()/EnvProvider() True
 curl.exec(cmd=['--version'])                                        # curl 8.4.0 (x86_64-apple-darwin23.0) libcurl/8.4.0 ...
 ```
+
+Captured commands default to disconnected stdin so installers and version probes cannot take over the caller's terminal. Pass `input=` to supply input, or explicit `stdin=None` to inherit it; interactive execution keeps its existing terminal behavior.
 
 </details>
 
@@ -1003,7 +1005,7 @@ install_root = None                  # None = global uv tool mode, Path(...) = p
   - *Global tool mode (`install_root=None`)*: delegates to `uv tool install` which creates a fresh venv per tool under `UV_TOOL_DIR` (default `~/.local/share/uv/tools`) and writes shims into `UV_TOOL_BIN_DIR` (default `~/.local/bin`). Pass `bin_dir=Path(...)` to override the shim dir. This is the idiomatic "install a CLI tool globally" path.
 - Auto-switching: none. Honors `UV_BINARY=/abs/path/to/uv`. If `uv` isn't on the host, the provider is unavailable.
 - `dry_run`: shared behavior.
-- Security: supports both `min_release_age` and `postinstall_scripts=False`, and hydrates their provider defaults from `ABXPKG_MIN_RELEASE_AGE` and `ABXPKG_POSTINSTALL_SCRIPTS`. In both modes, `postinstall_scripts=False` becomes `--no-build` (wheels-only, no arbitrary sdist build scripts) and `min_release_age` becomes `--exclude-newer=<ISO8601>` (uv 0.4+). Explicit conflicting flags already present in `install_args` win over the derived defaults.
+- Security: supports both `min_release_age` and `postinstall_scripts=False`, and hydrates their provider defaults from `ABXPKG_MIN_RELEASE_AGE` and `ABXPKG_POSTINSTALL_SCRIPTS`. In both modes, `postinstall_scripts=False` becomes `--no-build` (wheels-only, no arbitrary sdist build scripts) and `min_release_age` becomes `--exclude-newer=<ISO8601>` (uv 0.4+). An explicit zero emits the current UTC timestamp so a caller's `uv.toml` cannot silently impose a different age cutoff. Explicit conflicting flags already present in `install_args` win over the derived defaults.
 - Overrides: `install_args` is passed as requirement specs; unpinned specs get a `>=min_version` floor when `min_version` is supplied.
 - Notes: update in venv mode is `uv pip install --upgrade`; update in global mode is `uv tool install --force` (re-installs the tool's venv). Uninstall in venv mode uses `uv pip uninstall --python <venv>/bin/python`; in global mode it uses `uv tool uninstall <name>`.
 

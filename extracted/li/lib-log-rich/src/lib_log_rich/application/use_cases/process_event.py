@@ -27,6 +27,8 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from lib_log_rich.domain.enums import DiagnosticEvent, DropReason
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
@@ -44,11 +46,11 @@ if TYPE_CHECKING:
     # so it is not a real runtime attribute of that module - import it the same way here.
     from ._payload_sanitizer import PayloadLimitsProtocol
 
-from ._fan_out import build_fan_out_handlers
+from ._fan_out import build_fan_out_handlers, report_adapter_failure
 from ._payload_sanitizer import PayloadSanitizer
 from ._pipeline import build_diagnostic_emitter, prepare_event, refresh_context
 from ._queue_dispatch import build_queue_dispatcher
-from ._types import DiagnosticCallback, FanOutCallable, ProcessCallable, ProcessPipelineDependencies, ProcessResult
+from ._types import DiagnosticCallback, DiagnosticEmitter, FanOutCallable, MessageArgs, ProcessCallable, ProcessPipelineDependencies, ProcessResult
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +71,8 @@ def create_process_log_event(dependencies: ProcessPipelineDependencies) -> Proce
         Function accepting ``logger_name``, ``level``, the unformatted ``message``
         and ``args`` pair, optional ``exc_info``/``stack_info`` payloads,
         ``stacklevel`` (accepted for API parity but currently ignored), and
-        optional ``extra`` metadata. The callable returns a diagnostic
-        dictionary describing delivery outcome.
+        optional ``extra`` metadata. The callable returns a
+        :class:`ProcessResult` describing the delivery outcome.
 
     Note:
         End-to-end usage, including queue-enabled and inline variants, lives in
@@ -128,7 +130,7 @@ class _PipelineToolkit:
     queue_dispatch: Callable[[LogEvent], ProcessResult | None]
     finalize_fan_out: Callable[[LogEvent], ProcessResult]
     sanitizer: PayloadSanitizer
-    emit: DiagnosticCallback
+    emit: DiagnosticEmitter
     clock: ClockPort
     id_provider: IdProvider
     identity: SystemIdentityPort
@@ -143,12 +145,24 @@ def _build_process_callable(toolkit: _PipelineToolkit) -> ProcessCallable:
 class _ProcessPipeline(ProcessCallable):
     """Callable that processes log events through the full pipeline."""
 
-    fan_out: FanOutCallable
-
     def __init__(self, toolkit: _PipelineToolkit) -> None:
         """Initialize with the pipeline toolkit."""
         self._toolkit = toolkit
-        self.fan_out = toolkit.fan_out
+
+    def deliver(self, event: LogEvent) -> ProcessResult:
+        """Fan out a dequeued event and account for a failure as an inline call does.
+
+        A success sends no ``emitted`` diagnostic: with the queue on the caller
+        already got ``queued``, and DIAGNOSTIC.md documents ``emitted`` for the
+        inline path only. A hook that hands each diagnostic to a UI thread would
+        also pay one cross-thread hop per event if every event produced one.
+        """
+        failed_adapters = self._toolkit.fan_out(event)
+        if not failed_adapters:
+            return ProcessResult(ok=True, event_id=event.event_id)
+        outcome = report_adapter_failure(self._toolkit.emit, event, failed_adapters)
+        _count_failed_delivery(self._toolkit, event, outcome)
+        return outcome
 
     def __call__(
         self,
@@ -156,7 +170,7 @@ class _ProcessPipeline(ProcessCallable):
         logger_name: str,
         level: LogLevel,
         message: object,
-        args: tuple[object, ...] = (),
+        args: MessageArgs = (),
         exc_info: object | None = None,
         stack_info: object | None = None,
         stacklevel: int = 1,
@@ -186,20 +200,20 @@ class _ProcessPipeline(ProcessCallable):
 
 def _create_diagnostic_emitter(
     diagnostic: DiagnosticCallback | None,
-) -> DiagnosticCallback:
+) -> DiagnosticEmitter:
     return build_diagnostic_emitter(diagnostic)
 
 
 def _create_sanitizer(
     limits: PayloadLimitsProtocol,
-    emit: DiagnosticCallback,
+    emit: DiagnosticEmitter,
 ) -> PayloadSanitizer:
     return PayloadSanitizer(limits, emit)
 
 
 def _create_queue_dispatcher(
     queue: QueuePort | None,
-    emit: DiagnosticCallback,
+    emit: DiagnosticEmitter,
 ) -> Callable[[LogEvent], ProcessResult | None]:
     return build_queue_dispatcher(queue, emit)
 
@@ -210,7 +224,7 @@ def _craft_event(
     logger_name: str,
     level: LogLevel,
     message: object,
-    args: tuple[object, ...],
+    args: MessageArgs,
     exc_info: object | None,
     stack_info: object | None,
     stacklevel: int,
@@ -244,12 +258,12 @@ def _rate_limiter_allows(toolkit: _PipelineToolkit, event: LogEvent) -> bool:
 
 
 def _reject_due_to_rate_limit(toolkit: _PipelineToolkit, event: LogEvent) -> ProcessResult:
-    toolkit.severity_monitor.record_drop(event.level, "rate_limited")
+    toolkit.severity_monitor.record_drop(event.level, DropReason.RATE_LIMITED)
     toolkit.emit(
-        "rate_limited",
+        DiagnosticEvent.RATE_LIMITED,
         {"event_id": event.event_id, "logger": event.logger_name, "level": event.level.name},
     )
-    return ProcessResult(ok=False, reason="rate_limited", event_id=event.event_id)
+    return ProcessResult(ok=False, reason=DropReason.RATE_LIMITED, event_id=event.event_id)
 
 
 def _remember_event(toolkit: _PipelineToolkit, event: LogEvent) -> None:
@@ -270,17 +284,21 @@ def _interpret_queue_outcome(
     queue_answer: ProcessResult,
 ) -> ProcessResult:
     if not queue_answer.ok:
-        reason = queue_answer.reason or "queue_failure"
+        reason = queue_answer.reason or DropReason.QUEUE_FAILURE
         toolkit.severity_monitor.record_drop(event.level, reason)
     return queue_answer
 
 
 def _fan_out_event(toolkit: _PipelineToolkit, event: LogEvent) -> ProcessResult:
     outcome = toolkit.finalize_fan_out(event)
-    if not outcome.ok:
-        reason = outcome.reason or "adapter_error"
-        toolkit.severity_monitor.record_drop(event.level, reason)
+    _count_failed_delivery(toolkit, event, outcome)
     return outcome
+
+
+def _count_failed_delivery(toolkit: _PipelineToolkit, event: LogEvent, outcome: ProcessResult) -> None:
+    if not outcome.ok:
+        reason = outcome.reason or DropReason.ADAPTER_ERROR
+        toolkit.severity_monitor.record_drop(event.level, reason)
 
 
 __all__ = ["create_process_log_event", "refresh_context"]

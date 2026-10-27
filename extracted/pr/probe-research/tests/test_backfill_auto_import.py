@@ -9,6 +9,7 @@ from probe.cli import backfill as bf, backfill_import as imp, backfill_run as ru
 from probe.cli import import_jobs as jobs, tui
 from probe.cli.backfill_coverage import CoverageError
 from probe.sdk import journal
+from tests.backfill_plan_agent import patch_own_sleep
 from tests.test_backfill_scoped_orchestration import make_harness
 from tests import test_import_jobs
 
@@ -162,7 +163,7 @@ def test_network_retry_keeps_the_single_intent_and_completed_project(automatic, 
     h = automatic
     h.lost_create_ack = True
     waits = []
-    monkeypatch.setattr(jobs.time, "sleep", lambda delay: waits.append(delay))
+    patch_own_sleep(monkeypatch, jobs, waits.append)
     job = _enqueue(h)
     _run(job)
     assert waits == [2]

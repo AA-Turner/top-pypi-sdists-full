@@ -188,6 +188,7 @@ class CfnWorkflowDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -248,7 +249,7 @@ class CfnWorkflowDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4287a78237ea24e16d0143f2346cfe58823d507634f64b7fb2858d7e6209ba99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -261,7 +262,7 @@ class CfnWorkflowDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce8b50d69ea19fefafdeda8362c5f53861d48507669ec42b02010972e227a837)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="exportConfig")
@@ -279,7 +280,7 @@ class CfnWorkflowDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__912842274cbae4c384017f1852cac251c1842dc0160302abe13698ac68196d08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "exportConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "exportConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_novaact.CfnWorkflowDefinition.WorkflowExportConfigProperty",

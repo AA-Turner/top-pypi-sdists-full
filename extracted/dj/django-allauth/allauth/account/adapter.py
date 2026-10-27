@@ -542,6 +542,9 @@ class DefaultAccountAdapter(BaseAdapter):
         redirect_url: str | None,
     ) -> HttpResponse | None:
         if not user.is_active:
+            from allauth.account.internal.stagekit import clear_login
+
+            clear_login(request)
             return self.respond_user_inactive(request, user)
         return None
 
@@ -992,10 +995,10 @@ class DefaultAccountAdapter(BaseAdapter):
         Returns whether or not login-by-code is required for the given
         login.
         """
-        from allauth.account import authentication
+        from allauth.account.internal.flows.login import get_authentication_records
 
         method = None
-        records = authentication.get_authentication_records(self.request)
+        records = get_authentication_records(self.request, login.user)
         if records:
             method = records[-1]["method"]
         if method == "code":
@@ -1079,6 +1082,18 @@ class DefaultAccountAdapter(BaseAdapter):
         was found.
         """
         raise NotImplementedError
+
+    def is_reauthentication_required(self, *, app: str, **kwargs) -> bool:
+        """
+        Returns ``True`` if reauthentication is required in order for
+        application ``app`` to perform an account sensitive operation.
+        """
+        try:
+            if not app:
+                return True
+            return import_string(f"{app}.app_settings.REAUTHENTICATION_REQUIRED")
+        except ImportError:
+            return True
 
 
 def get_adapter(request: HttpRequest | None = None) -> DefaultAccountAdapter:

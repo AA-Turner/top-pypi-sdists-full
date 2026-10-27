@@ -1,7 +1,7 @@
 import agilicus
 from . import apps
 from . import context
-from .input_helpers import get_org_from_input_or_ctx
+from .input_helpers import get_org_from_input_or_ctx, update_if_not_none
 from .output.table import (
     spec_column,
     format_table,
@@ -27,7 +27,9 @@ def query(ctx, **kwargs):
     org_id = get_org_from_input_or_ctx(ctx, **kwargs)
 
     kwargs["org_id"] = org_id
-    query_results = apiclient.app_services_api.list_service_forwarders(**kwargs)
+    params = {}
+    update_if_not_none(params, kwargs)
+    query_results = apiclient.app_services_api.list_service_forwarders(**params)
     return query_results.service_forwarders
 
 

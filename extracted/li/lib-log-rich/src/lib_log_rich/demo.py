@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from .domain import DumpFormat, LogLevel
 from .domain.dump_filter import FilterSpecValue
+from .domain.enums import ConsoleTheme, FormatPreset, GraylogProtocol, require_enum_member
 from .domain.palettes import CONSOLE_STYLE_THEMES
 from .runtime import RuntimeConfig, bind, dump, getLogger, init, is_initialised, shutdown
 
@@ -36,7 +37,7 @@ class LogDemoResult:
     of the logging system with a specific theme.
     """
 
-    theme: str
+    theme: ConsoleTheme
     styles: dict[str, str]
     events: list[ProcessResult]
     dump: str | None
@@ -45,20 +46,22 @@ class LogDemoResult:
     backends: BackendStatus
 
 
-def _resolve_demo_theme(theme: str) -> tuple[str, dict[str, str]]:
-    """Return the normalised theme key and palette for logdemo."""
-    key = theme.strip().lower()
+def _demo_palette(theme: ConsoleTheme) -> dict[str, str]:
+    """Return a copy of the palette logdemo styles its console with.
+
+    Raises:
+        ValueError: If ``theme`` names no palette (an untyped caller's plain string).
+    """
     try:
-        palette = CONSOLE_STYLE_THEMES[key]
+        return dict(CONSOLE_STYLE_THEMES[theme])
     except KeyError as exc:
-        raise ValueError(f"Unknown console theme: {theme!r}") from exc
-    return key, dict(palette)
+        raise ValueError(f"Unknown console theme: {str(theme)!r}") from exc
 
 
-def _demo_identity(service: str | None, environment: str | None, theme_key: str) -> tuple[str, str]:
+def _demo_identity(service: str | None, environment: str | None, theme: ConsoleTheme) -> tuple[str, str]:
     """Choose service/environment defaults that explain the demo purpose."""
     resolved_service = service or "logdemo"
-    resolved_environment = environment or f"demo-{theme_key}"
+    resolved_environment = environment or f"demo-{theme}"
     return resolved_service, resolved_environment
 
 
@@ -69,7 +72,7 @@ def _demo_graylog_endpoint(*, enable_graylog: bool, endpoint: tuple[str, int] | 
     return endpoint or ("127.0.0.1", 12201)
 
 
-def _demo_emit_events(theme_key: str) -> list[ProcessResult]:
+def _demo_emit_events(theme: ConsoleTheme) -> list[ProcessResult]:
     """Emit one sample per severity inside a scoped binding."""
     samples = [
         (LogLevel.DEBUG, "Debug message"),
@@ -79,7 +82,7 @@ def _demo_emit_events(theme_key: str) -> list[ProcessResult]:
         (LogLevel.CRITICAL, "Critical message"),
     ]
     results: list[ProcessResult] = []
-    with bind(job_id=f"logdemo-{theme_key}", request_id="demo"):
+    with bind(job_id=f"logdemo-{theme}", request_id="demo"):
         logger = getLogger("logdemo")
         emitters = {
             LogLevel.DEBUG: logger.debug,
@@ -90,10 +93,11 @@ def _demo_emit_events(theme_key: str) -> list[ProcessResult]:
         }
         for level, message in samples:
             payload = {
-                "theme": theme_key,
+                # Extras are free-form payload data, so they carry the plain name.
+                "theme": theme.value,
                 "level": level.severity,
             }
-            results.append(emitters[level](f"[{theme_key}] {message}", extra=payload))
+            results.append(emitters[level](f"[{theme}] {message}", extra=payload))
     return results
 
 
@@ -102,12 +106,12 @@ FilterMapping = Mapping[str, FilterSpecValue]
 
 def _demo_render_dump(
     *,
-    dump_format: str | DumpFormat | None,
+    dump_format: DumpFormat | None,
     dump_path: str | Path | None,
     color: bool | None,
-    dump_format_preset: str | None,
+    dump_format_preset: FormatPreset | None,
     dump_format_template: str | None,
-    theme: str,
+    theme: ConsoleTheme,
     styles: Mapping[str, str],
     context_filters: FilterMapping | None = None,
     context_extra_filters: FilterMapping | None = None,
@@ -116,11 +120,10 @@ def _demo_render_dump(
     """Render and optionally persist a dump for the demo."""
     if dump_format is None:
         return None
-    fmt = dump_format if isinstance(dump_format, DumpFormat) else DumpFormat.from_name(str(dump_format))
     target = Path(dump_path) if dump_path is not None else None
-    colorize = color if color is not None else fmt in (DumpFormat.TEXT, DumpFormat.HTML_TXT)
+    colorize = color if color is not None else dump_format in (DumpFormat.TEXT, DumpFormat.HTML_TXT)
     return dump(
-        dump_format=fmt,
+        dump_format=dump_format,
         path=target,
         color=colorize,
         console_format_preset=dump_format_preset,
@@ -135,32 +138,43 @@ def _demo_render_dump(
 
 def logdemo(
     *,
-    theme: str = "classic",
+    theme: ConsoleTheme = ConsoleTheme.CLASSIC,
     service: str | None = None,
     environment: str | None = None,
-    dump_format: str | DumpFormat | None = None,
+    dump_format: DumpFormat | None = None,
     dump_path: str | Path | None = None,
     color: bool | None = None,
-    console_format_preset: str | None = None,
+    console_format_preset: FormatPreset | None = None,
     console_format_template: str | None = None,
-    dump_format_preset: str | None = None,
+    dump_format_preset: FormatPreset | None = None,
     dump_format_template: str | None = None,
     context_filters: FilterMapping | None = None,
     context_extra_filters: FilterMapping | None = None,
     extra_filters: FilterMapping | None = None,
     enable_graylog: bool = False,
     graylog_endpoint: tuple[str, int] | None = None,
-    graylog_protocol: str = "tcp",
+    graylog_protocol: GraylogProtocol = GraylogProtocol.TCP,
     graylog_tls: bool = False,
     enable_journald: bool = False,
     enable_eventlog: bool = False,
 ) -> LogDemoResult:
-    """Emit sample log entries and optionally hit real backends."""
+    """Emit sample log entries and optionally hit real backends.
+
+    Raises:
+        TypeError: If ``theme``, ``console_format_preset`` or ``dump_format_preset`` is not
+            a member of its enum (a plain string included).
+        RuntimeError: If lib_log_rich is already initialised.
+
+    """
+    require_enum_member(theme, ConsoleTheme, parameter="theme")
+    for parameter, preset in (("console_format_preset", console_format_preset), ("dump_format_preset", dump_format_preset)):
+        if preset is not None:
+            require_enum_member(preset, FormatPreset, parameter=parameter)
     if is_initialised():
         raise RuntimeError("logdemo() requires lib_log_rich to be uninitialised. Call shutdown() first.")
 
-    theme_key, styles = _resolve_demo_theme(theme)
-    resolved_service, resolved_environment = _demo_identity(service, environment, theme_key)
+    styles = _demo_palette(theme)
+    resolved_service, resolved_environment = _demo_identity(service, environment, theme)
     resolved_graylog_endpoint = _demo_graylog_endpoint(enable_graylog=enable_graylog, endpoint=graylog_endpoint)
 
     config = RuntimeConfig(
@@ -189,14 +203,14 @@ def logdemo(
     events: list[ProcessResult] = []
     dump_payload: str | None = None
     try:
-        events = _demo_emit_events(theme_key)
+        events = _demo_emit_events(theme)
         dump_payload = _demo_render_dump(
             dump_format=dump_format,
             dump_path=dump_path,
             color=color,
             dump_format_preset=dump_format_preset,
             dump_format_template=dump_format_template,
-            theme=theme_key,
+            theme=theme,
             styles=styles,
             context_filters=context_filters,
             context_extra_filters=context_extra_filters,
@@ -206,7 +220,7 @@ def logdemo(
         shutdown()
 
     return LogDemoResult(
-        theme=theme_key,
+        theme=theme,
         styles=dict(styles),
         events=events,
         dump=dump_payload,

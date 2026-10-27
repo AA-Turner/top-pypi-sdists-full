@@ -15,6 +15,7 @@ from __future__ import annotations
 import base64
 import os
 import shutil
+import re
 import sys
 from collections.abc import Callable, Sequence
 from contextlib import contextmanager
@@ -269,6 +270,20 @@ def window(enabled: bool = True):
                 print(line)
 
 
+def leave_window() -> None:
+    """Put the shell's own screen back NOW, cursor shown: this process is about
+    to be replaced (`os.execve`, the Update's hand-off to the newest release),
+    and nothing after this line runs to close the window. Should the exec
+    fail, the next screen drawn opens the window again."""
+    try:
+        if _Window.entered:
+            sys.stdout.write("\033[?25h\033[?1049l")
+            sys.stdout.flush()
+            _Window.entered = False
+    except Exception:  # noqa: BLE001 - a screen is never worth failing the hand-off over
+        pass
+
+
 def columns() -> int:
     try:
         return shutil.get_terminal_size().columns
@@ -511,7 +526,7 @@ def _copy_prompt(text: str, message: str) -> str:
 
 
 def page(
-    lines: list[str], prompt: str | None = None, *, copyable: bool = False,
+    lines: list[str], prompt: str | None = None, *, copyable: bool | str = False,
     progress: Sequence[str] | None = None,
 ) -> str:
     """Show output in the shared frame; a pause uses scrollable content.
@@ -542,7 +557,8 @@ def page(
             @question.application.key_bindings.add("c", eager=True)
             @question.application.key_bindings.add("C", eager=True)
             def copy_report(event):
-                _copy_to_clipboard("\n".join(lines), event.app.output)
+                # A page that shows a summary copies the report it summarises.
+                _copy_to_clipboard(copyable if isinstance(copyable, str) else "\n".join(lines), event.app.output)
 
         sectioned(question, title=title, lines=details, prompt=prompt, instruction=hint)
         ask(question, progress=progress)
@@ -1990,6 +2006,21 @@ def progress_bar(fraction: float, *, width: int | None = None, centered: bool = 
     return " " * ((room - width) // 2) + bar if centered else bar
 
 
+def percent(fraction: float) -> str:
+    """`fraction` as a whole percentage, rounded DOWN: 100% only when done."""
+    fraction = max(0.0, min(1.0, fraction))
+    return "100%" if fraction == 1 else f"{min(99, int(fraction * 100))}%"
+
+
+def progress_line(fraction: float, *, width: int | None = None) -> str:
+    """`progress_bar` with its percentage beside it, the pair kept to the
+    room `progress_bar` would have had alone."""
+    room = max(1, min(CONTENT_WIDTH, columns() - left_pad() - 1))
+    label = percent(fraction)
+    bar_width = max(1, min(_BAR_WIDTH if width is None else width, room - len(" 100%") - 1))
+    return f"{progress_bar(fraction, width=bar_width)}  {label}"
+
+
 class Board:
     """N live rows on ONE centred screen, for agents running concurrently.
 
@@ -2091,6 +2122,30 @@ class Board:
             self._out.flush()
 
 
+class Status:
+    """What a `working()` line shows, changeable while it spins: its label,
+    and once a caller knows how far along the work is, a bar with its
+    percentage on the row under it. Read by the spinner's thread; each field
+    is replaced whole, never mutated in place."""
+
+    def __init__(self, label: str) -> None:
+        self.label = label
+        self.fraction: float | None = None
+
+    def set(self, *, label: str | None = None, fraction: float | None = None) -> None:
+        if label is not None:
+            self.label = label
+        if fraction is not None:
+            # Never backwards: a total that grows mid-run must not undo
+            # progress already shown.
+            self.fraction = max(self.fraction or 0.0, max(0.0, min(1.0, fraction)))
+
+
+#: The `working()` line on screen now, if any: a `working()` inside it keeps
+#: it (one spinner per screen; two threads painting fight over the rows).
+_active_status: Status | None = None
+
+
 @contextmanager
 def working(label: str):
     """One centered, animated status line for work that blocks the next screen.
@@ -2108,9 +2163,18 @@ def working(label: str):
     Every failure path degrades to doing nothing: a spinner that cannot start
     (thread limits, closed stdout) must never take the actual work down with
     it, so the body runs whether or not anything animates.
+
+    Yields its `Status`: `status.set(fraction=...)` adds the bar and its
+    percentage under the line. Inside another `working()`, yields that one's
+    and changes nothing on screen.
     """
+    global _active_status
+    if _active_status is not None:
+        yield _active_status
+        return
+    status = Status(label)
     if not interactive():
-        yield
+        yield status
         return
     import itertools
     import threading
@@ -2122,6 +2186,12 @@ def working(label: str):
     size = None
     status_row = 1
 
+    def centred(text: str, width: int) -> str:
+        room = max(1, min(CONTENT_WIDTH, width - 1))
+        if len(text) > room:
+            text = text[:room - 1] + "…"
+        return " " * max(0, (width - len(text)) // 2) + text
+
     def paint() -> None:
         nonlocal size, status_row
         height, width = max(1, rows()), max(1, columns())
@@ -2130,11 +2200,10 @@ def working(label: str):
         first = margin + len(pinned) + (1 if pinned else 0)
         last = max(first, height - margin - 1)
         status_row = (first + last) // 2 + 1
-        line = f"{next(frames)} {' '.join(label.split())}"
-        room = max(1, min(CONTENT_WIDTH, width - 1))
-        if len(line) > room:
-            line = line[:room - 1] + "…"
-        pad = max(0, (width - len(line)) // 2)
+        line = centred(f"{next(frames)} {' '.join(status.label.split())}", width)
+        fraction = status.fraction
+        # The bar's row, blank until the work says how far along it is.
+        under = "" if fraction is None else centred(progress_line(fraction), width)
         prefix = ""
         if size != (height, width):
             # A resize must erase the old centered row, not leave a second
@@ -2147,7 +2216,11 @@ def working(label: str):
                 f"\033[{margin + index + 1};1H{text}"
                 for index, text in enumerate(pinned)
             )
-        output.write(prefix + f"\033[?25l\033[{status_row};1H\033[2K{' ' * pad}{line}\033[K")
+        output.write(
+            prefix
+            + f"\033[?25l\033[{status_row};1H\033[2K{line}\033[K"
+            + f"\033[{status_row + 1};1H\033[2K{under}\033[K"
+        )
         output.flush()
         size = (height, width)
 
@@ -2159,6 +2232,7 @@ def working(label: str):
                 return
 
     thread = None
+    _active_status = status
     try:
         try:
             paint()
@@ -2166,8 +2240,9 @@ def working(label: str):
             thread.start()
         except Exception:  # noqa: BLE001 - no spinner beats no work
             thread = None
-        yield
+        yield status
     finally:
+        _active_status = None
         try:
             stop.set()
             if thread is not None:
@@ -2177,10 +2252,32 @@ def working(label: str):
                     pass  # interrupted before the thread started
         finally:
             try:
-                output.write(f"\033[{status_row};1H\033[2K\033[?25h")
+                output.write(f"\033[{status_row};1H\033[2K\033[{status_row + 1};1H\033[2K\033[?25h")
                 output.flush()
             except Exception:  # noqa: BLE001
                 pass
+
+
+#: `setup.authorize`'s line for each coding agent its sign-in paired.
+_PAIRED = re.compile(r"^(?P<agent>.+?) Session capture paired \(device [^)]*\)\.$")
+
+
+def _merged_pairings(lines: Sequence[str]) -> list[str]:
+    """`lines` with every agent's "<agent> Session capture paired (device
+    <id>)." made one line where the first stood: a sign-in for four agents
+    said it four times, device ids included."""
+    agents = [m.group("agent") for line in lines if (m := _PAIRED.match(line))]
+    if len(agents) < 2:
+        return list(lines)
+    merged = ", ".join(agents[:-1]) + f" and {agents[-1]}"
+    out: list[str] = []
+    for line in lines:
+        if not _PAIRED.match(line):
+            out.append(line)
+        elif merged:
+            out.append(f"Session capture paired: {merged}.")
+            merged = ""
+    return out
 
 
 class Progress:
@@ -2218,9 +2315,13 @@ class Progress:
         steps: list[str],
         *,
         overall: Callable[[float], Sequence[str]] | None = None,
+        run: Callable[[float, int], tuple[str, float]] | None = None,
     ) -> None:
         # `overall` maps this agent's resolved tasks into the containing install
-        # flow. Other callers keep the ordinary task counter.
+        # flow (the guided install's step header). `run` maps them into the
+        # whole run, every coding agent's work in it (`setup.InstallRun`): its
+        # heading and its bar. Without it the heading is `title` and the bar
+        # this phase's own steps.
         self._title = title
         self._steps = list(steps)
         self._state = [_PENDING] * len(steps)
@@ -2228,6 +2329,10 @@ class Progress:
         self._next: list[str] = []
         self._queued: list[str] = []
         self._overall = overall
+        self._run = run
+        self._shown = 0.0
+        #: ((rows, columns), blank rows above the block): `_top`.
+        self._anchor: tuple[tuple[int, int], int] | None = None
 
     # -- state ---------------------------------------------------------------
 
@@ -2253,6 +2358,28 @@ class Progress:
                 self._queued.append(line)
         self.render()
 
+    def next_steps(self) -> list[str]:
+        """What the user still has to do (`note_next`)."""
+        return list(self._next)
+
+    def failed_steps(self) -> list[str]:
+        return [step for step, state in zip(self._steps, self._state, strict=False) if state == _FAILED]
+
+    def problems(self) -> list[str]:
+        """Each failed step, then the noted lines that are an error or what to
+        do about one (`setup.needs_attention`: "could not ...", "browser
+        approval failed: ...", "revoke the key ..."), never the routine report."""
+        from probe.cli import setup as wizard
+
+        return [
+            *(f"{step}: failed" for step in self.failed_steps()),
+            *(
+                line.removeprefix("! ").strip()
+                for line in self._results
+                if line.strip() and wizard.needs_attention(line)
+            ),
+        ]
+
     def note_next(self, *lines: str) -> None:
         """Attach an action the user still has to take, after this run ends.
 
@@ -2273,22 +2400,34 @@ class Progress:
     def _done(self) -> int:
         return sum(1 for s in self._state if s in (_OK, _FAILED))
 
+    def _fraction(self) -> float:
+        return self._done() / len(self._steps) if self._steps else 1.0
+
+    def _heading(self) -> tuple[str, float]:
+        """The heading over the bar, and the fraction the bar shows: never
+        less than it showed before (a total that grows must not undo it)."""
+        heading, fraction = (
+            self._run(self._fraction(), len(self._steps)) if self._run is not None
+            else (self._title, self._fraction())
+        )
+        self._shown = max(self._shown, fraction)
+        return heading, self._shown
+
     def bar(self) -> str:
-        total = len(self._steps) or 1
-        return f"{progress_bar(self._done() / total, width=_BAR_WIDTH)}  {self._done()}/{total}"
+        # The column's full width, as the install's step bar: the block's
+        # widest row, so the screen reads centred.
+        return progress_line(self._heading()[1], width=CONTENT_WIDTH)
 
     def block(self) -> list[str]:
-        if self._overall is not None:
-            fraction = self._done() / len(self._steps) if self._steps else 1.0
-            lines = [*self._overall(fraction), "", self._title, ""]
-        else:
-            lines = [self._title, self.bar(), ""]
+        heading, fraction = self._heading()
+        lines = [*self._overall(self._fraction()), ""] if self._overall is not None else []
+        lines += [heading, progress_line(fraction, width=CONTENT_WIDTH), ""]
         lines += [
             f"  {_MARKS[state]} {step}"
             for step, state in zip(self._steps, self._state, strict=False)
         ]
         if self._results:
-            lines += ["", "What changed:", *(f"  - {line}" for line in self._results)]
+            lines += ["", "What changed:", *(f"  - {line}" for line in _merged_pairings(self._results))]
         if self._next:
             lines += ["", "What's next:", *(f"  - {line}" for line in self._next)]
         return lines
@@ -2317,10 +2456,26 @@ class Progress:
             return
         self._queued.clear()
         block = self.block()
-        if self._overall is not None:
-            page(block[3:], progress=block[:2])
-        else:
-            page(block)
+        header, body = (block[:2], block[3:]) if self._overall is not None else (None, block)
+        page([*[""] * self._top(body, header), *body], progress=header)
+
+    def _top(self, body: list[str], header: Sequence[str] | None) -> int:
+        """Blank rows above `body`, centring it in the room under its header
+        as prompts and `working()` are: set by the first screen, then moved
+        up only as far as the lines added after it need (results arrive one
+        step at a time, and a block recentred on each would jump)."""
+        screen, width = max(1, rows()), max(1, columns())
+        pinned = header_lines(header if header is not None else onboarding_header())
+        room = screen - 2 * safe_margin(screen) - (len(pinned) + 1 if pinned else 0)
+        column = max(1, min(CONTENT_WIDTH, width - left_pad() - 1))
+        # Counted as `page()` will draw it: a line holding newlines is several.
+        rows_drawn = "\n".join(body).splitlines()
+        height = sum(len(wrap(line, column)) if len(line) > column else 1 for line in rows_drawn)
+        if self._anchor is None or self._anchor[0] != (screen, width):
+            self._anchor = ((screen, width), max(0, (room - height) // 2))
+        top = max(0, min(self._anchor[1], room - height))
+        self._anchor = (self._anchor[0], top)
+        return top
 
     def close(self) -> None:
         """Leave the finished screen on display, results and all."""

@@ -8,6 +8,7 @@ from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.meeting_out import MeetingOut
 from .raw_client import AsyncRawMeetingsClient, RawMeetingsClient
+from .types.clip_meetings_request_media import ClipMeetingsRequestMedia
 from .types.download_meetings_request_artifact import DownloadMeetingsRequestArtifact
 from .types.list_meetings_request_domain_match import ListMeetingsRequestDomainMatch
 from .types.list_meetings_request_participant_match import ListMeetingsRequestParticipantMatch
@@ -157,15 +158,66 @@ class MeetingsClient:
         _response = self._raw_client.get(asset_id, request_options=request_options)
         return _response.data
 
+    def clip(
+        self,
+        asset_id: str,
+        *,
+        start: float,
+        end: float,
+        media: typing.Optional[ClipMeetingsRequestMedia] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Iterator[bytes]:
+        """
+        Cut the range [start, end) seconds out of a meeting's video recording, a voice memo, or a video/audio asset and stream it back: H.264/AAC MP4 for video, AAC audio (audio/mp4) for audio. The clip is not saved as an asset. Ranges are limited to 10 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+            Meeting, voice memo, or video/audio asset to clip
+
+        start : float
+            Clip start, in seconds
+
+        end : float
+            Clip end, in seconds
+
+        media : typing.Optional[ClipMeetingsRequestMedia]
+            'video' (MP4) or 'audio' (M4A); defaults to video for meetings and video assets, audio for voice memos and audio assets
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+        Returns
+        -------
+        typing.Iterator[bytes]
+            The clipped recording.
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.meetings.clip(
+            asset_id="asset_id",
+            start=1.1,
+            end=1.1,
+        )
+        """
+        with self._raw_client.clip(asset_id, start=start, end=end, media=media, request_options=request_options) as r:
+            yield from r.data
+
     def download(
         self,
         asset_id: str,
         *,
         artifact: typing.Optional[DownloadMeetingsRequestArtifact] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Iterator[bytes]:
         """
-        Download a meeting artifact. By default streams a ZIP archive containing metadata.json plus every available artifact (video recording, raw transcript, formatted transcript, chat). Pass the artifact parameter to download a single artifact instead. Works for every meeting, whether its artifacts are stored on the meeting itself (meetings captured since September 2026, whose artifact asset IDs are null) or as separate child assets.
+        Download a meeting artifact. By default streams a ZIP archive containing metadata.json plus every available artifact (video recording, raw transcript, formatted transcript, chat). Pass the artifact parameter to download a single artifact instead. Works for every meeting, whether its artifacts are stored on the meeting itself (meetings captured since September 2026, whose artifact asset IDs are null) or as separate child assets. Also accepts a voice memo asset ID with artifact=recording, which streams the memo's recorded audio (for example audio/webm).
 
         Parameters
         ----------
@@ -173,14 +225,14 @@ class MeetingsClient:
             Unique identifier of the meeting asset to download
 
         artifact : typing.Optional[DownloadMeetingsRequestArtifact]
-            Which artifact to download: 'zip' (full export), 'recording', 'transcript', 'formatted_transcript', or 'chat'
+            Which artifact to download: 'zip' (full export), 'recording', 'transcript', 'formatted_transcript', or 'chat'. A voice memo supports only 'recording' (its audio).
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Iterator[bytes]
             Stream the requested meeting artifact.
 
         Examples
@@ -192,11 +244,11 @@ class MeetingsClient:
             api_key="YOUR_API_KEY",
         )
         client.meetings.download(
-            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            asset_id="asset_id",
         )
         """
-        _response = self._raw_client.download(asset_id, artifact=artifact, request_options=request_options)
-        return _response.data
+        with self._raw_client.download(asset_id, artifact=artifact, request_options=request_options) as r:
+            yield from r.data
 
 
 class AsyncMeetingsClient:
@@ -358,15 +410,77 @@ class AsyncMeetingsClient:
         _response = await self._raw_client.get(asset_id, request_options=request_options)
         return _response.data
 
+    async def clip(
+        self,
+        asset_id: str,
+        *,
+        start: float,
+        end: float,
+        media: typing.Optional[ClipMeetingsRequestMedia] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.AsyncIterator[bytes]:
+        """
+        Cut the range [start, end) seconds out of a meeting's video recording, a voice memo, or a video/audio asset and stream it back: H.264/AAC MP4 for video, AAC audio (audio/mp4) for audio. The clip is not saved as an asset. Ranges are limited to 10 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+            Meeting, voice memo, or video/audio asset to clip
+
+        start : float
+            Clip start, in seconds
+
+        end : float
+            Clip end, in seconds
+
+        media : typing.Optional[ClipMeetingsRequestMedia]
+            'video' (MP4) or 'audio' (M4A); defaults to video for meetings and video assets, audio for voice memos and audio assets
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+        Returns
+        -------
+        typing.AsyncIterator[bytes]
+            The clipped recording.
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.meetings.clip(
+                asset_id="asset_id",
+                start=1.1,
+                end=1.1,
+            )
+
+
+        asyncio.run(main())
+        """
+        async with self._raw_client.clip(
+            asset_id, start=start, end=end, media=media, request_options=request_options
+        ) as r:
+            async for _chunk in r.data:
+                yield _chunk
+
     async def download(
         self,
         asset_id: str,
         *,
         artifact: typing.Optional[DownloadMeetingsRequestArtifact] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.AsyncIterator[bytes]:
         """
-        Download a meeting artifact. By default streams a ZIP archive containing metadata.json plus every available artifact (video recording, raw transcript, formatted transcript, chat). Pass the artifact parameter to download a single artifact instead. Works for every meeting, whether its artifacts are stored on the meeting itself (meetings captured since September 2026, whose artifact asset IDs are null) or as separate child assets.
+        Download a meeting artifact. By default streams a ZIP archive containing metadata.json plus every available artifact (video recording, raw transcript, formatted transcript, chat). Pass the artifact parameter to download a single artifact instead. Works for every meeting, whether its artifacts are stored on the meeting itself (meetings captured since September 2026, whose artifact asset IDs are null) or as separate child assets. Also accepts a voice memo asset ID with artifact=recording, which streams the memo's recorded audio (for example audio/webm).
 
         Parameters
         ----------
@@ -374,14 +488,14 @@ class AsyncMeetingsClient:
             Unique identifier of the meeting asset to download
 
         artifact : typing.Optional[DownloadMeetingsRequestArtifact]
-            Which artifact to download: 'zip' (full export), 'recording', 'transcript', 'formatted_transcript', or 'chat'
+            Which artifact to download: 'zip' (full export), 'recording', 'transcript', 'formatted_transcript', or 'chat'. A voice memo supports only 'recording' (its audio).
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.AsyncIterator[bytes]
             Stream the requested meeting artifact.
 
         Examples
@@ -398,11 +512,12 @@ class AsyncMeetingsClient:
 
         async def main() -> None:
             await client.meetings.download(
-                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+                asset_id="asset_id",
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.download(asset_id, artifact=artifact, request_options=request_options)
-        return _response.data
+        async with self._raw_client.download(asset_id, artifact=artifact, request_options=request_options) as r:
+            async for _chunk in r.data:
+                yield _chunk

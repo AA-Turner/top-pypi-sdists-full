@@ -160,8 +160,8 @@ class ComponentAuthoringBundle(KindSubModel):
     family="kind_authoring",
     example={
         "kind_definition_id": "aa11aa11-0000-4000-8000-000000000000",
-        "kind": "invoice_summary",
-        "label": "Invoice Summary",
+        "kind": "timeline",
+        "label": "Timeline",
         "version": 1,
         "organization_id": "bb22bb22-0000-4000-8000-000000000000",
         "published_to_web": False,
@@ -171,13 +171,13 @@ class ComponentAuthoringBundle(KindSubModel):
         "canonical_example_status": "passed",
         "input_component_id": None,
         "input_component_key": "generic_structured",
-        "canonical_example": {"__kind": "invoice_summary", "total": 12.5},
+        "canonical_example": {"__kind": "timeline", "title": "Q3 milestones", "events": []},
         "children": [],
         "fielded_form": True,
         "form_field_count": 2,
         "json_schema": {"type": "object"},
         "component_authoring": {},
-        "message": "Kind 'invoice_summary' created (inactive, private).",
+        "message": "Kind 'timeline' created (inactive, private).",
     },
     maturity="placeholder",
 )
@@ -237,7 +237,7 @@ class StrandedExample(KindSubModel):
     family="kind_authoring",
     example={
         "kind_definition_id": "aa11aa11-0000-4000-8000-000000000000",
-        "kind": "invoice_summary",
+        "kind": "timeline",
         "new_version": 2,
         "new_fingerprint": "abc123",
         "example_count": 1,
@@ -265,7 +265,7 @@ class KindSchemaUpdateResult(KindModel):
     family="kind_authoring",
     example={
         "example_id": "cc33cc33-0000-4000-8000-000000000000",
-        "kind": "invoice_summary",
+        "kind": "timeline",
         "kind_version": 1,
         "is_canonical": True,
         "validation_status": "passed",
@@ -289,10 +289,10 @@ class KindExampleResult(KindModel):
     family="kind_authoring",
     example={
         "skill_definition_id": "dd44dd44-0000-4000-8000-000000000000",
-        "skill_id": "kind_invoice_summary",
-        "kind": "invoice_summary",
+        "skill_id": "kind_timeline",
+        "kind": "timeline",
         "body_chars": 1450,
-        "message": "Skill 'kind_invoice_summary' created — agents can now learn to emit this kind.",
+        "message": "Skill 'kind_timeline' created — agents can now learn to emit this kind.",
     },
     maturity="placeholder",
 )
@@ -313,10 +313,10 @@ class KindSkillResult(KindModel):
     family="kind_authoring",
     example={
         "prompt_block_id": "ee55ee55-0000-4000-8000-000000000000",
-        "block_id": "kind-invoice-summary",
-        "kind": "invoice_summary",
+        "block_id": "kind-timeline",
+        "kind": "timeline",
         "template_chars": 640,
-        "message": "Render block 'kind-invoice-summary' created — it now appears in the content-block menu.",
+        "message": "Render block 'kind-timeline' created — it now appears in the content-block menu.",
     },
     maturity="placeholder",
 )
@@ -337,7 +337,7 @@ class KindContentBlockResult(KindModel):
     family="kind_authoring",
     example={
         "kind_definition_id": "aa11aa11-0000-4000-8000-000000000000",
-        "kind": "invoice_summary",
+        "kind": "timeline",
         "is_active": True,
         "was_active": False,
         "gated": True,

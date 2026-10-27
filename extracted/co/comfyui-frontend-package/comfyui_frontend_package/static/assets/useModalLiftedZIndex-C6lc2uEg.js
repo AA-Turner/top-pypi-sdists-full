@@ -1,1 +1,0 @@
-import"./rolldown-runtime-CM1DJQSe.js";import{P as e,X as t}from"./vendor-vue-core-y4MynkKA.js";import{a as n}from"./vendor-primevue-Cl_Qxjsd.js";var r=Symbol(`overlayZIndex`),i=1700;function useModalLiftedZIndex(a){let o=t(r,0);return e(()=>{if(!a.value)return;let e=Math.max(n.getCurrent(`modal`),o);return e>=i?{zIndex:e+1}:void 0})}export{useModalLiftedZIndex as n,r as t};

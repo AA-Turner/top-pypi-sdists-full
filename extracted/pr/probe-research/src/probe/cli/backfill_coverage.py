@@ -7,6 +7,7 @@ Only receipts cover files; neither a walk nor an empty queue establishes deliver
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
@@ -14,13 +15,15 @@ import fcntl
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 import sqlite3
 import stat
 import time
 import unicodedata
 from urllib.parse import urlsplit, urlunsplit
 import uuid
+
+from probe._compat import StrEnum
 
 from ..sdk.durable import file_lock, now_iso, read_json, write_text_atomic
 from .backfill_ledger import default_dir, fingerprint
@@ -46,6 +49,48 @@ OBSERVE_HASH_WORKERS = 4
 #: Timestamp resolution is 1-10ms on Linux and coarser through NFS/SMB, so a
 #: write landing in the same tick as the stat is invisible to the cache.
 SIGNATURE_SETTLE_SECONDS = 2.0
+
+
+class SkipRule(StrEnum):
+    """Why a file this store saw before is no longer walked: `files.skipped`.
+
+    The walk's rules changed under existing stores (CLI 0.328.0): hidden
+    folders and nested worktree copies are now counted and skipped
+    (`backfill.RESEARCH_DOT_DIRS`, `backfill_evidence.worktree_copy`). A file an
+    older CLI imported from one of them is still on disk, so calling it
+    `vanished` was false -- and `vanished` holds its project's reconstruction
+    until the file comes back, which a skipped file never does. 65,491 such
+    files for one customer.
+
+    The rule stays on the row while the file is unseen, including after the
+    file is deleted (an agent's worktree is removed when the agent finishes):
+    then it is absent, as any deleted file is, but still out of the import, so
+    it holds nothing either (`files.skipped_on_disk` tells the two apart).
+    """
+
+    #: Under a hidden folder the walk does not admit.
+    HIDDEN_FOLDER = "hidden_folder"
+    #: Under a git worktree of a repo the import already carries.
+    WORKTREE_COPY = "worktree_copy"
+
+
+@dataclass(frozen=True)
+class WalkSkips:
+    """What one walk left out by rule, as `Coverage.observe` takes it.
+
+    `worktrees` and `hidden` are the root-relative folders the walk counted
+    and skipped. `hidden_rule` says whether a path's folders put it under a
+    hidden folder the walk skips, so a file is placed by the rule even when its
+    folder is gone from disk -- a worktree under `.claude/worktrees/` removed
+    before this CLI ever walked the folder. `legacy` is a walk by the rules
+    before the skips (`Census.walk_rules` 0): it imports everything, so no
+    rule leaves anything out.
+    """
+
+    worktrees: tuple[str, ...] = ()
+    hidden: tuple[str, ...] = ()
+    hidden_rule: Callable[[tuple[str, ...]], bool] | None = None
+    legacy: bool = False
 
 
 def own_names(intent: dict) -> set[str]:
@@ -354,7 +399,7 @@ class Coverage:
                   present INTEGER NOT NULL DEFAULT 1, observation_error TEXT,
                   approved_hash TEXT, project_id TEXT, project_slug TEXT,
                   manifest TEXT, exclusion TEXT, correlation TEXT,
-                  signature TEXT, dead TEXT);
+                  signature TEXT, dead TEXT, skipped TEXT, skipped_on_disk INTEGER);
                 CREATE TABLE versions (
                   correlation TEXT PRIMARY KEY, intent TEXT NOT NULL,
                   receipt TEXT, error TEXT, queued INTEGER NOT NULL DEFAULT 0);
@@ -367,6 +412,26 @@ class Coverage:
         identity = self.meta("identity")
         if identity != expected:
             self._migrate(identity, expected)
+        # Additive, like `placements` below: why a file seen before is now
+        # skipped by the walk's rules (`SkipRule`), and whether it was still on
+        # disk at the last census. The schema does not move, so an older CLI
+        # still opens the store and never reads or writes the columns, and
+        # every census here recomputes them, so a value it left stale cannot
+        # outlive the next one.
+        columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(files)")}
+        with self.conn:
+            for name, kind in (("skipped", "TEXT"), ("skipped_on_disk", "INTEGER")):
+                if name not in columns:
+                    self.conn.execute(f"ALTER TABLE files ADD COLUMN {name} {kind}")
+        # Additive, so an older CLI opening this store simply ignores it: where
+        # an approved plan placed each file below its project (a run or an
+        # experiment folder), the id that folder became, and the artifact last
+        # filed there (`backfill_structure`).
+        with self.conn:
+            self.conn.execute("""CREATE TABLE IF NOT EXISTS placements (
+                path TEXT PRIMARY KEY, level TEXT NOT NULL, folder TEXT NOT NULL,
+                target_id TEXT, filed_target TEXT, filed_artifact TEXT,
+                refused_artifact TEXT, error TEXT)""")
 
     def _migrate(self, identity, expected) -> None:
         """Bring a store written by an older build up to `SCHEMA`, or refuse it.
@@ -405,8 +470,16 @@ class Coverage:
         with self.conn:
             self.conn.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)", (key, json.dumps(value)))
 
-    def observe(self, root: Path, paths, *, workers: int | None = None, progress=None) -> None:
+    def observe(self, root: Path, paths, *, workers: int | None = None, progress=None,
+                skipped: WalkSkips | None = None) -> None:
         """Inventory only. A successful census never creates approved or covered rows.
+
+        `skipped` is what this walk left out by rule (`skipped_folders`). A
+        file seen before and not now that a rule leaves out is recorded with
+        that rule (`SkipRule`): `report()` calls it `skipped` while it is on
+        disk, and `vanished` once it is deleted, and either way it is out of
+        the import and holds nothing (`complete_reconstruction`). Without
+        `skipped`, rules already recorded are kept; none is added.
 
         THREE CHANGES FROM THE ONE-BIG-TRANSACTION VERSION, all about a census
         over a real research drive taking minutes to hours:
@@ -457,7 +530,7 @@ class Coverage:
                     VALUES (?, ?, ?, 1, ?, ?)
                     ON CONFLICT(path) DO UPDATE SET observed_hash=excluded.observed_hash,
                       size=excluded.size, present=1, observation_error=excluded.observation_error,
-                      signature=excluded.signature
+                      signature=excluded.signature, skipped=NULL, skipped_on_disk=NULL
                 """, pending)
             pending.clear()
             last_commit = time.monotonic()
@@ -527,6 +600,16 @@ class Coverage:
         # would survive, so a kill mid-census left every file it had not reached
         # marked absent: `report()` calls those vanished and `enqueue()` skips
         # them, until some later complete census repairs it.
+        # Which unseen files a rule leaves out, and whether each is still on
+        # disk: decided BEFORE the transaction below, which holds the write
+        # lock, because it costs a stat per file (65,491 for one customer, on
+        # what may be a network drive). Nothing else writes these rows
+        # meanwhile: this census holds the store's writer lock.
+        seen = set(paths)
+        unseen = {row["path"]: row["skipped"]
+                  for row in self.conn.execute("SELECT path, skipped FROM files")
+                  if row["path"] not in seen}
+        rules = _skip_rules(root, unseen, skipped)
         with self.conn:
             self.conn.execute("CREATE TEMP TABLE IF NOT EXISTS seen (path TEXT PRIMARY KEY)")
             self.conn.execute("DELETE FROM seen")
@@ -535,6 +618,14 @@ class Coverage:
             self.conn.execute(
                 "UPDATE files SET present=0 WHERE path NOT IN (SELECT path FROM seen)")
             self.conn.execute("DELETE FROM seen")
+            # Recomputed by every census: a folder `--include-hidden` admits
+            # again is seen (present, cleared in `flush`), and a skipped file
+            # deleted since keeps its rule but is no longer on disk.
+            self.conn.execute("UPDATE files SET skipped=NULL, skipped_on_disk=NULL "
+                              "WHERE present=0 AND skipped IS NOT NULL")
+            self.conn.executemany(
+                "UPDATE files SET skipped=?, skipped_on_disk=? WHERE path=? AND present=0",
+                [(str(rule), int(on_disk), path) for path, (rule, on_disk) in rules.items()])
         self.put_meta("observing", None)
         self.put_meta("last_census", {"at": now_iso(), "files": len(paths),
                                       "hashed": len(to_hash), "reused": reused})
@@ -837,20 +928,96 @@ class Coverage:
                 "UPDATE files SET exclusion=NULL, approved_hash=NULL WHERE exclusion IS NOT NULL"
             ).rowcount
 
+    def plan_placements(self, intents: dict[str, tuple[str, str]], *, cleared=()) -> None:
+        """An approved plan's placements: path -> (level, folder). `cleared`
+        paths were decided again and placed nowhere: their old placement goes.
+
+        A path whose folder changed loses its resolved target until `build`
+        resolves the new one; where it was last filed is kept, so a move is
+        only sent when the target really differs.
+        """
+        with self.conn:
+            self.conn.executemany("""
+                INSERT INTO placements(path, level, folder) VALUES (?, ?, ?)
+                ON CONFLICT(path) DO UPDATE SET level=excluded.level, folder=excluded.folder,
+                  target_id=CASE WHEN placements.level=excluded.level
+                                  AND placements.folder=excluded.folder
+                                 THEN placements.target_id END,
+                  refused_artifact=NULL, error=NULL""",
+                [(path, level, folder) for path, (level, folder) in intents.items()])
+            self.conn.executemany("DELETE FROM placements WHERE path=?",
+                                  [(path,) for path in cleared])
+
+    def planned_placements(self) -> list[dict]:
+        """Every planned placement with its file's current state."""
+        return [dict(row) for row in self.conn.execute("""
+            SELECT p.path, p.level, p.folder, p.target_id, f.present, f.exclusion,
+                   f.project_id, f.project_slug
+            FROM placements p JOIN files f ON f.path = p.path ORDER BY p.path""")]
+
+    def resolve_placements(self, targets: dict[str, str]) -> None:
+        """path -> the id of the run or experiment its folder became."""
+        with self.conn:
+            self.conn.executemany("UPDATE placements SET target_id=? WHERE path=?",
+                                  [(target, path) for path, target in targets.items()])
+
+    def unfiled(self) -> list[tuple[str, str, str, str]]:
+        """Delivered files not yet at their placement: (path, artifact id, level, target id).
+
+        Only a verified receipt names the artifact, so a file still uploading
+        waits for the next pass. Keyed on the ARTIFACT as well as the target:
+        a changed file's new upload is a new artifact, filed again. One the
+        server refused for good (`filing_refused`) is not offered again.
+        """
+        out = []
+        for row in self.conn.execute("""
+                SELECT p.path, p.level, p.target_id, p.filed_target, p.filed_artifact,
+                       p.refused_artifact, v.receipt FROM placements p
+                JOIN files f ON f.path = p.path
+                JOIN versions v ON v.correlation = f.correlation
+                WHERE v.receipt IS NOT NULL AND f.present = 1 AND p.target_id IS NOT NULL
+                ORDER BY p.path"""):
+            artifact = json.loads(row["receipt"]).get("artifact_id")
+            if not artifact or str(artifact) == row["refused_artifact"]:
+                continue
+            if row["filed_target"] == row["target_id"] and row["filed_artifact"] == str(artifact):
+                continue
+            out.append((row["path"], str(artifact), row["level"], row["target_id"]))
+        return out
+
+    def filed(self, path: str, target_id: str, artifact_id: str) -> None:
+        with self.conn:
+            self.conn.execute("""UPDATE placements SET filed_target=?, filed_artifact=?,
+                refused_artifact=NULL, error=NULL WHERE path=?""", (target_id, artifact_id, path))
+
+    def filing_refused(self, path: str, artifact_id: str, error: str) -> None:
+        """The server refused this artifact's move for good; never offer it again."""
+        with self.conn:
+            self.conn.execute("UPDATE placements SET refused_artifact=?, error=? WHERE path=?",
+                              (artifact_id, error[:1024], path))
+
     def dead_reasons(self) -> dict[str, str]:
         return {row["path"]: row["dead"]
                 for row in self.conn.execute(
                     "SELECT path, dead FROM files WHERE dead IS NOT NULL ORDER BY path")}
 
     def report(self) -> CoverageReport:
+        """Every file in exactly one bucket.
+
+        `skipped`: seen by an earlier census, now outside the walk by one of
+        its rules (`SkipRule`) and still on disk. Settled, like `excluded`:
+        not pending, not absent, and an upload made from it stays on the server.
+        Deleted since, it is `vanished` like any deleted file; its rule stays on
+        the row (`skipped_rules(on_disk=False)`), so it still holds nothing.
+        """
         result = CoverageReport({key: [] for key in (
             "delivered", "references", "queued", "excluded", "dead",
-            "new", "changed", "unresolved", "vanished")})
+            "new", "changed", "unresolved", "vanished", "skipped")})
         result.partial = self.observing
         for row in self.conn.execute("""SELECT f.*, v.receipt, v.error, v.queued FROM files f
                                        LEFT JOIN versions v USING(correlation) ORDER BY f.path"""):
             if not row["present"]:
-                state = "vanished"
+                state = "skipped" if row["skipped"] and row["skipped_on_disk"] else "vanished"
             elif row["observation_error"]:
                 state = "unresolved"
             elif row["exclusion"]:
@@ -878,6 +1045,16 @@ class Coverage:
             result[state].append(row["path"])
         return result
 
+    def skipped_rules(self, *, on_disk: bool | None = True) -> dict[str, str]:
+        """path -> `SkipRule` for unseen files a rule leaves out: the ones
+        `report()` calls `skipped` (on disk), the deleted ones among `vanished`
+        (`on_disk=False`), or both (`None`)."""
+        rows = self.conn.execute(
+            "SELECT path, skipped, skipped_on_disk FROM files "
+            "WHERE present=0 AND skipped IS NOT NULL ORDER BY path")
+        return {row["path"]: row["skipped"] for row in rows
+                if on_disk is None or bool(row["skipped_on_disk"]) == on_disk}
+
     def write_report(self) -> Path:
         if self.observing:
             raise CoverageError("A census is still running; the per-file report would be half true.")
@@ -885,6 +1062,87 @@ class Coverage:
         report = self.report()
         write_text_atomic(target, json.dumps({"schema": SCHEMA, "at": now_iso(),
                           "scope": asdict(self.scope), "source_id": self.source_id,
-                          "files": report, "dead": self.dead_reasons()},
+                          "files": report, "dead": self.dead_reasons(),
+                          "skipped": self.skipped_rules(),
+                          "vanished_skipped": self.skipped_rules(on_disk=False)},
                           ensure_ascii=False, indent=2))
         return target
+
+
+
+def skipped_folders(source, *, census=None, root_name: str = "") -> WalkSkips:
+    """What a walk left out by rule, from its `backfill_evidence.WalkWarnings`
+    or its `backfill.Census` (a queued job's comes back from JSON with lists
+    for tuples). `census` is the import's, whose admissions
+    (`include_hidden`) and rules (`walk_rules`) the walk ran by; `source`
+    itself when it is the census. `root_name` is the folder's own name, which
+    the walk consults for its top-level entries (a root named `.dvc`)."""
+    from .backfill_evidence import skipped_by_hidden_rule
+
+    def paths(items):
+        return tuple(item.path if hasattr(item, "path") else item[0] for item in items or ())
+
+    census = source if census is None else census
+    if getattr(census, "walk_rules", 0) < 1:
+        return WalkSkips(legacy=True)
+    include = frozenset(getattr(census, "include_hidden", ()) or ())
+    return WalkSkips(
+        worktrees=paths(getattr(source, "skipped_worktrees", ())),
+        hidden=paths(getattr(source, "skipped_hidden", ())),
+        hidden_rule=lambda parts: skipped_by_hidden_rule(parts, include, root_name=root_name),
+    )
+
+
+def _skip_rules(root: Path, unseen: dict[str, str | None],
+                skipped: WalkSkips | None) -> dict[str, tuple[SkipRule, bool]]:
+    """Which unseen files a rule leaves out, and whether each is on disk.
+
+    path -> (rule, on disk), for `unseen` (path -> the rule recorded before,
+    or None). The nearest skipped folder decides, so the agent worktrees inside
+    `.claude` are worktree copies, not hidden files. In order: a worktree this
+    walk skipped; a worktree copy recorded before whose folder is gone (a
+    removed worktree is not listed any more, though `.claude` around it may
+    be; a folder still there is walked, so its files are the import's again);
+    a hidden folder this walk skipped; else, from its path alone, a hidden
+    folder this walk's rules skip (`--include-hidden` admits one again).
+
+    Without `skipped`, or for a `legacy` walk (a queued job resumed under the
+    rules before the skips, which say nothing about them), the rules recorded
+    before stand and none is added.
+
+    A stat per file, never a read: out of the import, its bytes are not the
+    store's business any more. `lexists`, because the walk counts a broken
+    symlink as a file too.
+    """
+    keep_only = skipped is None or skipped.legacy
+    folders: dict[str, SkipRule] = {}
+    if not keep_only:
+        for rule, items in ((SkipRule.HIDDEN_FOLDER, skipped.hidden),
+                            (SkipRule.WORKTREE_COPY, skipped.worktrees)):  # a worktree wins a tie
+            for folder in items:
+                folders[str(PurePath(folder))] = rule
+    gone_folders: dict[PurePath, bool] = {}
+
+    def folder_gone(folder: PurePath) -> bool:
+        if folder not in gone_folders:
+            gone_folders[folder] = not os.path.isdir(root / folder)
+        return gone_folders[folder]
+
+    out: dict[str, tuple[SkipRule, bool]] = {}
+    for path, before in unseen.items():
+        known = SkipRule(before) if before in SkipRule._value2member_map_ else None
+        pure = PurePath(path)
+        if keep_only:
+            rule = known
+        else:
+            rule = next((folders[str(parent)] for parent in pure.parents
+                         if str(parent) in folders), None)
+            if (known is SkipRule.WORKTREE_COPY and rule is not SkipRule.WORKTREE_COPY
+                    and folder_gone(pure.parent)):
+                rule = known
+            if rule is None and skipped.hidden_rule is not None \
+                    and skipped.hidden_rule(pure.parent.parts):
+                rule = SkipRule.HIDDEN_FOLDER
+        if rule is not None:
+            out[path] = (rule, os.path.lexists(root / path))
+    return out

@@ -21,6 +21,51 @@ from unittest import mock
 
 class ApplyPatchTestCase(unittest.TestCase):
 
+    def test_operation_iterators_remain_reusable_after_validation(self):
+        operations = [
+            {'op': 'add', 'path': '/a', 'value': 1},
+            {'op': 'replace', 'path': '/a', 'value': 2},
+        ]
+        class OneShotIterable:
+            def __init__(self, ops):
+                self.iterator = iter(ops)
+
+            def __iter__(self):
+                return self.iterator
+
+        for name, factory in (
+            ('iterator', iter),
+            ('generator', lambda ops: (op for op in ops)),
+            ('one-shot iterable', OneShotIterable),
+        ):
+            with self.subTest(name=name):
+                patch = jsonpatch.JsonPatch(factory(operations))
+                self.assertEqual(list(patch), operations)
+                self.assertEqual(json.loads(patch.to_string()), operations)
+                self.assertEqual(patch.apply({}), {'a': 2})
+                self.assertEqual(patch.apply({}), {'a': 2})
+
+    def test_empty_operation_iterator_is_false(self):
+        patch = jsonpatch.JsonPatch(iter([]))
+        self.assertFalse(patch)
+        self.assertEqual(patch.to_string(), '[]')
+
+    def test_invalid_operation_iterator_is_rejected(self):
+        operations = iter([
+            {'op': 'add', 'path': '/a', 'value': 1},
+            {'op': 'not-an-operation', 'path': '/a'},
+        ])
+        with self.assertRaises(jsonpatch.InvalidJsonPatch):
+            jsonpatch.JsonPatch(operations)
+
+    def test_sequence_operations_preserve_contents(self):
+        operations = [{'op': 'add', 'path': '/a', 'value': 1}]
+        for sequence in (operations, tuple(operations)):
+            with self.subTest(sequence=type(sequence).__name__):
+                patch = jsonpatch.JsonPatch(sequence)
+                self.assertEqual(list(patch), operations)
+                self.assertEqual(patch.apply({}), {'a': 1})
+
     def test_diff_without_optimization_uses_basic_operations(self):
         documents = [
             ({'old': {'value': 1}}, {'new': {'value': 1}}),
@@ -2113,6 +2158,45 @@ class CommandLineTests(unittest.TestCase):
                 self.assertTrue(opened[0].closed)
                 self.assertEqual(self.read(doc), {'a': 1})
                 self.assertEqual(sorted(os.listdir(self.dir)), ['doc.json', 'patch.json'])
+
+    def test_jsonpatch_in_place_cleans_temp_on_fdopen_error(self):
+        for backup in (False, True):
+            with self.subTest(backup=backup):
+                tmp = tempfile.TemporaryDirectory()
+                self.addCleanup(tmp.cleanup)
+                self.dir = tmp.name
+                doc = self.write('doc.json', {'a': 1})
+                patch = self.write('patch.json', [{'op': 'replace', 'path': '/a', 'value': 2}])
+                parser = jsonpatch_cli.jsonpatch_parser
+                args = parser.parse_args(['-i', doc, patch] + (['-b'] if backup else []))
+                self.addCleanup(args.ORIGINAL.close)
+                self.addCleanup(args.PATCH.close)
+                descriptors = []
+
+                def close_if_open(fd):
+                    try:
+                        os.close(fd)
+                    except OSError:
+                        pass
+
+                def fail_fdopen(fd, *args, **kwargs):
+                    descriptors.append(fd)
+                    self.addCleanup(close_if_open, fd)
+                    raise OSError('cannot wrap temporary descriptor')
+
+                with mock.patch.object(parser, 'parse_args', return_value=args), \
+                        mock.patch('os.fdopen', side_effect=fail_fdopen):
+                    jsonpatch_cli.patch_files()
+
+                self.assertEqual(self.read(doc), {'a': 2})
+                if backup:
+                    self.assertEqual(self.read(doc + '.orig'), {'a': 1})
+                with self.assertRaises(OSError):
+                    os.fstat(descriptors[0])
+                expected = ['doc.json', 'patch.json']
+                if backup:
+                    expected.append('doc.json.orig')
+                self.assertEqual(sorted(os.listdir(self.dir)), sorted(expected))
 
     def test_jsonpatch_in_place_preserves_original_on_replace_error(self):
         doc = self.write('doc.json', {'a': 1})

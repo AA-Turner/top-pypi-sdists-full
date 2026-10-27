@@ -1,0 +1,32 @@
+default_language_version:
+  python: python3.9
+default_install_hook_types: [pre-commit,pre-push]
+default_stages: [pre-commit]
+exclude: ^docs/
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: ruff check -n
+        language: system
+        types_or: [ python ]
+
+      - id: ruff format
+        name: ruff format
+        entry: ruff format --check .
+        language: system
+        types_or: [ python ]
+
+      - id: pylint
+        name: pylint static code analyzer
+        entry: pylint -rn -sn # Only display messages, don't display the score
+        language: system
+        types: [python]
+
+      - id: mypy
+        name: mypy
+        language: system
+        entry: mypy --show-traceback --no-sqlite-cache
+        types: [python]

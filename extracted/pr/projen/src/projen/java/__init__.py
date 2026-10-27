@@ -102,6 +102,7 @@ class JavaProject(
         description: typing.Optional[builtins.str] = None,
         packaging: typing.Optional[builtins.str] = None,
         parent_pom: typing.Optional[typing.Union["ParentPom", typing.Dict[builtins.str, typing.Any]]] = None,
+        sort_plugins: typing.Optional["_projen_04054675.ICompareString"] = None,
         url: typing.Optional[builtins.str] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
@@ -148,6 +149,7 @@ class JavaProject(
         :param description: (experimental) Description of a project is always good. Although this should not replace formal documentation, a quick comment to any readers of the POM is always helpful. Default: undefined
         :param packaging: (experimental) Project packaging format. Default: "jar"
         :param parent_pom: (experimental) A Parent Pom can be used to have a child project inherit properties/plugins/ect in order to reduce duplication and keep standards across a large amount of repos. Default: undefined
+        :param sort_plugins: (experimental) Sorts the top-level build plugins in the generated POM. The comparator receives ``groupId/artifactId`` identifiers without versions. Returning zero preserves the existing relative order. This does not change Maven lifecycle phase bindings. Default: - preserve the existing dependency order
         :param url: (experimental) The URL, like the name, is not required. This is a nice gesture for projects users, however, so that they know where the project lives. Default: undefined
         :param name: (experimental) This is the name of your project. Default: $BASEDIR
         :param commit_generated: (experimental) Whether to commit the managed files by default. Default: true
@@ -196,6 +198,7 @@ class JavaProject(
             description=description,
             packaging=packaging,
             parent_pom=parent_pom,
+            sort_plugins=sort_plugins,
             url=url,
             name=name,
             commit_generated=commit_generated,
@@ -1274,6 +1277,7 @@ class Pom(
         description: typing.Optional[builtins.str] = None,
         packaging: typing.Optional[builtins.str] = None,
         parent_pom: typing.Optional[typing.Union["ParentPom", typing.Dict[builtins.str, typing.Any]]] = None,
+        sort_plugins: typing.Optional["_projen_04054675.ICompareString"] = None,
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -1284,6 +1288,7 @@ class Pom(
         :param description: (experimental) Description of a project is always good. Although this should not replace formal documentation, a quick comment to any readers of the POM is always helpful. Default: undefined
         :param packaging: (experimental) Project packaging format. Default: "jar"
         :param parent_pom: (experimental) A Parent Pom can be used to have a child project inherit properties/plugins/ect in order to reduce duplication and keep standards across a large amount of repos. Default: undefined
+        :param sort_plugins: (experimental) Sorts the top-level build plugins in the generated POM. The comparator receives ``groupId/artifactId`` identifiers without versions. Returning zero preserves the existing relative order. This does not change Maven lifecycle phase bindings. Default: - preserve the existing dependency order
         :param url: (experimental) The URL, like the name, is not required. This is a nice gesture for projects users, however, so that they know where the project lives. Default: undefined
 
         :stability: experimental
@@ -1298,6 +1303,7 @@ class Pom(
             description=description,
             packaging=packaging,
             parent_pom=parent_pom,
+            sort_plugins=sort_plugins,
             url=url,
         )
 
@@ -1523,6 +1529,7 @@ class Pom(
         "description": "description",
         "packaging": "packaging",
         "parent_pom": "parentPom",
+        "sort_plugins": "sortPlugins",
         "url": "url",
     },
 )
@@ -1536,6 +1543,7 @@ class PomOptions:
         description: typing.Optional[builtins.str] = None,
         packaging: typing.Optional[builtins.str] = None,
         parent_pom: typing.Optional[typing.Union["ParentPom", typing.Dict[builtins.str, typing.Any]]] = None,
+        sort_plugins: typing.Optional["_projen_04054675.ICompareString"] = None,
         url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Options for ``Pom``.
@@ -1546,6 +1554,7 @@ class PomOptions:
         :param description: (experimental) Description of a project is always good. Although this should not replace formal documentation, a quick comment to any readers of the POM is always helpful. Default: undefined
         :param packaging: (experimental) Project packaging format. Default: "jar"
         :param parent_pom: (experimental) A Parent Pom can be used to have a child project inherit properties/plugins/ect in order to reduce duplication and keep standards across a large amount of repos. Default: undefined
+        :param sort_plugins: (experimental) Sorts the top-level build plugins in the generated POM. The comparator receives ``groupId/artifactId`` identifiers without versions. Returning zero preserves the existing relative order. This does not change Maven lifecycle phase bindings. Default: - preserve the existing dependency order
         :param url: (experimental) The URL, like the name, is not required. This is a nice gesture for projects users, however, so that they know where the project lives. Default: undefined
 
         :stability: experimental
@@ -1560,6 +1569,7 @@ class PomOptions:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument packaging", value=packaging, expected_type=type_hints["packaging"])
             check_type(argname="argument parent_pom", value=parent_pom, expected_type=type_hints["parent_pom"])
+            check_type(argname="argument sort_plugins", value=sort_plugins, expected_type=type_hints["sort_plugins"])
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "artifact_id": artifact_id,
@@ -1572,6 +1582,8 @@ class PomOptions:
             self._values["packaging"] = packaging
         if parent_pom is not None:
             self._values["parent_pom"] = parent_pom
+        if sort_plugins is not None:
+            self._values["sort_plugins"] = sort_plugins
         if url is not None:
             self._values["url"] = url
 
@@ -1683,6 +1695,21 @@ class PomOptions:
         '''
         result = self._values.get("parent_pom")
         return typing.cast(typing.Optional["ParentPom"], result)
+
+    @builtins.property
+    def sort_plugins(self) -> typing.Optional["_projen_04054675.ICompareString"]:
+        '''(experimental) Sorts the top-level build plugins in the generated POM.
+
+        The comparator receives ``groupId/artifactId`` identifiers without versions.
+        Returning zero preserves the existing relative order.
+        This does not change Maven lifecycle phase bindings.
+
+        :default: - preserve the existing dependency order
+
+        :stability: experimental
+        '''
+        result = self._values.get("sort_plugins")
+        return typing.cast(typing.Optional["_projen_04054675.ICompareString"], result)
 
     @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
@@ -1983,6 +2010,7 @@ class UpdatePolicy(metaclass=jsii.JSIIMeta, jsii_type="projen.java.UpdatePolicy"
         "description": "description",
         "packaging": "packaging",
         "parent_pom": "parentPom",
+        "sort_plugins": "sortPlugins",
         "url": "url",
         "compile_options": "compileOptions",
         "deps": "deps",
@@ -2031,6 +2059,7 @@ class JavaProjectCommonOptions(_github_c49f935d.GitHubProjectOptions, PomOptions
         description: typing.Optional[builtins.str] = None,
         packaging: typing.Optional[builtins.str] = None,
         parent_pom: typing.Optional[typing.Union["ParentPom", typing.Dict[builtins.str, typing.Any]]] = None,
+        sort_plugins: typing.Optional["_projen_04054675.ICompareString"] = None,
         url: typing.Optional[builtins.str] = None,
         compile_options: typing.Optional[typing.Union["MavenCompileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2076,6 +2105,7 @@ class JavaProjectCommonOptions(_github_c49f935d.GitHubProjectOptions, PomOptions
         :param description: (experimental) Description of a project is always good. Although this should not replace formal documentation, a quick comment to any readers of the POM is always helpful. Default: undefined
         :param packaging: (experimental) Project packaging format. Default: "jar"
         :param parent_pom: (experimental) A Parent Pom can be used to have a child project inherit properties/plugins/ect in order to reduce duplication and keep standards across a large amount of repos. Default: undefined
+        :param sort_plugins: (experimental) Sorts the top-level build plugins in the generated POM. The comparator receives ``groupId/artifactId`` identifiers without versions. Returning zero preserves the existing relative order. This does not change Maven lifecycle phase bindings. Default: - preserve the existing dependency order
         :param url: (experimental) The URL, like the name, is not required. This is a nice gesture for projects users, however, so that they know where the project lives. Default: undefined
         :param compile_options: (experimental) Compile options. Default: - defaults
         :param deps: (experimental) List of runtime dependencies for this project. Dependencies use the format: ``<groupId>/<artifactId>@<semver>`` Additional dependencies can be added via ``project.addDependency()``. Default: []
@@ -2153,6 +2183,7 @@ class JavaProjectCommonOptions(_github_c49f935d.GitHubProjectOptions, PomOptions
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument packaging", value=packaging, expected_type=type_hints["packaging"])
             check_type(argname="argument parent_pom", value=parent_pom, expected_type=type_hints["parent_pom"])
+            check_type(argname="argument sort_plugins", value=sort_plugins, expected_type=type_hints["sort_plugins"])
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument compile_options", value=compile_options, expected_type=type_hints["compile_options"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -2225,6 +2256,8 @@ class JavaProjectCommonOptions(_github_c49f935d.GitHubProjectOptions, PomOptions
             self._values["packaging"] = packaging
         if parent_pom is not None:
             self._values["parent_pom"] = parent_pom
+        if sort_plugins is not None:
+            self._values["sort_plugins"] = sort_plugins
         if url is not None:
             self._values["url"] = url
         if compile_options is not None:
@@ -2680,6 +2713,21 @@ class JavaProjectCommonOptions(_github_c49f935d.GitHubProjectOptions, PomOptions
         return typing.cast(typing.Optional["ParentPom"], result)
 
     @builtins.property
+    def sort_plugins(self) -> typing.Optional["_projen_04054675.ICompareString"]:
+        '''(experimental) Sorts the top-level build plugins in the generated POM.
+
+        The comparator receives ``groupId/artifactId`` identifiers without versions.
+        Returning zero preserves the existing relative order.
+        This does not change Maven lifecycle phase bindings.
+
+        :default: - preserve the existing dependency order
+
+        :stability: experimental
+        '''
+        result = self._values.get("sort_plugins")
+        return typing.cast(typing.Optional["_projen_04054675.ICompareString"], result)
+
+    @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The URL, like the name, is not required.
 
@@ -2854,6 +2902,7 @@ class JavaProjectCommonOptions(_github_c49f935d.GitHubProjectOptions, PomOptions
         "description": "description",
         "packaging": "packaging",
         "parent_pom": "parentPom",
+        "sort_plugins": "sortPlugins",
         "url": "url",
         "compile_options": "compileOptions",
         "deps": "deps",
@@ -2904,6 +2953,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         description: typing.Optional[builtins.str] = None,
         packaging: typing.Optional[builtins.str] = None,
         parent_pom: typing.Optional[typing.Union["ParentPom", typing.Dict[builtins.str, typing.Any]]] = None,
+        sort_plugins: typing.Optional["_projen_04054675.ICompareString"] = None,
         url: typing.Optional[builtins.str] = None,
         compile_options: typing.Optional[typing.Union["MavenCompileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2951,6 +3001,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         :param description: (experimental) Description of a project is always good. Although this should not replace formal documentation, a quick comment to any readers of the POM is always helpful. Default: undefined
         :param packaging: (experimental) Project packaging format. Default: "jar"
         :param parent_pom: (experimental) A Parent Pom can be used to have a child project inherit properties/plugins/ect in order to reduce duplication and keep standards across a large amount of repos. Default: undefined
+        :param sort_plugins: (experimental) Sorts the top-level build plugins in the generated POM. The comparator receives ``groupId/artifactId`` identifiers without versions. Returning zero preserves the existing relative order. This does not change Maven lifecycle phase bindings. Default: - preserve the existing dependency order
         :param url: (experimental) The URL, like the name, is not required. This is a nice gesture for projects users, however, so that they know where the project lives. Default: undefined
         :param compile_options: (experimental) Compile options. Default: - defaults
         :param deps: (experimental) List of runtime dependencies for this project. Dependencies use the format: ``<groupId>/<artifactId>@<semver>`` Additional dependencies can be added via ``project.addDependency()``. Default: []
@@ -3030,6 +3081,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument packaging", value=packaging, expected_type=type_hints["packaging"])
             check_type(argname="argument parent_pom", value=parent_pom, expected_type=type_hints["parent_pom"])
+            check_type(argname="argument sort_plugins", value=sort_plugins, expected_type=type_hints["sort_plugins"])
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument compile_options", value=compile_options, expected_type=type_hints["compile_options"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -3104,6 +3156,8 @@ class JavaProjectOptions(JavaProjectCommonOptions):
             self._values["packaging"] = packaging
         if parent_pom is not None:
             self._values["parent_pom"] = parent_pom
+        if sort_plugins is not None:
+            self._values["sort_plugins"] = sort_plugins
         if url is not None:
             self._values["url"] = url
         if compile_options is not None:
@@ -3563,6 +3617,21 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         return typing.cast(typing.Optional["ParentPom"], result)
 
     @builtins.property
+    def sort_plugins(self) -> typing.Optional["_projen_04054675.ICompareString"]:
+        '''(experimental) Sorts the top-level build plugins in the generated POM.
+
+        The comparator receives ``groupId/artifactId`` identifiers without versions.
+        Returning zero preserves the existing relative order.
+        This does not change Maven lifecycle phase bindings.
+
+        :default: - preserve the existing dependency order
+
+        :stability: experimental
+        '''
+        result = self._values.get("sort_plugins")
+        return typing.cast(typing.Optional["_projen_04054675.ICompareString"], result)
+
+    @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The URL, like the name, is not required.
 
@@ -3905,6 +3974,7 @@ def _typecheckingstub__e3638a11786e70b5de428bf2064d32761537778501eb3cb189b4457c7
     description: typing.Optional[builtins.str] = None,
     packaging: typing.Optional[builtins.str] = None,
     parent_pom: typing.Optional[typing.Union[ParentPom, typing.Dict[builtins.str, typing.Any]]] = None,
+    sort_plugins: typing.Optional[_projen_04054675.ICompareString] = None,
     url: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3947,6 +4017,7 @@ def _typecheckingstub__468190ed1f2feac4431fa6e9f5cc22eb8dbb01cd1c5d3bdfdac29f07c
     description: typing.Optional[builtins.str] = None,
     packaging: typing.Optional[builtins.str] = None,
     parent_pom: typing.Optional[typing.Union[ParentPom, typing.Dict[builtins.str, typing.Any]]] = None,
+    sort_plugins: typing.Optional[_projen_04054675.ICompareString] = None,
     url: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4012,6 +4083,7 @@ def _typecheckingstub__95d1347bcc9244ea45fe2d94ee57536743a6579b8c3cbeefd1a9832f2
     description: typing.Optional[builtins.str] = None,
     packaging: typing.Optional[builtins.str] = None,
     parent_pom: typing.Optional[typing.Union[ParentPom, typing.Dict[builtins.str, typing.Any]]] = None,
+    sort_plugins: typing.Optional[_projen_04054675.ICompareString] = None,
     url: typing.Optional[builtins.str] = None,
     compile_options: typing.Optional[typing.Union[MavenCompileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -4060,6 +4132,7 @@ def _typecheckingstub__9bd204911b78eb490a0ff7d3863868024abfc54a7f5ababba6fe97db2
     description: typing.Optional[builtins.str] = None,
     packaging: typing.Optional[builtins.str] = None,
     parent_pom: typing.Optional[typing.Union[ParentPom, typing.Dict[builtins.str, typing.Any]]] = None,
+    sort_plugins: typing.Optional[_projen_04054675.ICompareString] = None,
     url: typing.Optional[builtins.str] = None,
     compile_options: typing.Optional[typing.Union[MavenCompileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,

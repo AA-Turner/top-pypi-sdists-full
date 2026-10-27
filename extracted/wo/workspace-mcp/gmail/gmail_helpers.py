@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
+import codecs
+import contextlib
+import itertools
 import logging
 import re
 import secrets
@@ -10,6 +15,7 @@ import ssl
 from collections import Counter
 from datetime import datetime, timezone
 from email.header import Header
+from email.message import Message
 from email.utils import getaddresses, parseaddr, parsedate_to_datetime
 from html.parser import HTMLParser
 from typing import Any, Callable, Dict, Iterable, List, Literal, Mapping, Optional
@@ -18,6 +24,7 @@ import httplib2
 from fastmcp.exceptions import ToolError as ToolExecutionError
 from googleapiclient.errors import HttpError
 
+from core.file_limits import FileTooLargeError, ensure_within_file_size_limit
 from core.utils import UserInputError
 from gmail.gmail_web_mime import (
     TextDirection,
@@ -332,6 +339,77 @@ async def _fetch_with_retry(
 
     logger.error(f"[{log_prefix}] Failed to fetch {item_label} {item_id}: {last_error}")
     return item_id, None, last_error
+
+
+async def _fetch_body_data(
+    service, message_id: Optional[str], attachment_id: str, body: Dict[str, Any]
+) -> Optional[str]:
+    """Store an attachment-backed body part's data on ``body``; return why it failed."""
+    try:
+        ensure_within_file_size_limit(
+            body.get("size"), file_id=attachment_id, kind="message body"
+        )
+        _, response, error = await _fetch_with_retry(
+            lambda: (
+                service.users()
+                .messages()
+                .attachments()
+                .get(userId="me", messageId=message_id, id=attachment_id)
+            ),
+            item_id=attachment_id,
+            item_label="message body",
+            log_prefix="fetch_attachment_backed_bodies",
+        )
+        if error is not None:
+            return f"Could not fetch message body {attachment_id}: {error}"
+        response = response or {}
+        ensure_within_file_size_limit(
+            response.get("size"), file_id=attachment_id, kind="message body"
+        )
+    except FileTooLargeError as error:
+        logger.warning(f"Skipping message body of {message_id}: {error}")
+        return str(error)
+    data = response.get("data") or ""
+    try:
+        decoded = _decode_base64url(data)
+    except binascii.Error:
+        decoded = b""
+    if not decoded:
+        return f"Message body {attachment_id} came back empty or undecodable"
+    body["data"] = data
+    return None
+
+
+async def fetch_attachment_backed_bodies(
+    service, messages: Iterable[Mapping[str, Any]]
+) -> List[str]:
+    """Fill in the text/plain and text/html bodies Gmail stores behind an attachmentId.
+
+    Returns why each body that is still missing could not be fetched.
+    """
+    errors: List[str] = []
+    for message in messages:
+        pending = [message.get("payload") or {}]
+        failures: Dict[str, str] = {}
+        wanted = {"text/plain", "text/html"}
+        while pending and wanted:
+            part = pending.pop(0)
+            mime_type = part.get("mimeType", "")
+            body = part.get("body") or {}
+            attachment_id = None if part.get("filename") else body.get("attachmentId")
+            if mime_type in wanted and not body.get("data") and attachment_id:
+                error = await _fetch_body_data(
+                    service, message.get("id"), attachment_id, body
+                )
+                if error:
+                    failures[mime_type] = error
+            if mime_type in wanted and body.get("data"):
+                wanted.discard(mime_type)
+                failures.pop(mime_type, None)
+            if mime_type.startswith("multipart/"):
+                pending.extend(part.get("parts") or [])
+        errors.extend(failures.values())
+    return errors
 
 
 async def send_message_once(service, send_body: Dict[str, Any]) -> Dict[str, Any]:
@@ -747,6 +825,8 @@ class _HTMLBlockTextExtractor(HTMLParser):
             # A nested block starts a new visual line even when its parent
             # already contains text (for example, Name<div>Title</div>).
             self._append_line_break()
+            if ("data-smartmail", "gmail_signature") in attrs:
+                self._append_line_break(force=True)
         elif tag in ("td", "th"):
             # Separating at the start tag also covers omitted </td> and </th>.
             if self._text and not self._text[-1].endswith((" ", "\n")):
@@ -782,6 +862,31 @@ class _HTMLBlockTextExtractor(HTMLParser):
         return text.strip()
 
 
+def _decode_base64url(data: str) -> bytes:
+    """Decode Gmail base64url data, which may arrive without padding."""
+    return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4))
+
+
+def decode_part_body(part: Mapping[str, Any]) -> str:
+    """Decode a Gmail payload part's inline body using its declared charset."""
+    raw = _decode_base64url(part["body"]["data"])
+    headers = Message()
+    for header in part.get("headers", []):
+        headers[header["name"]] = header["value"]
+    charset = headers.get_content_charset() or "utf-8"
+    attempts = [(charset, "strict"), ("utf-8", "strict"), (charset, "ignore")]
+    # WHATWG reads these labels as windows-1252, and they often mislabel UTF-8.
+    with contextlib.suppress(LookupError):
+        if codecs.lookup(charset).name in {"ascii", "cp1252", "iso8859-1"}:
+            attempts = [("utf-8", "strict"), ("cp1252", "strict"), ("cp1252", "ignore")]
+    for codec, errors in attempts:
+        try:
+            return raw.decode(codec, errors)
+        except (LookupError, UnicodeError):
+            continue
+    return raw.decode("utf-8", errors="ignore")
+
+
 def html_to_text_preserving_breaks(html_content: str) -> str:
     """Convert HTML to plain text, keeping block boundaries as line breaks.
 
@@ -799,6 +904,83 @@ def html_to_text_preserving_breaks(html_content: str) -> str:
         return parser.get_text()
     except Exception:
         return html_content
+
+
+class _HTMLLinkExtractor(HTMLParser):
+    """Collect http(s) anchor URLs mapped to their visible text, in document order."""
+
+    def __init__(self):
+        super().__init__()
+        self.links: Dict[str, str] = {}
+        self._href: Optional[str] = None
+        self._text: List[str] = []
+
+    def _flush(self) -> None:
+        if self._href is not None and not self.links.get(self._href):
+            self.links[self._href] = " ".join("".join(self._text).split())
+        self._href = None
+        self._text = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "br":
+            self.handle_data(" ")
+        if tag != "a":
+            return
+        self._flush()
+        href = re.sub(r"[\t\n\r]", "", dict(attrs).get("href") or "").strip()
+        if href.lower().startswith(("http://", "https://")):
+            self._href = href
+
+    def handle_endtag(self, tag):
+        if tag == "a":
+            self._flush()
+
+    def handle_data(self, data):
+        if self._href is not None:
+            self._text.append(data)
+
+    def parse_marked_section(self, i, report=1):
+        # Older CPython patch releases raise on unknown <![...]> sections.
+        try:
+            return super().parse_marked_section(i, report)
+        except AssertionError:
+            return self.parse_bogus_comment(i)
+
+    def close(self):
+        super().close()
+        self._flush()
+
+
+_TEXT_URL_RE = re.compile(r"https?://[^\s<>\"]+", re.IGNORECASE)
+
+
+def format_html_links(
+    html_body: str, known_text: str, limit: Optional[int] = None
+) -> str:
+    """Return a LINKS section of http(s) anchors missing from ``known_text``, capped at ``limit``."""
+    if not html_body:
+        return ""
+    parser = _HTMLLinkExtractor()
+    parser.feed(html_body)
+    parser.close()
+    shown = {
+        url
+        for token in _TEXT_URL_RE.findall(known_text)
+        for url in (token, token.rstrip(".,;:!?)]"))
+    }
+    lines = [
+        f"- {text}: {url}" if text and text != url else f"- {url}"
+        for url, text in parser.links.items()
+        if url not in shown
+    ]
+    if limit is not None:
+        kept = sum(
+            size <= limit
+            for size in itertools.accumulate(len(line) + 1 for line in lines)
+        )
+        if kept < len(lines):
+            lines = lines[:kept] + [f"[{len(lines) - kept} more links omitted]"]
+    return "\n\n--- LINKS ---\n" + "\n".join(lines) if lines else ""
 
 
 _HTML_BLOCK_TAGS = frozenset(
@@ -1230,6 +1412,52 @@ def _build_web_compose_raw(
 def _signature_html_to_text(signature_html: str) -> str:
     """Convert Gmail signature HTML to plain text, preserving line breaks."""
     return html_to_text_preserving_breaks(signature_html)
+
+
+_MARGIN_BLOCK_TAGS = frozenset(
+    {
+        "blockquote",
+        "dl",
+        "figure",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "ol",
+        "p",
+        "pre",
+        "ul",
+    }
+)
+_END_TAG_RE = re.compile(r"</([a-zA-Z][a-zA-Z0-9]*)\s*>\s*")
+_TRAILING_BREAK_RE = re.compile(r"<[bh]r\b[^<>]*>\s*\Z", re.IGNORECASE)
+_RESTYLED_MARGIN_RE = re.compile(
+    rf"<style\b[^<>]*>[^<]*margin|<(?:{'|'.join(sorted(_MARGIN_BLOCK_TAGS))})\b[^<>]*margin",
+    re.IGNORECASE,
+)
+
+
+def _html_signature_separator(body: str) -> str:
+    """Return markup leaving one blank line between an HTML body and a signature."""
+    body = body.rstrip()
+    while body.endswith("-->") and (start := body.rfind("<!--")) != -1:
+        body = body[:start].rstrip()
+    if not body:
+        return ""
+    if _TRAILING_BREAK_RE.search(body):
+        return "<br>"
+    closed_tags = set()
+    end = len(body)
+    while match := _END_TAG_RE.fullmatch(body, body.rfind("</", 0, end), end):
+        closed_tags.add(match[1].lower())
+        end = match.start()
+    if closed_tags & _MARGIN_BLOCK_TAGS and not _RESTYLED_MARGIN_RE.search(body):
+        return ""
+    if closed_tags & _HTMLBlockTextExtractor._BLOCK_TAGS:
+        return "<br>"
+    return "<br><br>"
 
 
 def _wrap_signature_html(signature_html: str) -> str:

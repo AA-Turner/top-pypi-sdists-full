@@ -595,6 +595,29 @@ TEST(KvStoreTest, ListInvalid) {
 
   EXPECT_THAT(kvstore::ListFuture(store).result(),
               StatusIs(absl::StatusCode::kUnimplemented));
+  EXPECT_TRUE(mock_driver->list_requests.empty());
+
+  TENSORSTORE_ASSERT_OK(kvstore::Write(store, "a", absl::Cord("value")));
+  EXPECT_THAT(kvstore::ListFuture(store).result(),
+              StatusIs(absl::StatusCode::kUnimplemented));
+  EXPECT_TRUE(mock_driver->list_requests.empty());
+}
+
+TEST(KvStoreTest, ConditionalWriteGenerationMismatchErrorIncludesKey) {
+  tensorstore::kvstore::DriverPtr memory_store =
+      tensorstore::GetMemoryKeyValueStore();
+  Transaction txn(tensorstore::isolated);
+  KvStore store(memory_store, "", txn);
+
+  kvstore::WriteOptions options;
+  options.generation_conditions.if_equal =
+      StorageGeneration::FromString("mismatch");
+  TENSORSTORE_ASSERT_OK(
+      kvstore::Write(store, "a", absl::Cord("v2"), std::move(options)));
+
+  EXPECT_THAT(txn.CommitAsync().result(),
+              StatusIs(absl::StatusCode::kAborted,
+                       HasSubstr("Error writing \"a\": Generation mismatch")));
 }
 
 }  // namespace

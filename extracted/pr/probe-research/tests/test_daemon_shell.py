@@ -769,7 +769,8 @@ def _alive(pid: int) -> bool:
     if LINUX:  # killed but not yet reaped by init counts as dead
         try:
             state = Path(f"/proc/{pid}/stat").read_text().rsplit(") ", 1)[-1][:1]
-        except FileNotFoundError:
+        except (FileNotFoundError, ProcessLookupError):
+            # Reaped before the open (ENOENT) or between the open and the read (ESRCH).
             return False
         return state not in ("Z", "X")
     return True

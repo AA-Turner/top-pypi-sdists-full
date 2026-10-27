@@ -3,6 +3,7 @@ use std::{borrow::Cow, mem::take};
 use derive_where::derive_where;
 
 use crate::{
+	lossless::{LinkKind, QuoteKind},
 	range::{Content, delim::Delim},
 	span::{Span, Spanned},
 };
@@ -26,7 +27,7 @@ pub enum Element<'data, S: Span> {
 	Emoji(Emoji<'data>),
 	Timestamp(Timestamp),
 	Mention(Mention),
-	Link(Link<S, Element<'data, S>>),
+	Link(LinkKind, Link<S, Element<'data, S>>),
 	Code(Cow<'data, str>),
 	CodeBlock(CodeBlock<'data>),
 	Text(Cow<'data, str>),
@@ -36,7 +37,7 @@ pub enum Element<'data, S: Span> {
 	List(List<S, Element<'data, S>>),
 	/// Plain Node content.
 	Paragraph(Elements<'data, S>),
-	Quote(Elements<'data, S>),
+	Quote(QuoteKind, Elements<'data, S>),
 	Small(Small<S, Element<'data, S>>),
 	/// New line.
 	Empty,
@@ -56,9 +57,12 @@ impl<S: Span> Element<'_, S> {
 			Self::Code(code) => code.clone().into_owned(),
 			Self::CodeBlock(CodeBlock { content, .. }) => content.clone(),
 			Self::Emoji(Emoji::Unicode(code_point)) => code_point.to_string(),
-			Self::Link(Link {
-				text: None, url, ..
-			}) => url.to_string(),
+			Self::Link(
+				_,
+				Link {
+					text: None, url, ..
+				},
+			) => url.to_string(),
 			Self::Mention(mention) => mention.to_string(),
 			Self::Text(text) => text.clone().into_owned(),
 			Self::Delim(_)
@@ -66,11 +70,11 @@ impl<S: Span> Element<'_, S> {
 			| Self::Timestamp(_)
 			| Self::List(_)
 			| Self::Paragraph(_)
-			| Self::Quote(_)
+			| Self::Quote(..)
 			| Self::Small(_)
 			| Self::Empty
 			| Self::Emoji(Emoji::Custom(_))
-			| Self::Link(Link { text: Some(_), .. }) => return None,
+			| Self::Link(_, Link { text: Some(_), .. }) => return None,
 		})
 	}
 
@@ -99,7 +103,11 @@ impl<S: Span> Element<'_, S> {
 	pub fn is_container(&self) -> bool {
 		matches!(
 			self,
-			Self::Paragraph(_) | Self::Quote(_) | Self::Heading(_) | Self::Small(_) | Self::List(_)
+			Self::Paragraph(_)
+				| Self::Quote(..)
+				| Self::Heading(_)
+				| Self::Small(_)
+				| Self::List(_)
 		)
 	}
 
@@ -116,7 +124,7 @@ impl<S: Span> Element<'_, S> {
 			Self::Paragraph(content)
 			| Self::Heading(Heading { content, .. })
 			| Self::Small(Small { content }) => (Some((Content::Inline, content)), &[][..]),
-			Self::Quote(content) => (Some((Content::Blocks, content)), &[][..]),
+			Self::Quote(_, content) => (Some((Content::Blocks, content)), &[][..]),
 			Self::List(List { items, .. }) => (None, items.value.as_slice()),
 			_ => (None, &[][..]),
 		};

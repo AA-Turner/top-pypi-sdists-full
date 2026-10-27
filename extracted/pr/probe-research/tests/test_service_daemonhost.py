@@ -80,8 +80,21 @@ def test_a_failed_host_start_lets_the_next_caller_try():
 
 
 def _a_process_named(*words: str) -> subprocess.Popen:
-    return subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", *words],
+    """A process whose command line carries `words`, readable before it returns:
+    right after a vfork'd exec, `/proc/<pid>/cmdline` reads empty for a moment
+    (124 of 300 spawns on 3.11, 2026-10-26), and a check that read it then took
+    the host for a plain process (agent-ci 3.11 shard flake)."""
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", *words],
                             stdin=subprocess.DEVNULL, env=dict(os.environ))
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            if words[0].encode() in Path(f"/proc/{proc.pid}/cmdline").read_bytes().split(b"\0"):
+                break
+        except OSError:
+            break  # no /proc (macOS): `ps`, which reads it later, answers there
+        time.sleep(0.01)
+    return proc
 
 
 def test_the_update_stops_a_hosted_run_through_the_host_never_by_signalling_it(tmp_path):
@@ -188,13 +201,29 @@ def test_a_send_to_a_host_that_stopped_reading_never_holds_up_a_status_read(monk
     proc = _proc(runs=1)
     big = {"op": "start", "env": {"X": "y" * 4_000_000}}
     done: list = []
-    sender = threading.Thread(target=lambda: done.append(proc.send(big)))
+    # A daemon thread: a send that never gives up fails here, not by holding the
+    # interpreter open past the summary until the job's timeout cancels it.
+    sender = threading.Thread(target=lambda: done.append(proc.send(big)), daemon=True)
     sender.start()
     time.sleep(0.2)
     started = time.monotonic()
     assert len(proc.live_runs()) == 1 and time.monotonic() - started < 0.5
     sender.join(10)
     assert done == [False] and proc.stuck
+
+
+def test_a_send_gives_up_where_the_kernel_ignores_dontwait(monkeypatch):
+    """macOS's send() does not honour MSG_DONTWAIT (agent-ci service-macos: the
+    send above never returned): the socket's own send timeout still bounds it."""
+    monkeypatch.setattr(daemonhost, "SEND_TIMEOUT_S", 1.0)
+    monkeypatch.setattr(daemonhost.socket, "MSG_DONTWAIT", 0)  # a blocking send, as there
+    proc = _proc(runs=1)
+    done: list = []
+    sender = threading.Thread(target=lambda: done.append(proc.send({"env": "y" * 4_000_000})), daemon=True)
+    started = time.monotonic()
+    sender.start()
+    sender.join(10)
+    assert done == [False] and proc.stuck and time.monotonic() - started < 5
 
 
 def test_poll_kills_a_stuck_or_silent_host_and_one_past_its_retired_cap(monkeypatch, tmp_path):
@@ -629,11 +658,13 @@ def test_the_services_watchdog_looks_at_its_hosts_without_any_supervisor(monkeyp
     polled: list = []
     monkeypatch.setattr(host, "poll", lambda: polled.append(1))
     host._current = _proc(1)
-    host._watchdog = threading.Thread(target=host._watch, daemon=True)
-    host._watchdog.start()
+    # Held here too: the watchdog clears `host._watchdog` itself as it ends, which
+    # it may do (WATCH_S later) before this thread reaches the join.
+    watchdog = host._watchdog = threading.Thread(target=host._watch, daemon=True)
+    watchdog.start()
     time.sleep(0.3)
     host._current = None
-    host._watchdog.join(2)
+    watchdog.join(2)
     assert len(polled) >= 2 and host._watchdog is None
 
 

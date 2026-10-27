@@ -18,7 +18,10 @@ The pydantic-ai-harness capabilities it runs with (T3):
     compaction          conversation mode only: past CONTEXT_TOKENS, old tool
                         results cleared first, then older turns summarized,
                         down to COMPACT_TO of it; past COMPACT_MESSAGES
-                        messages, older turns summarized
+                        messages, older turns summarized. The model writes
+                        the summary's prose; plain code appends the landed
+                        writes from the logbook (`with_logbook`), so no id
+                        or slug in the history passed through the model
     warn_on_cache_busts a collapsed prompt cache is logged
     repair_tool_arguments  malformed JSON arguments repaired before validation
 
@@ -289,17 +292,18 @@ def _mcp_guide(agent: Any) -> None:
 
 SUMMARY_PROMPT = """\
 Summarize this conversation of the Probe daemon - your summary REPLACES it, so it must let the daemon carry \
-on without redoing work. Use these headings, and skip one only if it is empty:
+on without redoing work. Write prose under these headings, and skip one only if it is empty:
 
 ## What the session is about
 ## What was recorded
-Every Probe write that landed, with exact ids and slugs.
+What the landed writes recorded, in words.
 ## What failed or waits for the researcher
-Failed or refused writes, and questions waiting (with request ids).
+Failed or refused writes, and questions waiting.
 ## Where it left off
-The last turn and event ids covered, and what was in progress.
+What was in progress.
 
-Quote ids, numbers, metric names and paths VERBATIM. Reply with the summary only.
+Quote numbers and metric names exactly. Copy no ids or slugs: the daemon adds its logbook of landed writes below \
+your summary. Reply with the summary only.
 
 <messages>
 {messages}
@@ -790,6 +794,9 @@ class RunState:
     on_round: Callable[[Any], None] | None = None
     #: Plain code's state of the record (`session(op=status)`), read on demand.
     status: Callable[[], str] | None = None
+    #: Plain code's list of the landed writes (`bite.landed_block`), appended after
+    #: each compaction summary so no id or slug in it passes through the model.
+    logbook: Callable[[], str] | None = None
     detector: LoopDetector = field(default_factory=LoopDetector)
     compactions: int = 0
     #: The session's trace file for this agent (`trace.py`); None: no trace.
@@ -910,6 +917,74 @@ def newest_within(messages: list, wire: int) -> int:
     return len(messages)
 
 
+#: How a compaction summary opens (pydantic-ai-harness's `_SUMMARY_PREFIX`).
+SUMMARY_HEAD = "Summary of previous conversation:\n\n"
+
+
+def _summary_parts(message: Any) -> list[int]:
+    """The indexes of a request's compaction-summary parts."""
+    from pydantic_ai.messages import ModelRequest, SystemPromptPart
+
+    if not isinstance(message, ModelRequest):
+        return []
+    return [i for i, p in enumerate(message.parts)
+            if isinstance(p, SystemPromptPart) and p.content.startswith(SUMMARY_HEAD)]
+
+
+def _prose(summary: str) -> str:
+    """A summary without the logbook block (plain code's, or one the model wrote
+    in its shape): everything from the block's heading on goes."""
+    from probe.daemon import bite as bite_mod
+
+    cut = summary.find(bite_mod.LANDED_HEAD)
+    return summary if cut < 0 else summary[:cut].rstrip()
+
+
+def _rewrite_summaries(messages: list, rewrite: Callable[[str], str]) -> list:
+    """`messages` with each compaction summary's text rewritten; the same list
+    when none changed."""
+    out = list(messages)
+    changed = False
+    for m, message in enumerate(messages):
+        for i in _summary_parts(message):
+            part = message.parts[i]
+            text = rewrite(part.content)
+            if text != part.content:
+                parts = list(out[m].parts)
+                parts[i] = replace(part, content=text)
+                out[m] = replace(out[m], parts=parts)
+                changed = True
+    return out if changed else messages
+
+
+def _logbook_block(state: RunState) -> str | None:
+    """`state`'s logbook block; None when it has none. A logbook that cannot be
+    read says so in the block rather than failing the run."""
+    if state.logbook is None:
+        return None
+    try:
+        return state.logbook()
+    except Exception as exc:  # noqa: BLE001 -- never the run's failure
+        from probe.daemon import bite as bite_mod
+
+        log.warning("the logbook block was not built: %s: %s", type(exc).__name__, exc)
+        return f"{bite_mod.LANDED_HEAD}\n- the logbook could not be read just now"
+
+
+def without_logbook(messages: list) -> list:
+    """`messages` with every compaction summary cut to its prose."""
+    return _rewrite_summaries(messages, _prose)
+
+
+def with_logbook(messages: list, block: str | None) -> list:
+    """`messages` with the compaction summary's prose followed by `block`, plain
+    code's list of the landed writes. Whatever the model wrote in that block's
+    shape is cut first, so the block is the logbook's alone. None: no block."""
+    if block is None:
+        return without_logbook(messages)
+    return _rewrite_summaries(messages, lambda text: f"{_prose(text)}\n\n{block}")
+
+
 def counted_compaction(state: RunState):
     """TieredCompaction that tells `state` each time it rewrote the history, and
     keeps a user turn first after it (`user_turn_first`). The size is the
@@ -939,14 +1014,21 @@ def counted_compaction(state: RunState):
     class KeptByCount(SummarizingCompaction):
         """Keeps the newest `keep_tokens`, but never more than KEEP_MESSAGES wire
         messages: when the newest KEEP_MESSAGES alone fit the token budget, the
-        token cut would keep more of them, so the cut is by count."""
+        token cut would keep more of them, so the cut is by count. The summary
+        it writes ends with plain code's logbook block (`with_logbook`)."""
 
         async def compact(self, messages: list, ctx: Any) -> list:
             n = newest_within(messages, KEEP_MESSAGES)
             if (self.keep_tokens is not None and n < len(messages)
                     and estimate_token_count(messages[-n:], self.tokenizer) <= self.keep_tokens):
                 return await replace(self, keep_tokens=None, keep_messages=n).compact(messages, ctx)
-            return await super().compact(messages, ctx)
+            # The previous summary is the model's anchor without its logbook block,
+            # so the model never sees ids to copy, and the new block is rebuilt.
+            prose = without_logbook(messages)
+            out = await super().compact(prose, ctx)
+            if out is prose:
+                return messages
+            return with_logbook(out, _logbook_block(state))
 
     summarizer = KeptByCount(max_messages=1, keep_tokens=max(1, int(size * KEEP_SHARE)),
                              preserve_first_user_message=False,

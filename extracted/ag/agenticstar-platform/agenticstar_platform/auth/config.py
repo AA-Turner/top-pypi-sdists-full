@@ -16,6 +16,21 @@ from typing import Any, Callable, Dict, Optional
 
 from .exceptions import AuthConfigError
 
+#: 使える認証タイプ。旧方式の "api_key"（X-Internal-API-Key ヘッダー）は 3.2.0 で削除した
+_SUPPORTED_AUTH_TYPES = ("bearer",)
+
+
+def _check_auth_type(auth_type: object) -> None:
+    """auth_type が "bearer" でなければ AuthConfigError（値そのものは文言に出さない）"""
+    if auth_type in _SUPPORTED_AUTH_TYPES:
+        return
+    if auth_type == "api_key":
+        raise AuthConfigError(
+            "auth_type='api_key' (X-Internal-API-Key header) was removed in agenticstar-platform 3.2.0. "
+            "Use auth_type='bearer' with a Bearer token in api_key, or a token_provider."
+        )
+    raise AuthConfigError("Unsupported auth_type: only 'bearer' is supported.")
+
 
 @dataclass
 class AgenticStarAuthConfig:
@@ -24,9 +39,13 @@ class AgenticStarAuthConfig:
     Args:
         base_url: APIベースURL (例: "https://auth.example.com")
         api_key: Bearer token（静的トークン認証時）
-        auth_type: 認証タイプ ("bearer" or "api_key")
+        auth_type: 認証タイプ。"bearer" だけ（既定）。旧方式の "api_key"（X-Internal-API-Key ヘッダー）は
+            3.2.0 で削除し、渡すと AuthConfigError（受け口が既に無く、使えなかった）
         token_provider: 動的トークン取得コールバック（設定時はapi_keyより優先）
         timeout: HTTPリクエストタイムアウト秒数
+
+    Raises:
+        AuthConfigError: auth_type が "bearer" でない場合
 
     Note:
         api_keyはrepr=Falseでログ出力から除外されます。
@@ -54,11 +73,14 @@ class AgenticStarAuthConfig:
     api_key: str = field(repr=False, default="")  # Bearer token
 
     # オプション設定
-    auth_type: str = "bearer"  # "bearer" or "api_key" (legacy)
+    auth_type: str = "bearer"  # "bearer" のみ（"api_key" は 3.2.0 で削除）
     token_provider: Optional[Callable[[], Optional[str]]] = field(
         default=None, repr=False
     )  # 動的トークン取得（設定時はapi_keyより優先）
     timeout: float = 30.0
+
+    def __post_init__(self) -> None:
+        _check_auth_type(self.auth_type)
 
     def __str__(self) -> str:
         """文字列表現（APIキーをマスク）"""
@@ -79,12 +101,15 @@ class AgenticStarAuthConfig:
         Args:
             base_url: APIベースURL
             api_key: Bearer token（静的トークン時）
-            auth_type: 認証タイプ ("bearer" or "api_key")
+            auth_type: 認証タイプ。"bearer" だけ（"api_key" は 3.2.0 で削除）
             token_provider: 動的トークン取得コールバック（毎リクエスト呼び出し）
             timeout: タイムアウト秒数
 
         Returns:
             AgenticStarAuthConfig インスタンス
+
+        Raises:
+            AuthConfigError: auth_type が "bearer" でない場合
 
         Example:
             ```python

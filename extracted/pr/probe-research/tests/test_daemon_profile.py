@@ -392,6 +392,9 @@ DAEMONS = {
     # over in CLIs of 2026-10-05..06.
     "deny", "statusline install", "statusline uninstall", "install", "desktop", "session inline",
     "session daemon",
+    # The install pipeline in repair mode: it may re-approve the daemon's key
+    # and change the researcher's agent settings, as the guided install does.
+    "repair",
 }
 
 
@@ -459,6 +462,8 @@ SKILL_NAMES_REFUSED = {
     "probe edge",
     # Where the researcher turns the daemon on or off.
     "probe wizard",
+    # instrument-code: the researcher mints a remote job's token (browser approval).
+    "probe token",
 }
 
 

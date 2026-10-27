@@ -432,6 +432,12 @@ do_curl_duphandle(CurlObject *self, PyObject *Py_UNUSED(ignored))
         curl_easy_setopt(dup->handle, CURLOPT_SSH_KEYDATA, dup);
     }
 #endif
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 84, 0)
+    if (self->ssh_hostkey_cb != NULL) {
+        dup->ssh_hostkey_cb = Py_NewRef(self->ssh_hostkey_cb);
+        curl_easy_setopt(dup->handle, CURLOPT_SSH_HOSTKEYDATA, dup);
+    }
+#endif
     if (self->seek_cb != NULL) {
         dup->seek_cb = Py_NewRef(self->seek_cb);
         curl_easy_setopt(dup->handle, CURLOPT_SEEKDATA, dup);
@@ -567,6 +573,9 @@ util_curl_xdecref(CurlObject *self, int flags, CURL *handle)
 #endif
         Py_CLEAR(self->sockopt_cb);
         Py_CLEAR(self->ssh_key_cb);
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 84, 0)
+        Py_CLEAR(self->ssh_hostkey_cb);
+#endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
         Py_CLEAR(self->prereq_cb);
 #endif
@@ -603,7 +612,7 @@ util_curl_xdecref(CurlObject *self, int flags, CURL *handle)
             CurlShareObject *share = self->share;
             share_unregister_easy(share, self);
             self->share = NULL;
-            if (share->share_handle != NULL && handle != NULL) {
+            if (handle != NULL) {
                 curl_easy_setopt(handle, CURLOPT_SHARE, NULL);
             }
             Py_DECREF(share);
@@ -686,7 +695,7 @@ util_easy_detach_from_multi(CurlObject *self, CURL *easy_handle)
 }
 
 
-static void
+static int
 util_curl_close(CurlObject *self)
 {
     CURL *handle;
@@ -703,7 +712,7 @@ util_curl_close(CurlObject *self)
         assert(self->multi_stack == NULL);
         assert(self->multi_weakref == NULL);
         assert(self->share == NULL);
-        return;             /* already closed */
+        return 0;           /* already closed */
     }
     self->state = NULL;
 
@@ -724,34 +733,85 @@ util_curl_close(CurlObject *self)
 
     /* Decref easy related objects */
     util_curl_xdecref(self, PYCURL_MEMGROUP_EASY, handle);
+
+    return PyErr_Occurred() ? -1 : 0;
+}
+
+
+PYCURL_INTERNAL void
+do_curl_finalize(PyObject *op)
+{
+    CurlObject *self = (CurlObject *)op;
+    PYCURL_BEGIN_SAVE_EXC
+
+    /* tp_finalize is reachable from Python as __del__(), so a running handle
+       has to be refused here just as close() refuses it. The phase is left
+       alone then: it belongs to the perform() or close() running this. */
+    if (check_curl_state(self, PYCURL_REQUIRE_NOT_RUNNING, "__del__") != 0) {
+        PyErr_WriteUnraisable(op);
+    } else {
+        self->teardown = PYCURL_TEARDOWN_FINALIZING;
+        if (util_curl_close(self) < 0) {
+            PyErr_WriteUnraisable(op);
+        }
+        self->teardown = PYCURL_TEARDOWN_NONE;
+    }
+    PYCURL_END_SAVE_EXC
 }
 
 
 PYCURL_INTERNAL void
 do_curl_dealloc(CurlObject *self)
 {
+    PyObject *op = (PyObject *)self;
+    PYCURL_BEGIN_SAVE_EXC
+
     PyObject_GC_UnTrack(self);
     Py_TRASHCAN_BEGIN(self, do_curl_dealloc);
 
-    Py_CLEAR(self->dict);
-    util_curl_close(self);
+    PyObject_GC_Track(self);
+    if (PyObject_CallFinalizerFromDealloc(op) < 0) {
+        goto resurrected;
+    }
+    PyObject_GC_UnTrack(self);
 
     if (self->weakreflist != NULL) {
-        PyObject_ClearWeakRefs((PyObject *) self);
+        PyObject_ClearWeakRefs(op);
     }
 
+    /* A subclass __del__ that does not call super() replaces our finalizer,
+       so the handle can still be open here, with no Python allowed. */
+    if (self->handle != NULL) {
+        self->teardown = PYCURL_TEARDOWN_DEALLOC;
+        (void)util_curl_close(self);
+    }
+    Py_CLEAR(self->dict);
+
     Curl_Type.tp_free(self);
+resurrected:
     Py_TRASHCAN_END;
+
+    if (PyErr_Occurred()) {
+        PyErr_WriteUnraisable((PyObject *) &Curl_Type);
+    }
+    PYCURL_END_SAVE_EXC
 }
 
 
 static PyObject *
 do_curl_close(CurlObject *self, PyObject *Py_UNUSED(ignored))
 {
+    int res;
+
     if (check_curl_state(self, PYCURL_REQUIRE_NOT_RUNNING, "close") != 0) {
         return NULL;
     }
-    util_curl_close(self);
+    self->teardown = PYCURL_TEARDOWN_FINALIZING;
+    res = util_curl_close(self);
+    self->teardown = PYCURL_TEARDOWN_NONE;
+    if (res < 0) {
+        return NULL;
+    }
     Py_RETURN_NONE;
 }
 
@@ -805,6 +865,9 @@ do_curl_traverse(CurlObject *self, visitproc visit, void *arg)
 #endif
     VISIT(self->sockopt_cb);
     VISIT(self->ssh_key_cb);
+#if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 84, 0)
+    VISIT(self->ssh_hostkey_cb);
+#endif
 #if LIBCURL_VERSION_NUM >= MAKE_LIBCURL_VERSION(7, 80, 0)
     VISIT(self->prereq_cb);
 #endif
@@ -884,7 +947,7 @@ do_curl_reset(CurlObject *self, PyObject *Py_UNUSED(ignored))
         /* util_curl_init failed to re-set the default options; the libcurl
          * handle is in an inconsistent state. Close it so subsequent calls
          * fail predictably instead of crashing on NULL derefs inside libcurl. */
-        util_curl_close(self);
+        (void)util_curl_close(self);
         PyErr_SetString(ErrorObject, "resetting curl failed");
         return NULL;
     }
@@ -1088,6 +1151,15 @@ PYCURL_INTERNAL PyTypeObject Curl_Type = {
     PyType_GenericAlloc,        /* tp_alloc */
     (newfunc)do_curl_new,       /* tp_new */
     PyObject_GC_Del,            /* tp_free */
+    0,                          /* tp_is_gc */
+    0,                          /* tp_bases */
+    0,                          /* tp_mro */
+    0,                          /* tp_cache */
+    0,                          /* tp_subclasses */
+    0,                          /* tp_weaklist */
+    0,                          /* tp_del */
+    0,                          /* tp_version_tag */
+    do_curl_finalize,           /* tp_finalize */
 };
 
 /* vi:ts=4:et:nowrap

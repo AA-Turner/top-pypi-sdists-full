@@ -215,6 +215,7 @@ class CfnCampaign(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -261,7 +262,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fe29864d67b82be24e959cf62a974af0c74a7c193aec5dba50b8d29d34299660)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectInstanceArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectInstanceArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="dialerConfig")
@@ -279,7 +280,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05eabb5a0a6a496245f76aa9920497833d53b1213ccff6ad494e498a46c47a14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dialerConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dialerConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -292,7 +293,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ad25aa27ecc92a37957bdba0e157baf267f271fe29d85d5a56df337e3fcea244)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="outboundCallConfig")
@@ -310,7 +311,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a4ee8145c90e26f199a53bd3fd72ca4d855169b8677380927010a8d6804bcf36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outboundCallConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "outboundCallConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -326,7 +327,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__64d80d4084c307fbea620c4f9e9d0b1c2cfa515ad7d021df43d430bf87d42b6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_connectcampaigns.CfnCampaign.AgentlessDialerConfigProperty",

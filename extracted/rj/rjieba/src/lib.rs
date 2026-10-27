@@ -17,19 +17,37 @@ impl Jieba {
     /// Cut the input text
     #[pyo3(signature = (text, hmm = true))]
     fn cut<'a>(&self, py: Python, text: &'a str, hmm: bool) -> Vec<&'a str> {
-        py.detach(move || self.jieba.cut(text, hmm))
+        py.detach(move || {
+            self.jieba
+                .cut(text, hmm)
+                .into_iter()
+                .map(|t| t.word)
+                .collect()
+        })
     }
 
     /// Cut the input text, return all possible words
     #[pyo3(signature = (text,))]
     fn cut_all<'a>(&self, py: Python, text: &'a str) -> Vec<&'a str> {
-        py.detach(move || self.jieba.cut_all(text))
+        py.detach(move || {
+            self.jieba
+                .cut_all(text)
+                .into_iter()
+                .map(|t| t.word)
+                .collect()
+        })
     }
 
     /// Cut the input text in search mode
     #[pyo3(signature = (text, hmm = true))]
     fn cut_for_search<'a>(&self, py: Python, text: &'a str, hmm: bool) -> Vec<&'a str> {
-        py.detach(move || self.jieba.cut_for_search(text, hmm))
+        py.detach(move || {
+            self.jieba
+                .cut_for_search(text, hmm)
+                .into_iter()
+                .map(|t| t.word)
+                .collect()
+        })
     }
 
     /// Tag the input text
@@ -65,6 +83,34 @@ impl Jieba {
                 .map(|t| (t.word, t.start, t.end))
                 .collect()
         })
+    }
+
+    /// Create a new instance with empty dict
+    #[staticmethod]
+    fn empty() -> Self {
+        Self {
+            jieba: jieba_rs::Jieba::empty(),
+        }
+    }
+
+    /// Clears all data
+    fn clear(&mut self) {
+        self.jieba.clear();
+    }
+
+    /// Suggest word frequency to force the characters in a word to be joined or split
+    fn suggest_freq(&self, segment: &str) -> usize {
+        self.jieba.suggest_freq(segment)
+    }
+
+    /// Add word to dict, return `freq`
+    fn add_word(&mut self, word: &str, freq: Option<usize>, tag: Option<&str>) -> usize {
+        self.jieba.add_word(word, freq, tag)
+    }
+
+    /// Checks if a word exists in the dictionary
+    fn has_word(&self, word: &str) -> bool {
+        self.jieba.has_word(word)
     }
 }
 

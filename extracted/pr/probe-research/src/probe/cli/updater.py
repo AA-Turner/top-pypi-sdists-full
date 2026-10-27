@@ -13,7 +13,9 @@ in the current directory says nothing about how `probe` itself was installed).
 
 from __future__ import annotations
 
+import contextlib
 import json
+import threading
 import os
 import re
 import shutil
@@ -26,7 +28,7 @@ from pathlib import Path
 
 import httpx
 
-from probe._shared import installs, kimi_live
+from probe._shared import handoff, installs, kimi_live
 from probe.cli import claude_cli, plugin_cli, service_calls
 from probe.cli.capabilities import (
     DAEMON_PLUGIN_NAME,
@@ -36,6 +38,7 @@ from probe.cli.capabilities import (
     tracking_plugin_name,
 )
 from probe.cli.versions import _LEGACY_TAP_PLUGINS
+from probe.core import adopt as _adopt
 from probe.harness import get_registry
 from probe.sdk import session_marker
 from probe.sdk.redaction import scrub_text
@@ -179,12 +182,15 @@ def detect_install() -> Install:
     except Exception:
         return Install(Method.UNKNOWN)
     s = str(pkg).replace(os.sep, "/")
+    # The marks the auto-update default reads too (`version_policy.managed_cli`):
+    # these two kinds are the machine's managed CLI, on by default (plan C2).
+    from probe import version_policy
 
-    if "/uv/tools/probe-research/" in s or installs.running_from_versions(s):
+    if version_policy.UV_TOOL_MARK in s or installs.running_from_versions(s):
         # A side-by-side version env (`probe._shared.installs`, plan D6) is the
         # same uv tool install, one version of it.
         return Install(Method.UV_TOOL)
-    if "/uv/tools/probe-agent/" in s:
+    if version_policy.LEGACY_UV_TOOL_MARK in s:
         return Install(Method.UV_TOOL_LEGACY, detail="installed under the legacy probe-agent name")
     # `npx probe-research` runs us through `uv tool run`, whose environment
     # lives in the uv CACHE and has no pip. Without this it falls through to
@@ -525,15 +531,19 @@ def _daemon_wanted_here() -> bool:
 class KeptInstall:
     """What a reinstall must carry over from the install it replaces (#2043
     review): the extras it records beyond ours, the packages the user added
-    beside it (`uv tool install --with`, `pipx inject`), and its Python."""
+    beside it (`uv tool install --with`, `pipx inject`), and its Python.
+    `dropped` names what the receipt records that a reinstall cannot restate
+    (an editable `--with`, constraints, a receipt it could not read): left out,
+    and said, rather than holding every update back (plan A4)."""
 
     extras: tuple[str, ...] = ()
     with_packages: tuple[str, ...] = ()
     python: str | None = None
+    dropped: tuple[str, ...] = ()
 
 
-#: uv-receipt.toml requirement keys a reinstall can restate. Anything else
-#: (an editable path, constraints) and the receipt is not rewritten at all.
+#: uv-receipt.toml requirement keys a reinstall can restate. An entry with any
+#: other key (an editable path) is left out of the reinstall and named.
 _RECEIPT_REQUIREMENT_KEYS = frozenset({"name", "extras", "specifier", "url", "directory", "git"})
 
 
@@ -562,26 +572,36 @@ def _receipt_requirement(entry: dict) -> str | None:
 
 def kept_from_uv_receipt(prefix: str | Path | None = None) -> KeptInstall | None:
     """What this uv tool install records beside `probe-research`, read from
-    its `uv-receipt.toml` (empty when there is none). None when the receipt
-    cannot be restated faithfully: the caller then leaves it alone instead of
-    dropping something from it. `uv tool install` REPLACES the receipt, so an update
-    that restated only `probe-research[all]` uninstalled every `--with`
-    package (`probe import wandb` needs one)."""
+    its `uv-receipt.toml` (empty when there is none). `uv tool install`
+    REPLACES the receipt, so an update that restated only
+    `probe-research[all]` uninstalled every `--with` package (`probe import
+    wandb` needs one).
+
+    What it cannot restate faithfully (an entry with keys it does not know,
+    constraints or overrides, a receipt it cannot read) is left out and named
+    in `dropped`: it used to make the whole receipt unrestatable, which held
+    every later update on the in-place path for good (plan A4). None only
+    for probe-research itself from a path or URL: a checkout or a build of
+    someone's own, which no update from the index may replace."""
     from probe._compat import tomllib
 
     path = Path(prefix if prefix is not None else sys.prefix) / "uv-receipt.toml"
+    dropped: list[str] = []
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return KeptInstall()  # no receipt: nothing recorded, nothing to lose
-    except OSError:
-        return None
+    except OSError as exc:
+        text = ""
+        dropped.append(f"the uv receipt (unreadable: {type(exc).__name__})")
     try:
         tool = tomllib.loads(text).get("tool") or {}
     except ValueError:
-        return None
-    if any(tool.get(key) for key in ("constraints", "overrides", "build-constraint-dependencies")):
-        return None
+        tool = {}
+        dropped.append("the uv receipt (not valid TOML)")
+    for key in ("constraints", "overrides", "build-constraint-dependencies"):
+        if tool.get(key):
+            dropped.append(f"its {key}")
     extras: tuple[str, ...] = ()
     with_packages: list[str] = []
     for entry in tool.get("requirements") or []:
@@ -592,12 +612,33 @@ def kept_from_uv_receipt(prefix: str | Path | None = None) -> KeptInstall | None
             continue
         requirement = _receipt_requirement(entry)
         if requirement is None:
-            return None
+            name = entry.get("name") if isinstance(entry, dict) else None
+            dropped.append(f"--with {name}" if isinstance(name, str) and name else "a --with entry")
+            continue
         with_packages.append(requirement)
     python = tool.get("python")
     if not isinstance(python, str) or not python or (os.path.isabs(python) and not os.path.exists(python)):
         python = _env_interpreter(path.parent)
-    return KeptInstall(extras=extras, with_packages=tuple(with_packages), python=python)
+    return KeptInstall(extras=extras, with_packages=tuple(with_packages), python=python, dropped=tuple(dropped))
+
+
+def faithful_kept_from_uv_receipt(prefix: str | Path | None = None) -> KeptInstall | None:
+    """`kept_from_uv_receipt`, or None when it would leave anything out: for
+    what reinstalls the RUNNING environment in place (the in-place update,
+    `npx probe-research`, `probe daemon install`), where nothing stays to
+    switch back to and a dropped package is gone. Only a side-by-side install,
+    which keeps the running version, goes ahead without what it cannot restate."""
+    kept = kept_from_uv_receipt(prefix)
+    return None if kept is None or kept.dropped else kept
+
+
+def dropped_note(kept: KeptInstall | None) -> str:
+    """"; not carried over from the uv receipt: ..." for what a reinstall left
+    out (`KeptInstall.dropped`), or ""."""
+    if kept is None or not kept.dropped:
+        return ""
+    return (f"; not carried over from the uv receipt (it cannot be restated): {', '.join(kept.dropped)}. "
+            "Add it back with your own `uv tool install` if you need it")
 
 
 def _env_interpreter(prefix: Path) -> str | None:
@@ -716,16 +757,30 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
             current,
             "could not tell how probe was installed — update via your package manager",
         )
+    from probe._shared import uninstall_barrier
+
+    refused = uninstall_barrier.refusal()
+    if refused:
+        # Every in-place path below replaces the env under the uninstall (the
+        # side-by-side one refuses in `installs` too).
+        return CliResult(True, False, False, current, current, f"the CLI was not updated: {refused}")
     if m == Method.UV_TOOL_LEGACY:
         # H3: the old probe-agent tool owns `probe`; uninstall it, install the new.
         # The packages added beside it come along (read before the uninstall).
         kept = kept_from_uv_receipt() or KeptInstall()
-        if _run(["uv", "tool", "uninstall", LEGACY_DIST], _UPGRADE_TIMEOUT_S) is None:
-            return CliResult(
-                False, False, False, current, current, "`uv` not found on PATH",
-                missing_binary=True,
-            )
-        _run(uv_tool_install_command(kept, force=True, legacy=True), _UPGRADE_TIMEOUT_S)
+        try:
+            with _install_lock():
+                refused = uninstall_barrier.refusal()  # written while this waited for the lock
+                if refused:
+                    return CliResult(True, False, False, current, current, f"the CLI was not updated: {refused}")
+                if _run(["uv", "tool", "uninstall", LEGACY_DIST], _UPGRADE_TIMEOUT_S) is None:
+                    return CliResult(
+                        False, False, False, current, current, "`uv` not found on PATH",
+                        missing_binary=True,
+                    )
+                _run(uv_tool_install_command(kept, force=True, legacy=True), _UPGRADE_TIMEOUT_S)
+        except handoff.LockBusy:
+            return CliResult(True, False, False, current, current, LOCK_BUSY_MESSAGE)
         return _finalize(current, target, "uv")
     if m == Method.PIPX:
         # `install --force`, not `upgrade`: pipx upgrade keeps the spec the tool
@@ -756,13 +811,61 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
             "the CLI was not updated: it can only be updated beside the running version now, "
             "and that was not possible (see above); the next update tries again",
         )
+    if not target and _side_by_side_machine():
+        # No release could be read (the manifest, nor the hand-off's PyPI
+        # fallback): this machine updates beside the running version, never in
+        # place (plan A4). The next update tries again.
+        return CliResult(
+            True, False, False, current, current,
+            "the CLI was not updated: the newest release could not be read; the next update tries again",
+        )
+    try:
+        with _install_lock():
+            refused = uninstall_barrier.refusal()  # written while this waited for the lock
+            if refused:
+                return CliResult(True, False, False, current, current, f"the CLI was not updated: {refused}")
+            return _upgrade_in_place(current, target)
+    except handoff.LockBusy:
+        return CliResult(True, False, False, current, current, LOCK_BUSY_MESSAGE)
+
+
+#: Another update (the hand-off, the lifeboat, the service's child) holds the install lock.
+LOCK_BUSY_MESSAGE = "another update is installing the CLI now (it holds the install lock); the next update tries again"
+
+
+def _install_lock():
+    """The one install lock (`handoff.install_lock`), for the in-place paths;
+    nothing when its folder cannot be told."""
+    try:
+        root = installs.versions_root()
+    except Exception:  # noqa: BLE001
+        return contextlib.nullcontext()
+    return handoff.install_lock(root)
+
+
+def _side_by_side_machine() -> bool:
+    """Does this uv tool install update beside the running version (the
+    layout is usable here, the receipt names probe-research from its index),
+    unless a person asked for in place (IN_PLACE_ENV)?"""
+    if os.environ.get(IN_PLACE_ENV) == "1":
+        return False
+    try:
+        return kept_from_uv_receipt() is not None and installs.usable(installs.tool_dir())
+    except Exception:  # noqa: BLE001 -- unknown: as before
+        return False
+
+
+def _upgrade_in_place(current: str | None, target: str | None) -> CliResult:
+    """The uv tool update before side-by-side installs, under the install lock."""
     # `[all]` is restated FIRST (plan 2.11): `uv tool upgrade` re-resolves the
     # requirement the tool was first installed with, so upgrading a bare
     # receipt onto the release that drops these dependencies from core would
     # strip `probe` -- restating after that upgrade left exactly that window
     # (#2043 review). `uv tool install` REPLACES the receipt, so everything
     # else it records (`--with` packages, extras, the Python) is restated too.
-    kept = kept_from_uv_receipt()
+    # In place there is no version to switch back to: a receipt it cannot
+    # restate whole is left alone (`faithful_kept_from_uv_receipt`).
+    kept = faithful_kept_from_uv_receipt()
     unrecorded = ""
     if kept is not None:
         restated = _run(uv_tool_install_command(kept), _UPGRADE_TIMEOUT_S)
@@ -779,8 +882,9 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
             )
     else:
         # A receipt this cannot restate faithfully (an editable `--with`,
-        # constraints) is left alone rather than stripped -- but then `[all]`
-        # is not recorded, and the release after this one needs it.
+        # constraints, probe-research itself from a path) is left alone rather
+        # than stripped -- but then `[all]` is not recorded, and the release
+        # after this one needs it.
         unrecorded = (
             "; `probe-research[all]` is NOT recorded in this install's uv receipt, which "
             "has entries the wizard's Update cannot restate. Before the next release, run "
@@ -826,9 +930,13 @@ def upgrade_side_by_side(current: str | None, target: str | None) -> CliResult |
     Nothing is changed unless all of that worked: a failed install leaves the
     machine on `current`.
 
-    None when this layout cannot be used here (no target version known, a
-    receipt that cannot be restated, another filesystem, or IN_PLACE_ENV):
-    the caller updates in place, as before."""
+    None when this layout cannot be used here (no target version known,
+    probe-research itself installed from a path or URL, another filesystem,
+    or IN_PLACE_ENV): the caller decides (`upgrade_cli`: never in place on a
+    machine that updates side by side, when it is only the target that is
+    unknown). A receipt entry it cannot restate is left out and said
+    (`KeptInstall.dropped`); a pinned Python uv cannot use, and `--with`
+    packages that will not resolve, are retried without (plan A4)."""
     if not target or os.environ.get(IN_PLACE_ENV) == "1":
         return None
     kept = kept_from_uv_receipt()
@@ -846,14 +954,18 @@ def upgrade_side_by_side(current: str | None, target: str | None) -> CliResult |
         return CliResult(
             True, False, False, current, current,
             f"CLI {target} failed its check on this machine and was switched back; staying on "
-            f"{current} until a newer release",
+            f"{current} for up to {installs.REJECT_TTL_S // 3600} h, or until a newer release",
         )
+    handed = _stage1_said(target)
+    if handed is not None:
+        return dataclasses.replace(handed, before=current, after=current)
     spec = _dist(kept.extras) + f"=={target}"
     try:
-        env = installs.install(
-            target, spec, with_packages=kept.with_packages, python=kept.python, tools=tools,
-            timeout=_UPGRADE_TIMEOUT_S,
-        )
+        env, dropped = _install_with_fallbacks(target, spec, kept, tools)
+    except subprocess.TimeoutExpired as exc:
+        return CliResult(True, False, False, current, current,
+                         f"could not install CLI {target}: `uv tool install` timed out after {exc.timeout:.0f} s; "
+                         "nothing changed, and the next update tries again")
     except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
         return CliResult(True, False, False, current, current, f"could not install CLI {target}; nothing changed: {exc}")
     problem = installs.selftest(env)
@@ -872,11 +984,141 @@ def upgrade_side_by_side(current: str | None, target: str | None) -> CliResult |
         client.write_runtime(str(installs.env_python(env)), target)
     except Exception:  # noqa: BLE001 -- the service falls back to the tool path, which is this version now
         pass
+    missing, pin = [], None
+    with contextlib.suppress(Exception):
+        missing, pin = record_left_out(kept, env, tools, list(dropped))
     installs.prune(tools)
+    note = dropped_note(kept)
+    if missing or pin:
+        left = [*(f"--with {item}" for item in missing), *([f"--python {pin}"] if pin else [])]
+        note += (f"; left out {', '.join(left)}, which would not install beside it "
+                 "(`probe doctor` shows how to add them back)")
     return CliResult(
         True, True, True, current, target,
-        f"CLI upgraded {current} → {target} (beside {current}, which stays for a switch back)",
+        f"CLI upgraded {current} → {target} (beside {current}, which stays for a switch back){note}",
     )
+
+
+def dropped_with_command(prefix: str | Path | None = None) -> tuple[list[str], str] | None:
+    """`(what is left out, command)`: the `--with` packages an update had to
+    leave out (`active.json` `dropped_with`) that the running version env
+    still lacks, and the exact Python pin it ran on before (`dropped_python`)
+    when it runs on another now, with the exact `uv tool install` that puts
+    them back, with everything it has now. None when there is nothing (or
+    this is not a version env)."""
+    import shlex
+
+    from probe import __version__
+
+    root = installs.versions_root_of(None if prefix is None else str(prefix))
+    if root is None:
+        return None
+    try:
+        record = json.loads((root / installs.ACTIVE_NAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(record, dict):
+        return None
+    dropped = record.get("dropped_with") if isinstance(record.get("dropped_with"), list) else []
+    pin = record.get("dropped_python") if isinstance(record.get("dropped_python"), str) else None
+    kept = kept_from_uv_receipt(prefix) or KeptInstall()
+    present = {handoff.requirement_name(requirement) for requirement in kept.with_packages}
+    missing = [str(item) for item in dropped if handoff.requirement_name(str(item)) not in present]
+    pin = pin if pin and pin != kept.python else None
+    if not missing and not pin:
+        return None
+    command = ["uv", "tool", "install", f"{_dist(kept.extras)}=={__version__}"]
+    for requirement in (*kept.with_packages, *missing):
+        command += ["--with", requirement]
+    if pin or kept.python:
+        command += ["--python", pin or kept.python]
+    return [*missing, *([f"Python {pin}"] if pin else [])], shlex.join(command)
+
+
+def _stage1_said(target: str) -> CliResult | None:
+    """The hand-off's stage 1 already tried this update in this process
+    (`probe.core.adopt`) and could not: its reason, rather than a second
+    install that fails the same way. None when it did not, or went fine."""
+    try:
+        answer = _adopt.stage1_answer() or {}
+    except Exception:  # noqa: BLE001
+        return None
+    result = answer.get("result")
+    if result == handoff.Result.BUSY:
+        return CliResult(True, False, False, None, None, LOCK_BUSY_MESSAGE)
+    if result == handoff.Result.UNCHECKED and answer.get("latest") == target:
+        # Installed; its check timed out (a loaded machine). Never switched to
+        # by this (old) code: the next update checks it again and hands over.
+        return CliResult(
+            True, False, False, None, None,
+            f"CLI {target} is installed, but its check timed out; nothing changed, and the next update "
+            f"tries again ({clean_reason(answer.get('detail'))})",
+        )
+    if result == handoff.Result.INSTALL_FAILED and answer.get("latest") == target:
+        return CliResult(
+            True, False, False, None, None,
+            f"could not install CLI {target}; nothing changed: {clean_reason(answer.get('detail'))}",
+        )
+    return None
+
+
+def record_left_out(old: KeptInstall | None, new_env: Path, tools: Path, dropped: list) -> tuple[list, str | None]:
+    """What a switch to `new_env` leaves out of the install it replaces,
+    derived from the receipts, never from what one install remembered: the
+    `--with` packages the old receipt (`old`) had, earlier records
+    (`installs.dropped_with`) and this install's own drops (`dropped`), less
+    what `new_env`'s receipt has; and the old exact Python pin when
+    `new_env` runs on another. Recorded (`installs.record_dropped_with`): an
+    entry goes only once the new receipt has it again (an env kept from an
+    earlier install whose drops were never recorded loses nothing). Returns
+    `(packages left out, Python pin left out)`."""
+    new = kept_from_uv_receipt(new_env) or KeptInstall()
+    present = {handoff.requirement_name(item) for item in new.with_packages}
+    missing: dict = {}
+    for item in [*(old.with_packages if old else ()), *installs.dropped_with(tools), *dropped]:
+        name = handoff.requirement_name(item)
+        if name not in present:
+            missing.setdefault(name, item)
+    pin = None
+    for candidate in ((old.python if old else None), installs.dropped_python(tools)):
+        if isinstance(candidate, str) and candidate and candidate != new.python:
+            pin = candidate
+            break
+    installs.record_dropped_with(list(missing.values()), tools, python=pin)
+    return list(missing.values()), pin
+
+
+def _install_with_fallbacks(target: str, spec: str, kept: KeptInstall, tools: Path, *,
+                            rebuild: bool = False) -> tuple[Path, tuple]:
+    """`installs.install` tried in the hand-off's order (`handoff.attempts`,
+    plan A4): as recorded with the `--with` packages an earlier install left
+    out (`installs.dropped_with`) again first, then without the Python pin (a
+    new env needs none), then without those, then without any `--with` --
+    the last resort on any failure -- within `handoff.INSTALL_BUDGET_S`. A uv
+    that times out ends it at once (`subprocess.TimeoutExpired` rises: the
+    machine or the network, not the package set). `rebuild`: the version's
+    env there is broken (`installs.install`). `(env, the --with packages left
+    out)`; the last failure raises."""
+    import time
+
+    tries = handoff.attempts(list(kept.with_packages), installs.dropped_with(tools), kept.python)
+    every = tries[0][0]
+    budget_ends = time.monotonic() + handoff.INSTALL_BUDGET_S
+    failure: Exception | None = None
+    for packages, python in tries:
+        left = min(_UPGRADE_TIMEOUT_S, budget_ends - time.monotonic())
+        if left <= 0:
+            break
+        try:
+            env = installs.install(target, spec, with_packages=tuple(packages), python=python, tools=tools,
+                                   timeout=left, **({"rebuild": True} if rebuild else {}))
+        except (handoff.LockBusy, subprocess.TimeoutExpired):
+            raise
+        except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+            failure = exc
+            continue
+        return env, tuple(item for item in every if item not in packages)
+    raise failure or RuntimeError(f"the install ran out of its {handoff.INSTALL_BUDGET_S:g} s")
 
 
 @dataclass
@@ -1635,19 +1877,28 @@ def clean_reason(text: str | None) -> str:
     return reason
 
 
+#: Why this thread's last `_codex_plugin_versions` read nothing, for the
+#: update's failure line ("" when it read the list).
+_codex_list = threading.local()
+
+
 def _codex_plugin_versions(_codex: str | None = None) -> dict[str, str] | None:
     """Codex's installed plugins, `{name: version}`. None when the list could
     not be read (the command failed, or printed something that is not its JSON
     object): that is not an empty list, and `nothing_installed` must not read
-    it as one."""
+    it as one. Why it could not is `_codex_list.problem`."""
+    _codex_list.problem = ""
     result = plugin_cli.list_plugins(plugin_cli.CODEX)
     if not result.ok:
+        _codex_list.problem = clean_reason(result.detail or "it failed with no output")
         return None
     try:
         body = json.loads(result.detail)
     except ValueError:
+        _codex_list.problem = f"it printed something that is not JSON: {clean_reason(result.detail)[:120]!r}"
         return None
     if not isinstance(body, dict):
+        _codex_list.problem = "it printed JSON that is not an object"
         return None
     return {
         row["name"]: row["version"]
@@ -1656,6 +1907,24 @@ def _codex_plugin_versions(_codex: str | None = None) -> dict[str, str] | None:
         and isinstance(row.get("name"), str)
         and isinstance(row.get("version"), str)
     }
+
+
+def _codex_versions_on_disk() -> dict[str, str] | None:
+    """`codex_config.installed_plugin_versions` for Probe's marketplace; None
+    when it cannot be read."""
+    from probe.cli import codex_config
+
+    try:
+        return codex_config.installed_plugin_versions(MARKETPLACE)
+    except Exception:  # noqa: BLE001 - a second opinion that cannot answer is no answer
+        return None
+
+
+def _listed_summary(versions: dict[str, str]) -> str:
+    """How many plugins a Codex list read, naming Probe's."""
+    probe = sorted(name for name in versions if name.startswith("probe-"))
+    named = f": {', '.join(f'{name}={versions[name]}' for name in probe)}" if probe else ""
+    return f"{len(versions)} plugin{'' if len(versions) == 1 else 's'}{named}"
 
 
 def update_codex_plugins() -> PluginResult:
@@ -1673,7 +1942,7 @@ def update_codex_plugins() -> PluginResult:
         )
     names = (tracking_plugin_name("codex"), "probe-research-tap")
     listed_before = _codex_plugin_versions(codex)
-    before_versions = listed_before or {}
+    before_versions = listed_before if listed_before is not None else _codex_versions_on_disk() or {}
     failed_run = None
     result = plugin_cli.refresh_marketplace(plugin_cli.CODEX, MARKETPLACE)
     if not result.ok and _CODEX_NOT_CONFIGURED in (result.detail or "").lower():
@@ -1693,7 +1962,15 @@ def update_codex_plugins() -> PluginResult:
             failed_run = result
     failure = _failed(failed_run) if failed_run is not None else ""
     listed_after = _codex_plugin_versions(codex)
+    list_problem = getattr(_codex_list, "problem", "")
     after_versions = listed_after or {}
+    read_from_files = False
+    if listed_after is None and not failure:
+        # The list could not answer (a timeout, on a Mac): Codex's own files
+        # say what it installed (`codex_config.installed_plugin_versions`).
+        on_disk = _codex_versions_on_disk()
+        if on_disk and all(on_disk.get(name) for name in names):
+            after_versions, read_from_files = on_disk, True
     missing = [name for name in names if not after_versions.get(name)]
     confirmed = not failure and not missing
     changed = confirmed and any(
@@ -1726,6 +2003,9 @@ def update_codex_plugins() -> PluginResult:
     }
     if confirmed:
         message = f"Codex plugins {'updated' if changed else 'verified'} ({after})"
+        if read_from_files:
+            message += f"; read from Codex's plugin files (`codex plugin list --json`: {list_problem})"
+        message += _approve_codex_hooks()
         return PluginResult(True, True, changed, before, after, message, **tap)
     return PluginResult(
         True,
@@ -1736,9 +2016,36 @@ def update_codex_plugins() -> PluginResult:
         # Not "does not show": the list may be the thing that failed
         # (`list_unreadable` says which; the sentence is true either way).
         failure
-        or f"could not confirm {' or '.join(missing)} in `codex plugin list --json` after reinstalling",
+        or (
+            f"could not confirm {' or '.join(missing)}: `codex plugin list --json` could not be read "
+            f"after reinstalling ({problem})"
+            if listed_after is None and (problem := list_problem)
+            else f"could not confirm {' or '.join(missing)} in `codex plugin list --json` after reinstalling"
+            # What it does list: none at all is a list Probe could not parse.
+            f" (it lists {_listed_summary(after_versions)})"
+        ),
         **tap,
     )
+
+
+def _approve_codex_hooks() -> str:
+    """Approve Probe's hooks in Codex after an update, and say so. Codex skips an
+    entry whose text changed until it is approved again, and a machine set up
+    before the wizard approved them has never had them approved. Empty when
+    nothing waited or Codex could not be asked (status and doctor still say)."""
+    from probe.cli import codex_hooks
+
+    try:
+        outcome = codex_hooks.approve()
+    except Exception:  # noqa: BLE001 - approve never raises; an update never fails on it either way
+        return ""
+    if outcome is None:
+        return ""
+    count = len(outcome.approved)
+    said = f"; approved {count} Probe hook{'s' if count != 1 else ''} in Codex" if count else ""
+    if not outcome.done:
+        said += f"; Probe's hooks still wait for approval in Codex ({outcome.error or 'a Probe hook still waits'}): type /hooks there"
+    return said
 
 
 def update_kimi_plugins() -> PluginResult:

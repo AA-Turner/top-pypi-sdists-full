@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from curl_cffi import requests
 
 from stockdex.config import MACROTRENDS_BASE_URL, RESPONSE_TIMEOUT
+from stockdex.exceptions import RateLimitError
 from stockdex.lib import get_user_agent
 
 
@@ -33,14 +34,18 @@ class TickerBase:
                 timeout=10,
                 allow_redirects=True,
             )
-            crumb = response.text.strip()
-            if response.status_code == 429 or "Too Many Requests" in crumb:
-                raise RuntimeError("Rate limited while getting crumb")
-            if crumb == "" or "<html>" in crumb:
-                raise RuntimeError("Invalid crumb received")
-            return crumb
-        except Exception as e:
-            raise RuntimeError(f"Error fetching Yahoo crumb: {e}")
+        except requests.exceptions.RequestException:
+            # Keep transport failures typed so callers can tell them apart.
+            raise
+        crumb = response.text.strip()
+        if response.status_code == 429 or "Too Many Requests" in crumb:
+            raise RateLimitError(
+                "https://query1.finance.yahoo.com/v1/test/getcrumb",
+                response.headers.get("Retry-After"),
+            )
+        if crumb == "" or "<html>" in crumb:
+            raise RuntimeError("Invalid crumb received")
+        return crumb
 
     # Timestamp of last non-Yahoo request to throttle external API calls
     _last_external_request_time: float = 0.0
@@ -75,7 +80,12 @@ class TickerBase:
         if response.status_code == 200:
             return response
 
-        if response.status_code in (429, 403):
+        # Do not retry a confirmed rate limit. Retrying a large test suite here
+        # amplifies the problem and hides the signal from the test runner.
+        if response.status_code == 429:
+            raise RateLimitError(url, response.headers.get("Retry-After"))
+
+        if response.status_code == 403:
             for _ in range(5):
                 time.sleep(10)
                 response = self.session.get(

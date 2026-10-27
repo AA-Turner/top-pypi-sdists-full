@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 
+from .record_utils import clean_record
+
 if TYPE_CHECKING:
     from .http_client import ClientContext
     from .foundational_model import FoundationalModel
@@ -213,12 +215,17 @@ class Predictor:
         """Get the parent foundational model."""
         return self._foundational_model
 
+    def _may_generate(self, generate: Optional[bool]) -> bool:
+        """Whether this call can wait on an LLM round trip: forced, or left to
+        a generative-string model that may serve generation by default."""
+        return generate is True or (generate is None and self.target_type == "free_string")
+
     def predict(
         self,
         record: Dict[str, Any],
         best_metric_preference: Optional[str] = None,
         feature_importance: bool = False,
-        generate: bool = False,
+        generate: Optional[bool] = None,
         customer_metadata: Optional[Dict[str, Any]] = None,
     ) -> PredictionResult:
         """
@@ -229,12 +236,14 @@ class Predictor:
             best_metric_preference: Metric checkpoint to use ("roc_auc", "pr_auc", or None)
             feature_importance: If True, compute feature importance via leave-one-out ablation
             generate: Generative-string predictors only (see
-                create_generative_string_model). False (default): return the
-                nearest training row's value — fast, free, deterministic.
-                True: few-shot Featrix's self-hosted LLM with the nearest
-                training rows for a non-verbatim answer — slower (an LLM
-                round trip), deterministic (same input, same output), and
-                the row data never leaves Featrix. The result's
+                create_generative_string_model). None (default): use whichever
+                of the two scored better on held-out rows when the model was
+                trained (the model card's serve selection says which).
+                False: return the nearest training row's value — fast, free,
+                deterministic. True: few-shot Featrix's self-hosted LLM with
+                the nearest training rows for a non-verbatim answer — slower
+                (an LLM round trip), deterministic (same input, same output),
+                and the row data never leaves Featrix. A generated result's
                 ``generator`` names the model that wrote it. Ignored for
                 every other predictor type.
             customer_metadata: Optional dict of your own ids/labels stored
@@ -259,7 +268,7 @@ class Predictor:
             raise ValueError("Predictor not connected to client")
 
         # Clean the record
-        cleaned_record = self._clean_record(record)
+        cleaned_record = clean_record(record)
 
         if feature_importance:
             # Build N+1 records: original + each feature nulled out
@@ -305,16 +314,16 @@ class Predictor:
         }
         if best_metric_preference:
             request_payload["best_metric_preference"] = best_metric_preference
-        if generate:
-            request_payload["generate"] = True
+        if generate is not None:
+            request_payload["generate"] = generate
 
-        # Make request. generate=True waits on an LLM round trip, so it gets
-        # the router's predict budget instead of the client default.
+        # Make request. A generated answer waits on an LLM round trip, so it
+        # gets the router's predict budget instead of the client default.
         response = self._ctx.post_json(
             f"/session/{self.session_id}/predict",
             data=request_payload,
             headers=customer_metadata_headers(customer_metadata),
-            **({"timeout": PREDICT_ROUTER_TIMEOUT_SECONDS} if generate else {}),
+            **({"timeout": PREDICT_ROUTER_TIMEOUT_SECONDS} if self._may_generate(generate) else {}),
         )
 
         training_status = _extract_training_status_from_body(response)
@@ -339,14 +348,16 @@ class Predictor:
         records: Union[List[Dict[str, Any]], 'pd.DataFrame'],
         show_progress: bool = True,
         best_metric_preference: Optional[str] = None,
-        generate: bool = False,
+        generate: Optional[bool] = None,
     ) -> List[PredictionResult]:
         """
         Make batch predictions.
 
         Args:
             records: List of record dictionaries or DataFrame
-            show_progress: Show progress bar
+            show_progress: Print a status line when the request is sent and
+                when it returns (the batch is one /predict_table request, so
+                there is no per-record progress to show)
             best_metric_preference: Metric checkpoint to use
             generate: Generative-string predictors only — see
                 Predictor.predict()'s ``generate`` parameter. Ignored for
@@ -363,7 +374,7 @@ class Predictor:
             records = records.to_dict('records')
 
         # Clean records
-        cleaned_records = [self._clean_record(r) for r in records]
+        cleaned_records = [clean_record(r) for r in records]
 
         # Build request
         request_payload = {
@@ -372,18 +383,25 @@ class Predictor:
         }
         if best_metric_preference:
             request_payload["best_metric_preference"] = best_metric_preference
-        if generate:
-            request_payload["generate"] = True
+        if generate is not None:
+            request_payload["generate"] = generate
+
+        if show_progress:
+            print(f"Predicting {len(cleaned_records)} records with predictor {self.id}...")
+        request_start = time.time()
 
         # Make request using predict_table endpoint
         response = self._ctx.post_json(
             f"/session/{self.session_id}/predict_table",
             data=request_payload,
-            **({"timeout": PREDICT_ROUTER_TIMEOUT_SECONDS} if generate else {}),
+            **({"timeout": PREDICT_ROUTER_TIMEOUT_SECONDS} if self._may_generate(generate) else {}),
         )
 
         training_status = _extract_training_status_from_body(response)
         if training_status is not None:
+            if show_progress:
+                print(f"Predictor {self.id} is not ready (training status: {training_status}); "
+                      f"no predictions returned for {len(cleaned_records)} records.")
             now = datetime.now()
             return [
                 PredictionResult(
@@ -401,6 +419,8 @@ class Predictor:
         # Parse results
         results = []
         predictions = response.get('predictions', [])
+        if show_progress:
+            print(f"Received {len(predictions)} predictions in {time.time() - request_start:.1f}s.")
 
         for i, pred in enumerate(predictions):
             record = cleaned_records[i] if i < len(cleaned_records) else {}
@@ -478,7 +498,7 @@ class Predictor:
         if not record_list:
             raise ValueError("evaluate() called with no records")
 
-        cleaned_records = [self._clean_record(r) for r in record_list]
+        cleaned_records = [clean_record(r) for r in record_list]
 
         request_payload = {
             "records": cleaned_records,
@@ -572,7 +592,7 @@ class Predictor:
         if not self._ctx:
             raise ValueError("Predictor not connected to client")
 
-        cleaned_record = self._clean_record(record)
+        cleaned_record = clean_record(record)
 
         request_payload = {
             "query_record": cleaned_record,
@@ -1609,7 +1629,7 @@ class Predictor:
         elif not isinstance(data, list):
             data = [data]
 
-        cleaned = [self._clean_record(r) for r in data]
+        cleaned = [clean_record(r) for r in data]
 
         body: Dict[str, Any] = {"records": cleaned}
         if intent is not None:
@@ -1685,7 +1705,7 @@ class Predictor:
         elif not isinstance(data, list):
             data = [data]
 
-        cleaned = [self._clean_record(r) for r in data]
+        cleaned = [clean_record(r) for r in data]
 
         payload = {"records": cleaned, "strategy": strategy}
         if columns is not None:
@@ -1721,22 +1741,6 @@ class Predictor:
                 self.f1 = sp_metrics.get('f1') or sp_metrics.get('f1_score')
         except Exception as e:
             logger.debug(f"_update_metrics() failed for predictor {self.id}: {e}")
-
-    def _clean_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean a record for API submission."""
-        import math
-
-        cleaned = {}
-        for key, value in record.items():
-            # Handle NaN/Inf
-            if isinstance(value, float):
-                if math.isnan(value) or math.isinf(value):
-                    value = None
-            # Handle numpy types
-            if hasattr(value, 'item'):
-                value = value.item()
-            cleaned[key] = value
-        return cleaned
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation."""

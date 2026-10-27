@@ -1,10 +1,14 @@
+import warnings
+
 import gymnasium as gym
 import numpy as np
 import pytest
 
 from stable_baselines3 import DQN, SAC, TD3
-from stable_baselines3.common.buffers import NStepReplayBuffer, ReplayBuffer
+from stable_baselines3.common.buffers import DictReplayBuffer, NStepReplayBuffer, ReplayBuffer
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.envs import BitFlippingEnv
+from stable_baselines3.her import HerReplayBuffer
 
 
 @pytest.mark.parametrize("model_class", [SAC, DQN, TD3])
@@ -28,6 +32,47 @@ def test_run(model_class):
     assert model.replay_buffer.gamma == gamma
 
     model.learn(total_timesteps=150)
+
+
+@pytest.mark.parametrize("replay_buffer_class", [ReplayBuffer, NStepReplayBuffer])
+def test_n_steps_warns_with_custom_replay_buffer_class(replay_buffer_class):
+    """`n_steps > 1` is ignored when the buffer class is user-provided, so it must warn."""
+    with pytest.warns(UserWarning, match="n_steps=3"):
+        model = SAC("MlpPolicy", "Pendulum-v1", n_steps=3, buffer_size=200, replay_buffer_class=replay_buffer_class)
+    # The buffer is built from the user-provided class, untouched by `n_steps`
+    assert type(model.replay_buffer) is replay_buffer_class
+
+
+@pytest.mark.parametrize("replay_buffer_class", [None, DictReplayBuffer, HerReplayBuffer])
+def test_n_steps_with_dict_obs(replay_buffer_class):
+    """Dict observation spaces do not support n-step returns: assert on the default path, warn otherwise."""
+    env = BitFlippingEnv(n_bits=4, continuous=True)
+    if replay_buffer_class is None:
+        with pytest.raises(AssertionError, match="Dict observation spaces"):
+            SAC("MultiInputPolicy", env, n_steps=3, buffer_size=200)
+    else:
+        with pytest.warns(UserWarning, match="n_steps=3"):
+            SAC("MultiInputPolicy", env, n_steps=3, buffer_size=200, replay_buffer_class=replay_buffer_class)
+
+
+def test_n_steps_custom_class_no_warnings():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # Note: values must differ from ``NStepReplayBuffer`` defaults (n_steps=3, gamma=0.99)
+        # otherwise the assertions below would pass even if nothing was applied.
+        model = SAC(
+            "MlpPolicy",
+            "Pendulum-v1",
+            buffer_size=200,
+            replay_buffer_class=NStepReplayBuffer,
+            replay_buffer_kwargs={"n_steps": 4, "gamma": 0.95},
+        )
+        assert isinstance(model.replay_buffer, NStepReplayBuffer)
+        assert model.replay_buffer.n_steps == 4
+        assert model.replay_buffer.gamma == 0.95
+
+        # Default n-steps
+        SAC("MlpPolicy", "Pendulum-v1", buffer_size=200, replay_buffer_class=ReplayBuffer)
 
 
 def create_buffer(buffer_size=10, n_steps=3, gamma=0.99, n_envs=1):

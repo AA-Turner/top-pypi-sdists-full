@@ -1,31 +1,17 @@
 //! AST visitor for discovering tests in Python code.
 
 use crate::python_discovery::{
-    cases::{
-        combine_and_expand_specs, module_has_parametrized_fixture, parse_decorators_for_cases,
-        parse_decorators_to_specs, with_parametrized_fixture, MethodCasesInfo,
-    },
+    cases::{combine_and_expand_specs, parse_decorators_for_cases, parse_decorators_to_specs},
     constant_resolver::ConstantResolver,
-    discovery::{class_has_init, TestDiscoveryConfig, TestInfo},
+    discovery::{class_has_init, collect_test_methods, TestDiscoveryConfig, TestInfo},
+    semantic_analyzer::TestMethodInfo,
 };
 use ruff_python_ast::{Expr, ModModule, Stmt, StmtClassDef, StmtFunctionDef};
 use std::collections::{HashMap, HashSet};
 
-/// Cached information about a test method for inheritance resolution.
-///
-/// Stores method-level specs (not expanded) so they can be combined with
-/// child class decorators during inheritance.
-#[derive(Clone)]
-struct CachedMethodInfo {
-    name: String,
-    line: usize,
-    /// Method-level decorator specs (not yet combined with class decorators)
-    method_specs: MethodCasesInfo,
-}
-
 /// Cached information about a test class.
 struct CachedClassInfo {
-    methods: Vec<CachedMethodInfo>,
+    methods: Vec<TestMethodInfo>,
     has_init: bool,
 }
 
@@ -33,11 +19,8 @@ struct CachedClassInfo {
 pub(crate) struct TestDiscoveryVisitor {
     config: TestDiscoveryConfig,
     tests: Vec<TestInfo>,
-    current_class: Option<String>,
     /// Maps class names to cached class info for inheritance resolution
     class_cache: HashMap<String, CachedClassInfo>,
-    /// File has `@pytest.fixture(params=...)`; pytest IDs include those params.
-    parametrized_fixture: bool,
 }
 
 impl TestDiscoveryVisitor {
@@ -45,16 +28,13 @@ impl TestDiscoveryVisitor {
         Self {
             config: config.clone(),
             tests: Vec::new(),
-            current_class: None,
             class_cache: HashMap::new(),
-            parametrized_fixture: false,
         }
     }
 
     pub fn visit_module(&mut self, module: &ModModule) {
         // Build constant resolver for this module
         let resolver = ConstantResolver::from_module(module);
-        self.parametrized_fixture = module_has_parametrized_fixture(module);
 
         // First pass: collect all test classes and their methods (specs only, not expanded)
         self.collect_class_info(module, &resolver);
@@ -74,28 +54,10 @@ impl TestDiscoveryVisitor {
         for stmt in &module.body {
             if let Stmt::ClassDef(class) = stmt {
                 let name = class.name.as_str();
-                if self.is_test_class(name) {
+                if self.config.is_test_class(name) {
                     let has_init = class_has_init(class);
 
-                    let mut methods = Vec::new();
-                    for stmt in &class.body {
-                        if let Stmt::FunctionDef(func) = stmt {
-                            let method_name = func.name.as_str();
-                            if self.is_test_function(method_name) {
-                                // Store only method-level specs (not combined with class)
-                                let method_specs = parse_decorators_to_specs(
-                                    &func.decorator_list,
-                                    Some(resolver),
-                                    Some(name),
-                                );
-                                methods.push(CachedMethodInfo {
-                                    name: method_name.to_string(),
-                                    line: func.range.start().to_u32() as usize,
-                                    method_specs,
-                                });
-                            }
-                        }
-                    }
+                    let methods = collect_test_methods(class, &self.config, resolver);
 
                     self.class_cache
                         .insert(name.to_string(), CachedClassInfo { methods, has_init });
@@ -114,20 +76,16 @@ impl TestDiscoveryVisitor {
 
     fn visit_function(&mut self, func: &StmtFunctionDef, resolver: &ConstantResolver) {
         let name = func.name.as_str();
-        if self.is_test_function(name) {
-            let cases_expansion = with_parametrized_fixture(
-                parse_decorators_for_cases(
-                    &func.decorator_list,
-                    Some(resolver),
-                    self.current_class.as_deref(),
-                ),
-                self.parametrized_fixture,
+        if self.config.is_test_function(name) {
+            let cases_expansion = parse_decorators_for_cases(
+                &func.decorator_list,
+                resolver,
+                None,
+                self.config.duplicate_ids,
             );
             self.tests.push(TestInfo {
                 name: name.into(),
-                line: func.range.start().to_u32() as usize,
-                is_method: self.current_class.is_some(),
-                class_name: self.current_class.clone(),
+                class_name: None,
                 cases_expansion,
             });
         }
@@ -135,7 +93,7 @@ impl TestDiscoveryVisitor {
 
     fn visit_class(&mut self, class: &StmtClassDef, resolver: &ConstantResolver) {
         let class_name = class.name.as_str();
-        if !self.is_test_class(class_name) {
+        if !self.config.is_test_class(class_name) {
             return;
         }
 
@@ -144,118 +102,53 @@ impl TestDiscoveryVisitor {
             return;
         }
 
-        let prev_class = self.current_class.clone();
-        self.current_class = Some(class_name.into());
-
         // Parse class-level decorators once
-        let class_specs =
-            parse_decorators_to_specs(&class.decorator_list, Some(resolver), Some(class_name));
+        let class_specs = parse_decorators_to_specs(
+            &class.decorator_list,
+            resolver,
+            Some(class_name),
+            self.config.duplicate_ids,
+        );
 
-        // Collect methods defined directly in this class (to filter inherited methods)
-        let own_method_names: HashSet<String> = class
-            .body
+        let own_methods = collect_test_methods(class, &self.config, resolver);
+        let own_method_names: HashSet<&str> = own_methods
             .iter()
-            .filter_map(|stmt| {
-                if let Stmt::FunctionDef(func) = stmt {
-                    let name = func.name.as_str();
-                    if self.is_test_function(name) {
-                        return Some(name.to_string());
-                    }
-                }
-                None
-            })
+            .map(|method| method.name.as_str())
             .collect();
 
-        // First, collect inherited methods from base classes
-        if let Some(arguments) = &class.arguments {
-            for base_expr in arguments.args.iter() {
-                if let Expr::Name(base_name) = base_expr {
-                    let base_class_name = base_name.id.as_str();
+        let inherited_methods: Vec<_> = self
+            .base_classes(class)
+            .flat_map(|parent| &parent.methods)
+            .filter(|method| !own_method_names.contains(method.name.as_str()))
+            .cloned()
+            .collect();
 
-                    if let Some(parent_info) = self.class_cache.get(base_class_name) {
-                        for parent_method in &parent_info.methods {
-                            // Skip if this method is overridden in the child class
-                            if own_method_names.contains(&parent_method.name) {
-                                continue;
-                            }
-
-                            // Combine CHILD class specs with PARENT method specs
-                            // This is the key fix: inherited methods get the child's class decorators
-                            let cases_expansion = with_parametrized_fixture(
-                                combine_and_expand_specs(&class_specs, &parent_method.method_specs),
-                                self.parametrized_fixture,
-                            );
-
-                            self.tests.push(TestInfo {
-                                name: parent_method.name.clone(),
-                                line: parent_method.line,
-                                is_method: true,
-                                class_name: Some(class_name.into()),
-                                cases_expansion,
-                            });
-                        }
-                    }
-                }
-            }
+        for method in inherited_methods.into_iter().chain(own_methods) {
+            let cases_expansion = combine_and_expand_specs(&class_specs, &method.method_specs);
+            self.tests.push(TestInfo {
+                name: method.name,
+                class_name: Some(class_name.into()),
+                cases_expansion,
+            });
         }
-
-        // Then collect methods defined directly in this class
-        for stmt in &class.body {
-            if let Stmt::FunctionDef(func) = stmt {
-                let method_name = func.name.as_str();
-                if self.is_test_function(method_name) {
-                    let method_specs = parse_decorators_to_specs(
-                        &func.decorator_list,
-                        Some(resolver),
-                        Some(class_name),
-                    );
-                    let cases_expansion = with_parametrized_fixture(
-                        combine_and_expand_specs(&class_specs, &method_specs),
-                        self.parametrized_fixture,
-                    );
-
-                    self.tests.push(TestInfo {
-                        name: method_name.into(),
-                        line: func.range.start().to_u32() as usize,
-                        is_method: true,
-                        class_name: Some(class_name.into()),
-                        cases_expansion,
-                    });
-                }
-            }
-        }
-
-        self.current_class = prev_class;
     }
 
     /// Check if a class should be skipped (has __init__ or inherits from class with __init__)
     fn should_skip_class(&self, class: &StmtClassDef) -> bool {
-        if class_has_init(class) {
-            return true;
-        }
-
-        // Check parent classes for __init__
-        if let Some(arguments) = &class.arguments {
-            for base_expr in arguments.args.iter() {
-                if let Expr::Name(base_name) = base_expr {
-                    let base_class_name = base_name.id.as_str();
-                    if let Some(parent_info) = self.class_cache.get(base_class_name) {
-                        if parent_info.has_init {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-
-        false
+        class_has_init(class) || self.base_classes(class).any(|parent| parent.has_init)
     }
 
-    fn is_test_function(&self, name: &str) -> bool {
-        self.config.is_test_function(name)
-    }
-
-    fn is_test_class(&self, name: &str) -> bool {
-        self.config.is_test_class(name)
+    fn base_classes<'a>(
+        &'a self,
+        class: &'a StmtClassDef,
+    ) -> impl Iterator<Item = &'a CachedClassInfo> {
+        class
+            .arguments
+            .iter()
+            .flat_map(|args| args.args.iter())
+            .filter_map(|base| match base {
+                Expr::Name(name) => self.class_cache.get(name.id.as_str()),
+                _ => None,
+            })
     }
 }

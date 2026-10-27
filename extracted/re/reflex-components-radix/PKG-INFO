@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: reflex-components-radix
-Version: 0.10.0
+Version: 0.10.1
 Summary: Reflex radix components.
 Author-email: Khaleel Al-Adhami <khaleel@reflex.dev>
 Maintainer-email: Khaleel Al-Adhami <khaleel@reflex.dev>
@@ -12,8 +12,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.11
-Requires-Dist: reflex-base>=0.10.0
-Requires-Dist: reflex-components-core>=0.10.0
+Requires-Dist: reflex-base>=0.10.1
+Requires-Dist: reflex-components-core>=0.10.1
 Requires-Dist: reflex-components-lucide>=1.1.0
 Description-Content-Type: text/markdown
 

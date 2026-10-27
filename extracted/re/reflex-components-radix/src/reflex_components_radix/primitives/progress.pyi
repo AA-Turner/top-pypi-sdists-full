@@ -86,6 +86,8 @@ class ProgressRoot(ProgressComponent):
     def create(
         cls,
         *children,
+        value: Var[int | None] | int | None = None,
+        max: Var[int | None] | int | None = None,
         radius: Literal["full", "large", "medium", "none", "small"]
         | Var[Literal["full", "large", "medium", "none", "small"]]
         | None = None,
@@ -122,6 +124,8 @@ class ProgressRoot(ProgressComponent):
 
         Args:
             *children: The children of the component.
+            value: The current progress value.
+            max: The maximum progress value.
             radius: Override theme radius for progress bar: "none" | "small" | "medium" | "large" | "full"
             as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.

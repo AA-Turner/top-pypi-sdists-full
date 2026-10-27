@@ -267,7 +267,7 @@ def export_from_registries(
             # Not an LSP error, so log it as a failed import
             failed_protos.append(build_failed_import(e, "validation"))
 
-    from chalk.parsed.validation_from_registries import validate_materialized_feature_view_from_registries
+    from chalk.parsed.validate_materialized_feature_views import validate_materialized_feature_view_from_registries
 
     valid_mfv_registry: dict[str, MaterializedFeatureView] = {}
     for ns, view in materialized_feature_view_registry.items():

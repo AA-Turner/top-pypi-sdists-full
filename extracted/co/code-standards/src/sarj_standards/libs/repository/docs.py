@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import re
-import shlex
 import subprocess  # ruff: ignore[suspicious-subprocess-import] -- validates fixed local CLI examples.
 import sys
 import tomllib
@@ -343,15 +343,15 @@ def _package_usage(name: str, engine: str | None) -> str:
             "Python boolean traps are owned by Ruff FBT001, FBT002 and FBT003: positional boolean "
             "annotations, defaults and literal arguments are checked; keyword-only inputs, named "
             "arguments and the existing test exemptions remain allowed. The typed ESLint policy "
-            "uses `@sarj/no-boolean-selector-parameter` at warning severity. This adapter retains "
-            "maintained SonarJS S2301 detection and adds concise-arrow conditional dispatch. "
+            "uses `@sarj/no-boolean-selector-parameter` at warning severity. Its owned detector checks "
+            "single-statement operation selectors and concise-arrow conditional dispatch. "
             "Prefer separate intention-revealing operations or an explicit string-literal mode. "
             "Boolean data, syntactic value mappings, stable same-operation data choices, "
             "setters and independently declared callback or inherited contracts remain allowed. "
             "Independent JSX helpers are checked; types and references establish callback contracts. "
             "It requires type information and a direct broad-boolean parameter condition. "
             "Multi-statement bodies, short-circuit guards, nullable or literal-only inputs and "
-            "indirect predicates remain outside its scope. The inherited upstream block-body "
+            "indirect predicates remain outside its scope. The preserved block-body "
             "`onX` property exemption remains a documented blind spot. Use "
             "`code-standards check --rule eslint:no-boolean-selector-parameter` to inspect it. "
             "Noncomputed property reads count as data without proving getter effects; computed "
@@ -721,17 +721,28 @@ def _heading_slug(heading: str) -> str:
 
 
 def _validate_cli_examples(path: Path, source: str) -> None:
-    for match in _STANDARDS_COMMAND.finditer(source):
-        command = shlex.split(match.group(1))
-        completed = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- fixed interpreter and argv.
-            [sys.executable, "-m", "sarj_standards", *command[1:], "--help"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if completed.returncode != 0:
-            msg = f"{path} contains an invalid command example: {match.group(1)!r}"
+    examples = [match.group(1) for match in _STANDARDS_COMMAND.finditer(source)]
+    if not examples:
+        return
+    completed = subprocess.run(
+        [sys.executable, "-m", "sarj_standards.libs.repository.cli_examples"],
+        input=json.dumps(examples),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    attempted = completed.stdout.splitlines()
+    expected = [str(index) for index in range(len(examples))]
+    if not attempted or len(attempted) > len(expected) or attempted != expected[: len(attempted)]:
+        msg = f"{path}: command example validation failed"
+        raise ValueError(msg)
+    if completed.returncode == 0:
+        if attempted != expected:
+            msg = f"{path}: command example validation did not check every example"
             raise ValueError(msg)
+        return
+    msg = f"{path} contains an invalid command example: {examples[len(attempted) - 1]!r}"
+    raise ValueError(msg)
 
 
 def _manifest(path: Path) -> dict[str, object]:

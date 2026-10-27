@@ -1,9 +1,11 @@
 """MCPConfigs service — Settings > MCPs management (global catalog entries)."""
 
 from ..models.mcp_config import (
+    MCPConfigCloneRequest,
     MCPConfigCreateRequest,
     MCPConfigListResponse,
     MCPConfigResponse,
+    MCPConfigUpdateRequest,
 )
 from ..utils import ApiRequestHandler, TokenSource
 
@@ -71,7 +73,50 @@ class MCPConfigsService:
             params=params,
             wrap_response=False,
         )
-        return response.data
+        return response.configs
+
+    def clone(
+        self, config_id: str, request: MCPConfigCloneRequest
+    ) -> MCPConfigResponse:
+        """Create a new global MCP configuration from a clone form payload (admin only).
+
+        ``is_public`` and ``is_system`` are always copied from the source configuration.
+        An unchanged ``client_secret`` is carried over from the source.
+
+        Args:
+            config_id: ID of the source MCP config entry.
+            request: MCPConfigCloneRequest with the (possibly edited) parameters of the clone.
+
+        Returns:
+            The newly created MCPConfigResponse.
+        """
+        return self._api.post(
+            f"/v1/mcp-configs/{config_id}/clone",
+            MCPConfigResponse,
+            json_data=request.model_dump(exclude_none=True),
+            wrap_response=False,
+        )
+
+    def update(
+        self, config_id: str, request: MCPConfigUpdateRequest
+    ) -> MCPConfigResponse:
+        """Update a global MCP configuration (admin only).
+
+        Only the fields set on the request are sent.
+
+        Args:
+            config_id: The MCP config entry ID to update.
+            request: MCPConfigUpdateRequest with the fields to change.
+
+        Returns:
+            Updated MCPConfigResponse.
+        """
+        return self._api.put(
+            f"/v1/mcp-configs/{config_id}",
+            MCPConfigResponse,
+            json_data=request.model_dump(exclude_none=True),
+            wrap_response=False,
+        )
 
     def delete(self, config_id: str) -> None:
         """Delete a global MCP configuration entry.

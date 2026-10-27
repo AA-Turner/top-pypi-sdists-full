@@ -16,13 +16,16 @@ hazard needs:
   * the CLI's root callback (`main.py:_version_notice`), which exists because a
     box that never starts a Claude Code session would otherwise never update at
     all. Reaching an arbitrary invocation is the whole point of that trigger and
-    also its whole danger, so it gates on a TTY, on a denylist of the run-scoped
-    commands a training loop makes, and on the run lock -- and records every
-    refusal, because a box correctly deferring all week must not look like a
-    dead updater. Where the Probe service is the updater (POSIX), neither
-    trigger applies anything itself: both ask the service, which records its
-    own deferrals here, and the CLI's gates and their records stay with the
-    fallback updater (`main._version_notice`).
+    also its whole danger, so it gates on a denylist of the run-scoped commands
+    a training loop makes and on the run lock (for a day at most:
+    `defer_for_run`) -- and records every refusal, because a box correctly
+    deferring all week must not look like a dead updater. Off a terminal it
+    starts the detached update at most once per window (`main._claim_window`):
+    it used to refuse there altogether, and a machine whose only `probe` calls
+    come from hooks never updated (plan C3). Where the Probe service is the
+    updater (POSIX), neither trigger applies anything itself: both ask the
+    service, which records its own deferrals here, and the CLI's gates and
+    their records stay with the fallback updater (`main._version_notice`).
 
 Both are spawned DETACHED, and `perform_update` re-checks the run lock for both
 (see upgrading.py -- that check is unconditional precisely because the hook does
@@ -151,6 +154,9 @@ class Trigger(StrEnum):
     CLI = "cli"
     #: A person chose Update in `probe wizard` (or `probe update`) at a terminal.
     MANUAL = "manual"
+    #: The lifeboat, outside every release, rescued this machine (plan
+    #: fool-proof-updates B5): the hand-off it ran names it (`PROBE_HANDOFF_TRIGGER`).
+    LIFEBOAT = "lifeboat"
 
 
 #: Why an eligible upgrade was not applied. These are NOT failures -- each one is
@@ -205,6 +211,10 @@ class Settings:
     enabled: bool = False
     last_attempt: Attempt | None = None
     last_skip: Skip | None = None
+    #: `enabled` is the managed CLI's default (no choice on record), not a
+    #: person's (`version_policy.autoupdate_state`): never evidence that anyone
+    #: set this machine up (`Capabilities.configured`).
+    by_default: bool = False
 
 
 # One definition, shared with the plugin hook. See version_policy's docstring for
@@ -237,9 +247,10 @@ def _attempt_from(attempt_raw: object) -> Attempt | None:
 
 
 def load() -> Settings:
-    """Current settings. Fail-soft: unreadable or corrupt state reads as OFF,
-    because defaulting a data-egress-adjacent background process to ON when we
-    cannot tell what the user chose is the wrong direction to guess."""
+    """Current settings. Fail-soft: unreadable or corrupt state reads as no
+    choice, which is the default (`version_policy.autoupdate_state`): ON for
+    the machine's managed CLI, OFF for any other install. A `false` in any
+    known state folder is off."""
     raw = _read()
     attempt = _attempt_from(raw.get("last_attempt"))
     skip_raw = raw.get("last_skip")
@@ -262,10 +273,12 @@ def load() -> Settings:
     # That tolerance is the forward-compatibility rule stated in version_policy:
     # additive keys only, unknown keys ignored, missing keys defaulted to the
     # reading that preserves old behaviour.
+    enabled, by_default = version_policy.autoupdate_state(raw)
     return Settings(
-        enabled=bool(raw.get("enabled", False)),
+        enabled=enabled,
         last_attempt=attempt,
         last_skip=skip,
+        by_default=by_default,
     )
 
 
@@ -278,56 +291,49 @@ def _write(payload: dict) -> None:
     version_policy.atomic_write_json(state_path(), payload)
 
 
-@contextmanager
-def _state_write_lock(*, wait: bool = True):
-    """Serialize read-modify-write over the state file.
-
-    Atomic replacement makes each WRITE whole; it does nothing for the read that
-    preceded it. `save()`, `record_attempt()` and `record_skip()` each read the
-    file, change one key and write it all back, so without this an updater can
-    read `enabled=true`, race a `save(enabled=false)`, and write its attempt back
-    with the stale `true` -- silently undoing the user's opt-out.
-
-    Advisory and best-effort: if the lock cannot be taken the write still
-    happens, because losing a diagnostic is better than dropping one. Yields
-    whether the block may write: always, except with `wait=False` while another
-    writer holds the lock (a caller that must never wait on it: the Probe
-    service, `amend_attempt`).
-    """
-    handle = None
-    free = True
-    try:
-        import fcntl
-
-        path = state_dir() / "state.lock"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        handle = open(path, "a+")  # noqa: SIM115 -- released in the finally
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX if wait else fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:  # wait=False, and another writer holds it
-        free = False
-        if handle is not None:
-            handle.close()
-            handle = None
-    except Exception:  # noqa: BLE001 -- no fcntl, or an unwritable dir
-        if handle is not None:
-            handle.close()
-            handle = None
-    try:
-        yield free
-    finally:
-        if handle is not None:
-            try:
-                handle.close()  # releases the flock
-            except OSError:
-                pass
+#: Serializes read-modify-write over the state file: `save()`,
+#: `record_attempt()`, `record_skip()` (`version_policy.state_write_lock`).
+_state_write_lock = version_policy.state_write_lock
 
 
 def save(*, enabled: bool) -> Settings:
-    with _state_write_lock():
-        raw = _read()
-        raw["enabled"] = bool(enabled)
-        _write(raw)
+    """A person's choice, the only thing that writes `enabled` (the managed
+    CLI's default is never written: `version_policy.autoupdate_state`). Saved
+    in every known state folder: one saved under XDG_STATE_HOME alone is
+    invisible to the Probe service, which reads the default folder.
+
+    Raises OSError, naming the files, when one could not be written (every
+    folder is tried first): the wizard must not say "off" while the service
+    reads on."""
+    failed: list[str] = []
+    for folder in version_policy.known_state_dirs():
+        path = folder / STATE_FILENAME
+        try:
+            with _state_write_lock(folder=folder):
+                raw = _read(folder)
+                raw["enabled"] = bool(enabled)
+                if not version_policy.atomic_write_json(path, raw):
+                    failed.append(str(path))
+        except OSError:
+            failed.append(str(path))
+    # Before raising: the lifeboat must hear an off even when one folder failed.
+    _tell_lifeboat(bool(enabled))
+    if failed:
+        raise OSError(f"could not save the automatic-updates setting in {', '.join(failed)}")
     return load()
+
+
+def _tell_lifeboat(enabled: bool) -> None:
+    """The lifeboat reads the setting from its own env.json (it runs outside
+    every release): kept in step at every save, so updates turned off stop it
+    at its next run, not at the next service start (plan fool-proof-updates).
+    Never raises."""
+    try:
+        from probe.service import lifeboat
+
+        lifeboat.note_auto_update(enabled)
+    except Exception:  # noqa: BLE001 -- the next service start writes it anyway
+        pass
 
 
 def forget() -> None:
@@ -337,19 +343,30 @@ def forget() -> None:
     `Capabilities.configured` reads that field as evidence this machine has been
     set up -- so a fully removed device could never look fresh again, and the
     next install offered "everything currently off" where it should offer the
-    defaults. An absent file reads as OFF (see `load`), which is the same answer
-    `save(enabled=False)` was reaching for and the honest one for a device that
-    no longer has Probe on it.
+    defaults. An absent file reads as no choice (see `load`): OFF for most
+    installs, and for a managed CLI left behind its default, ON -- that CLI
+    keeps itself current, and a default is never evidence of a setup. A
+    person's explicit `false` is KEPT, alone (`{"enabled": false}`, no evidence
+    of a setup either: `Capabilities.configured` counts only on): removing
+    Probe is no reason to start updating what they froze. In every known state
+    folder, as `save` writes.
     """
     # Fail-soft all the way down, like every other writer here. This runs in
     # the middle of an uninstall on a machine whose plugins are already gone: a
     # state file we cannot remove leaves the device reading as configured, which
     # is a cosmetic loss. A traceback there is not.
-    try:
-        with _state_write_lock():
-            state_path().unlink(missing_ok=True)
-    except OSError:
-        pass
+    for folder in version_policy.known_state_dirs():
+        path = folder / STATE_FILENAME
+        if not path.exists():
+            continue
+        try:
+            with _state_write_lock(folder=folder):
+                if _read(folder).get("enabled") is False:
+                    version_policy.atomic_write_json(path, {"enabled": False})
+                else:
+                    path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 #: The passes of the Update run `merged_attempts` is holding, each with the
@@ -454,6 +471,9 @@ def _put_attempt(raw: dict, attempt: Attempt) -> None:
     # A real attempt CLEARS the skip record. Leaving a week-old "skipped, run
     # in flight" beside a fresh success would read as though we were blocked.
     raw.pop("last_skip", None)
+    # And ends a run's hold on it: the next run's day starts with that run.
+    raw.pop(RUN_DEFERRED_SINCE_KEY, None)
+    raw.pop(RUN_DEFERRED_LAST_KEY, None)
 
 
 def amend_attempt(change, *, wait: bool = True) -> bool:
@@ -498,22 +518,102 @@ def record_skip(
         stamp = int(time.time()) if now is None else now
         with _state_write_lock():
             raw = _read()
-            previous = raw.get("last_skip")
-            count = 1
-            if isinstance(previous, dict) and previous.get("reason") == reason:
-                try:
-                    count = int(previous.get("count", 1)) + 1
-                except (TypeError, ValueError):
-                    count = 1
-            raw["last_skip"] = {
-                "at": stamp,
-                "reason": reason,
-                "count": count,
-                "available": available,
-                "trigger": str(trigger),
-            }
+            _put_skip(raw, reason, available=available, stamp=stamp, trigger=trigger)
             _write(raw)
     except Exception:  # noqa: BLE001 -- see docstring
+        pass
+
+
+def _put_skip(raw: dict, reason: str, *, available: str | None, stamp: int, trigger) -> None:
+    previous = raw.get("last_skip")
+    count = 1
+    if isinstance(previous, dict) and previous.get("reason") == reason:
+        try:
+            count = int(previous.get("count", 1)) + 1
+        except (TypeError, ValueError):
+            count = 1
+    raw["last_skip"] = {
+        "at": stamp,
+        "reason": reason,
+        "count": count,
+        "available": available,
+        "trigger": str(trigger),
+    }
+
+
+#: Where the CLI's own updater runs (no Probe service: pip and pipx installs,
+#: Windows, no runtime interpreter), a live run holds an update off this long
+#: without a break, at most; then the update goes on past it, as the Probe
+#: service's does after DEFER_LIMIT_S (plan D33, C3).
+RUN_DEFER_LIMIT_S = 24 * 3600
+#: Deferrals further apart than this are not one hold "without a break": the
+#: machine was idle in between, and the run found now may be minutes old.
+RUN_DEFER_GAP_S = 2 * 3600
+#: `autoupdate.json`: since when live runs have held the CLI's own update off,
+#: and when one last did.
+RUN_DEFERRED_SINCE_KEY = "run_deferred_since"
+RUN_DEFERRED_LAST_KEY = "run_deferred_last"
+
+
+def _number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def defer_for_run(
+    *,
+    available: str | None = None,
+    trigger: Trigger | str = Trigger.CLI,
+    now: float | None = None,
+) -> bool:
+    """A live run holds an update off: defer it (True) or, once runs have held
+    it off for RUN_DEFER_LIMIT_S without a break, go on past them (False).
+
+    Deferring is a skip (`record_skip`'s record, `run in flight`) and keeps the
+    time of the first deferral of the hold and of the latest, so a machine that
+    trains without a break still updates within a day. The hold starts again
+    -- its day counted from now -- when the latest deferral is more than
+    RUN_DEFER_GAP_S old (idle in between: never update in place under a run
+    that started minutes ago), when a check found no live run
+    (`clear_run_deferral`), after a real attempt (`_put_attempt`), or when the
+    clock went back. Never raises: a state that cannot be read or written
+    defers, as before the cap."""
+    try:
+        moment = time.time() if now is None else now
+        with _state_write_lock():
+            raw = _read()
+            since, last = raw.get(RUN_DEFERRED_SINCE_KEY), raw.get(RUN_DEFERRED_LAST_KEY)
+            if (
+                not _number(since) or not _number(last)
+                or since > moment or last > moment or moment - last > RUN_DEFER_GAP_S
+            ):
+                since = moment
+            raw[RUN_DEFERRED_SINCE_KEY] = since
+            raw[RUN_DEFERRED_LAST_KEY] = moment
+            if moment - since >= RUN_DEFER_LIMIT_S:
+                # The hold goes on (a run is still live): an update turned away
+                # now for some other reason must not start a fresh day of it.
+                _write(raw)
+                return False
+            _put_skip(raw, SKIP_RUN_IN_FLIGHT, available=available, stamp=int(moment), trigger=trigger)
+            _write(raw)
+    except Exception:  # noqa: BLE001 -- see docstring
+        pass
+    return True
+
+
+def clear_run_deferral() -> None:
+    """A check found no live run: the next run's hold starts with it
+    (`defer_for_run`). Writes only when there is a hold to end. Never raises."""
+    try:
+        held = _read()
+        if RUN_DEFERRED_SINCE_KEY not in held and RUN_DEFERRED_LAST_KEY not in held:
+            return
+        with _state_write_lock():
+            raw = _read()
+            raw.pop(RUN_DEFERRED_SINCE_KEY, None)
+            raw.pop(RUN_DEFERRED_LAST_KEY, None)
+            _write(raw)
+    except Exception:  # noqa: BLE001
         pass
 
 
@@ -620,13 +720,21 @@ def wait_for_pid_exit(pid: int, *, timeout: float = WAIT_FOR_PID_TIMEOUT) -> boo
     return not pid_is_alive(pid)
 
 
+#: Set (to this pid) by a holder about to exec the newest release in its
+#: place (`version_refresh._hand_off`): the run after the exec holds the lock.
+LOCK_HELD_ENV = "PROBE_AUTOUPDATE_LOCK_HELD"
+
+
 def acquire_lock() -> bool:
     """Single writer across concurrent Claude Code sessions.
 
     Several sessions starting at once would otherwise each spawn `uv tool
     upgrade` against the same install. O_EXCL is the whole mechanism; a lock
     older than STALE_LOCK_SECONDS is treated as abandoned so a crashed upgrade
-    cannot wedge auto-update permanently.
+    cannot wedge auto-update permanently. A lock handed across an exec is
+    taken over once: the update hand-off execs the newest release in the same
+    process (`probe.core.adopt`), and the `--apply` run it starts finds
+    LOCK_HELD_ENV naming this pid, as the lock file does.
     """
     path = lock_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -639,7 +747,12 @@ def acquire_lock() -> bool:
     try:
         fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     except FileExistsError:
-        return False
+        if os.environ.pop(LOCK_HELD_ENV, "") != str(os.getpid()):
+            return False
+        try:
+            return path.read_text(encoding="utf-8").strip() == str(os.getpid())
+        except OSError:
+            return False
     except OSError:
         return False
     os.write(fd, str(os.getpid()).encode())

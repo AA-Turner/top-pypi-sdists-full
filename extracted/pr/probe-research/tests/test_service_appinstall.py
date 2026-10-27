@@ -1494,7 +1494,7 @@ def test_the_service_start_finishes_a_halfway_swap_with_no_cycle_due(closed_mac,
     """After discovery, before (and without) any cycle: the staged release's helper
     finishes the swap, so the app is there for whoever looks."""
     journal = _halfway_swap(closed_mac)
-    monkeypatch.setattr(updater, "auto_update_enabled", lambda: False)
+    monkeypatch.setattr(updater, "auto_update_enabled", lambda *_dirs: False)
     started = []
 
     async def start():

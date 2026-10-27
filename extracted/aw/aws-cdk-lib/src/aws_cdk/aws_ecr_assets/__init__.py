@@ -557,6 +557,7 @@ class DockerImageAsset(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -596,7 +597,7 @@ class DockerImageAsset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6a2eae0bc05bbae9216a5746bc31160fa3e0fb1dfb204b05e8b4460c1d592652)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "imageUri", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "imageUri", value)
 
     @builtins.property
     @jsii.member(jsii_name="repository")
@@ -609,7 +610,7 @@ class DockerImageAsset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8ec71b1b90f7f6ec2ffd8b6786f94c82f25f01c9dd8e87f97fb3e6ceab41a9ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repository", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "repository", value)
 
 
 @jsii.data_type(
@@ -1736,18 +1737,21 @@ class NetworkMode(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT")
+    @builtins.classmethod
     def DEFAULT(cls) -> "NetworkMode":
         '''The default networking mode if omitted, create a network stack on the default Docker bridge.'''
         return typing.cast("NetworkMode", jsii.sget(cls, "DEFAULT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HOST")
+    @builtins.classmethod
     def HOST(cls) -> "NetworkMode":
         '''Use the Docker host network stack.'''
         return typing.cast("NetworkMode", jsii.sget(cls, "HOST"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NONE")
+    @builtins.classmethod
     def NONE(cls) -> "NetworkMode":
         '''Disable the network stack, only the loopback device will be created.'''
         return typing.cast("NetworkMode", jsii.sget(cls, "NONE"))
@@ -1792,12 +1796,14 @@ class Platform(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LINUX_AMD64")
+    @builtins.classmethod
     def LINUX_AMD64(cls) -> "Platform":
         '''Build for linux/amd64.'''
         return typing.cast("Platform", jsii.sget(cls, "LINUX_AMD64"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LINUX_ARM64")
+    @builtins.classmethod
     def LINUX_ARM64(cls) -> "Platform":
         '''Build for linux/arm64.'''
         return typing.cast("Platform", jsii.sget(cls, "LINUX_ARM64"))
@@ -1889,7 +1895,7 @@ class TarballImageAsset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e5be1a7955548e99522c60499ad4723f8d659920228401ac7006d323cd4ee2a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "imageUri", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "imageUri", value)
 
     @builtins.property
     @jsii.member(jsii_name="repository")
@@ -1902,7 +1908,7 @@ class TarballImageAsset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ccb91ed092745a33fafd3df8d94f545ae143be6b4949103c115bc71350c947bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repository", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "repository", value)
 
 
 @jsii.data_type(

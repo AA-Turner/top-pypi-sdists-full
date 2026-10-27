@@ -2389,6 +2389,7 @@ class DatabaseSecret(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -4289,7 +4290,7 @@ class User(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__215d4d48a362ca590c122ef61d7450d160371decc86d4e5977bce6a23d0ca17f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "databaseProps", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "databaseProps", value)
 
 
 @jsii.data_type(
@@ -4877,6 +4878,7 @@ class Cluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -4937,7 +4939,7 @@ class Cluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2c00f21b389b078f00b9e115501d7de9d004e75c209153d409b6968d062b1b36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameterGroup", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "parameterGroup", value)
 
 
 @jsii.implements(IClusterParameterGroup)
@@ -5033,6 +5035,7 @@ class ClusterParameterGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -5158,6 +5161,7 @@ class ClusterSubnetGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 

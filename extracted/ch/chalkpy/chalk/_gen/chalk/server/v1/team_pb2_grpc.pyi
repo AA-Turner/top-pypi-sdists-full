@@ -78,6 +78,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ListServiceTokensTeamScopedResponse,
     ListTeamInvitesRequest,
     ListTeamInvitesResponse,
+    ListTeamMembersRequest,
+    ListTeamMembersResponse,
     ReactivateUserRequest,
     ReactivateUserResponse,
     UpdateCustomRoleRequest,
@@ -207,6 +209,10 @@ class TeamServiceStub:
     ListTeamInvites: UnaryUnaryMultiCallable[
         ListTeamInvitesRequest,
         ListTeamInvitesResponse,
+    ]
+    ListTeamMembers: UnaryUnaryMultiCallable[
+        ListTeamMembersRequest,
+        ListTeamMembersResponse,
     ]
     UpsertFeaturePermissions: UnaryUnaryMultiCallable[
         UpsertFeaturePermissionsRequest,
@@ -449,6 +455,12 @@ class TeamServiceServicer(metaclass=ABCMeta):
         request: ListTeamInvitesRequest,
         context: ServicerContext,
     ) -> ListTeamInvitesResponse: ...
+    @abstractmethod
+    def ListTeamMembers(
+        self,
+        request: ListTeamMembersRequest,
+        context: ServicerContext,
+    ) -> ListTeamMembersResponse: ...
     @abstractmethod
     def UpsertFeaturePermissions(
         self,

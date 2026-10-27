@@ -1226,7 +1226,9 @@ CustomizationTechniqueType = Literal["DPO", "RLAIF", "RLVR", "SFT"]
 DataDistributionTypeType = Literal["FullyReplicated", "ShardedByS3Key"]
 DataSourceNameType = Literal["SalesforceGenie", "Snowflake"]
 DatabaseConfigurationRollbackStatusType = Literal["NotApplicable", "RevertFailed", "Reverted"]
-DeepHealthCheckTypeType = Literal["InstanceConnectivity", "InstanceStress"]
+DeepHealthCheckTypeType = Literal[
+    "InstanceConnectivity", "InstanceStress", "MultiNodeTrainingValidation"
+]
 DescribeTrainingPlanExtensionHistoryPaginatorName = Literal[
     "describe_training_plan_extension_history"
 ]
@@ -3164,6 +3166,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -3215,8 +3218,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -3470,7 +3471,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

@@ -1,4 +1,4 @@
-from discord_markdown import DEFAULT_FUEL, Syntax, parse, unparse
+from discord_markdown import DEFAULT_FUEL, Syntax, parse, parse_lossless, unparse
 
 print(parse("foo"))
 
@@ -48,5 +48,34 @@ try:
     unparse([{"type": "nonsense"}])
 except Exception:
     print("unparse rejects a malformed AST")
+else:
+    raise
+
+
+def tokens(node):
+    for child in node["children"]:
+        if child["type"] == "token":
+            yield child
+        else:
+            yield from tokens(child)
+
+
+# The lossless tree's tokens hold every character of the content, and each span indexes the `str`
+# in code points: an emoji outside the BMP is one, not the two it would be in UTF-16.
+content = "🦶 **é** <@873227248453443624>\n> 𝕏 \\*`a`"
+node = parse_lossless(content)
+assert node["span"] == {"start": 0, "end": len(content)}
+for token in tokens(node):
+    assert content[token["span"]["start"] : token["span"]["end"]] == token["text"], token
+assert "".join(token["text"] for token in tokens(node)) == content
+print("lossless tokens join into the content, at their spans")
+
+mention = parse_lossless("<@873227248453443624>")["children"][0]["children"][0]
+assert mention["kind"] == {"type": "mention", "value": {"type": "user", "value": 873227248453443624}}
+
+try:
+    parse_lossless("**foo**", fuel=1)
+except Exception:
+    print("parse_lossless ran out of fuel")
 else:
     raise

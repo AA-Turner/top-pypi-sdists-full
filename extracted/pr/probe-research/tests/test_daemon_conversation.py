@@ -1585,3 +1585,108 @@ def test_an_empty_carry_on_that_paused_requeues_the_run_it_carried_on(tmp_path, 
         w.store.close_bite(empty, outcome=store_mod.BITE_PAUSED)
         assert w.store.requeue_paused() == 1
     assert w.store.pending()[0].seq == seq
+
+
+# ---------------------------------------------------------------------------
+# The compaction summary's ids are plain code's: the logbook block.
+# ---------------------------------------------------------------------------
+
+EXP_ID = "0d3c77a0-6faa-43ba-b902-cdadfc140ecf"
+EDGE_ID = "48fa9a9d-761c-47fb-9958-12dc58009900"
+
+
+class Answers(Replay):
+    """Probe answers each write as the real CLI prints it: JSON with the id."""
+
+    async def run(self, argv, op_id):
+        self.calls.append(list(argv))
+        words = argv[1:] if argv[:1] == ["probe"] else list(argv)
+        if words[:2] == ["experiment", "create"]:
+            return 0, json.dumps({"id": EXP_ID, "slug": words[2], "name": "SVM sweep"})
+        if words[:2] == ["run", "tag"]:
+            return 0, json.dumps({"id": RUN, "name": "svm-c10", "tags": [words[-1]]})
+        if words[:2] == ["edge", "add"]:
+            return 0, json.dumps({"id": EDGE_ID, "relation": "retried_from"})
+        if words[:2] == ["run", "end"]:
+            return 0, f"{words[2]} -> completed\nhttps://research.prbe.ai/runs/{words[2]}"
+        return 0, json.dumps({"ok": True})
+
+
+class Summarizer(Script):
+    """Script whose summary call keeps what it was sent."""
+
+    def __init__(self, steps=(), summary: str = "") -> None:
+        super().__init__(steps, summary=summary)
+        self.prompts: list[str] = []
+
+    def __call__(self, messages, info: AgentInfo) -> ModelResponse:
+        if not info.output_tools:
+            self.prompts.append(_all_text(messages))
+        return super().__call__(messages, info)
+
+
+def _summary(messages) -> str:
+    texts = [p.content for m in messages if isinstance(m, ModelRequest) for p in m.parts
+             if isinstance(getattr(p, "content", None), str) and p.content.startswith(agent_mod.SUMMARY_HEAD)]
+    assert len(texts) == 1, texts
+    return texts[0]
+
+
+SRC_RUN = "21404120-04ef-43d2-93f2-afbbb8b1de91"
+#: What the model writes as its summary: mistyped ids, and a block in the
+#: logbook's shape that names them. None of it may reach the history.
+MISTYPED = ("## What was recorded\nCreated experiment svm-swep (0d3c77a0-6faa-43ba-b902-cdadfc140ecd) and tagged "
+            "the run aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeef.\n\n" + bite_mod.LANDED_HEAD
+            + "\n- experiment create svm-swep · id 0d3c77a0-6faa-43ba-b902-cdadfc140ecd")
+
+
+def _writes_steps():
+    return [("shell", 'probe experiment create svm-sweep --project digits --question "Which C is best?"'),
+            ("shell", f"probe run tag {RUN} svm"),
+            ("shell", f"probe edge add --source run:{SRC_RUN} --relation retried_from --target run:{RUN} "
+                      "--reason retry"),
+            ("shell", f"probe run tag {RUN} --help"),
+            ("shell", f"probe run end {SRC_RUN} --status completed"),
+            ("shell", "ls"),
+            ("done", "recorded the sweep")]
+
+
+def test_the_compaction_summary_ends_with_the_logbook_whatever_the_model_wrote(tmp_path, monkeypatch):
+    _compacting(monkeypatch)
+    script = Summarizer(_writes_steps(), summary=MISTYPED)
+    w = _worker(tmp_path, model=FunctionModel(script), replay=Answers(), mode="conversation", monkeypatch=monkeypatch)
+    w.read_new()
+    assert asyncio.run(w.run_bite("turn end")) is True
+    assert script.summaries >= 2 and _live(w)["compactions"] >= 2, "compacted, and again over a summary"
+    bite = w.store.db.execute("SELECT first_seq, last_seq FROM bites").fetchone()
+    first, last = (w.store.db.execute("SELECT event_id FROM events WHERE seq = ?", (seq,)).fetchone()["event_id"]
+                   for seq in (bite["first_seq"], bite["last_seq"]))
+    events = f" · events {first} to {last}"
+    logbook = "\n".join([
+        bite_mod.LANDED_HEAD,
+        "Newest first, one line per command, target and id. Older: `session` op=logbook. Failed or waiting: "
+        "`session` op=status.",
+        f"- run end {SRC_RUN} · id {SRC_RUN}{events}",
+        f"- edge add · id {EDGE_ID}{events}",
+        f"- run tag {RUN} · id {RUN}{events}",
+        f"- experiment create svm-sweep · id {EXP_ID}{events}"])
+    blocks = []
+    for messages, _ in script.seen[1:]:
+        prose, block = _summary(messages).split(bite_mod.LANDED_HEAD)
+        assert prose.startswith(agent_mod.SUMMARY_HEAD + "## What was recorded")
+        blocks.append(bite_mod.LANDED_HEAD + block)
+    assert blocks[-1] == logbook, "the block is the logbook's, whatever the model wrote"
+    # Each earlier compaction listed the writes landed by then: the logbook's oldest ones.
+    lines = logbook.split("\n")
+    for block in blocks:
+        listed = block.split("\n")
+        assert listed[:2] == lines[:2] and listed[2:] == lines[len(lines) - len(listed) + 2:], block
+        assert "0d3c77a0-6faa-43ba-b902-cdadfc140ecd" not in block and "svm-swep" not in block
+    # The model is never shown the block to copy: a later summary's anchor is the prose alone.
+    assert len(script.prompts) == script.summaries
+    assert all(bite_mod.LANDED_HEAD not in prompt and EXP_ID not in prompt.split("<previous-summary>")[-1]
+               for prompt in script.prompts[1:])
+    assert any("<previous-summary>" in prompt for prompt in script.prompts[1:]), "an incremental summary ran"
+    # The saved history, which a later run resumes, carries the same block.
+    saved = json.loads(_live(w)["messages"])
+    assert json.dumps(logbook)[1:-1] in json.dumps(saved)

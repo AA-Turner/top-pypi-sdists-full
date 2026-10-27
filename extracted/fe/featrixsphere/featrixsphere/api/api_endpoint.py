@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
+from .record_utils import clean_record
+
 from .http_client import customer_metadata_headers
 
 if TYPE_CHECKING:
@@ -163,7 +165,7 @@ class APIEndpoint:
         ctx = self._require_ctx()
         from .prediction_result import PredictionResult
 
-        cleaned_record = self._clean_record(record)
+        cleaned_record = clean_record(record)
         headers = customer_metadata_headers(customer_metadata)
         key_to_use = api_key or self.api_key
         if key_to_use:
@@ -217,8 +219,13 @@ class APIEndpoint:
         return self._require_ctx().post_json(f"/endpoints/{self.id}/shadow", data=data, max_retries=_ONCE)
 
     def promote(self, predictor_id: str) -> 'APIEndpoint':
-        """Make an active shadow the serving model (the old one is retired in
-        the same step)."""
+        """Make an active shadow the serving model.
+
+        What happens to the outgoing model is decided by the server from the
+        two versions' training times: promoting a NEWER version (an upgrade)
+        keeps the outgoing model attached as the shadow -- a rollback guard
+        judged like any other shadow; promoting an OLDER version (a rollback)
+        retires the newer one, which is never re-attached automatically."""
         return self._update_from(self._require_ctx().post_json(
             f"/endpoints/{self.id}/promote", data={"neural_function_id": predictor_id}, max_retries=_ONCE,
         ))
@@ -233,20 +240,6 @@ class APIEndpoint:
         """Delete this endpoint. A bound published name goes back to being
         served by name."""
         self._require_ctx().delete_json(f"/endpoints/{self.id}")
-
-    def _clean_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean a record for API submission."""
-        import math
-
-        cleaned = {}
-        for key, value in record.items():
-            if isinstance(value, float):
-                if math.isnan(value) or math.isinf(value):
-                    value = None
-            if hasattr(value, 'item'):
-                value = value.item()
-            cleaned[key] = value
-        return cleaned
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation."""

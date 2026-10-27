@@ -189,6 +189,7 @@ class CfnWorkspace(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -253,7 +254,7 @@ class CfnWorkspace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__229b507e8aa5d72857ead27961ce095a691116c6c8d5954013478f4467650245)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataResidency")
@@ -271,7 +272,7 @@ class CfnWorkspace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2e13b4d8e24c1a46a50f2ed8345092e33a01c63355d9f7348d84b87ac883c634)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataResidency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataResidency", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -287,7 +288,7 @@ class CfnWorkspace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__555038c93a8c4c5472ce094be0e4c8705faa9abc90e46165a5e6713c472ee0ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_awsexternalanthropic.CfnWorkspace.DataResidencyProperty",

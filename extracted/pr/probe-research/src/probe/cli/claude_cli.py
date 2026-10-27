@@ -90,6 +90,59 @@ class _Bound:
 _bound: ContextVar[_Bound | None] = ContextVar("probe_agent_cli_bound", default=None)
 
 
+class StoppedError(OSError):
+    """A process the update gave up on was not started (`Processes.stop`)."""
+
+
+class Processes:
+    """The processes one part of an update starts through `capture` (each
+    leading a process group of its own), so the update can stop them all when
+    that part runs past its deadline (`upgrading.component_deadline`): a hung
+    `codex plugin list` must not go on changing plugins after the update has
+    moved on. Once stopped, it starts nothing more."""
+
+    def __init__(self) -> None:
+        import threading
+
+        self._lock = threading.Lock()
+        self._live: set = set()
+        self.stopped = False
+
+    def add(self, process: subprocess.Popen) -> bool:
+        with self._lock:
+            if self.stopped:
+                return False
+            self._live.add(process)
+            return True
+
+    def discard(self, process: subprocess.Popen) -> None:
+        with self._lock:
+            self._live.discard(process)
+
+    def stop(self) -> int:
+        """SIGKILL every live one's process group; start none after. How many."""
+        with self._lock:
+            self.stopped = True
+            live = list(self._live)
+        for process in live:
+            _kill_group(process)
+        return len(live)
+
+
+_processes: ContextVar[Processes | None] = ContextVar("probe_update_processes", default=None)
+
+
+@contextmanager
+def tracking(processes: Processes) -> Iterator[None]:
+    """`capture` calls in this block (this context: a thread started in a copy
+    of it too) are `processes`' to stop."""
+    token = _processes.set(processes)
+    try:
+        yield
+    finally:
+        _processes.reset(token)
+
+
 @contextmanager
 def bounded(timeout: float) -> Iterator[None]:
     """Every agent-CLI call in the block ends within `timeout` seconds of the
@@ -154,12 +207,19 @@ SKIPPED_HUNG = "not run: it timed out earlier in this check"
 OUT_OF_TIME = "not run: the check ran out of time"
 
 
-def capture(argv: list[str], *, timeout: float) -> subprocess.CompletedProcess:
+def capture(argv: list[str], *, timeout: float, env: dict | None = None, cwd: str | None = None
+            ) -> subprocess.CompletedProcess:
     """`subprocess.run` with output captured as text and stdin closed: the one
-    way every agent-CLI call here starts its process. Inside `bounded` the
-    child leads a process group of its own and a timeout kills the whole group
-    (see `bounded`). Raises what `subprocess.run` raises."""
-    if _bound.get() is None or os.name == "nt":
+    way every agent-CLI call here starts its process. Inside `bounded`, or
+    inside `tracking` (an update's part), the child leads a process group of
+    its own and a timeout, or the part's `Processes.stop`, kills the whole
+    group. Raises what `subprocess.run` raises (`StoppedError` for a part
+    already stopped)."""
+    extra = {**({"env": env} if env is not None else {}), **({"cwd": cwd} if cwd is not None else {})}
+    processes = _processes.get()
+    if processes is not None and processes.stopped:
+        raise StoppedError(f"not run, the update stopped this step: {' '.join(argv[:3])}")
+    if (_bound.get() is None and processes is None) or os.name == "nt":
         return subprocess.run(  # noqa: S603 - the callers pass a resolved binary, no shell
             argv,
             capture_output=True,
@@ -169,6 +229,7 @@ def capture(argv: list[str], *, timeout: float) -> subprocess.CompletedProcess:
             stdin=subprocess.DEVNULL,
             timeout=timeout,
             check=False,
+            **extra,
         )
     with subprocess.Popen(  # noqa: S603 - the callers pass a resolved binary, no shell
         argv,
@@ -177,13 +238,21 @@ def capture(argv: list[str], *, timeout: float) -> subprocess.CompletedProcess:
         stderr=subprocess.PIPE,
         text=True,
         start_new_session=True,
+        **extra,
     ) as process:
+        if processes is not None and not processes.add(process):
+            _kill_group(process)  # stopped while it started
         try:
             out, err = process.communicate(timeout=timeout)
         except BaseException:  # a timeout, or the caller's own interrupt
             _kill_group(process)
             process.wait()
             raise
+        finally:
+            if processes is not None:
+                processes.discard(process)
+    if processes is not None and processes.stopped and process.returncode is not None and process.returncode < 0:
+        raise StoppedError(f"stopped: the update gave up on this step ({' '.join(argv[:3])})")
     return subprocess.CompletedProcess(argv, process.returncode, out, err)
 
 

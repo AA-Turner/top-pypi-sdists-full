@@ -1,3 +1,4 @@
+import hashlib
 import shutil
 from argparse import Namespace
 from textwrap import dedent
@@ -90,6 +91,29 @@ def test_convert_pipfile_relative_path(project):
 
 
 @pytest.mark.parametrize(
+    "entry,expected",
+    [
+        ('"2.31.0"', "requests==2.31.0"),
+        ('{version = "2.31.0"}', "requests==2.31.0"),
+        ('{version = "2.31.0", extras = ["socks"]}', "requests[socks]==2.31.0"),
+        ('"2.*"', "requests==2.*"),
+        ('"*"', "requests"),
+        ('{version = "*"}', "requests"),
+        ('"==2.31.0"', "requests==2.31.0"),
+        ('">=2.31"', "requests>=2.31"),
+        ('"~=2.31"', "requests~=2.31"),
+    ],
+)
+def test_convert_pipfile_version_without_operator(project, entry, expected):
+    """Pipenv treats a version without an operator as an exact pin."""
+    pipfile_path = project.root / "Pipfile"
+    pipfile_path.write_text(f"[packages]\nrequests = {entry}\n", encoding="utf-8")
+    result, _ = pipfile.convert(project, pipfile_path, None)
+
+    assert result["dependencies"] == [expected]
+
+
+@pytest.mark.parametrize(
     "requires",
     [
         "",  # an empty [requires] table
@@ -153,6 +177,22 @@ def test_convert_requirements_file_with_tab_before_comment(project):
     result, _ = requirements.convert(project, str(req_file), ns())
 
     assert result["dependencies"] == ["webassets==2.0"]
+
+
+@pytest.mark.parametrize(
+    "content,expected",
+    [
+        ("webassets==2.0\nsix\n", ["webassets==2.0", "six"]),
+        ("# pinned versions\nsix\n", ["six"]),
+    ],
+)
+def test_convert_requirements_file_with_utf8_bom(project, content, expected):
+    req_file = project.root.joinpath("reqs.txt")
+    req_file.write_text(content, encoding="utf-8-sig")
+    assert requirements.check_fingerprint(project, str(req_file))
+    result, _ = requirements.convert(project, str(req_file), ns())
+
+    assert result["dependencies"] == expected
 
 
 @pytest.mark.parametrize(
@@ -419,6 +459,24 @@ def test_convert_poetry_sdist_only_include(project):
     # Entries restricted to the sdist format belong to `source-includes`, not `includes`.
     assert settings["build"]["includes"] == ["demo/data.json"]
     assert settings["build"]["source-includes"] == ["tests", "docs"]
+
+
+@pytest.mark.parametrize("formats", ['["sdist", "wheel"]', '["wheel", "sdist"]', '["wheel"]'])
+def test_convert_poetry_include_for_wheel(project, formats):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n'
+        "include = [\n"
+        f'    {{path = "data/schema.json", format = {formats}}},\n'
+        '    {path = "docs", format = ["sdist"]},\n'
+        "]\n"
+        "[tool.poetry.dependencies]\n",
+        encoding="utf-8",
+    )
+    _, settings = poetry.convert(project, pyproject, ns())
+
+    assert settings["build"]["includes"] == ["data/schema.json"]
+    assert settings["build"]["source-includes"] == ["docs"]
 
 
 def test_convert_poetry_develop_dependency(project):
@@ -791,6 +849,26 @@ def test_convert_flit(project):
     assert build["excludes"] == ["doc/*.html"]
 
 
+@pytest.mark.parametrize("source_dir", ["", "src"])
+@pytest.mark.parametrize("module_path", ["demo.py", "demo/__init__.py"])
+@pytest.mark.parametrize("version_assignment", ['__version__ = "1.2.3"', '__version__: str = "1.2.3"'])
+def test_import_flit_module_metadata(project, pdm, tmp_path, source_dir, module_path, version_assignment):
+    pyproject_file = tmp_path / "legacy" / "pyproject.toml"
+    pyproject_file.parent.mkdir()
+    pyproject_file.write_text(
+        '[tool.flit.metadata]\nmodule = "demo"\nauthor = "Example"\nauthor-email = "example@example.com"\n',
+        encoding="utf-8",
+    )
+    source = pyproject_file.parent / source_dir / module_path
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text(f'"""A demo package."""\n{version_assignment}\n', encoding="utf-8")
+
+    pdm(["import", "-f", "flit", str(pyproject_file)], obj=project, strict=True)
+
+    assert project.pyproject.metadata["version"] == "1.2.3"
+    assert project.pyproject.metadata["description"] == "A demo package."
+
+
 def test_convert_flit_author_and_maintainer_without_email(project, tmp_path):
     pyproject_file = tmp_path / "pyproject.toml"
     pyproject_file.write_text(
@@ -1131,3 +1209,27 @@ def test_parse_uv_lock_drops_the_placeholder_root(project):
 
     names = {p.candidate.name for p in resolution.packages}
     assert names == {"packaging"}, f"the placeholder root leaked into the resolution: {names}"
+
+
+@pytest.mark.parametrize("source", ["url", "path"])
+@pytest.mark.parametrize("output_format", ["requirements", "pylock"])
+def test_export_pylock_archive_hashes(project, pdm, source, output_format):
+    artifact = FIXTURES / "artifacts/first-2.0.2-py2.py3-none-any.whl"
+    if source == "url":
+        requirement = f"http://fixtures.test/artifacts/{artifact.name}"
+    else:
+        shutil.copy2(artifact, project.root)
+        requirement = (project.root / artifact.name).as_posix()
+    project.project_config["lock.format"] = "pylock"
+    pdm(["add", "--no-sync", requirement], obj=project, strict=True)
+    expected = {"sha256": hashlib.sha256(artifact.read_bytes()).hexdigest()}
+    saved = tomllib.loads(project.lockfile._path.read_text(encoding="utf-8"))
+    assert saved["packages"][0]["archive"]["hashes"] == expected
+
+    result = pdm(["export", "-f", output_format], obj=project, strict=True)
+
+    if output_format == "requirements":
+        assert f"--hash=sha256:{expected['sha256']}" in result.stdout
+    else:
+        exported = tomllib.loads(result.stdout)
+        assert exported["packages"][0]["archive"]["hashes"] == expected

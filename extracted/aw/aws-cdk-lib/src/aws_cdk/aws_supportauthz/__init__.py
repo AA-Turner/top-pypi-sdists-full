@@ -223,6 +223,7 @@ class CfnSupportPermit(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -296,7 +297,7 @@ class CfnSupportPermit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3ecf34640baa88a0c688553f45ff85f6c9133336b5c104c2202bf41da43529d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="permit")
@@ -314,7 +315,7 @@ class CfnSupportPermit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca368feaa23a5a0edc68fd81bf11edc70525605a17855d5fe7c0b2e1b65100ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "permit", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "permit", value)
 
     @builtins.property
     @jsii.member(jsii_name="signingKeyInfo")
@@ -332,7 +333,7 @@ class CfnSupportPermit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6a29af1ed3320518500efc84f1c2364f599991ddd68cb2042bbc84d3babc93db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "signingKeyInfo", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "signingKeyInfo", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -345,7 +346,7 @@ class CfnSupportPermit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__263f09655a8beee93ac084b1622ba49c4df91e847cc45110f5f5e3da93814915)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="supportCaseDisplayId")
@@ -358,7 +359,7 @@ class CfnSupportPermit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b3b9494e41da98a35c532a93104f6e87bca622485af7449b900d4c8c2125008)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supportCaseDisplayId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "supportCaseDisplayId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -374,7 +375,7 @@ class CfnSupportPermit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ccba66f00d9eed5f8ad911f379fa0c30c26196e0ac5eb502cfacd2275b4ff209)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_supportauthz.CfnSupportPermit.ActionSetProperty",

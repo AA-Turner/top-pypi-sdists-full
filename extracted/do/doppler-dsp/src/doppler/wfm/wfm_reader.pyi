@@ -5,6 +5,15 @@ import numpy as np
 import numpy.typing as npt
 from numpy.typing import NDArray
 
+FOLLOW_END: tuple[str, ...]
+FTYPE: tuple[str, ...]
+STYPE: tuple[str, ...]
+SAMPLE_MODE: tuple[str, ...]
+ENDIAN: tuple[str, ...]
+FS_SOURCE: tuple[str, ...]
+T0_SOURCE: tuple[str, ...]
+FC_SOURCE: tuple[str, ...]
+
 @final
 class Reader:
     """Open a capture, auto-detecting its file type from its content.
@@ -338,8 +347,9 @@ class Reader:
 
         **Seconds are measured from the FIRST SAMPLE of the capture, never from
         the UNIX epoch.** A capture's absolute start is `t0`, and `t0_source`
-        is `none` on every capture doppler itself writes — so an absolute face
-        would be unusable by default. Converting is the caller's, and it is
+        is `none` on every capture written without one — doppler's own writer
+        included, unless it is given a `t0` — so an absolute face would be
+        unusable by default. Converting is the caller's, and it is
         `r.seek_time(t_unix - r.t0)` once `t0_source` says there is a `t0` to
         subtract.
 

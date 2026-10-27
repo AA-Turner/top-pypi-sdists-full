@@ -3,12 +3,13 @@ from __future__ import annotations
 from refinery.lib import json
 from refinery.lib.inno.archive import (
     InnoArchive,
-    InvalidPassword,
+    InnoChecksumMismatch,
     SetupFileFlags,
     is_inno_setup,
 )
 from refinery.lib.mime import FileMagicInfo as magic
 from refinery.lib.structures import struct_to_json
+from refinery.units import RefineryPartialResult
 from refinery.units.formats.archive import ArchiveUnit
 
 
@@ -27,23 +28,27 @@ class _ps:
     """
 
 
+def _expand_constants(inno: InnoArchive, doc):
+    """
+    Expands the Inno Setup constants in every string of the given JSON document.
+    """
+    if isinstance(doc, dict):
+        return {key: _expand_constants(inno, val) for key, val in doc.items()}
+    if isinstance(doc, list):
+        return [_expand_constants(inno, entry) for entry in doc]
+    if not isinstance(doc, str):
+        return doc
+    try:
+        return inno.expand_constants(doc)
+    except Exception:
+        return doc
+
+
 class xtinno(ArchiveUnit, _ps, docs='{0}{p}{PathExtractorUnit}{p}{_ps}'):
     """
     Extract files from InnoSetup archives.
     """
     def unpack(self, data: bytearray):
-        def post_process_json(doc):
-            if isinstance(doc, dict):
-                return {key: post_process_json(val) for key, val in doc.items()}
-            if isinstance(doc, list):
-                return [post_process_json(entry) for entry in doc]
-            if not isinstance(doc, str):
-                return doc
-            try:
-                return inno.emulator.reset().expand_constant(doc)
-            except Exception:
-                return doc
-
         inno = InnoArchive(data, self)
 
         _pwd: bytes = self.args.pwd
@@ -56,14 +61,14 @@ class xtinno(ArchiveUnit, _ps, docs='{0}{p}{PathExtractorUnit}{p}{_ps}'):
             yield self._pack('meta/setup.bin', None, t_setup)
             doc = struct_to_json(inno.setup_info)
             yield self._pack('meta/setup.template', None, json.dumps(doc, tojson=json.bytes_as_array))
-            doc = post_process_json(doc)
+            doc = _expand_constants(inno, doc)
             yield self._pack('meta/setup.json', None, json.dumps(doc, tojson=json.bytes_as_array))
 
         if t_data := inno.streams.TData.data:
             yield self._pack('meta/files.bin', None, t_data)
             doc = struct_to_json(inno.setup_data)
             yield self._pack('meta/files.template', None, json.dumps(doc, tojson=json.bytes_as_array))
-            doc = post_process_json(doc)
+            doc = _expand_constants(inno, doc)
             yield self._pack('meta/files.json', None, json.dumps(doc, tojson=json.bytes_as_array))
 
         def _uninstaller(i=inno):
@@ -96,17 +101,13 @@ class xtinno(ArchiveUnit, _ps, docs='{0}{p}{PathExtractorUnit}{p}{_ps}'):
             if file.dupe:
                 continue
 
-            def _read(inno=inno, file=file, pwd=password):
+            def _read(inno=inno, file=file, pwd=password, read=inno.extractor(file, password)):
                 if pwd is None:
                     inno.guess_password(10)
-                if self.leniency > 0:
-                    return inno.read_file(file, pwd)
                 try:
-                    return inno.read_file_and_check(file, pwd)
-                except InvalidPassword:
-                    raise
-                except Exception as E:
-                    raise ValueError(F'{E!s} [ignore this check with -L]') from E
+                    return inno.check_file(file, read())
+                except InnoChecksumMismatch as mismatch:
+                    raise RefineryPartialResult(str(mismatch), mismatch.data) from mismatch
 
             yield self._pack(file.path, file.date, _read,
                 tags=[t.name for t in SetupFileFlags if t & file.tags])

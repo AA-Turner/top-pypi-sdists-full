@@ -197,6 +197,7 @@ class CfnBillingGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -297,7 +298,7 @@ class CfnBillingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8f9c708fbe7d54cdef59ed3204494cecda18538e1eec10d86fd8f55ae7daf752)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountGrouping", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accountGrouping", value)
 
     @builtins.property
     @jsii.member(jsii_name="computationPreference")
@@ -315,7 +316,7 @@ class CfnBillingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__41f3295fe992f9cb25a58aec6654eb24d1e80cbee0cd3de14d958df63c247d19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computationPreference", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "computationPreference", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -328,7 +329,7 @@ class CfnBillingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b8ed4a5183989c6d90d5d14a8b43461549c879acf7cb150cd90684591ebd43ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -341,7 +342,7 @@ class CfnBillingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4fc1781db3881f01d158fbbb578c5ea178837f7c8778e4d3e24edfbbb0f4a04d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="primaryAccountId")
@@ -354,7 +355,7 @@ class CfnBillingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__646e42b3eea2692844d00bd93cbeba06bbc5856813d7c83f651e58c4b732edb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "primaryAccountId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "primaryAccountId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -370,7 +371,7 @@ class CfnBillingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b79940f00b13b42629eb04481540a4b5f0ae2c81a08ba0818cb87b23aa91dbcd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_billingconductor.CfnBillingGroup.AccountGroupingProperty",
@@ -843,6 +844,7 @@ class CfnCustomLineItem(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -938,7 +940,7 @@ class CfnCustomLineItem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3eb243d705caaf896e75795468936ff421a580587ebc80fd352abbf0b7b793e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "billingGroupArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "billingGroupArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -951,7 +953,7 @@ class CfnCustomLineItem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__199c4dc41e71d5adccf791ecf26d6b120bd52ba567a7e0882e3d5247e04aa8b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="accountId")
@@ -964,7 +966,7 @@ class CfnCustomLineItem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__485a08cb6e43ed7a5b52fa253797377db356b8fe1ea1d3001a00d7a9b422d441)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accountId", value)
 
     @builtins.property
     @jsii.member(jsii_name="billingPeriodRange")
@@ -982,7 +984,7 @@ class CfnCustomLineItem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4c5735856393235c9af0411ca8b7a8879608ebdefed633e1a33f50f454aac347)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "billingPeriodRange", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "billingPeriodRange", value)
 
     @builtins.property
     @jsii.member(jsii_name="computationRule")
@@ -995,7 +997,7 @@ class CfnCustomLineItem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13b75a88355dc2c0a8bde97a22b3e5bb4f018e052e20c1055729260d2c397260)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computationRule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "computationRule", value)
 
     @builtins.property
     @jsii.member(jsii_name="customLineItemChargeDetails")
@@ -1013,7 +1015,7 @@ class CfnCustomLineItem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d9dcde3b5032942c5c0db649ffe03d9f28478316ee33c4e6c60e10f14100a1f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customLineItemChargeDetails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customLineItemChargeDetails", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1026,7 +1028,7 @@ class CfnCustomLineItem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66dd00cf48245d48f64a76715433404bd203befdf24fdeac8e43d67e3528c1b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="presentationDetails")
@@ -1044,7 +1046,7 @@ class CfnCustomLineItem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2cded875a02d3fb7f6d21e8a3d9c516c5ea7cdbc3aa87ed23d8ef0f632686e7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "presentationDetails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "presentationDetails", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1060,7 +1062,7 @@ class CfnCustomLineItem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fa592de606b3d5a71ae8db1a73d086b2ca9f2b304f221694b72a7d7dbb74b841)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_billingconductor.CfnCustomLineItem.BillingPeriodRangeProperty",
@@ -1917,6 +1919,7 @@ class CfnPricingPlan(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1990,7 +1993,7 @@ class CfnPricingPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__41e41d7b10b271443fa6aef0e38fea3a019d91e0812404846ce03c90c12d10cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2003,7 +2006,7 @@ class CfnPricingPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__85c231f6aa09dcdabd60d46d2de7a2ab0cdd8d2887b1e9e02743c4570bfd4f2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="pricingRuleArns")
@@ -2019,7 +2022,7 @@ class CfnPricingPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb0c6a89bda77170ae2feda7aa8a342c0d3b465d274fbffaa9e26639dc7e9b06)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pricingRuleArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "pricingRuleArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2035,7 +2038,7 @@ class CfnPricingPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13df144317e29f0d4607aebf7ab331e5ce6b9d66d406f1e7f703e3b979bee860)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -2306,6 +2309,7 @@ class CfnPricingRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2379,7 +2383,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3039a172a4634682aedec441346560ef397babef403555ad72234e1e5d769b94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="scope")
@@ -2392,7 +2396,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6a1c5307af8aa5caa43dca553d8d447af3178ab0e4a3ac26cec65752ec05f15a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scope", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -2405,7 +2409,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7a50180ae9094b0615b9db3f9c8ef636dec978b56761a020d89c1307a4675919)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="billingEntity")
@@ -2418,7 +2422,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8804f523dd249bb75a1dbb95fc266bc031a17586d02e8ad390deb7d9cf69d95d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "billingEntity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "billingEntity", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2431,7 +2435,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f6eae3ec411610683aa6f10c0c852a611cf583b2fae601d172fe4a30b49c019a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="modifierPercentage")
@@ -2444,7 +2448,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__771d90964eec9268175f160032d7ea8291ba035a3544be4d3a230d2ab0a0e14e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modifierPercentage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "modifierPercentage", value)
 
     @builtins.property
     @jsii.member(jsii_name="operation")
@@ -2457,7 +2461,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d68ebc2133e621366d444cdeb72c7d3573c57e8a969d73d5914cf5e6ec240c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "operation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "operation", value)
 
     @builtins.property
     @jsii.member(jsii_name="service")
@@ -2470,7 +2474,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__37203a91eeadb3b5fb67c1340ae6aee4a1c64983cd50f0deb31484b24f20a3f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "service", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "service", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2486,7 +2490,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__74aa4f5ff17ac08d7ca00b5728574783a055d9af8627efe28321973e6be1f235)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="tiering")
@@ -2504,7 +2508,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8fe55809e6cb1b74a3bfa69e7578e482e14e7ff52be1b0106d1bcca12ff71b9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tiering", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tiering", value)
 
     @builtins.property
     @jsii.member(jsii_name="usageType")
@@ -2517,7 +2521,7 @@ class CfnPricingRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__baf93d2b8fd207bde20614839c395d563684be63797e50c8d823f9277a364722)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "usageType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "usageType", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_billingconductor.CfnPricingRule.CustomTierProperty",

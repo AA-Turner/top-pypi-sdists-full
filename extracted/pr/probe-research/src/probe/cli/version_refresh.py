@@ -145,10 +145,11 @@ def _apply() -> int:
     if not autoupdate.acquire_lock():
         return 0
     try:
-        perform_update(
-            base_url=version_policy.base_url(),
-            trigger=update_report.trigger_from_env(update_report.Trigger.CLI),
-        )
+        trigger = update_report.trigger_from_env(update_report.Trigger.CLI)
+        ending = _hand_off(trigger)
+        if ending is not None:
+            return ending.status
+        perform_update(base_url=version_policy.base_url(), trigger=trigger)
     except wizard_lock.Busy:
         return wizard_lock.BUSY_EXIT_CODE
     finally:
@@ -214,12 +215,38 @@ def _apply_if_newer() -> int:
                     autoupdate.record_skip(autoupdate.SKIP_SETUP_RUNNING, trigger=trigger.value)
                     return wizard_lock.BUSY_EXIT_CODE
             return 0
+        ending = _hand_off(trigger)
+        if ending is not None:
+            return ending.status
         perform_update(base_url=base, manifest=manifest, trigger=trigger)
     except wizard_lock.Busy:  # `perform_update` recorded the skip
         return wizard_lock.BUSY_EXIT_CODE
     finally:
         autoupdate.release_lock()
     return 0
+
+
+#: How the newest release runs this update in this one's place: `--apply`
+#: (its decision is made), in this process (already detached).
+APPLY_ARGV = ("-m", "probe.cli.version_refresh", "--apply", "--no-daemon")
+
+
+def _hand_off(trigger):
+    """The update's first step (`probe.core.adopt.begin`): with a newer release
+    out, this process becomes its `version_refresh --apply`. The single-writer
+    lock goes across with it (`autoupdate.LOCK_HELD_ENV`: the pid the exec
+    keeps), so nothing is given back before an exec that may fail. An
+    `adopt.Ending` when the update ends here, else None."""
+    import os
+
+    from probe.cli import autoupdate
+    from probe.core import adopt
+
+    os.environ[autoupdate.LOCK_HELD_ENV] = str(os.getpid())
+    try:
+        return adopt.begin(trigger.value, argv=list(APPLY_ARGV))
+    finally:
+        os.environ.pop(autoupdate.LOCK_HELD_ENV, None)  # no exec: still this run's own
 
 
 def main(argv: list[str] | None = None) -> int:

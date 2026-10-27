@@ -2389,10 +2389,11 @@ class EnvironmentPlaceholders(
             type_hints = cached_type_hints(_typecheckingstub__de03889e580fb74fa4267c869df09d728f9377cec619989cc7e1ce5106f15b70)
             check_type(argname="argument object", value=object, expected_type=type_hints["object"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
-        return typing.cast(typing.Any, jsii.sinvoke(cls, "replaceAsync", [object, provider]))
+        return typing.cast(typing.Any, jsii.sainvoke(cls, "replaceAsync", [object, provider]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CURRENT_ACCOUNT")
+    @builtins.classmethod
     def CURRENT_ACCOUNT(cls) -> builtins.str:
         '''(deprecated) Insert this into the destination fields to be replaced with the current account.
 
@@ -2402,6 +2403,7 @@ class EnvironmentPlaceholders(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CURRENT_PARTITION")
+    @builtins.classmethod
     def CURRENT_PARTITION(cls) -> builtins.str:
         '''(deprecated) Insert this into the destination fields to be replaced with the current partition.
 
@@ -2411,6 +2413,7 @@ class EnvironmentPlaceholders(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CURRENT_REGION")
+    @builtins.classmethod
     def CURRENT_REGION(cls) -> builtins.str:
         '''(deprecated) Insert this into the destination fields to be replaced with the current region.
 

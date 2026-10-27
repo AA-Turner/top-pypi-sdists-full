@@ -847,9 +847,10 @@ static PyGetSetDef MpskReceiverR_getset[] = {
     "reported.\n",
     NULL },
   { "lock_thresh", (getter)MpskReceiverR_getprop_lock_thresh, NULL,
-    "Handover declare threshold actually in use. Reads back the DERIVED "
-    "`sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the constructor was "
-    "given 0. See `zeta` for why every derived value is reported.\n",
+    "Carrier lock-indicator declare threshold actually in use. Reads back the "
+    "DERIVED `sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the "
+    "constructor was given 0. See `zeta` for why every derived value is "
+    "reported.\n",
     NULL },
   { "lock_drop_thresh", (getter)MpskReceiverR_getprop_lock_drop_thresh, NULL,
     "Carrier DROP threshold actually in use -- 0.8x `lock_thresh`, the level "
@@ -919,7 +920,7 @@ static PyGetSetDef MpskReceiverR_getset[] = {
     "Terminal outputs per symbol (the old `n`, now the cascade's).\n", NULL },
   { "clipped", (getter)MpskReceiverR_getprop_clipped, NULL,
     "Has the cascade's CIC stage clipped its input since the last reset? A "
-    "CIC bounds its input to |Re|, |Im| <= 1.0 and clips silently past that "
+    "CIC bounds its input to |Re|, |Im| <= 2.0 and clips silently past that "
     "-- the output stays finite and plausible, merely distorted, at a cost of "
     "~25 dB of EVM that no lock metric reveals. Always 0 for a plan with no "
     "CIC stage.\n",
@@ -983,15 +984,16 @@ static PyMethodDef MpskReceiverRObj_methods[] = {
     "\n"
     "Attach (or detach) a telemetry context across the receiver.\n"
     "Registers the receiver's own \"<prefix>.lock\" probe (the carrier lock\n"
-    "EMA), then the carrier loop's \"<prefix>.car.e\" / \".freq\" / "
-    "\".locked\"\n"
-    "and the symbol-timing loop's \"<prefix>.sync.e\" / \".ctrl\" / \".rate\" "
-    "/\n"
-    "\".lock\" / \".locked\" / \".mu\" -- ten probes emitted once per "
-    "recovered\n"
-    "symbol -- then the front end's AGC under \"<prefix>.agc\"\n"
+    "EMA), the carrier loop's \"<prefix>.car.e\" / \".freq\" / \".nco\" /\n"
+    "\".locked\", the decided symbol's \"<prefix>.sym.i\" / \".sym.q\", and "
+    "the\n"
+    "symbol-timing loop's \"<prefix>.sync.e\" / \".ctrl\" / \".rate\" / "
+    "\".lock\" /\n"
+    "\".locked\" / \".mu\" -- thirteen probes emitted once per recovered "
+    "symbol\n"
+    "-- then the front end's AGC under \"<prefix>.agc\"\n"
     "(\"<prefix>.agc.gain_db\" and \"<prefix>.agc.level_db\"; see\n"
-    "dp_agc_set_telemetry()). Twelve probes total, all thinned by decim.\n"
+    "dp_agc_set_telemetry()). Fifteen probes total, all thinned by decim.\n"
     "Passing NULL detaches everything.\n"
     "\n"
     "Instrumenting it matters because it is FIRST in the chain, and a level\n"
@@ -1033,14 +1035,14 @@ static PyMethodDef MpskReceiverRObj_methods[] = {
     "\n"
     "Warnings\n"
     "--------\n"
-    "The two AGC probes are NOT at the symbol rate the other ten are. That\n"
-    "AGC sits pre-terminal in the cascade (RateConverter's tap, ahead of the\n"
-    "stage the timing loop steers) and emits once per gain-update event,\n"
-    "i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream -- so it\n"
-    "reports on a grid that depends on the planned cascade, not on recovered\n"
-    "symbols, and a run yields a different number of AGC records than\n"
-    "carrier records. Compare the two by TIME, never by record index. This\n"
-    "is deliberate: the AGC's bandwidth is quoted in the pre-terminal\n"
+    "The two AGC probes are NOT at the symbol rate the other thirteen are.\n"
+    "That AGC sits pre-terminal in the cascade (RateConverter's tap, ahead\n"
+    "of the stage the timing loop steers) and emits once per gain-update\n"
+    "event, i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream\n"
+    "-- so it reports on a grid that depends on the planned cascade, not on\n"
+    "recovered symbols, and a run yields a different number of AGC records\n"
+    "than carrier records. Compare the two by TIME, never by record index.\n"
+    "This is deliberate: the AGC's bandwidth is quoted in the pre-terminal\n"
     "stream's units precisely so it is not coupled to the loop that is\n"
     "stretching the symbol grid (see dp_RateConverter_enable_agc()).\n"
     "\n"

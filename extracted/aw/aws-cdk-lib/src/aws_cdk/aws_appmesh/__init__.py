@@ -1768,6 +1768,7 @@ class CfnGatewayRoute(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1880,7 +1881,7 @@ class CfnGatewayRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__128ccc0049923e37dec482e976fa4dc66f246158c3ce39b446939f8254ce4e2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshName", value)
 
     @builtins.property
     @jsii.member(jsii_name="spec")
@@ -1898,7 +1899,7 @@ class CfnGatewayRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ecd94785d11414db5b7dcf386baf559cf717a94fb135c1cfaa9a0c840828d82d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "spec", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "spec", value)
 
     @builtins.property
     @jsii.member(jsii_name="virtualGatewayName")
@@ -1911,7 +1912,7 @@ class CfnGatewayRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__20041147c2b0866bf142cb5d696bac03015e8f20ec4522350f1c1e77680f8013)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "virtualGatewayName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "virtualGatewayName", value)
 
     @builtins.property
     @jsii.member(jsii_name="gatewayRouteName")
@@ -1924,7 +1925,7 @@ class CfnGatewayRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a7ea5ce436a0198baa56f9858cf4302af4af2c76e6cd0130ab31280e0341ce9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "gatewayRouteName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "gatewayRouteName", value)
 
     @builtins.property
     @jsii.member(jsii_name="meshOwner")
@@ -1937,7 +1938,7 @@ class CfnGatewayRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cdd41f6caff6cb297cd7466e7e2afc842327a7389744cc27fcc2b1868ed865ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshOwner", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshOwner", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1953,7 +1954,7 @@ class CfnGatewayRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__440ced421bc9c4c53f7541195b1044c884ee26ef796da1dc28d65cfb6bc8953f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appmesh.CfnGatewayRoute.GatewayRouteHostnameMatchProperty",
@@ -4680,6 +4681,7 @@ class CfnMesh(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4774,7 +4776,7 @@ class CfnMesh(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e2e94aec5d09e58dc0f35b5dfdb0d18b35ac7f02e219dfceb5c4f4f7557b25b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshName", value)
 
     @builtins.property
     @jsii.member(jsii_name="spec")
@@ -4792,7 +4794,7 @@ class CfnMesh(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__afc49cca6925a830455139b546c836096f2990d4491a963a6d558b8b5c8fa965)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "spec", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "spec", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -4808,7 +4810,7 @@ class CfnMesh(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__16f54ab69e4f9713eaf7ebcb9b1d182cb3f7826f0ef5fff8a2208d6a21829862)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appmesh.CfnMesh.EgressFilterProperty",
@@ -5446,6 +5448,7 @@ class CfnRoute(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5558,7 +5561,7 @@ class CfnRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5855464877759a6920bea7c176396ecba8ffc278723ba4fa2005b7808c7130d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshName", value)
 
     @builtins.property
     @jsii.member(jsii_name="spec")
@@ -5576,7 +5579,7 @@ class CfnRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1c183b00026b4ff39c5e60f6b1b9fa79d1adc1d9535899638934407176e54bf5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "spec", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "spec", value)
 
     @builtins.property
     @jsii.member(jsii_name="virtualRouterName")
@@ -5589,7 +5592,7 @@ class CfnRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f82979ea57c6287fdc6d38fe4eb6308090e9e83c816d2486e05e0ef598204abf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "virtualRouterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "virtualRouterName", value)
 
     @builtins.property
     @jsii.member(jsii_name="meshOwner")
@@ -5602,7 +5605,7 @@ class CfnRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b93461d87b528b1fe450ae161b4254aa1d1bec0dba1627c3dd7b2d0b72eea29)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshOwner", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshOwner", value)
 
     @builtins.property
     @jsii.member(jsii_name="routeName")
@@ -5615,7 +5618,7 @@ class CfnRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9045f5e7be138379ef0f3f538d281ed7bf6061034337f8b45c0c605ee9e2feb3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -5631,7 +5634,7 @@ class CfnRoute(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a5df50b837c215e10cf3c9902ca654ddda9fb16c71399945b58961d5ad138ee8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appmesh.CfnRoute.DurationProperty",
@@ -8979,6 +8982,7 @@ class CfnVirtualGateway(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -9082,7 +9086,7 @@ class CfnVirtualGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__589c5e56d7e99e2aa8c5b24de9903773596dad0233dbd7f0f54e06c09077a4e9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshName", value)
 
     @builtins.property
     @jsii.member(jsii_name="spec")
@@ -9100,7 +9104,7 @@ class CfnVirtualGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__510b3d42a651bf6471450f27f03fe5c67f00152d5a0e35e3627c4fcfb8921d36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "spec", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "spec", value)
 
     @builtins.property
     @jsii.member(jsii_name="meshOwner")
@@ -9113,7 +9117,7 @@ class CfnVirtualGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__538618f322715e08d311a2ae4c14a1da686bd208809926581e3cabdaa6956a7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshOwner", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshOwner", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -9129,7 +9133,7 @@ class CfnVirtualGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3f36904ee813091921f0a5d19544f2321ffe82ff49dbbd2a8b6c304dbcb00701)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="virtualGatewayName")
@@ -9142,7 +9146,7 @@ class CfnVirtualGateway(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b65d4de99ea85b8c949aa3c904b0edeb9a81a976a8f49fea584910eec951d2f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "virtualGatewayName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "virtualGatewayName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appmesh.CfnVirtualGateway.JsonFormatRefProperty",
@@ -12502,6 +12506,7 @@ class CfnVirtualNode(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -12605,7 +12610,7 @@ class CfnVirtualNode(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4612e75fd582e25acb6aa15c400f597d444d3fbbd5e026c821a83752d19aa40e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshName", value)
 
     @builtins.property
     @jsii.member(jsii_name="spec")
@@ -12623,7 +12628,7 @@ class CfnVirtualNode(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__69101b3af439f3968821270efdfaa2b33a95944f88e8ef8ffbce3a7e03334fb6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "spec", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "spec", value)
 
     @builtins.property
     @jsii.member(jsii_name="meshOwner")
@@ -12636,7 +12641,7 @@ class CfnVirtualNode(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a102121cc018a2f54ca107d92f2a8e95627cf806d28d0b90d9485345d5ba401a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshOwner", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshOwner", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -12652,7 +12657,7 @@ class CfnVirtualNode(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__10d8ee0411eb92c3301d69fbdb5b3d0fa2159134bb2831cfbf085d8334c0f3c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="virtualNodeName")
@@ -12665,7 +12670,7 @@ class CfnVirtualNode(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__862ebc3aef73ce8dba12bf14d6438454692ff50b207afffecb576feaadc463b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "virtualNodeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "virtualNodeName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appmesh.CfnVirtualNode.AccessLogProperty",
@@ -17368,6 +17373,7 @@ class CfnVirtualRouter(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -17471,7 +17477,7 @@ class CfnVirtualRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d7d5c50b61fdf9642d93ea3fc67dd84319b1b26cbb1a0eded4c7d6ce364f2aab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshName", value)
 
     @builtins.property
     @jsii.member(jsii_name="spec")
@@ -17489,7 +17495,7 @@ class CfnVirtualRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b54baf62ad2c86c92d6b933af45c34eab5feed616d8eb1f26d654a471d9d5227)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "spec", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "spec", value)
 
     @builtins.property
     @jsii.member(jsii_name="meshOwner")
@@ -17502,7 +17508,7 @@ class CfnVirtualRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8e7f64d3a8c8072c2fbf4f5ef0996e14ab9dbe6d76386790cbadacde86f23a9e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshOwner", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshOwner", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -17518,7 +17524,7 @@ class CfnVirtualRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0085d8ee8bb71ad1569243bbeaf036f25378944d65bf336d669c73071521c32e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="virtualRouterName")
@@ -17531,7 +17537,7 @@ class CfnVirtualRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e65ddf8d6aacffab6aaa085d90a6d47d9d46a0b0af98d4c6b011212b413a51dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "virtualRouterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "virtualRouterName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appmesh.CfnVirtualRouter.PortMappingProperty",
@@ -18001,6 +18007,7 @@ class CfnVirtualService(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -18104,7 +18111,7 @@ class CfnVirtualService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3521ae86d106d64958842ee0a49a33e374bc725b273faa3e2687f9f8437cf14e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshName", value)
 
     @builtins.property
     @jsii.member(jsii_name="spec")
@@ -18122,7 +18129,7 @@ class CfnVirtualService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1590c9a74aaae27ee831b796176b2620ec5f8b1a2df0e6d39a41ddc0cd2c9b58)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "spec", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "spec", value)
 
     @builtins.property
     @jsii.member(jsii_name="virtualServiceName")
@@ -18135,7 +18142,7 @@ class CfnVirtualService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4abff200579535e2e48b9a6f48511b764e0aef9bfc73e55e773f4a9c11a68dfa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "virtualServiceName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "virtualServiceName", value)
 
     @builtins.property
     @jsii.member(jsii_name="meshOwner")
@@ -18148,7 +18155,7 @@ class CfnVirtualService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1dacbe43f5da44626f5405bd41421bd8826879ce59389bd80f6b34ecfe3170f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "meshOwner", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "meshOwner", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -18164,7 +18171,7 @@ class CfnVirtualService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6c59e67a81903720d425b53745d00a109956c7d771772d047188cbb76a4532ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appmesh.CfnVirtualService.VirtualNodeServiceProviderProperty",
@@ -24431,6 +24438,7 @@ class Mesh(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -25111,6 +25119,7 @@ class Route(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -27675,6 +27684,7 @@ class VirtualGateway(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -28552,6 +28562,7 @@ class VirtualNode(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -29535,6 +29546,7 @@ class VirtualRouter(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -30064,6 +30076,7 @@ class VirtualService(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -30713,6 +30726,7 @@ class GatewayRoute(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

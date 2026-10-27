@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 1.2.7
+Version: 1.2.8
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@entropy-data.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@entropy-data.com>
 License-Expression: MIT
 Project-URL: Homepage, https://cli.datacontract.com
-Project-URL: Documentation, https://docs.datacontract.com
+Project-URL: Documentation, https://cli.datacontract.com
 Project-URL: Repository, https://github.com/datacontract/datacontract-cli
 Project-URL: Issues, https://github.com/datacontract/datacontract-cli/issues
-Project-URL: Changelog, https://docs.datacontract.com/release-notes
+Project-URL: Changelog, https://cli.datacontract.com/release-notes
 Keywords: data-contract,data-contracts,odcs,open-data-contract-standard,data-quality,data-governance,data-mesh,data-product,data-engineering,schema,dbt,snowflake,databricks,bigquery
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
@@ -47,7 +47,7 @@ Requires-Dist: Jinja2<4.0.0,>=3.1.5
 Requires-Dist: jinja_partials<1.0.0,>=0.2.1
 Requires-Dist: datacontract-specification<2.0.0,>=1.2.3
 Requires-Dist: open-data-contract-standard<3.3.0,>=3.2.0
-Requires-Dist: deepdiff<10.0.0,>=6.0.0
+Requires-Dist: deepdiff<10.0.0,>=8.0.0
 Provides-Extra: avro
 Requires-Dist: avro==1.12.2; extra == "avro"
 Provides-Extra: bigquery
@@ -59,6 +59,9 @@ Provides-Extra: csv
 Requires-Dist: datacontract-cli[duckdb]; extra == "csv"
 Provides-Extra: excel
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == "excel"
+Provides-Extra: xlsx
+Requires-Dist: datacontract-cli[duckdb]; extra == "xlsx"
+Requires-Dist: duckdb-extension-excel<1.6.0,>=1.5.0; extra == "xlsx"
 Provides-Extra: dataframe
 Requires-Dist: ibis-framework<13.0.0,>=10.0.0; extra == "dataframe"
 Requires-Dist: numpy<3,>=1.23.2; extra == "dataframe"
@@ -70,7 +73,7 @@ Requires-Dist: rich>=12.4.4; extra == "dataframe"
 Provides-Extra: databricks
 Requires-Dist: ibis-framework[databricks]<13.0.0,>=10.0.0; extra == "databricks"
 Requires-Dist: databricks-sql-connector<4.7.0,>=3.7.0; extra == "databricks"
-Requires-Dist: databricks-sdk<0.152.0; extra == "databricks"
+Requires-Dist: databricks-sdk<0.154.0; extra == "databricks"
 Requires-Dist: packaging<27.0,>=21.3; extra == "databricks"
 Provides-Extra: databricks-runtime
 Requires-Dist: datacontract-cli[databricks]; extra == "databricks-runtime"
@@ -102,7 +105,7 @@ Provides-Extra: azure
 Requires-Dist: datacontract-cli[duckdb]; extra == "azure"
 Requires-Dist: duckdb-extension-azure<1.6.0,>=1.5.0; extra == "azure"
 Requires-Dist: azure-identity<1.27,>=1.17.1; extra == "azure"
-Requires-Dist: azure-storage-blob<12.31,>=12.24; extra == "azure"
+Requires-Dist: azure-storage-blob<12.32,>=12.24; extra == "azure"
 Provides-Extra: snowflake
 Requires-Dist: snowflake-connector-python[pandas]<4.9,>=3.6; extra == "snowflake"
 Requires-Dist: ibis-framework[snowflake]<13.0.0,>=10.0.0; extra == "snowflake"
@@ -141,20 +144,20 @@ Requires-Dist: pyarrow>=18.1.0; extra == "parquet"
 Provides-Extra: rdf
 Requires-Dist: rdflib==7.6.0; extra == "rdf"
 Provides-Extra: api
-Requires-Dist: fastapi<0.143.0,>=0.115.0; extra == "api"
+Requires-Dist: fastapi<0.144.0,>=0.115.0; extra == "api"
 Requires-Dist: uvicorn<0.55.0,>=0.44.0; extra == "api"
 Provides-Extra: protobuf
 Requires-Dist: proto-schema-parser<3.0,>=1.0; extra == "protobuf"
 Provides-Extra: xml
 Requires-Dist: xmlschema<5.0,>=4.0; extra == "xml"
 Provides-Extra: all
-Requires-Dist: datacontract-cli[api,athena,avro,azure,bigquery,clickhouse,csv,databricks,dataframe,dbml,duckdb,exasol,excel,gcs,hive,iceberg,impala,kafka,mysql,oracle,parquet,postgres,protobuf,rdf,redshift,s3,snowflake,sqlserver,trino,xml]; extra == "all"
+Requires-Dist: datacontract-cli[api,athena,avro,azure,bigquery,clickhouse,csv,databricks,dataframe,dbml,duckdb,exasol,excel,gcs,hive,iceberg,impala,kafka,mysql,oracle,parquet,postgres,protobuf,rdf,redshift,s3,snowflake,sqlserver,trino,xlsx,xml]; extra == "all"
 Provides-Extra: dev
 Requires-Dist: datacontract-cli[all]; extra == "dev"
 Requires-Dist: httpx==0.28.1; extra == "dev"
 Requires-Dist: kafka-python; extra == "dev"
 Requires-Dist: minio==7.2.20; extra == "dev"
-Requires-Dist: moto==5.2.3; extra == "dev"
+Requires-Dist: moto==5.2.4; extra == "dev"
 Requires-Dist: openapi-spec-validator<0.10,>=0.7; extra == "dev"
 Requires-Dist: pandas>=2.1.0; extra == "dev"
 Requires-Dist: pre-commit<4.7.0,>=3.7.1; extra == "dev"
@@ -164,7 +167,7 @@ Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: pymssql==2.4.4; extra == "dev"
 Requires-Dist: psycopg2-binary<3.0,>=2.9; extra == "dev"
 Requires-Dist: mysql-connector-python<26.8.0,>=8.0.30; extra == "dev"
-Requires-Dist: ruff==0.16.10; extra == "dev"
+Requires-Dist: ruff==0.17.1; extra == "dev"
 Requires-Dist: testcontainers[kafka,minio,mssql,mysql,postgres]==4.15.0; extra == "dev"
 Requires-Dist: trino==0.340.0; extra == "dev"
 Dynamic: license-file
@@ -191,11 +194,11 @@ It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a P
 
 ![Main features of the Data Contract CLI](datacontractcli.png)
 
-> 📖 **Full documentation: [docs.datacontract.com](https://docs.datacontract.com)**
+> 📖 **Full documentation: [cli.datacontract.com](https://cli.datacontract.com)**
 >
-> Quick links: [Quickstart](https://docs.datacontract.com/quickstart) · [Commands](https://docs.datacontract.com/commands) · [Best Practices](https://docs.datacontract.com/best-practices) · [Custom Export and Import](https://docs.datacontract.com/extending) · [Release Notes](https://docs.datacontract.com/release-notes) · [Development Setup](#development-setup)
+> Quick links: [Quickstart](https://cli.datacontract.com/quickstart) · [Commands](https://cli.datacontract.com/commands) · [Best Practices](https://cli.datacontract.com/best-practices) · [Custom Export and Import](https://cli.datacontract.com/extending) · [Release Notes](https://cli.datacontract.com/release-notes) · [Development Setup](#development-setup)
 >
-> For LLMs: [docs.datacontract.com/llms.txt](https://docs.datacontract.com/llms.txt) · [docs.datacontract.com/llms-full.txt](https://docs.datacontract.com/llms-full.txt) · [Data Contract Skills](https://github.com/datacontract/datacontract-skills) for coding agents
+> For LLMs: [cli.datacontract.com/llms.txt](https://cli.datacontract.com/llms.txt) · [cli.datacontract.com/llms-full.txt](https://cli.datacontract.com/llms-full.txt) · [Data Contract Skills](https://github.com/datacontract/datacontract-skills) for coding agents
 
 ## Getting started
 
@@ -269,9 +272,9 @@ $ datacontract import snowflake --source <account> --database ORDER_DB --schema 
 $ datacontract test datacontract.yaml
 ```
 
-Copy-paste guides with credentials setup are available for [Snowflake](https://docs.datacontract.com/testing/snowflake), [BigQuery](https://docs.datacontract.com/testing/bigquery), [Databricks](https://docs.datacontract.com/testing/databricks), and [15+ other sources](https://docs.datacontract.com/testing).
+Copy-paste guides with credentials setup are available for [Snowflake](https://cli.datacontract.com/testing/snowflake), [BigQuery](https://cli.datacontract.com/testing/bigquery), [Databricks](https://cli.datacontract.com/testing/databricks), and [15+ other sources](https://cli.datacontract.com/testing).
 
-We can also use the data contract metadata to export in many [formats](https://docs.datacontract.com/exports), e.g., to generate a SQL DDL:
+We can also use the data contract metadata to export in many [formats](https://cli.datacontract.com/exports), e.g., to generate a SQL DDL:
 
 ```bash
 $ datacontract export sql https://datacontract.com/orders-v1.odcs.yaml
@@ -357,7 +360,7 @@ if not run.has_passed():
 
 - [How to integrate Data Contract CLI in your CI/CD pipeline as a GitHub Action](https://github.com/datacontract/datacontract-action/)
 - [How to let your coding agent (Claude Code, Codex, GitHub Copilot) create and test data contracts with the Data Contract Skills](https://github.com/datacontract/datacontract-skills)
-- [How to run the Data Contract CLI API to test data contracts with POST requests](https://docs.datacontract.com/api)
+- [How to run the Data Contract CLI API to test data contracts with POST requests](https://cli.datacontract.com/api)
 - [How to run Data Contract CLI in a Databricks pipeline](https://www.datamesh-architecture.com/howto/build-a-dataproduct-with-databricks#test-the-data-product)
 
 
@@ -427,7 +430,7 @@ alias datacontract='docker run --rm -v "${PWD}:/home/datacontract" datacontract/
 
 _Note:_ The output of Docker command line messages is limited to 80 columns and may include line breaks. Don't pipe docker output to files if you want to export code. Use the `--output` option instead.
 
-Released images are signed with [cosign](https://docs.sigstore.dev/cosign/signing/overview/) keyless signing. See [Verifying the image](https://docs.datacontract.com/installation#verifying-the-image) to check a signature before you run it.
+Released images are signed with [cosign](https://docs.sigstore.dev/cosign/signing/overview/) keyless signing. See [Verifying the image](https://cli.datacontract.com/installation#verifying-the-image) to check a signature before you run it.
 
 
 
@@ -455,6 +458,7 @@ A list of available extras:
 | DuckDB (local file, CSV import and API response testing) | `pip install datacontract-cli[duckdb]` |
 | Exasol | `pip install datacontract-cli[exasol]` |
 | Excel | `pip install datacontract-cli[excel]` |
+| Excel workbooks (testing) | `pip install datacontract-cli[xlsx]` |
 | GCS | `pip install datacontract-cli[gcs]` |
 | SAP HANA / Datasphere | `pip install datacontract-cli[hana]` (not part of `all`: `hdbcli` is proprietary) |
 | Apache Iceberg (schema import and export, REST catalog testing) | `pip install datacontract-cli[iceberg]` |
@@ -476,18 +480,18 @@ A list of available extras:
 
 ## Documentation
 
-📖 **The full documentation is at [docs.datacontract.com](https://docs.datacontract.com).**
+📖 **The full documentation is at [cli.datacontract.com](https://cli.datacontract.com).**
 
 It covers everything in depth, including the complete command reference:
 
-- [Quickstart](https://docs.datacontract.com/quickstart) — install and run your first test
-- [Open Data Contract Standard](https://docs.datacontract.com/open-data-contract-standard) — the contract format
-- [Test your Data](https://docs.datacontract.com/testing) — schema & quality tests against 18+ data sources
-- [Define your Quality Rules](https://docs.datacontract.com/quality-rules) — SQL, library, text, and custom checks
-- [Sync with dbt](https://docs.datacontract.com/dbt) · [Edit your contract](https://docs.datacontract.com/editor)
-- [Imports](https://docs.datacontract.com/imports) and [Exports](https://docs.datacontract.com/exports) — convert to/from 25+ formats
-- [API](https://docs.datacontract.com/api) and [Python Library](https://docs.datacontract.com/python-library)
-- [Command reference](https://docs.datacontract.com/commands) — `init`, `lint`, `test`, `export`, `import`, `dbt`, `ci`, `catalog`, `publish`, `api`, and more
+- [Quickstart](https://cli.datacontract.com/quickstart) — install and run your first test
+- [Open Data Contract Standard](https://cli.datacontract.com/open-data-contract-standard) — the contract format
+- [Test your Data](https://cli.datacontract.com/testing) — schema & quality tests against 18+ data sources
+- [Define your Quality Rules](https://cli.datacontract.com/quality-rules) — SQL, library, text, and custom checks
+- [Sync with dbt](https://cli.datacontract.com/dbt) · [Edit your contract](https://cli.datacontract.com/editor)
+- [Imports](https://cli.datacontract.com/imports) and [Exports](https://cli.datacontract.com/exports) — convert to/from 25+ formats
+- [API](https://cli.datacontract.com/api) and [Python Library](https://cli.datacontract.com/python-library)
+- [Command reference](https://cli.datacontract.com/commands) — `init`, `lint`, `test`, `export`, `import`, `dbt`, `ci`, `catalog`, `publish`, `api`, and more
 
 ## Development Setup
 

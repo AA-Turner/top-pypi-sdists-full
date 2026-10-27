@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.8.1
+Version: 0.8.2
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
@@ -34,14 +34,11 @@ Requires-Dist: opentelemetry-instrumentation-alephalpha==0.62.4 ; extra == 'alep
 Requires-Dist: opentelemetry-instrumentation-alephalpha==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-bedrock==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-chromadb==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-cohere==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-crewai==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-haystack==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-lancedb==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-langchain==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-llamaindex==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-marqo==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-mcp==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-mistralai==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-ollama==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-qdrant==0.62.4 ; extra == 'all'
@@ -49,19 +46,15 @@ Requires-Dist: opentelemetry-instrumentation-replicate==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-sagemaker==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-together==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-transformers==0.62.4 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-vertexai==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-watsonx==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-weaviate==0.62.4 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-bedrock==0.62.4 ; extra == 'bedrock'
 Requires-Dist: opentelemetry-instrumentation-chromadb==0.62.4 ; extra == 'chromadb'
-Requires-Dist: opentelemetry-instrumentation-cohere==0.62.4 ; extra == 'cohere'
 Requires-Dist: opentelemetry-instrumentation-crewai==0.62.4 ; extra == 'crewai'
 Requires-Dist: opentelemetry-instrumentation-haystack==0.62.4 ; extra == 'haystack'
 Requires-Dist: opentelemetry-instrumentation-lancedb==0.62.4 ; extra == 'lancedb'
-Requires-Dist: opentelemetry-instrumentation-langchain==0.62.4 ; extra == 'langchain'
 Requires-Dist: opentelemetry-instrumentation-llamaindex==0.62.4 ; extra == 'llamaindex'
 Requires-Dist: opentelemetry-instrumentation-marqo==0.62.4 ; extra == 'marqo'
-Requires-Dist: opentelemetry-instrumentation-mcp==0.62.4 ; extra == 'mcp'
 Requires-Dist: opentelemetry-instrumentation-mistralai==0.62.4 ; extra == 'mistralai'
 Requires-Dist: opentelemetry-instrumentation-ollama==0.62.4 ; extra == 'ollama'
 Requires-Dist: opentelemetry-instrumentation-qdrant==0.62.4 ; extra == 'qdrant'
@@ -69,7 +62,6 @@ Requires-Dist: opentelemetry-instrumentation-replicate==0.62.4 ; extra == 'repli
 Requires-Dist: opentelemetry-instrumentation-sagemaker==0.62.4 ; extra == 'sagemaker'
 Requires-Dist: opentelemetry-instrumentation-together==0.62.4 ; extra == 'together'
 Requires-Dist: opentelemetry-instrumentation-transformers==0.62.4 ; extra == 'transformers'
-Requires-Dist: opentelemetry-instrumentation-vertexai==0.62.4 ; extra == 'vertexai'
 Requires-Dist: opentelemetry-instrumentation-watsonx==0.62.4 ; extra == 'watsonx'
 Requires-Dist: opentelemetry-instrumentation-weaviate==0.62.4 ; extra == 'weaviate'
 Requires-Python: >=3.11, <4

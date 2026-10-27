@@ -404,6 +404,7 @@ class CfnLifecyclePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -464,7 +465,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4f66e06f3dd5f4f31da0050465d9d93ec64ce872a39b9831bba0678e14fa5fbc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "copyTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "copyTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="createInterval")
@@ -477,7 +478,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e355d2d56ace5cc54090484cdfafed2a85a9b48fa91a8df756bb89f4e2e1a38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "createInterval", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "createInterval", value)
 
     @builtins.property
     @jsii.member(jsii_name="crossRegionCopyTargets")
@@ -495,7 +496,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c77534ad651e2a8d67574cbcffaf68110be041f8971255d26c52491b23fdc32f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "crossRegionCopyTargets", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "crossRegionCopyTargets", value)
 
     @builtins.property
     @jsii.member(jsii_name="defaultPolicy")
@@ -508,7 +509,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fad1b7a52123f254bb9f0374f3546651f50ece8ef16650fdab011f0bd968afda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "defaultPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -521,7 +522,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0b2c4be1aa9ae388ae0c3732cd9d2523c470c0014606872fca1696f56269686d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="exclusions")
@@ -539,7 +540,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__697e92d466d31df6c2b785374b032b06ea49a5f0a5f4866b11f7a97c11bc27e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "exclusions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "exclusions", value)
 
     @builtins.property
     @jsii.member(jsii_name="executionRoleArn")
@@ -552,7 +553,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__269443eefb0de5680ef719eb02ee0fda9c83a2e5291fa03da5a458a188d7a7c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="extendDeletion")
@@ -570,7 +571,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d5a72190a4691449f1542993dcce214b4e84f38189762057ccaccba7f456d683)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "extendDeletion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "extendDeletion", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyDetails")
@@ -588,7 +589,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__28d8dbca09903b09bcfda56929bc379ae4e79616a6e38d78042df2d24f6464a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDetails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDetails", value)
 
     @builtins.property
     @jsii.member(jsii_name="retainInterval")
@@ -601,7 +602,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__82aed9e32e25d4555a6a4435c5a18828e06b80cc9bf8e04617ce499f7259e7a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "retainInterval", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "retainInterval", value)
 
     @builtins.property
     @jsii.member(jsii_name="state")
@@ -614,7 +615,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7dec6c26d53f2189b6a1eceb4738437bca568a6c7616d987a2d4300b6648248c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "state", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -630,7 +631,7 @@ class CfnLifecyclePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b27e3373e59304017b144dff4d6d34a89b633c266e7a9c06230a117c457228b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dlm.CfnLifecyclePolicy.ActionProperty",

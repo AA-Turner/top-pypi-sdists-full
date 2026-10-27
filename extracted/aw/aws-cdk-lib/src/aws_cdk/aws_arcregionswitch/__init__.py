@@ -349,6 +349,32 @@ class CfnPlan(
                                 region="region"
                             )],
                             timeout_minutes=123
+                        ),
+                        ssm_send_command_config=arcregionswitch.CfnPlan.SsmSendCommandConfigurationProperty(
+                            region_documents={
+                                "region_documents_key": arcregionswitch.CfnPlan.SsmDocumentConfigProperty(
+                                    document_arn="documentArn",
+                                    targets=[arcregionswitch.CfnPlan.SsmTargetProperty(
+                                        key="key",
+                                        values=["values"]
+                                    )],
+        
+                                    # the properties below are optional
+                                    cross_account_role="crossAccountRole",
+                                    document_version="documentVersion",
+                                    external_id="externalId",
+                                    parameters={
+                                        "parameters_key": ["parameters"]
+                                    }
+                                )
+                            },
+                            retry_interval_minutes=123,
+        
+                            # the properties below are optional
+                            timeout_minutes=123,
+                            ungraceful=arcregionswitch.CfnPlan.SsmSendCommandUngracefulProperty(
+                                behavior="behavior"
+                            )
                         )
                     ),
                     execution_block_type="executionBlockType",
@@ -513,6 +539,7 @@ class CfnPlan(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -601,7 +628,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f53792e88b412f34a2415fdff56351b1a54a94878ba61605061977a91e10fca2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -614,7 +641,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fbc310a1fcc73445115d9240d0eba7268997be8cac2ff2daad91277ed3174ea4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="recoveryApproach")
@@ -627,7 +654,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__01b822173477d9982079c51379059a1b50ff75ad5e17af6ea27788c0b0efe0be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recoveryApproach", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recoveryApproach", value)
 
     @builtins.property
     @jsii.member(jsii_name="regions")
@@ -640,7 +667,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__01d59248ee3d7f15f86e1af0b467749822e824bc95de98763fe13c53e695ef54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "regions", value)
 
     @builtins.property
     @jsii.member(jsii_name="workflows")
@@ -658,7 +685,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8e3eb77d0273786a3c83aa4e78160b5d7bac7f5e82e5339e9439e014d076344f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "workflows", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "workflows", value)
 
     @builtins.property
     @jsii.member(jsii_name="associatedAlarms")
@@ -676,7 +703,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__012a0bc7fbb902a59abbec88920455e0cd4d3ab3f0f86ab6b04d32154ed0cc71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "associatedAlarms", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "associatedAlarms", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -689,7 +716,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__591094d49374c97cd84fa7e0eeb7a618de3dd46dd83aad681303b9ac5639e3d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="primaryRegion")
@@ -702,7 +729,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a2d5c679228613d5980262152e1e6db22efda95a623c4c2113ed1dd7e09ba0a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "primaryRegion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "primaryRegion", value)
 
     @builtins.property
     @jsii.member(jsii_name="recoveryTimeObjectiveMinutes")
@@ -718,7 +745,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a158461aabcc0fceebbed61f515ca1629dd0e6cb63d8ba2e7a2f6c8e4fd5b035)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recoveryTimeObjectiveMinutes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recoveryTimeObjectiveMinutes", value)
 
     @builtins.property
     @jsii.member(jsii_name="reportConfiguration")
@@ -736,7 +763,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07bb03a21758741944d3c7cdc502b195014dac1b694c214f8edbaa987271c6d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "reportConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "reportConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceQuotaChecksEnabled")
@@ -753,7 +780,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c6f94057a1c583f034cf38b14b84ac794857d6a38471a67c59ab7ee08d40d967)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceQuotaChecksEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceQuotaChecksEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -768,7 +795,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3c41bc2a28d77b19e855bf7c198670838a0dfb959e579501a5539e1a4eda62a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="triggers")
@@ -786,7 +813,7 @@ class CfnPlan(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__085b11c9fd7fb03e86d812a265c47665ac981e51ecdfda2e79624700d0acde6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "triggers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "triggers", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.ArcRoutingControlConfigurationProperty",
@@ -2743,6 +2770,7 @@ class CfnPlan(
             "rds_switchover_read_replica_config": "rdsSwitchoverReadReplicaConfig",
             "region_switch_plan_config": "regionSwitchPlanConfig",
             "route53_health_check_config": "route53HealthCheckConfig",
+            "ssm_send_command_config": "ssmSendCommandConfig",
         },
     )
     class ExecutionBlockConfigurationProperty:
@@ -2767,6 +2795,7 @@ class CfnPlan(
             rds_switchover_read_replica_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.RdsSwitchoverReadReplicaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             region_switch_plan_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.RegionSwitchPlanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             route53_health_check_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.Route53HealthCheckConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ssm_send_command_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.SsmSendCommandConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Execution block configurations for a workflow in a Region switch plan.
 
@@ -2790,6 +2819,7 @@ class CfnPlan(
             :param rds_switchover_read_replica_config: 
             :param region_switch_plan_config: A Region switch plan execution block.
             :param route53_health_check_config: The Amazon Route 53 health check configuration.
+            :param ssm_send_command_config: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3049,6 +3079,32 @@ class CfnPlan(
                             region="region"
                         )],
                         timeout_minutes=123
+                    ),
+                    ssm_send_command_config=arcregionswitch.CfnPlan.SsmSendCommandConfigurationProperty(
+                        region_documents={
+                            "region_documents_key": arcregionswitch.CfnPlan.SsmDocumentConfigProperty(
+                                document_arn="documentArn",
+                                targets=[arcregionswitch.CfnPlan.SsmTargetProperty(
+                                    key="key",
+                                    values=["values"]
+                                )],
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                document_version="documentVersion",
+                                external_id="externalId",
+                                parameters={
+                                    "parameters_key": ["parameters"]
+                                }
+                            )
+                        },
+                        retry_interval_minutes=123,
+                
+                        # the properties below are optional
+                        timeout_minutes=123,
+                        ungraceful=arcregionswitch.CfnPlan.SsmSendCommandUngracefulProperty(
+                            behavior="behavior"
+                        )
                     )
                 )
             '''
@@ -3072,6 +3128,7 @@ class CfnPlan(
                 check_type(argname="argument rds_switchover_read_replica_config", value=rds_switchover_read_replica_config, expected_type=type_hints["rds_switchover_read_replica_config"])
                 check_type(argname="argument region_switch_plan_config", value=region_switch_plan_config, expected_type=type_hints["region_switch_plan_config"])
                 check_type(argname="argument route53_health_check_config", value=route53_health_check_config, expected_type=type_hints["route53_health_check_config"])
+                check_type(argname="argument ssm_send_command_config", value=ssm_send_command_config, expected_type=type_hints["ssm_send_command_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if arc_routing_control_config is not None:
                 self._values["arc_routing_control_config"] = arc_routing_control_config
@@ -3109,6 +3166,8 @@ class CfnPlan(
                 self._values["region_switch_plan_config"] = region_switch_plan_config
             if route53_health_check_config is not None:
                 self._values["route53_health_check_config"] = route53_health_check_config
+            if ssm_send_command_config is not None:
+                self._values["ssm_send_command_config"] = ssm_send_command_config
 
         @builtins.property
         def arc_routing_control_config(
@@ -3299,6 +3358,16 @@ class CfnPlan(
             '''
             result = self._values.get("route53_health_check_config")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.Route53HealthCheckConfigurationProperty"]], result)
+
+        @builtins.property
+        def ssm_send_command_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.SsmSendCommandConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-ssmsendcommandconfig
+            '''
+            result = self._values.get("ssm_send_command_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.SsmSendCommandConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4528,6 +4597,32 @@ class CfnPlan(
                                     region="region"
                                 )],
                                 timeout_minutes=123
+                            ),
+                            ssm_send_command_config=arcregionswitch.CfnPlan.SsmSendCommandConfigurationProperty(
+                                region_documents={
+                                    "region_documents_key": arcregionswitch.CfnPlan.SsmDocumentConfigProperty(
+                                        document_arn="documentArn",
+                                        targets=[arcregionswitch.CfnPlan.SsmTargetProperty(
+                                            key="key",
+                                            values=["values"]
+                                        )],
+                
+                                        # the properties below are optional
+                                        cross_account_role="crossAccountRole",
+                                        document_version="documentVersion",
+                                        external_id="externalId",
+                                        parameters={
+                                            "parameters_key": ["parameters"]
+                                        }
+                                    )
+                                },
+                                retry_interval_minutes=123,
+                
+                                # the properties below are optional
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.SsmSendCommandUngracefulProperty(
+                                    behavior="behavior"
+                                )
                             )
                         ),
                         execution_block_type="executionBlockType",
@@ -5682,6 +5777,392 @@ class CfnPlan(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.SsmDocumentConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "document_arn": "documentArn",
+            "targets": "targets",
+            "cross_account_role": "crossAccountRole",
+            "document_version": "documentVersion",
+            "external_id": "externalId",
+            "parameters": "parameters",
+        },
+    )
+    class SsmDocumentConfigProperty:
+        def __init__(
+            self,
+            *,
+            document_arn: builtins.str,
+            targets: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.SsmTargetProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            cross_account_role: typing.Optional[builtins.str] = None,
+            document_version: typing.Optional[builtins.str] = None,
+            external_id: typing.Optional[builtins.str] = None,
+            parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Sequence[builtins.str]]]] = None,
+        ) -> None:
+            '''
+            :param document_arn: 
+            :param targets: 
+            :param cross_account_role: 
+            :param document_version: 
+            :param external_id: 
+            :param parameters: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmdocumentconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                ssm_document_config_property = arcregionswitch.CfnPlan.SsmDocumentConfigProperty(
+                    document_arn="documentArn",
+                    targets=[arcregionswitch.CfnPlan.SsmTargetProperty(
+                        key="key",
+                        values=["values"]
+                    )],
+                
+                    # the properties below are optional
+                    cross_account_role="crossAccountRole",
+                    document_version="documentVersion",
+                    external_id="externalId",
+                    parameters={
+                        "parameters_key": ["parameters"]
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e76b19e6a034ad4a53e3dd94bbabf8badd8ca6104280bf47fc1eddf862bc3025)
+                check_type(argname="argument document_arn", value=document_arn, expected_type=type_hints["document_arn"])
+                check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+                check_type(argname="argument cross_account_role", value=cross_account_role, expected_type=type_hints["cross_account_role"])
+                check_type(argname="argument document_version", value=document_version, expected_type=type_hints["document_version"])
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "document_arn": document_arn,
+                "targets": targets,
+            }
+            if cross_account_role is not None:
+                self._values["cross_account_role"] = cross_account_role
+            if document_version is not None:
+                self._values["document_version"] = document_version
+            if external_id is not None:
+                self._values["external_id"] = external_id
+            if parameters is not None:
+                self._values["parameters"] = parameters
+
+        @builtins.property
+        def document_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmdocumentconfig.html#cfn-arcregionswitch-plan-ssmdocumentconfig-documentarn
+            '''
+            result = self._values.get("document_arn")
+            assert result is not None, "Required property 'document_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def targets(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.SsmTargetProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmdocumentconfig.html#cfn-arcregionswitch-plan-ssmdocumentconfig-targets
+            '''
+            result = self._values.get("targets")
+            assert result is not None, "Required property 'targets' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.SsmTargetProperty"]]], result)
+
+        @builtins.property
+        def cross_account_role(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmdocumentconfig.html#cfn-arcregionswitch-plan-ssmdocumentconfig-crossaccountrole
+            '''
+            result = self._values.get("cross_account_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def document_version(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmdocumentconfig.html#cfn-arcregionswitch-plan-ssmdocumentconfig-documentversion
+            '''
+            result = self._values.get("document_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmdocumentconfig.html#cfn-arcregionswitch-plan-ssmdocumentconfig-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.List[builtins.str]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmdocumentconfig.html#cfn-arcregionswitch-plan-ssmdocumentconfig-parameters
+            '''
+            result = self._values.get("parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.List[builtins.str]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SsmDocumentConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.SsmSendCommandConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "region_documents": "regionDocuments",
+            "retry_interval_minutes": "retryIntervalMinutes",
+            "timeout_minutes": "timeoutMinutes",
+            "ungraceful": "ungraceful",
+        },
+    )
+    class SsmSendCommandConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            region_documents: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.SsmDocumentConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            retry_interval_minutes: jsii.Number,
+            timeout_minutes: typing.Optional[jsii.Number] = None,
+            ungraceful: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlan.SsmSendCommandUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param region_documents: 
+            :param retry_interval_minutes: 
+            :param timeout_minutes: Default: - 60
+            :param ungraceful: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmsendcommandconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                ssm_send_command_configuration_property = arcregionswitch.CfnPlan.SsmSendCommandConfigurationProperty(
+                    region_documents={
+                        "region_documents_key": arcregionswitch.CfnPlan.SsmDocumentConfigProperty(
+                            document_arn="documentArn",
+                            targets=[arcregionswitch.CfnPlan.SsmTargetProperty(
+                                key="key",
+                                values=["values"]
+                            )],
+                
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            document_version="documentVersion",
+                            external_id="externalId",
+                            parameters={
+                                "parameters_key": ["parameters"]
+                            }
+                        )
+                    },
+                    retry_interval_minutes=123,
+                
+                    # the properties below are optional
+                    timeout_minutes=123,
+                    ungraceful=arcregionswitch.CfnPlan.SsmSendCommandUngracefulProperty(
+                        behavior="behavior"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__cb4cd01f8514d0237a46c098345f7ce83c7cef9c065321868fe5a4db0f1259fc)
+                check_type(argname="argument region_documents", value=region_documents, expected_type=type_hints["region_documents"])
+                check_type(argname="argument retry_interval_minutes", value=retry_interval_minutes, expected_type=type_hints["retry_interval_minutes"])
+                check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
+                check_type(argname="argument ungraceful", value=ungraceful, expected_type=type_hints["ungraceful"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "region_documents": region_documents,
+                "retry_interval_minutes": retry_interval_minutes,
+            }
+            if timeout_minutes is not None:
+                self._values["timeout_minutes"] = timeout_minutes
+            if ungraceful is not None:
+                self._values["ungraceful"] = ungraceful
+
+        @builtins.property
+        def region_documents(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.SsmDocumentConfigProperty"]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmsendcommandconfiguration.html#cfn-arcregionswitch-plan-ssmsendcommandconfiguration-regiondocuments
+            '''
+            result = self._values.get("region_documents")
+            assert result is not None, "Required property 'region_documents' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.SsmDocumentConfigProperty"]]], result)
+
+        @builtins.property
+        def retry_interval_minutes(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmsendcommandconfiguration.html#cfn-arcregionswitch-plan-ssmsendcommandconfiguration-retryintervalminutes
+            '''
+            result = self._values.get("retry_interval_minutes")
+            assert result is not None, "Required property 'retry_interval_minutes' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def timeout_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmsendcommandconfiguration.html#cfn-arcregionswitch-plan-ssmsendcommandconfiguration-timeoutminutes
+            '''
+            result = self._values.get("timeout_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def ungraceful(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.SsmSendCommandUngracefulProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmsendcommandconfiguration.html#cfn-arcregionswitch-plan-ssmsendcommandconfiguration-ungraceful
+            '''
+            result = self._values.get("ungraceful")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlan.SsmSendCommandUngracefulProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SsmSendCommandConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.SsmSendCommandUngracefulProperty",
+        jsii_struct_bases=[],
+        name_mapping={"behavior": "behavior"},
+    )
+    class SsmSendCommandUngracefulProperty:
+        def __init__(self, *, behavior: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param behavior: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmsendcommandungraceful.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                ssm_send_command_ungraceful_property = arcregionswitch.CfnPlan.SsmSendCommandUngracefulProperty(
+                    behavior="behavior"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d77a2db21fd6cbd0a1ccb9931f5072be8ab4706d650996f63059ab06ae4a16c4)
+                check_type(argname="argument behavior", value=behavior, expected_type=type_hints["behavior"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if behavior is not None:
+                self._values["behavior"] = behavior
+
+        @builtins.property
+        def behavior(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmsendcommandungraceful.html#cfn-arcregionswitch-plan-ssmsendcommandungraceful-behavior
+            '''
+            result = self._values.get("behavior")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SsmSendCommandUngracefulProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.SsmTargetProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "values": "values"},
+    )
+    class SsmTargetProperty:
+        def __init__(
+            self,
+            *,
+            key: builtins.str,
+            values: typing.Sequence[builtins.str],
+        ) -> None:
+            '''
+            :param key: 
+            :param values: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmtarget.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                ssm_target_property = arcregionswitch.CfnPlan.SsmTargetProperty(
+                    key="key",
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0884f2aa71cd503c96c5d5b125cf22a2499377652fb923dbe4e0683a7d6a3c77)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "values": values,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmtarget.html#cfn-arcregionswitch-plan-ssmtarget-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def values(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-ssmtarget.html#cfn-arcregionswitch-plan-ssmtarget-values
+            '''
+            result = self._values.get("values")
+            assert result is not None, "Required property 'values' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SsmTargetProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.StepProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -5961,6 +6442,32 @@ class CfnPlan(
                                 region="region"
                             )],
                             timeout_minutes=123
+                        ),
+                        ssm_send_command_config=arcregionswitch.CfnPlan.SsmSendCommandConfigurationProperty(
+                            region_documents={
+                                "region_documents_key": arcregionswitch.CfnPlan.SsmDocumentConfigProperty(
+                                    document_arn="documentArn",
+                                    targets=[arcregionswitch.CfnPlan.SsmTargetProperty(
+                                        key="key",
+                                        values=["values"]
+                                    )],
+                
+                                    # the properties below are optional
+                                    cross_account_role="crossAccountRole",
+                                    document_version="documentVersion",
+                                    external_id="externalId",
+                                    parameters={
+                                        "parameters_key": ["parameters"]
+                                    }
+                                )
+                            },
+                            retry_interval_minutes=123,
+                
+                            # the properties below are optional
+                            timeout_minutes=123,
+                            ungraceful=arcregionswitch.CfnPlan.SsmSendCommandUngracefulProperty(
+                                behavior="behavior"
+                            )
                         )
                     ),
                     execution_block_type="executionBlockType",
@@ -6527,6 +7034,32 @@ class CfnPlan(
                                     region="region"
                                 )],
                                 timeout_minutes=123
+                            ),
+                            ssm_send_command_config=arcregionswitch.CfnPlan.SsmSendCommandConfigurationProperty(
+                                region_documents={
+                                    "region_documents_key": arcregionswitch.CfnPlan.SsmDocumentConfigProperty(
+                                        document_arn="documentArn",
+                                        targets=[arcregionswitch.CfnPlan.SsmTargetProperty(
+                                            key="key",
+                                            values=["values"]
+                                        )],
+                
+                                        # the properties below are optional
+                                        cross_account_role="crossAccountRole",
+                                        document_version="documentVersion",
+                                        external_id="externalId",
+                                        parameters={
+                                            "parameters_key": ["parameters"]
+                                        }
+                                    )
+                                },
+                                retry_interval_minutes=123,
+                
+                                # the properties below are optional
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.SsmSendCommandUngracefulProperty(
+                                    behavior="behavior"
+                                )
                             )
                         ),
                         execution_block_type="executionBlockType",
@@ -6922,6 +7455,32 @@ class CfnPlanProps:
                                     region="region"
                                 )],
                                 timeout_minutes=123
+                            ),
+                            ssm_send_command_config=arcregionswitch.CfnPlan.SsmSendCommandConfigurationProperty(
+                                region_documents={
+                                    "region_documents_key": arcregionswitch.CfnPlan.SsmDocumentConfigProperty(
+                                        document_arn="documentArn",
+                                        targets=[arcregionswitch.CfnPlan.SsmTargetProperty(
+                                            key="key",
+                                            values=["values"]
+                                        )],
+            
+                                        # the properties below are optional
+                                        cross_account_role="crossAccountRole",
+                                        document_version="documentVersion",
+                                        external_id="externalId",
+                                        parameters={
+                                            "parameters_key": ["parameters"]
+                                        }
+                                    )
+                                },
+                                retry_interval_minutes=123,
+            
+                                # the properties below are optional
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.SsmSendCommandUngracefulProperty(
+                                    behavior="behavior"
+                                )
                             )
                         ),
                         execution_block_type="executionBlockType",
@@ -7481,6 +8040,7 @@ def _typecheckingstub__bf03412277ce24dfa861d02429118a5e512a97579dd1c299024e646c9
     rds_switchover_read_replica_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.RdsSwitchoverReadReplicaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     region_switch_plan_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.RegionSwitchPlanConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     route53_health_check_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.Route53HealthCheckConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ssm_send_command_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.SsmSendCommandConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7695,6 +8255,43 @@ def _typecheckingstub__66163b57e8e8c71356b0aea432dd64d08666ca8cad746cff30bddd456
     cross_account_role: typing.Optional[builtins.str] = None,
     external_id: typing.Optional[builtins.str] = None,
     service_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e76b19e6a034ad4a53e3dd94bbabf8badd8ca6104280bf47fc1eddf862bc3025(
+    *,
+    document_arn: builtins.str,
+    targets: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.SsmTargetProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    cross_account_role: typing.Optional[builtins.str] = None,
+    document_version: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
+    parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Sequence[builtins.str]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb4cd01f8514d0237a46c098345f7ce83c7cef9c065321868fe5a4db0f1259fc(
+    *,
+    region_documents: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.SsmDocumentConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    retry_interval_minutes: jsii.Number,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+    ungraceful: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlan.SsmSendCommandUngracefulProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d77a2db21fd6cbd0a1ccb9931f5072be8ab4706d650996f63059ab06ae4a16c4(
+    *,
+    behavior: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0884f2aa71cd503c96c5d5b125cf22a2499377652fb923dbe4e0683a7d6a3c77(
+    *,
+    key: builtins.str,
+    values: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass

@@ -3,6 +3,8 @@ Miscellaneous helper functions.
 """
 from __future__ import annotations
 
+import copy
+import functools
 import inspect
 import io
 import itertools
@@ -14,7 +16,8 @@ import warnings
 
 from enum import Enum, IntFlag
 from math import log
-from typing import Generator, Iterable, TypeVar, cast
+from types import WrapperDescriptorType
+from typing import Generator, Iterable, Iterator, TypeVar, cast
 
 from refinery.lib.types import buf
 
@@ -42,6 +45,103 @@ def lookahead(iterator: Iterable[_T]) -> Generator[tuple[bool, _T]]:
         yield last, item
 
 
+class HandOver(Iterator[_T]):
+    """
+    An iterator over a single item, or over nothing if the item is `None`. Unlike a generator that
+    yields the item, it keeps no reference to the item once it has returned it, so the item can be
+    freed as soon as its receiver lets go of it.
+    """
+    __slots__ = '_item',
+
+    def __init__(self, item: _T | None):
+        self._item = item
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> _T:
+        if (item := self._item) is None:
+            raise StopIteration
+        self._item = None
+        return item
+
+
+if sys.platform == 'win32':
+    import ctypes
+    import msvcrt
+
+    _FILE_FS_DEVICE_INFORMATION = 4
+    _FILE_DEVICE_NULL = 0x15
+
+    class _IoStatusBlock(ctypes.Structure):
+        """
+        The structure `IO_STATUS_BLOCK` of the Windows API.
+        """
+        _fields_ = [('Status', ctypes.c_void_p), ('Information', ctypes.c_size_t)]
+
+    class _FileFsDeviceInformation(ctypes.Structure):
+        """
+        The structure of the Windows API that receives the type of the device behind a handle.
+        """
+        _fields_ = [('DeviceType', ctypes.c_uint32), ('Characteristics', ctypes.c_uint32)]
+
+    @functools.cache
+    def _volume_information_query():
+        """
+        Returns the function of the Windows API that queries information about the volume or the
+        device behind a handle.
+        """
+        query = ctypes.WinDLL('ntdll').NtQueryVolumeInformationFile
+        query.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(_IoStatusBlock),
+            ctypes.POINTER(_FileFsDeviceInformation),
+            ctypes.c_ulong,
+            ctypes.c_int,
+        ]
+        query.restype = ctypes.c_long
+        return query
+
+    def _is_windows_null_device(stream) -> bool:
+        """
+        Returns whether the descriptor of the given stream refers to the Windows null device. A
+        stream whose descriptor cannot be determined, for any reason, is not the null device.
+        """
+        try:
+            handle = msvcrt.get_osfhandle(stream.fileno())
+        except Exception:
+            return False
+        status = _IoStatusBlock()
+        info = _FileFsDeviceInformation()
+        failure = _volume_information_query()(
+            handle,
+            ctypes.byref(status),
+            ctypes.byref(info),
+            ctypes.sizeof(info),
+            _FILE_FS_DEVICE_INFORMATION,
+        )
+        return not failure and info.DeviceType == _FILE_DEVICE_NULL
+
+else:
+    def _is_windows_null_device(stream) -> bool:
+        return False
+
+
+def is_terminal(stream) -> bool:
+    """
+    Returns whether the given stream is connected to a terminal. On Windows, a stream reports itself
+    as a terminal when it is connected to any character device, including the null device; this
+    function returns false for the null device. A stream that reports itself as a terminal but has
+    no usable descriptor is believed.
+    """
+    try:
+        if not stream.isatty():
+            return False
+    except AttributeError:
+        return False
+    return not _is_windows_null_device(stream)
+
+
 def get_terminal_size(default=100):
     """
     Returns the size of the currently attached terminal. If the environment variable
@@ -55,7 +155,7 @@ def get_terminal_size(default=100):
         return ev_terminal_size
     width = default
     for stream in (sys.stderr, sys.stdout):
-        if stream.isatty():
+        if is_terminal(stream):
             try:
                 width = os.get_terminal_size(stream.fileno()).columns
             except Exception:
@@ -249,6 +349,29 @@ def infinitize(it: _T | Iterable[_T]) -> Iterable[_T]:
         return itertools.repeat(it)
 
 
+class RecursionDepth:
+    """
+    A context manager that raises the interpreter's recursion limit for a recursive operation
+    that needs more of it than the ambient limit provides, and restores the prior limit on exit.
+    A limit lower than the ambient one is left untouched. Some third-party packages raise the
+    process-wide limit as a side effect of being imported and never restore it, so a caller that
+    needs a deep limit only for the duration of one call should ask for it here rather than trust
+    that the import already did it.
+    """
+    def __init__(self, depth: int):
+        self.depth = depth
+        self.default = sys.getrecursionlimit()
+
+    def __enter__(self):
+        if self.depth > self.default:
+            sys.setrecursionlimit(self.depth)
+        return self
+
+    def __exit__(self, *_):
+        sys.setrecursionlimit(self.default)
+        return False
+
+
 class NoLogging:
     """
     A context manager to prevent various unwanted kinds of logging messages to appear.
@@ -276,6 +399,7 @@ class NoLogging:
 
     def __enter__(self):
         if self.mode & NoLogging.Mode.LOGGING:
+            self._logging_disabled = logging.root.manager.disable
             logging.disable(logging.CRITICAL)
         if self.mode & NoLogging.Mode.WARNING:
             self._warning_filters = list(warnings.filters)
@@ -290,7 +414,7 @@ class NoLogging:
 
     def __exit__(self, *_):
         if self.mode & NoLogging.Mode.LOGGING:
-            logging.disable(logging.NOTSET)
+            logging.disable(self._logging_disabled)
         if self.mode & NoLogging.Mode.WARNING:
             warnings.resetwarnings()
             assert isinstance(warnings.filters, list)
@@ -305,9 +429,9 @@ class NoLogging:
 
 class NoLoggingProxy:
     """
-    This class can be used to wrap any object. It acts as a proxy for this object, passing though
-    and attribute access, operator use, and method calls to its base. However, any such action
-    is wrapped in a `refinery.lib.tools.NoLogging` context to ensure that it procudes no logging
+    This class can be used to wrap any object. It acts as a proxy for this object, passing through
+    attribute access, item access, iteration, and calls to its base. However, any such action is
+    wrapped in a `refinery.lib.tools.NoLogging` context to ensure that it produces no logging
     output. Notably, any returned values that are not considered primitive are wrapped as a proxy
     as well. The main downside of this is that instance checks no longer work as expected.
     """
@@ -317,41 +441,10 @@ class NoLoggingProxy:
         '__nl_mode__',
     )
 
-    __proxy_cache__ = {}
-
     def __new__(cls, wrap, mode: NoLogging.Mode = NoLogging.Mode.ALL):
-        wrap_type = type(wrap)
         if isinstance(wrap, (int, float, str, bytes, bytearray, memoryview, Enum)):
             return wrap
-        if (proxy_class := cls.__proxy_cache__.get(wrap_type)) is None:
-            dunder_names = [
-                name for name in dir(wrap_type) if name.startswith('__') and name.endswith('__')]
-            proxied_dunder_methods = {}
-            for name in dunder_names:
-                if name == '__new__':
-                    continue
-                class_method = getattr(wrap_type, name)
-                if class_method and class_method is getattr(wrap, name):
-                    def proxied_method(
-                        _, *args,
-                        _proxy___call=class_method,
-                        _proxy___wrap=wrap,
-                        _proxy___mode=mode,
-                        **kwargs
-                    ):
-                        with NoLogging(_proxy___mode):
-                            result = _proxy___call(_proxy___wrap, *args, **kwargs)
-                        return NoLoggingProxy(result, _proxy___mode)
-                    if not callable(class_method):
-                        continue
-                    proxied_dunder_methods[name] = proxied_method
-            if proxied_dunder_methods:
-                proxy_class = type(
-                    F'_proxy_{wrap_type.__name__}', (NoLoggingProxy,), proxied_dunder_methods)
-            else:
-                proxy_class = cls
-            cls.__proxy_cache__[wrap_type] = proxy_class
-        return super().__new__(proxy_class) # type:ignore
+        return super().__new__(cls)
 
     def __init__(self, wrap, mode: NoLogging.Mode = NoLogging.Mode.ALL):
         self.__wrapped__ = wrap
@@ -404,6 +497,15 @@ class NoLoggingProxy:
         with NoLogging(mode):
             rv = self.__wrapped__(*args, **kwargs)
         return NoLoggingProxy(rv, mode)
+
+
+@functools.cache
+def mixed_class(mixin: type[_T], base: type, name: str) -> type[_T]:
+    """
+    The class of the given name that adds the given mixin to a base class chosen at run time; one
+    class for each combination. It belongs to the module of the mixin.
+    """
+    return cast('type[_T]', type(name, (mixin, base), {'__module__': mixin.__module__}))
 
 
 def proxy(t: _T) -> _T:
@@ -485,6 +587,26 @@ def normalize_to_identifier(words: str, strip: bool = True):
     Normalizes all separators to underscores.
     """
     return normalize_word_separators(words, '_', strip)
+
+
+_E = TypeVar('_E', bound=BaseException)
+
+
+def copy_exception(error: _E) -> _E:
+    """
+    A copy of the given exception without traceback, cause and context. An exception that is kept
+    to be raised again later must not keep the frames of an earlier raise, which refer to whatever
+    keeps it; a fresh copy is raised each time. Builtin exception classes are copied through their
+    own copy protocol, which keeps the fields that their `__init__` sets from its arguments. A class
+    that defines `__init__` in Python keeps its state in `args` and in its attributes, and its
+    `__init__` may expect other arguments, so these are copied.
+    """
+    cls = error.__class__
+    if isinstance(cls.__init__, WrapperDescriptorType):
+        return copy.copy(error)
+    replica = cls.__new__(cls, *error.args)
+    replica.__dict__.update(error.__dict__)
+    return replica
 
 
 def exception_to_string(exception: BaseException, default=None) -> str:

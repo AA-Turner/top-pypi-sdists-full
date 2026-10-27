@@ -25,6 +25,7 @@
 #include <variant>
 
 #include "absl/base/attributes.h"
+#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_check.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
@@ -36,6 +37,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/context.h"
 #include "tensorstore/internal/aws/aws_api.h"
 #include "tensorstore/internal/aws/aws_credentials.h"
@@ -54,7 +56,6 @@
 #include "tensorstore/internal/metrics/metadata.h"
 #include "tensorstore/internal/metrics/registry.h"
 #include "tensorstore/internal/rate_limiter/rate_limiter.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/internal/thread/schedule_at.h"
 #include "tensorstore/internal/uri/parse.h"
 #include "tensorstore/internal/uri/percent_coder.h"
@@ -111,6 +112,7 @@ using ::tensorstore::internal_http::HttpTransport;
 using ::tensorstore::internal_kvstore_s3::AwsCredentialsResource;
 using ::tensorstore::internal_kvstore_s3::AwsHttpResponseToStatus;
 using ::tensorstore::internal_kvstore_s3::ConditionalWriteMode;
+using ::tensorstore::internal_kvstore_s3::DefaultIsRetryableCode;
 using ::tensorstore::internal_kvstore_s3::GetNodeInt;
 using ::tensorstore::internal_kvstore_s3::GetNodeText;
 using ::tensorstore::internal_kvstore_s3::IsValidBucketName;
@@ -196,12 +198,6 @@ std::string PayloadSha256Base64(const absl::Cord& cord = absl::Cord()) {
   auto digest_sv = std::string_view(reinterpret_cast<const char*>(&digest[0]),
                                     digest.size());
   return absl::Base64Escape(digest_sv);
-}
-
-bool DefaultIsRetryableCode(absl::StatusCode code) {
-  return code == absl::StatusCode::kDeadlineExceeded ||
-         code == absl::StatusCode::kUnavailable ||
-         code == absl::StatusCode::kAborted;
 }
 
 struct S3KeyValueStoreSpecData {
@@ -368,7 +364,7 @@ class S3KeyValueStore
   template <typename Task>
   absl::Status BackoffForAttemptAsync(
       absl::Status status, int attempt, Task* task,
-      SourceLocation loc = SourceLocation::current()) {
+      absl::SourceLocation loc = absl::SourceLocation::current()) {
     assert(task != nullptr);
     auto delay = spec_.retries->BackoffForAttempt(attempt);
     if (!delay) {
@@ -392,7 +388,7 @@ class S3KeyValueStore
   AwsCredentialsProvider provider_;
 
   absl::Mutex mutex_;  // Guards resolve_ehr_ creation.
-  Future<const S3EndpointRegion> resolve_ehr_;
+  Future<const S3EndpointRegion> resolve_ehr_ ABSL_GUARDED_BY(mutex_);
 };
 
 // A ReadTask is a function object used to satisfy a
@@ -402,7 +398,6 @@ struct ReadTask : public RateLimiterNode,
   IntrusivePtr<S3KeyValueStore> owner;
   std::string object_name;
   kvstore::ReadOptions options;
-  std::string read_url_;
   AwsCredentials credentials_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
   Promise<kvstore::ReadResult> promise;
@@ -411,14 +406,12 @@ struct ReadTask : public RateLimiterNode,
   absl::Time start_time_;
 
   ReadTask(IntrusivePtr<S3KeyValueStore> owner, std::string object_name,
-           kvstore::ReadOptions options, std::string read_url,
-           AwsCredentials credentials,
+           kvstore::ReadOptions options, AwsCredentials credentials,
            ReadyFuture<const S3EndpointRegion> endpoint_region,
            Promise<kvstore::ReadResult> promise)
       : owner(std::move(owner)),
         object_name(std::move(object_name)),
         options(std::move(options)),
-        read_url_(std::move(read_url)),
         credentials_(std::move(credentials)),
         endpoint_region_(std::move(endpoint_region)),
         promise(std::move(promise)) {}
@@ -443,8 +436,10 @@ struct ReadTask : public RateLimiterNode,
     if (!promise.result_needed()) {
       return;
     }
-    auto request_builder = S3RequestBuilder(
-        options.byte_range.size() == 0 ? "HEAD" : "GET", read_url_);
+    const auto& ehr = endpoint_region_.value();
+    auto request_builder =
+        S3RequestBuilder(options.byte_range.size() == 0 ? "HEAD" : "GET",
+                         ehr.endpoint, object_name);
 
     AddGenerationHeader(&request_builder, "if-none-match",
                         options.generation_conditions.if_not_equal);
@@ -460,7 +455,6 @@ struct ReadTask : public RateLimiterNode,
       }
     }
 
-    const auto& ehr = endpoint_region_.value();
     start_time_ = absl::Now();
     auto request = request_builder.EnableAcceptEncoding()
                        .MaybeAddRequesterPayer(owner->spec_.requester_pays)
@@ -471,11 +465,11 @@ struct ReadTask : public RateLimiterNode,
     auto future = owner->transport_->IssueRequest(request, {});
     future.ExecuteWhenReady([self = IntrusivePtr<ReadTask>(this)](
                                 ReadyFuture<HttpResponse> response) {
-      self->OnResponse(response.result());
+      self->OnResponse(std::move(response.result()));
     });
   }
 
-  void OnResponse(const Result<HttpResponse>& response) {
+  void OnResponse(Result<HttpResponse> response) {
     if (!promise.result_needed()) {
       return;
     }
@@ -508,11 +502,11 @@ struct ReadTask : public RateLimiterNode,
     if (!status.ok()) {
       promise.SetResult(status);
     } else {
-      promise.SetResult(FinishResponse(response.value()));
+      promise.SetResult(FinishResponse(std::move(response.value())));
     }
   }
 
-  Result<kvstore::ReadResult> FinishResponse(const HttpResponse& httpresponse) {
+  Result<kvstore::ReadResult> FinishResponse(HttpResponse httpresponse) {
     s3_metrics.bytes_read.IncrementBy(httpresponse.payload.size());
     auto latency = absl::Now() - start_time_;
     s3_metrics.read_latency_ms.Observe(absl::ToInt64Milliseconds(latency));
@@ -561,7 +555,8 @@ struct ReadTask : public RateLimiterNode,
       int64_t total_size;
 
       TENSORSTORE_RETURN_IF_ERROR(internal_http::ValidateResponseByteRange(
-          httpresponse, options.byte_range, value, byte_range, total_size));
+          std::move(httpresponse), options.byte_range, value, byte_range,
+          total_size));
     }
 
     TENSORSTORE_ASSIGN_OR_RETURN(
@@ -597,12 +592,10 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
        options = std::move(options)](auto promise,
                                      ReadyFuture<const S3EndpointRegion> ready,
                                      ReadyFuture<AwsCredentials> credentials) {
-        auto read_url = absl::StrCat(ready.value().endpoint, "/", key);
-
         auto state = internal::MakeIntrusivePtr<ReadTask>(
             std::move(self), std::move(key), std::move(options),
-            std::move(read_url), std::move(credentials.value()),
-            std::move(ready), std::move(promise));
+            std::move(credentials.value()), std::move(ready),
+            std::move(promise));
         intrusive_ptr_increment(state.get());  // adopted by ReadTask::Start.
         state->owner->read_rate_limiter().Admit(state.get(), &ReadTask::Start);
       },
@@ -620,24 +613,24 @@ Future<kvstore::ReadResult> S3KeyValueStore::ReadImpl(Key&& key,
 struct WriteTask : public RateLimiterNode,
                    public internal::AtomicReferenceCount<WriteTask> {
   IntrusivePtr<S3KeyValueStore> owner;
+  std::string object_name_;
   kvstore::WriteOptions options_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
-  std::string object_url_;
   absl::Cord value_;
   AwsCredentials credentials_;
   Promise<TimestampedStorageGeneration> promise;
   int attempt_ = 0;
   absl::Time start_time_;
 
-  WriteTask(IntrusivePtr<S3KeyValueStore> o, kvstore::WriteOptions options,
+  WriteTask(IntrusivePtr<S3KeyValueStore> o, std::string object_name,
+            kvstore::WriteOptions options,
             ReadyFuture<const S3EndpointRegion> endpoint_region,
-            std::string object_url, absl::Cord value,
-            AwsCredentials credentials,
+            absl::Cord value, AwsCredentials credentials,
             Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(o)),
+        object_name_(std::move(object_name)),
         options_(std::move(options)),
         endpoint_region_(std::move(endpoint_region)),
-        object_url_(std::move(object_url)),
         value_(std::move(value)),
         credentials_(std::move(credentials)),
         promise(std::move(promise)) {}
@@ -682,7 +675,7 @@ struct WriteTask : public RateLimiterNode,
     }
 
     start_time_ = absl::Now();
-    auto builder = S3RequestBuilder("HEAD", object_url_);
+    auto builder = S3RequestBuilder("HEAD", ehr.endpoint, object_name_);
     AddGenerationHeader(&builder, "if-match",
                         options_.generation_conditions.if_equal);
     auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
@@ -702,14 +695,16 @@ struct WriteTask : public RateLimiterNode,
     if (IsCancelled()) {
       return;
     }
-    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
-      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
-              .ok()) {
-        return;
-      }
-    }
     if (!response.ok()) {
-      Fail(response.status());
+      absl::Status status = response.status();
+      if (DefaultIsRetryableCode(status.code())) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
+      }
+      Fail(std::move(status));
       return;
     }
 
@@ -722,12 +717,27 @@ struct WriteTask : public RateLimiterNode,
       // because the object does not exist.
       Success(StorageGeneration::Unknown());
       return;
-    } else if (response.value().status_code == 404 &&
-               !options_.generation_conditions.MatchesNoValue()) {
-      // If the object does not exist and the if-match condition is not NoValue,
-      // then the write fails.
-      Success(StorageGeneration::Unknown());
-      return;
+    } else if (response.value().status_code == 404) {
+      if (!options_.generation_conditions.MatchesNoValue()) {
+        // If the object does not exist and the if-match condition is not
+        // NoValue, then the write fails.
+        Success(StorageGeneration::Unknown());
+        return;
+      }
+    } else {
+      bool is_retryable = false;
+      auto status = AwsHttpResponseToStatus(response.value(), is_retryable);
+      if (!status.ok()) {
+        if (is_retryable || response.value().status_code == 409) {
+          status = owner->BackoffForAttemptAsync(std::move(status), attempt_++,
+                                                 this);
+          if (status.ok()) {
+            return;
+          }
+        }
+        Fail(std::move(status));
+        return;
+      }
     }
 
     AfterHeadRequest();
@@ -742,7 +752,7 @@ struct WriteTask : public RateLimiterNode,
     auto content_sha256_hex = PayloadSha256Hex(value_);
 
     const auto& ehr = endpoint_region_.value();
-    auto builder = S3RequestBuilder("PUT", object_url_);
+    auto builder = S3RequestBuilder("PUT", ehr.endpoint, object_name_);
     builder.AddHeader("content-type", "application/octet-stream")
         .AddHeader("content-length", absl::StrCat(value_.size()))
         .MaybeAddRequesterPayer(owner->spec_.requester_pays);
@@ -780,28 +790,24 @@ struct WriteTask : public RateLimiterNode,
     ABSL_LOG_IF(INFO, s3_logging.Level(1) && response.ok())
         << "WriteTask " << *response;
 
-    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
-      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
-              .ok()) {
-        return;
-      }
-    }
     if (!response.ok()) {
-      Fail(response.status());
+      absl::Status status = response.status();
+      if (DefaultIsRetryableCode(status.code())) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
+      }
+      Fail(std::move(status));
       return;
     }
 
     auto latency = absl::Now() - start_time_;
     bool is_retryable = false;
     auto status = AwsHttpResponseToStatus(response.value(), is_retryable);
-    if (response.value().status_code == 409) {
-      // Conflict implies that there was a conflict in the concurrent operation.
-      if (owner->BackoffForAttemptAsync(status, attempt_++, this).ok()) {
-        return;
-      }
-      Fail(std::move(status));
-    } else if (response.value().status_code == 304 ||
-               response.value().status_code == 412) {
+    if (response.value().status_code == 304 ||
+        response.value().status_code == 412) {
       // Not modified implies that the generation did not match.
       // Failed precondition implies the generation did not match.
       Success(StorageGeneration::Unknown());
@@ -810,9 +816,12 @@ struct WriteTask : public RateLimiterNode,
                    options_.generation_conditions.if_equal)) {
       Success(StorageGeneration::Unknown());
     } else if (!status.ok()) {
-      if (is_retryable &&
-          owner->BackoffForAttemptAsync(status, attempt_++, this).ok()) {
-        return;
+      if (is_retryable || response.value().status_code == 409) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
       }
       Fail(std::move(status));
     } else {
@@ -839,23 +848,24 @@ struct WriteTask : public RateLimiterNode,
 struct DeleteTask : public RateLimiterNode,
                     public internal::AtomicReferenceCount<DeleteTask> {
   IntrusivePtr<S3KeyValueStore> owner;
+  std::string object_name_;
   kvstore::WriteOptions options_;
   ReadyFuture<const S3EndpointRegion> endpoint_region_;
-  std::string object_url_;
   AwsCredentials credentials_;
   Promise<TimestampedStorageGeneration> promise;
 
   int attempt_ = 0;
   absl::Time start_time_;
 
-  DeleteTask(IntrusivePtr<S3KeyValueStore> o, kvstore::WriteOptions options,
+  DeleteTask(IntrusivePtr<S3KeyValueStore> o, std::string object_name,
+             kvstore::WriteOptions options,
              ReadyFuture<const S3EndpointRegion> endpoint_region,
-             std::string object_url, AwsCredentials credentials,
+             AwsCredentials credentials,
              Promise<TimestampedStorageGeneration> promise)
       : owner(std::move(o)),
+        object_name_(std::move(object_name)),
         options_(std::move(options)),
         endpoint_region_(std::move(endpoint_region)),
-        object_url_(std::move(object_url)),
         credentials_(std::move(credentials)),
         promise(std::move(promise)) {}
 
@@ -899,7 +909,7 @@ struct DeleteTask : public RateLimiterNode,
     start_time_ = absl::Now();
     const auto& ehr = endpoint_region_.value();
 
-    auto builder = S3RequestBuilder("HEAD", object_url_);
+    auto builder = S3RequestBuilder("HEAD", ehr.endpoint, object_name_);
     AddGenerationHeader(&builder, "if-match",
                         options_.generation_conditions.if_equal);
     auto request = builder.MaybeAddRequesterPayer(owner->spec_.requester_pays)
@@ -923,14 +933,16 @@ struct DeleteTask : public RateLimiterNode,
         << "Peek (Response): " << response.value() << "\n"
         << response.value().payload;
 
-    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
-      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
-              .ok()) {
-        return;
-      }
-    }
     if (!response.ok()) {
-      Fail(response.status());
+      absl::Status status = response.status();
+      if (DefaultIsRetryableCode(status.code())) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
+      }
+      Fail(std::move(status));
       return;
     }
 
@@ -949,6 +961,20 @@ struct DeleteTask : public RateLimiterNode,
       return;
     }
 
+    bool is_retryable = false;
+    auto status = AwsHttpResponseToStatus(response.value(), is_retryable);
+    if (!status.ok()) {
+      if (is_retryable || response.value().status_code == 409) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
+      }
+      Fail(std::move(status));
+      return;
+    }
+
     AfterHeadRequest();
   }
 
@@ -956,7 +982,7 @@ struct DeleteTask : public RateLimiterNode,
     start_time_ = absl::Now();
 
     const auto& ehr = endpoint_region_.value();
-    S3RequestBuilder builder("DELETE", object_url_);
+    S3RequestBuilder builder("DELETE", ehr.endpoint, object_name_);
 #if 0
     // NOPTE: AWS only allows conditional deletes in directory buckets, so add
     // this in when bucket detection is implemented.
@@ -984,14 +1010,16 @@ struct DeleteTask : public RateLimiterNode,
         << "DeleteTask " << response.value() << "\n"
         << response.value().payload;
 
-    if (!response.ok() && DefaultIsRetryableCode(response.status().code())) {
-      if (owner->BackoffForAttemptAsync(response.status(), attempt_++, this)
-              .ok()) {
-        return;
-      }
-    }
     if (!response.ok()) {
-      Fail(response.status());
+      absl::Status status = response.status();
+      if (DefaultIsRetryableCode(status.code())) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
+      }
+      Fail(std::move(status));
       return;
     }
 
@@ -1010,9 +1038,12 @@ struct DeleteTask : public RateLimiterNode,
         Success(StorageGeneration::Unknown());
       }
     } else if (!status.ok()) {
-      if (is_retryable &&
-          owner->BackoffForAttemptAsync(status, attempt_++, this).ok()) {
-        return;
+      if (is_retryable || response.value().status_code == 409) {
+        status =
+            owner->BackoffForAttemptAsync(std::move(status), attempt_++, this);
+        if (status.ok()) {
+          return;
+        }
       }
       Fail(std::move(status));
     } else {
@@ -1045,13 +1076,11 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
        value = std::move(value), options = std::move(options)](
           auto promise, ReadyFuture<const S3EndpointRegion> ready,
           ReadyFuture<AwsCredentials> credentials) {
-        std::string object_url = absl::StrCat(ready.value().endpoint, "/", key);
-
         if (!value) {
           // Write with a std::nullopt value is a delete.
           auto state = internal::MakeIntrusivePtr<DeleteTask>(
-              std::move(self), std::move(options), std::move(ready),
-              std::move(object_url), std::move(credentials.value()),
+              std::move(self), std::move(key), std::move(options),
+              std::move(ready), std::move(credentials.value()),
               std::move(promise));
 
           intrusive_ptr_increment(
@@ -1062,9 +1091,9 @@ Future<TimestampedStorageGeneration> S3KeyValueStore::Write(
         }
 
         auto state = internal::MakeIntrusivePtr<WriteTask>(
-            std::move(self), std::move(options), std::move(ready),
-            std::move(object_url), *std::move(value),
-            std::move(credentials.value()), std::move(promise));
+            std::move(self), std::move(key), std::move(options),
+            std::move(ready), *std::move(value), std::move(credentials.value()),
+            std::move(promise));
 
         intrusive_ptr_increment(state.get());  // adopted by WriteTask::Admit.
         state->owner->write_rate_limiter().Admit(state.get(),
@@ -1108,9 +1137,7 @@ struct ListTask : public RateLimiterNode,
     owner_->admission_queue().Finish(this);
   }
 
-  inline bool is_cancelled() {
-    return cancelled_.load(std::memory_order_relaxed);
-  }
+  bool is_cancelled() { return cancelled_.load(std::memory_order_relaxed); }
 
   static void Start(RateLimiterNode* task) {
     auto* self = static_cast<ListTask*>(task);
@@ -1195,11 +1222,12 @@ struct ListTask : public RateLimiterNode,
       return owner_->BackoffForAttemptAsync(std::move(status), attempt_++,
                                             this);
     }
+    TENSORSTORE_RETURN_IF_ERROR(status);
 
     auto cord = response->payload;
     auto payload = cord.Flatten();
 
-    tinyxml2::XMLDocument xmlDocument;
+    tinyxml2::XMLDocument xmlDocument(true, tinyxml2::PEDANTIC_WHITESPACE);
     if (int xmlcode = xmlDocument.Parse(payload.data(), payload.size());
         xmlcode != tinyxml2::XML_SUCCESS) {
       return absl::InvalidArgumentError(
@@ -1367,7 +1395,7 @@ Future<const S3EndpointRegion> S3KeyValueStore::MaybeResolveRegion() {
       !spec_.endpoint.has_value() || spec_.endpoint.value().empty()
           ? std::string_view{}
           : std::string_view(spec_.endpoint.value()),
-      spec_.host_header.value_or(std::string{}), transport_);
+      spec_.host_header.value_or(std::string{}), transport_, *spec_.retries);
   resolve_ehr_.ExecuteWhenReady([](ReadyFuture<const S3EndpointRegion> ready) {
     if (!ready.status().ok()) {
       ABSL_LOG_IF(INFO, s3_logging)
@@ -1406,6 +1434,7 @@ Future<kvstore::DriverPtr> S3KeyValueStoreSpec::DoOpen() const {
   if (auto* ehr = std::get_if<S3EndpointRegion>(&result); ehr != nullptr) {
     ABSL_LOG_IF(INFO, s3_logging)
         << "S3 driver using endpoint [" << *ehr << "]";
+    absl::MutexLock l(driver->mutex_);
     driver->resolve_ehr_ = MakeReadyFuture<S3EndpointRegion>(std::move(*ehr));
   }
 

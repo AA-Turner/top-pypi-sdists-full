@@ -3,10 +3,12 @@ This module defines the refinery emulator abstraction layer interface.
 """
 from __future__ import annotations
 
+import traceback
+
 from abc import ABC, abstractmethod
 from enum import Enum, IntFlag
 from functools import cached_property
-from typing import Any, Generic, TypeVar
+from typing import Any, Callable, Generic, TypeVar, overload
 
 from refinery.lib.executable import Arch, Executable, ExecutableCodeBlob, align
 from refinery.lib.intervals import IntIntervalUnion
@@ -224,6 +226,7 @@ class Emulator(ABC, Generic[_E, _R, _T]):
         self.alloc_size = alloc_size
         self.page_limit = page_limit
         self._resetonce = False
+        self._hook_error: BaseException | None = None
 
         self._sp, self._ip, self._rv = {
             Arch.PPC32   : ('1',   'pc',  '3'  ), # noqa
@@ -311,10 +314,13 @@ class Emulator(ABC, Generic[_E, _R, _T]):
         the underlying emulator engine, map the input executable to memory, and install any of the
         requested hooks.
         """
-        self._resetonce = True
+        if self._resetonce:
+            self._resetonce = False
+            self._release()
         self._memorymap = IntIntervalUnion()
         self.state = state
         self._reset()
+        self._resetonce = True
         for rd in self.exe.relocations():
             self.mem_write_int(rd.address, rd.value, rd.size)
         return self
@@ -335,6 +341,14 @@ class Emulator(ABC, Generic[_E, _R, _T]):
         finally:
             self._disable_single_step()
 
+    @overload
+    def base_exe_to_emu(self, address: int) -> int:
+        ...
+
+    @overload
+    def base_exe_to_emu(self, address: None) -> None:
+        ...
+
     def base_exe_to_emu(self, address: int | None):
         """
         Rebase a virtual address from the base executable's address space to the one used by the
@@ -343,6 +357,14 @@ class Emulator(ABC, Generic[_E, _R, _T]):
         if address is not None:
             address = address - self.exe.base + self.base
         return address
+
+    @overload
+    def base_emu_to_exe(self, address: int) -> int:
+        ...
+
+    @overload
+    def base_emu_to_exe(self, address: None) -> None:
+        ...
 
     def base_emu_to_exe(self, address: int | None):
         """
@@ -360,7 +382,46 @@ class Emulator(ABC, Generic[_E, _R, _T]):
         """
         if not self._resetonce:
             self.reset()
-        return self._emulate(start, end, timeout)
+        self._hook_error = None
+        try:
+            result = self._emulate(start, end, timeout)
+        except BaseException:
+            if self._hook_error is None:
+                raise
+            result = None
+        if (error := self._hook_error) is None:
+            return result
+        self._hook_error = None
+        try:
+            if isinstance(error, Exception) and not isinstance(error, EmulationError):
+                raise EmulationError(str(error)) from error
+            raise error
+        finally:
+            del error
+
+    def _call_hook(self, hook: Callable[..., Any], *args) -> Any:
+        """
+        Called by a backend to run a hook. An error of the hook does not reach the backend, which
+        may lose it: Speakeasy ignores it, and unicorn drops it when the run fails afterwards. The
+        error goes to `Emulator._hook_failed` instead.
+        """
+        try:
+            return hook(*args)
+        except BaseException as error:
+            self._hook_failed(error)
+            return False
+
+    def _hook_failed(self, error: BaseException):
+        """
+        Called by a backend when a hook raised the given error. The frames of the failed hook let
+        go of their variables, the emulation halts, and `refinery.lib.emulator.Emulator.emulate`
+        raises the first such error of the run; a hook that fails after it may only have failed
+        because of it.
+        """
+        traceback.clear_frames(error.__traceback__)
+        if self._hook_error is None:
+            self._hook_error = error
+        self.halt()
 
     def mem_read_int(self, address: int, size: int | None = None):
         """
@@ -384,6 +445,13 @@ class Emulator(ABC, Generic[_E, _R, _T]):
     def _reset(self):
         """
         Called as part of `refinery.lib.emulator.Emulator.reset`.
+        """
+
+    def _release(self):
+        """
+        Called as part of `refinery.lib.emulator.Emulator.reset` before the engine is replaced. A
+        backend whose engine keeps a copy of the emulated data until the cycle collector frees it
+        releases that memory here, so that an emulator reset many times holds only one copy.
         """
 
     def _init(self):

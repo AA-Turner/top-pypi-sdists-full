@@ -1522,6 +1522,7 @@ class BitBucketSourceCredentials(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -2627,6 +2628,7 @@ class CfnFleet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2673,7 +2675,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7df4adf6dedb39ee1c452caee6956a364bc077851ebb9eb888e2406741acda39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "baseCapacity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "baseCapacity", value)
 
     @builtins.property
     @jsii.member(jsii_name="computeConfiguration")
@@ -2691,7 +2693,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13d34cf9cb6e1b9e4c774366b62cbdd66383fb9bd63bb3d15a8f1d07cc9939a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computeConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "computeConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="computeType")
@@ -2707,7 +2709,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e7b3d268b941417efe9e6f203250e8e05a249e1933ac9362c654f59afc665b1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computeType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "computeType", value)
 
     @builtins.property
     @jsii.member(jsii_name="environmentType")
@@ -2720,7 +2722,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4d5a42169d2cc02d25a87396b652a3dc9007739395cd74f9639d93a05b7b82ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "environmentType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "environmentType", value)
 
     @builtins.property
     @jsii.member(jsii_name="fleetProxyConfiguration")
@@ -2738,7 +2740,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72aded04e24b44469c7c8f36cc8bc07ac855e30f085353ae7b830c505400b9a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fleetProxyConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fleetProxyConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="fleetServiceRole")
@@ -2751,7 +2753,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0b52d1cb270ba8d5003bf566dbe54e74e91dc4a1bb45f3b32037d9188035304a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fleetServiceRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fleetServiceRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="fleetVpcConfig")
@@ -2769,7 +2771,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c66d1798050c93d95746b1057fb5b75bf773869be3796e773defefc3ad1bb1fc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fleetVpcConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fleetVpcConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="imageId")
@@ -2782,7 +2784,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a33f552a37e35f306dfe760e51f68c6ca42ccd6b0ff4f2384f78f2d64f098f01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "imageId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "imageId", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2795,7 +2797,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__81a1c2090a083488d8e471132fa655912efe0a0fbc6ff93d4665fff305cc8b48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="overflowBehavior")
@@ -2808,7 +2810,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf36f41fa1ee306ba1e159a2bd108d828ec990d8ed85038c3b823cc85f71473d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "overflowBehavior", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "overflowBehavior", value)
 
     @builtins.property
     @jsii.member(jsii_name="scalingConfiguration")
@@ -2826,7 +2828,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__55a0a09b39fb06cb983cdd0c788b002ef6b06d779cf4e8f6c9dfd6d833171db2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scalingConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scalingConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2842,7 +2844,7 @@ class CfnFleet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dd8d232a7a18b97fcd2d21d60ea770b5fdd85dd8808e961cb9b071d34e6af4ee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_codebuild.CfnFleet.ComputeConfigurationProperty",
@@ -4129,6 +4131,7 @@ class CfnProject(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4188,7 +4191,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__03ff5e1271d1fde785d59ce0d7942ad69f5b0857878c20212e3070218fc4268d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "artifacts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "artifacts", value)
 
     @builtins.property
     @jsii.member(jsii_name="environment")
@@ -4206,7 +4209,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e81642ec96eae18f927ec3969adcc27983707dfd99d910c197a50b19ad98bf7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "environment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "environment", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceRole")
@@ -4219,7 +4222,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f6063fb4d172a483ba54b222cf5361f1b5454ba21ff45a404740af0fe88080b2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="source")
@@ -4237,7 +4240,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1c380bec8add38a9402c557e44b425d5b187bcc5edacf6ce6379ab4da0211d0f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "source", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoRetryLimit")
@@ -4249,7 +4252,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__982f9c7096ad20ce601ce4532b3b19f5ed1ae300d09c6f58822544aaae67a03b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoRetryLimit", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoRetryLimit", value)
 
     @builtins.property
     @jsii.member(jsii_name="badgeEnabled")
@@ -4267,7 +4270,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b88d7a5e667269d00acc9148cb550d229e0c38feacefc2756938b6a6e77bd47b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "badgeEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "badgeEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="buildBatchConfig")
@@ -4285,7 +4288,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40f4681900059263233f1b4da655568b710c3e634e5fa39e0f3fddfed6bbec72)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "buildBatchConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "buildBatchConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="cache")
@@ -4303,7 +4306,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9ad770edd592e4a05d430d9df3861dc104eeac7d8f7e55beac9bada79626a413)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cache", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cache", value)
 
     @builtins.property
     @jsii.member(jsii_name="concurrentBuildLimit")
@@ -4316,7 +4319,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a4afffdd2b7056b3a566b21732a46ad570e473fc5cef1f89a68ec408631c1203)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "concurrentBuildLimit", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "concurrentBuildLimit", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -4329,7 +4332,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3159a7f3377584b3f6714a9c9e4238a1dfcaf38bba017fa2f629ac3de40dfbca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
@@ -4342,7 +4345,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__723942b427e646ab83275b85d854a9186edcd40568c46e479b22b25459fd9bfc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="fileSystemLocations")
@@ -4360,7 +4363,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b12b5b2a51f69048e5d0213cc656160cdb2c037679f0fc1ec8984818a2ff90a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fileSystemLocations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fileSystemLocations", value)
 
     @builtins.property
     @jsii.member(jsii_name="logsConfig")
@@ -4378,7 +4381,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__134ffcdb9c1aa6100a17c9c78017bc87dc1f3c09e364302fef372df6e51d949c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logsConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logsConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -4391,7 +4394,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9d844e56aec1bc7724b4874d4beb0c199bcc7c783695cfeb0fdee3eefaafcb59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="queuedTimeoutInMinutes")
@@ -4404,7 +4407,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3f40e685f90d43ae2081b1906442bea2ed7c86c18105df123ac1de17965960c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queuedTimeoutInMinutes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queuedTimeoutInMinutes", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceAccessRole")
@@ -4417,7 +4420,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__df3f5ccd011ab099cd9849fb4a696b1d7b98adc0dca82c84cfc2bc4189370e79)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceAccessRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceAccessRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="secondaryArtifacts")
@@ -4435,7 +4438,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a27c587a59a7ad5f961c8c280b4ec76ac3673bc5d885123fce147ba8afdb198d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secondaryArtifacts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "secondaryArtifacts", value)
 
     @builtins.property
     @jsii.member(jsii_name="secondarySources")
@@ -4453,7 +4456,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__89ab9bff29a9d3ceda60af0ab1a108771b410dc0e7275ef72b8563087d848435)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secondarySources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "secondarySources", value)
 
     @builtins.property
     @jsii.member(jsii_name="secondarySourceVersions")
@@ -4471,7 +4474,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__554781b1b724736166c94ba418957a36222c7c0e1e88f93ac12241d9adfb4660)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "secondarySourceVersions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "secondarySourceVersions", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceVersion")
@@ -4484,7 +4487,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__edb79b5b75492cf718b5a9aa115e1aa00e59ce6d8d81acf1c4437cfddb79aa6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -4500,7 +4503,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__99453a77aaac2a951ab2764cccd1e97b204cb9169e1706ad6e2f2c4d831b84a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="timeoutInMinutes")
@@ -4513,7 +4516,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e93e1820a6901f2ce954928b59593e83fd415ccc6b2155f7dc71bbe18b772e25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeoutInMinutes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "timeoutInMinutes", value)
 
     @builtins.property
     @jsii.member(jsii_name="triggers")
@@ -4531,7 +4534,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8c2fd2a6384033d1e7925ea66d14357eec6d98d5f6add532aa4ca672784a756f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "triggers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "triggers", value)
 
     @builtins.property
     @jsii.member(jsii_name="visibility")
@@ -4547,7 +4550,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f6b9d12520587426fccdee58cbdb9149553e496c0937dd65c20762f47c0cb25f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "visibility", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "visibility", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcConfig")
@@ -4565,7 +4568,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__695169be329fc915c4a5842cc33cdd35a02abd9fc92da9b57390f78795c19774)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_codebuild.CfnProject.ArtifactsProperty",
@@ -8176,6 +8179,7 @@ class CfnReportGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -8188,14 +8192,6 @@ class CfnReportGroup(
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -8235,7 +8231,7 @@ class CfnReportGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f96cf5e0a1f241a7cbcaffd5be51152e1edd0c6f3e7934c2284e727cccba7b94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "exportConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "exportConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -8251,7 +8247,7 @@ class CfnReportGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b853f801cef9b7d0b191644f77977f831831cd57d212f6212fae9116ed19ba0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="deleteReports")
@@ -8269,7 +8265,7 @@ class CfnReportGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a7e923011124874f632f5e58a5526939f6dfc98ffa942ca3b7e9b0532bf51284)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deleteReports", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deleteReports", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -8282,7 +8278,7 @@ class CfnReportGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__33ca174632a8de9736ef63f483d3cd9f6a0fbab79558db0df3e4422c4d5f57f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -8298,7 +8294,7 @@ class CfnReportGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b2d2619a3ff3b19527ca1fa7def91f6174aef5a93358549306e21bfe660fe81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_codebuild.CfnReportGroup.ReportExportConfigProperty",
@@ -8810,6 +8806,7 @@ class CfnSourceCredential(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -8852,7 +8849,7 @@ class CfnSourceCredential(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c42bc73af82351f10624b4f6a3f40c5dab0143bee2455de50f44b67ae9ce20e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "authType", value)
 
     @builtins.property
     @jsii.member(jsii_name="serverType")
@@ -8865,7 +8862,7 @@ class CfnSourceCredential(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__52818159e46d79a4841a96228cb342978db99b45e098211965e7f1021ee21eec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serverType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serverType", value)
 
     @builtins.property
     @jsii.member(jsii_name="token")
@@ -8878,7 +8875,7 @@ class CfnSourceCredential(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f42be3fa7facce47a4ee848e6e91e5433d2e64af2050cc4f7558c5a2c1b235da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "token", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "token", value)
 
     @builtins.property
     @jsii.member(jsii_name="username")
@@ -8891,7 +8888,7 @@ class CfnSourceCredential(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9d817f65139090b52d3be890ff1474d10ed2f2480ce39f5cdc8a069799efbada)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "username", value)
 
 
 @jsii.data_type(
@@ -11091,6 +11088,7 @@ class GitHubEnterpriseSourceCredentials(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -11191,6 +11189,7 @@ class GitHubSourceCredentials(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -13173,6 +13172,7 @@ class LinuxArmBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_STANDARD_1_0")
+    @builtins.classmethod
     def AMAZON_LINUX_2_STANDARD_1_0(cls) -> "IBuildImage":
         '''(deprecated) Image "aws/codebuild/amazonlinux2-aarch64-standard:1.0".
 
@@ -13184,30 +13184,35 @@ class LinuxArmBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_STANDARD_2_0")
+    @builtins.classmethod
     def AMAZON_LINUX_2_STANDARD_2_0(cls) -> "IBuildImage":
         '''Image "aws/codebuild/amazonlinux2-aarch64-standard:2.0" based on Amazon Linux 2.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_STANDARD_2_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_STANDARD_3_0")
+    @builtins.classmethod
     def AMAZON_LINUX_2_STANDARD_3_0(cls) -> "IBuildImage":
         '''Image "aws/codebuild/amazonlinux2-aarch64-standard:3.0" based on Amazon Linux 2023.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_STANDARD_3_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_STANDARD_2_0")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_STANDARD_2_0(cls) -> "IBuildImage":
         '''Image "aws/codebuild/amazonlinux-aarch64-standard:2.0" based on Amazon Linux 2023.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_STANDARD_2_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_STANDARD_3_0")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_STANDARD_3_0(cls) -> "IBuildImage":
         '''Image "aws/codebuild/amazonlinux-aarch64-standard:3.0" based on Amazon Linux 2023.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_STANDARD_3_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_STANDARD_4_0")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_STANDARD_4_0(cls) -> "IBuildImage":
         '''Image "aws/codebuild/amazonlinux-aarch64-standard:4.0" based on Amazon Linux 2023.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_STANDARD_4_0"))
@@ -13322,96 +13327,112 @@ class LinuxArmLambdaBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_CORRETTO_11")
+    @builtins.classmethod
     def AMAZON_LINUX_2_CORRETTO_11(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:corretto11`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_CORRETTO_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_CORRETTO_17")
+    @builtins.classmethod
     def AMAZON_LINUX_2_CORRETTO_17(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:corretto17`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_CORRETTO_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_DOTNET_6")
+    @builtins.classmethod
     def AMAZON_LINUX_2_DOTNET_6(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:dotnet6`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_DOTNET_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_GO_1_21")
+    @builtins.classmethod
     def AMAZON_LINUX_2_GO_1_21(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:go1.21`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_GO_1_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_NODE_18")
+    @builtins.classmethod
     def AMAZON_LINUX_2_NODE_18(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:nodejs18`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_NODE_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_PYTHON_3_11")
+    @builtins.classmethod
     def AMAZON_LINUX_2_PYTHON_3_11(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:python3.11`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_PYTHON_3_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_RUBY_3_2")
+    @builtins.classmethod
     def AMAZON_LINUX_2_RUBY_3_2(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:ruby3.2`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_RUBY_3_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_CORRETTO_21")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_CORRETTO_21(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:corretto21`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_CORRETTO_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_DOTNET_8")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_DOTNET_8(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:dotnet8`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_DOTNET_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_GO_1_24")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_GO_1_24(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:go1.24`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_GO_1_24"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_NODE_20")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_NODE_20(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:nodejs20`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_NODE_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_NODE_22")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_NODE_22(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:nodejs22`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_NODE_22"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_NODE_24")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_NODE_24(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:nodejs24`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_NODE_24"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_PYTHON_3_12")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_PYTHON_3_12(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:python3.12`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_PYTHON_3_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_PYTHON_3_13")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_PYTHON_3_13(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:python3.13`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_PYTHON_3_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_RUBY_3_4")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_RUBY_3_4(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-aarch64-lambda-standard:ruby3.4`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_RUBY_3_4"))
@@ -13684,6 +13705,7 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2")
+    @builtins.classmethod
     def AMAZON_LINUX_2(cls) -> "IBuildImage":
         '''
         :deprecated: Use {@link LinuxBuildImage.AMAZON_LINUX_2_5 } instead.
@@ -13694,6 +13716,7 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_2")
+    @builtins.classmethod
     def AMAZON_LINUX_2_2(cls) -> "IBuildImage":
         '''
         :deprecated: Use {@link LinuxBuildImage.AMAZON_LINUX_2_5 } instead.
@@ -13704,6 +13727,7 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_3")
+    @builtins.classmethod
     def AMAZON_LINUX_2_3(cls) -> "IBuildImage":
         '''(deprecated) The Amazon Linux 2 x86_64 standard image, version ``3.0``.
 
@@ -13715,18 +13739,21 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_4")
+    @builtins.classmethod
     def AMAZON_LINUX_2_4(cls) -> "IBuildImage":
         '''The Amazon Linux 2 x86_64 standard image, version ``4.0``.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_5")
+    @builtins.classmethod
     def AMAZON_LINUX_2_5(cls) -> "IBuildImage":
         '''The Amazon Linux 2023 x86_64 standard image, version ``5.0``.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_ARM")
+    @builtins.classmethod
     def AMAZON_LINUX_2_ARM(cls) -> "IBuildImage":
         '''(deprecated) Image "aws/codebuild/amazonlinux2-aarch64-standard:1.0".
 
@@ -13739,6 +13766,7 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_ARM_2")
+    @builtins.classmethod
     def AMAZON_LINUX_2_ARM_2(cls) -> "IBuildImage":
         '''Image "aws/codebuild/amazonlinux2-aarch64-standard:2.0".
 
@@ -13748,6 +13776,7 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_ARM_3")
+    @builtins.classmethod
     def AMAZON_LINUX_2_ARM_3(cls) -> "IBuildImage":
         '''Image "aws/codebuild/amazonlinux2-aarch64-standard:3.0".
 
@@ -13757,48 +13786,56 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_CORETTO_11")
+    @builtins.classmethod
     def AMAZON_LINUX_2_CORETTO_11(cls) -> "IBuildImage":
         '''The Amazon Coretto 11 image x86_64, based on Amazon Linux 2.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_CORETTO_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_CORETTO_8")
+    @builtins.classmethod
     def AMAZON_LINUX_2_CORETTO_8(cls) -> "IBuildImage":
         '''The Amazon Coretto 8 image x86_64, based on Amazon Linux 2.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_CORETTO_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_4")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_4(cls) -> "IBuildImage":
         '''The Amazon Linux 2023 x86_64 standard image, version ``4.0``.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_5")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_5(cls) -> "IBuildImage":
         '''The Amazon Linux 2023 x86_64 standard image, version ``5.0``.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_6")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_6(cls) -> "IBuildImage":
         '''The Amazon Linux 2023 x86_64 standard image, version ``6.0``.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_CORETTO_11")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_CORETTO_11(cls) -> "IBuildImage":
         '''The Amazon Coretto 11 image x86_64, based on Amazon Linux 2023.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_CORETTO_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_CORETTO_8")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_CORETTO_8(cls) -> "IBuildImage":
         '''The Amazon Coretto 8 image x86_64, based on Amazon Linux 2023.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_CORETTO_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STANDARD_1_0")
+    @builtins.classmethod
     def STANDARD_1_0(cls) -> "IBuildImage":
         '''
         :deprecated: Use {@link LinuxBuildImage.STANDARD_7_0 } instead.
@@ -13809,6 +13846,7 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STANDARD_2_0")
+    @builtins.classmethod
     def STANDARD_2_0(cls) -> "IBuildImage":
         '''
         :deprecated: Use {@link LinuxBuildImage.STANDARD_7_0 } instead.
@@ -13819,6 +13857,7 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STANDARD_3_0")
+    @builtins.classmethod
     def STANDARD_3_0(cls) -> "IBuildImage":
         '''
         :deprecated: Use {@link LinuxBuildImage.STANDARD_7_0 } instead.
@@ -13829,6 +13868,7 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STANDARD_4_0")
+    @builtins.classmethod
     def STANDARD_4_0(cls) -> "IBuildImage":
         '''(deprecated) The ``aws/codebuild/standard:4.0`` build image.
 
@@ -13840,24 +13880,28 @@ class LinuxBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STANDARD_5_0")
+    @builtins.classmethod
     def STANDARD_5_0(cls) -> "IBuildImage":
         '''The ``aws/codebuild/standard:5.0`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "STANDARD_5_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STANDARD_6_0")
+    @builtins.classmethod
     def STANDARD_6_0(cls) -> "IBuildImage":
         '''The ``aws/codebuild/standard:6.0`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "STANDARD_6_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STANDARD_7_0")
+    @builtins.classmethod
     def STANDARD_7_0(cls) -> "IBuildImage":
         '''The ``aws/codebuild/standard:7.0`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "STANDARD_7_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STANDARD_8_0")
+    @builtins.classmethod
     def STANDARD_8_0(cls) -> "IBuildImage":
         '''The ``aws/codebuild/standard:8.0`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "STANDARD_8_0"))
@@ -13972,96 +14016,112 @@ class LinuxLambdaBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_CORRETTO_11")
+    @builtins.classmethod
     def AMAZON_LINUX_2_CORRETTO_11(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:corretto11`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_CORRETTO_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_CORRETTO_17")
+    @builtins.classmethod
     def AMAZON_LINUX_2_CORRETTO_17(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:corretto17`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_CORRETTO_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_DOTNET_6")
+    @builtins.classmethod
     def AMAZON_LINUX_2_DOTNET_6(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:dotnet6`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_DOTNET_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_GO_1_21")
+    @builtins.classmethod
     def AMAZON_LINUX_2_GO_1_21(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:go1.21`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_GO_1_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_NODE_18")
+    @builtins.classmethod
     def AMAZON_LINUX_2_NODE_18(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:nodejs18`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_NODE_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_PYTHON_3_11")
+    @builtins.classmethod
     def AMAZON_LINUX_2_PYTHON_3_11(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:python3.11`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_PYTHON_3_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2_RUBY_3_2")
+    @builtins.classmethod
     def AMAZON_LINUX_2_RUBY_3_2(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:ruby3.2`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2_RUBY_3_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_CORRETTO_21")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_CORRETTO_21(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:corretto21`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_CORRETTO_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_DOTNET_8")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_DOTNET_8(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:dotnet8`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_DOTNET_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_GO_1_24")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_GO_1_24(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:go1.24`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_GO_1_24"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_NODE_20")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_NODE_20(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:nodejs20`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_NODE_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_NODE_22")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_NODE_22(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:nodejs22`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_NODE_22"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_NODE_24")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_NODE_24(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:nodejs24`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_NODE_24"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_PYTHON_3_12")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_PYTHON_3_12(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:python3.12`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_PYTHON_3_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_PYTHON_3_13")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_PYTHON_3_13(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:python3.13`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_PYTHON_3_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_RUBY_3_4")
+    @builtins.classmethod
     def AMAZON_LINUX_2023_RUBY_3_4(cls) -> "IBuildImage":
         '''The ``aws/codebuild/amazonlinux-x86_64-lambda-standard:ruby3.4`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_RUBY_3_4"))
@@ -14460,18 +14520,21 @@ class MacBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BASE_14")
+    @builtins.classmethod
     def BASE_14(cls) -> "IBuildImage":
         '''Corresponds to the standard CodeBuild image ``aws/codebuild/macos-arm-base:14``.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "BASE_14"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BASE_15")
+    @builtins.classmethod
     def BASE_15(cls) -> "IBuildImage":
         '''Corresponds to the CodeBuild image ``aws/codebuild/macos-arm-base:15``.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "BASE_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BASE_26")
+    @builtins.classmethod
     def BASE_26(cls) -> "IBuildImage":
         '''Corresponds to the CodeBuild image ``aws/codebuild/macos-arm-base:26``.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "BASE_26"))
@@ -14556,36 +14619,42 @@ class PhaseChangeEvent(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="buildComplete")
+    @builtins.classmethod
     def build_complete(cls) -> builtins.str:
         '''Whether the build is complete.'''
         return typing.cast(builtins.str, jsii.sget(cls, "buildComplete"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="buildId")
+    @builtins.classmethod
     def build_id(cls) -> builtins.str:
         '''The triggering build's id.'''
         return typing.cast(builtins.str, jsii.sget(cls, "buildId"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="completedPhase")
+    @builtins.classmethod
     def completed_phase(cls) -> builtins.str:
         '''The phase that was just completed.'''
         return typing.cast(builtins.str, jsii.sget(cls, "completedPhase"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="completedPhaseDurationSeconds")
+    @builtins.classmethod
     def completed_phase_duration_seconds(cls) -> builtins.str:
         '''The duration of the completed phase.'''
         return typing.cast(builtins.str, jsii.sget(cls, "completedPhaseDurationSeconds"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="completedPhaseStatus")
+    @builtins.classmethod
     def completed_phase_status(cls) -> builtins.str:
         '''The status of the completed phase.'''
         return typing.cast(builtins.str, jsii.sget(cls, "completedPhaseStatus"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="projectName")
+    @builtins.classmethod
     def project_name(cls) -> builtins.str:
         '''The triggering build's project name.'''
         return typing.cast(builtins.str, jsii.sget(cls, "projectName"))
@@ -16015,6 +16084,7 @@ class Project(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -16891,6 +16961,7 @@ class ReportGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -17870,23 +17941,27 @@ class StateChangeEvent(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="buildId")
+    @builtins.classmethod
     def build_id(cls) -> builtins.str:
         '''Return the build id.'''
         return typing.cast(builtins.str, jsii.sget(cls, "buildId"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="buildStatus")
+    @builtins.classmethod
     def build_status(cls) -> builtins.str:
         '''The triggering build's status.'''
         return typing.cast(builtins.str, jsii.sget(cls, "buildStatus"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="currentPhase")
+    @builtins.classmethod
     def current_phase(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "currentPhase"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="projectName")
+    @builtins.classmethod
     def project_name(cls) -> builtins.str:
         '''The triggering build's project name.'''
         return typing.cast(builtins.str, jsii.sget(cls, "projectName"))
@@ -17947,6 +18022,7 @@ class UntrustedCodeBoundaryPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -18190,24 +18266,28 @@ class WindowsBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WIN_SERVER_CORE_2019_BASE")
+    @builtins.classmethod
     def WIN_SERVER_CORE_2019_BASE(cls) -> "IBuildImage":
         '''The standard CodeBuild image ``aws/codebuild/windows-base:2019-1.0``, which is based off Windows Server Core 2019.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "WIN_SERVER_CORE_2019_BASE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WIN_SERVER_CORE_2019_BASE_2_0")
+    @builtins.classmethod
     def WIN_SERVER_CORE_2019_BASE_2_0(cls) -> "IBuildImage":
         '''The standard CodeBuild image ``aws/codebuild/windows-base:2019-2.0``, which is based off Windows Server Core 2019.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "WIN_SERVER_CORE_2019_BASE_2_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WIN_SERVER_CORE_2019_BASE_3_0")
+    @builtins.classmethod
     def WIN_SERVER_CORE_2019_BASE_3_0(cls) -> "IBuildImage":
         '''The standard CodeBuild image ``aws/codebuild/windows-base:2019-3.0``, which is based off Windows Server Core 2019.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "WIN_SERVER_CORE_2019_BASE_3_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WIN_SERVER_CORE_2022_BASE_3_0")
+    @builtins.classmethod
     def WIN_SERVER_CORE_2022_BASE_3_0(cls) -> "IBuildImage":
         '''The standard CodeBuild image ``aws/codebuild/windows-base:2022-1.0``, which is based off Windows Server Core 2022.
 
@@ -18219,6 +18299,7 @@ class WindowsBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WINDOWS_BASE_2_0")
+    @builtins.classmethod
     def WINDOWS_BASE_2_0(cls) -> "IBuildImage":
         '''(deprecated) The standard CodeBuild image ``aws/codebuild/windows-base:2.0``, which is based off Windows Server Core 2016.
 
@@ -18907,6 +18988,7 @@ class Fleet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -19660,102 +19742,119 @@ class LinuxGpuBuildImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_MXNET_1_4_1")
+    @builtins.classmethod
     def DLC_MXNET_1_4_1(cls) -> "IBuildImage":
         '''MXNet 1.4.1 GPU image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_MXNET_1_4_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_MXNET_1_6_0")
+    @builtins.classmethod
     def DLC_MXNET_1_6_0(cls) -> "IBuildImage":
         '''MXNet 1.6.0 GPU image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_MXNET_1_6_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_PYTORCH_1_2_0")
+    @builtins.classmethod
     def DLC_PYTORCH_1_2_0(cls) -> "IBuildImage":
         '''PyTorch 1.2.0 GPU image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_PYTORCH_1_2_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_PYTORCH_1_3_1")
+    @builtins.classmethod
     def DLC_PYTORCH_1_3_1(cls) -> "IBuildImage":
         '''PyTorch 1.3.1 GPU image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_PYTORCH_1_3_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_PYTORCH_1_4_0_INFERENCE")
+    @builtins.classmethod
     def DLC_PYTORCH_1_4_0_INFERENCE(cls) -> "IBuildImage":
         '''PyTorch 1.4.0 GPU inference image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_PYTORCH_1_4_0_INFERENCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_PYTORCH_1_4_0_TRAINING")
+    @builtins.classmethod
     def DLC_PYTORCH_1_4_0_TRAINING(cls) -> "IBuildImage":
         '''PyTorch 1.4.0 GPU training image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_PYTORCH_1_4_0_TRAINING"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_PYTORCH_1_5_0_INFERENCE")
+    @builtins.classmethod
     def DLC_PYTORCH_1_5_0_INFERENCE(cls) -> "IBuildImage":
         '''PyTorch 1.5.0 GPU inference image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_PYTORCH_1_5_0_INFERENCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_PYTORCH_1_5_0_TRAINING")
+    @builtins.classmethod
     def DLC_PYTORCH_1_5_0_TRAINING(cls) -> "IBuildImage":
         '''PyTorch 1.5.0 GPU training image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_PYTORCH_1_5_0_TRAINING"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_TENSORFLOW_1_14_0")
+    @builtins.classmethod
     def DLC_TENSORFLOW_1_14_0(cls) -> "IBuildImage":
         '''Tensorflow 1.14.0 GPU image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_TENSORFLOW_1_14_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_TENSORFLOW_1_15_0")
+    @builtins.classmethod
     def DLC_TENSORFLOW_1_15_0(cls) -> "IBuildImage":
         '''Tensorflow 1.15.0 GPU image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_TENSORFLOW_1_15_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_TENSORFLOW_1_15_2_INFERENCE")
+    @builtins.classmethod
     def DLC_TENSORFLOW_1_15_2_INFERENCE(cls) -> "IBuildImage":
         '''Tensorflow 1.15.2 GPU inference image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_TENSORFLOW_1_15_2_INFERENCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_TENSORFLOW_1_15_2_TRAINING")
+    @builtins.classmethod
     def DLC_TENSORFLOW_1_15_2_TRAINING(cls) -> "IBuildImage":
         '''Tensorflow 1.15.2 GPU training image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_TENSORFLOW_1_15_2_TRAINING"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_TENSORFLOW_2_0_0")
+    @builtins.classmethod
     def DLC_TENSORFLOW_2_0_0(cls) -> "IBuildImage":
         '''Tensorflow 2.0.0 GPU image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_TENSORFLOW_2_0_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_TENSORFLOW_2_0_1")
+    @builtins.classmethod
     def DLC_TENSORFLOW_2_0_1(cls) -> "IBuildImage":
         '''Tensorflow 2.0.1 GPU image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_TENSORFLOW_2_0_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_TENSORFLOW_2_1_0_INFERENCE")
+    @builtins.classmethod
     def DLC_TENSORFLOW_2_1_0_INFERENCE(cls) -> "IBuildImage":
         '''Tensorflow 2.1.0 GPU inference image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_TENSORFLOW_2_1_0_INFERENCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_TENSORFLOW_2_1_0_TRAINING")
+    @builtins.classmethod
     def DLC_TENSORFLOW_2_1_0_TRAINING(cls) -> "IBuildImage":
         '''Tensorflow 2.1.0 GPU training image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_TENSORFLOW_2_1_0_TRAINING"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_TENSORFLOW_2_2_0_TRAINING")
+    @builtins.classmethod
     def DLC_TENSORFLOW_2_2_0_TRAINING(cls) -> "IBuildImage":
         '''Tensorflow 2.2.0 GPU training image from AWS Deep Learning Containers.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "DLC_TENSORFLOW_2_2_0_TRAINING"))
@@ -19940,6 +20039,7 @@ class PipelineProject(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

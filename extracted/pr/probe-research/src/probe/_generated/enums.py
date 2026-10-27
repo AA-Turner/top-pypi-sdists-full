@@ -662,7 +662,6 @@ class HintReason(StrEnum):
     ok = 'ok'
     no_hits = 'no_hits'
     below_cutoff = 'below_cutoff'
-    not_ml = 'not_ml'
     rate_limited = 'rate_limited'
     engine_error = 'engine_error'
 
@@ -1840,3 +1839,10 @@ class AppSummariesSchemasAnchorType(StrEnum):
     project = 'project'
     run = 'run'
     trial = 'trial'
+
+
+class Source5(StrEnum):
+    claude_code = 'claude_code'
+    codex = 'codex'
+    pi = 'pi'
+    kimi_code = 'kimi_code'

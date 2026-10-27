@@ -25,8 +25,15 @@ from opentelemetry.trace.propagation import set_span_in_context
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 import openai
+from lmnr.opentelemetry_lib.opentelemetry.instrumentation.openai.cached_stream import (
+    AsyncCachedEventStream,
+    CachedEventStream,
+)
 from lmnr.opentelemetry_lib.opentelemetry.instrumentation.openai.utils import (
     is_openai_v1,
+)
+from lmnr.opentelemetry_lib.opentelemetry.instrumentation.shared.reasoning import (
+    set_reasoning_attributes,
 )
 from lmnr.opentelemetry_lib.opentelemetry.instrumentation.shared.utils import (
     dont_throw,
@@ -126,11 +133,7 @@ def set_request_attributes(
     if kwargs.get("extra_headers") is not None:
         set_span_attribute(span, "llm.headers", str(kwargs.get("extra_headers")))
     set_span_attribute(span, "llm.is_streaming", kwargs.get("stream") or False)
-    set_span_attribute(
-        span,
-        "gen_ai.request.reasoning_effort",
-        kwargs.get("reasoning_effort"),
-    )
+    set_reasoning_attributes(span, kwargs)
     set_span_attribute(
         span,
         "openai.request.service_tier",
@@ -354,6 +357,8 @@ def is_streaming_response(response: Any) -> bool:
             (
                 openai.Stream,
                 openai.AsyncStream,
+                CachedEventStream,
+                AsyncCachedEventStream,
                 types.GeneratorType,
                 types.AsyncGeneratorType,
             ),

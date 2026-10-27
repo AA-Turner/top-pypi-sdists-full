@@ -81,6 +81,23 @@ std::string NativeDiscordMarkdown::parseToAstString(
 	return result.str();
 }
 
+std::string NativeDiscordMarkdown::parseLosslessToAstString(
+	jsi::Runtime &rt,
+	std::string content,
+	std::optional<double> flags,
+	std::optional<double> fuel) {
+	const ParseResult result(dmd_parse_lossless(
+		reinterpret_cast<const uint8_t *>(content.data()), content.size(), toFlags(flags),
+		toFuel(fuel), /* js_bigints */ true,
+		// JS strings index by UTF-16 code unit, not by the UTF-8 byte JSI hands over
+		/* utf16 */ true));
+
+	if (!result.ok()) {
+		throw jsi::JSError(rt, result.str());
+	}
+	return result.str();
+}
+
 std::string NativeDiscordMarkdown::unparseFromAstString(jsi::Runtime &rt, std::string ast) {
 	const ParseResult result(
 		dmd_unparse(reinterpret_cast<const uint8_t *>(ast.data()), ast.size(), /* js_bigints */ true));

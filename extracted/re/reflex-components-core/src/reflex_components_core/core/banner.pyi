@@ -6,6 +6,7 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
+from reflex_base import constants
 from reflex_base.components.component import Component
 from reflex_base.constants.compiler import CompileVars
 from reflex_base.event import EventType, PointerEventInfo
@@ -35,6 +36,10 @@ has_connection_errors = Var(
 ).to(BooleanVar)
 has_too_many_connection_errors = Var(
     _js_expr="(connectErrors.length >= 2)", _var_data=connect_error_var_data
+).to(BooleanVar)
+has_hydration_payload_error = Var(
+    _js_expr=f"connectErrors.some((error) => error.code === '{constants.ClientErrorType.HYDRATION_PAYLOAD_TOO_LARGE}')",
+    _var_data=connect_error_var_data,
 ).to(BooleanVar)
 
 class WebsocketTargetURL(Var):

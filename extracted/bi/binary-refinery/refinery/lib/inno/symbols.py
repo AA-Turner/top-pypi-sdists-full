@@ -24,11 +24,6 @@ class IFPSSignature(NamedTuple):
     parameters: tuple[IFPSParam]
     return_type: str | None
     void: bool
-    readable: bool | None = None
-    writable: bool | None = None
-
-    def is_property(self):
-        return self.kind == 'property'
 
     @property
     def argc(self):
@@ -51,7 +46,7 @@ class ParsingError(RuntimeError):
         super().__init__(F'{what}: {symbol}')
 
 
-def parse_decl(decl: str, kind: str, void: bool | None = None, **kwargs):
+def parse_decl(decl: str, kind: str, void: bool | None = None):
     def try_type(type: str):
         if not type:
             return None
@@ -90,13 +85,13 @@ def parse_decl(decl: str, kind: str, void: bool | None = None, **kwargs):
     if a := parts['args']:
         for group in a.split(';'):
             group, _, at = group.strip().partition(': ')
-            kind, _, tmp = group.strip().partition(' ')
-            if kind in {'var', 'const'}:
+            passing, _, tmp = group.strip().partition(' ')
+            if passing in {'var', 'const'}:
                 group = tmp
             for part in group.split(','):
-                args.append(IFPSParam(part.strip(), try_type(at), kind != 'var'))
+                args.append(IFPSParam(part.strip(), try_type(at), passing != 'var'))
 
-    return IFPSSignature(name, kind, tuple(args), type, void, **kwargs)
+    return IFPSSignature(name, kind, tuple(args), type, void)
 
 
 def parse_function(symbol: str) -> IFPSSignature:
@@ -126,6 +121,7 @@ class IFPSAPI:
     function SizeOf(var P: Variant): Integer;
 
     property WizardForm:  TWizardForm;
+    property MainForm:  TMainForm;
     property UninstallProgressForm:  TUninstallProgressForm;
     function GetCmdTail: String;
     function ParamCount: Integer;
@@ -140,8 +136,10 @@ class IFPSAPI:
     function WizardSetupType(const Description: Boolean): String;
     function WizardSelectedComponents(const Descriptions: Boolean): String;
     function WizardIsComponentSelected(const Components: String): Boolean;
+    function IsComponentSelected(const Components: String): Boolean;
     function WizardSelectedTasks(const Descriptions: Boolean): String;
     function WizardIsTaskSelected(const Tasks: String): Boolean;
+    function IsTaskSelected(const Tasks: String): Boolean;
     function WizardSilent: Boolean;
     function IsUninstaller: Boolean;
     function UninstallSilent: Boolean;
@@ -167,8 +165,10 @@ class IFPSAPI:
     function ProcessorArchitecture: TSetupProcessorArchitecture;
     function IsArm32Compatible: Boolean;
     function IsArm64: Boolean;
+    function IsX64: Boolean;
     function IsX64Compatible: Boolean;
     function IsX64OS: Boolean;
+    function IsX86: Boolean;
     function IsX86Compatible: Boolean;
     function IsX86OS: Boolean;
     function InstallOnThisVersion(const MinVersion, OnlyBelowVersion: String): Boolean;
@@ -191,6 +191,23 @@ class IFPSAPI:
     function CheckForMutexes(Mutexes: String): Boolean;
     function CreateCallback(Method: AnyMethod): Longword;
     function DLLGetLastError(): LongInt;
+    function StrGet(var S: String; I: Integer): Char;
+    procedure StrSet(C: Char; I: Integer; var S: String);
+    function WStrGet(var S: AnyString; I: Integer): WideChar;
+    procedure WStrSet(C: AnyString; I: Integer; var S: AnyString);
+    function Sin(E: Extended): Extended;
+    function Cos(E: Extended): Extended;
+    function Sqrt(E: Extended): Extended;
+    function Round(E: Extended): LongInt;
+    function Trunc(E: Extended): LongInt;
+    function Int(E: Extended): Extended;
+    function Pi: Extended;
+    function Abs(E: Extended): Extended;
+    function PadL(S: AnyString; I: LongInt): AnyString;
+    function PadR(S: AnyString; I: LongInt): AnyString;
+    function PadZ(S: AnyString; I: LongInt): AnyString;
+    function Replicate(C: Char; I: LongInt): String;
+    function Int64ToStr(I: Int64): String;
     function Chr(B: Byte): Char;
     function Ord(C: Char): Byte;
     function Copy(S: AnyString; Index, Count: Integer): String;
@@ -223,6 +240,12 @@ class IFPSAPI:
     function StrToInt(S: String): LongInt;
     function StrToInt64Def(S: String; Def: Int64): Int64;
     function StrToInt64(S: String): Int64;
+    function Low(var X): Int64;
+    function High(var X): Int64;
+    function StrToUInt64Def(S: String; Def: UInt64): UInt64;
+    function StrToUInt64(S: String): UInt64;
+    function UInt64ToStr(I: UInt64): String;
+    function UIntToStr(I: UInt64): String;
     function StrToFloat(S: String): Extended;
     function IntToStr(I: Int64): String;
     function FloatToStr(E: Extended): String;
@@ -452,24 +475,21 @@ def _parse_class_reference(cls) -> IFPSClassReference:
         members = CaseInsensitiveDict()
         for member in body:
             kind, _, decl = member.lstrip().rstrip(';').partition(' ')
-            kwargs = {}
+            attributes = []
             if kind == 'property':
                 decl, _, attributes = decl.partition(';')
                 attributes = attributes.strip().split()
-                kwargs.update(
-                    writable=('write' in attributes),
-                    readable=('read' in attributes))
-            sig = parse_decl(decl, kind, **kwargs)
+            sig = parse_decl(decl, kind)
 
             if kind == 'property':
                 parameters = sig.parameters
                 this = IFPSParam('This', name, True)
-                if kwargs['writable']:
+                if 'write' in attributes:
                     setter_name = F'Set{sig.name}'
                     setter_args = (this, *parameters, IFPSParam('Value', sig.return_type, True))
                     setter = IFPSSignature(setter_name, 'setter', setter_args, None, True)
                     members[setter_name] = setter
-                if kwargs['readable']:
+                if 'read' in attributes:
                     if not sig.return_type or sig.void:
                         raise RuntimeError(F'Readable property {sig.name} had no type.')
                     getter_name = F'Get{sig.name}'

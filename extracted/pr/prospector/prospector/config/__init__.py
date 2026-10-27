@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable
 
 import setoptconf.config
 
@@ -32,7 +34,7 @@ class ProspectorConfig:
     # Also the 'too many instance attributes' warning is ignored, as this
     # is a config object and its sole purpose is to hold many properties!
 
-    def __init__(self, workdir: Optional[Path] = None):
+    def __init__(self, workdir: Path | None = None):
         self.config, self.arguments = self._configure_prospector()
         self.paths = self._get_work_path(self.config, self.arguments)
         self.explicit_file_mode = all(p.is_file for p in self.paths)
@@ -42,7 +44,7 @@ class ProspectorConfig:
         self.libraries = self._find_used_libraries(self.config, self.profile)
         self.tools_to_run = self._determine_tool_runners(self.config, self.profile)
         self.ignores = self._determine_ignores(self.config, self.profile, self.libraries)
-        self.configured_by: dict[str, Optional[Union[str, Path]]] = {}
+        self.configured_by: dict[str, str | Path | None] = {}
         self.messages: list[Message] = []
 
     def make_exclusion_filter(self) -> Callable[[Path], bool]:
@@ -53,16 +55,19 @@ class ProspectorConfig:
         ignores, workdir = self.ignores, self.workdir
 
         def _filter(path: Path) -> bool:
-            for ignore in ignores:
-                # first figure out where the path is, relative to the workdir
-                # ignore-paths/patterns will usually be relative to a repository
-                # root or the CWD, but the path passed to prospector may not be
-                path = path.resolve().absolute()
-                if is_relative_to(path, workdir):
-                    path = path.relative_to(workdir)
-                if ignore.match(str(path)):
-                    return True
-            return False
+            # first figure out where the path is, relative to the workdir
+            # ignore-paths/patterns will usually be relative to a repository
+            # root or the CWD, but the path passed to prospector may not be.
+            # A symlink is matched under its own name as well as its target,
+            # since users expect to be able to ignore the link they can see.
+            candidates = []
+            for candidate in (path.absolute(), path.resolve().absolute()):
+                if is_relative_to(candidate, workdir):
+                    candidate = candidate.relative_to(workdir)
+                if candidate not in candidates:
+                    candidates.append(candidate)
+
+            return any(ignore.match(str(candidate)) for ignore in ignores for candidate in candidates)
 
         return _filter
 
@@ -130,7 +135,7 @@ class ProspectorConfig:
 
     def _get_profile(
         self, workdir: Path, config: setoptconf.config.Configuration
-    ) -> tuple[ProspectorProfile, Optional[str]]:
+    ) -> tuple[ProspectorProfile, str | None]:
         # Use the specified profiles
         profile_provided = False
         if len(config.profiles) > 0:
@@ -139,7 +144,7 @@ class ProspectorConfig:
 
         # if there is a '.prospector.ya?ml' or a '.prospector/prospector.ya?ml' or equivalent landscape config
         # file then we'll include that
-        profile_name: Union[None, str, Path] = None
+        profile_name: None | str | Path = None
         if not profile_provided:
             for possible_profile in AUTO_LOADED_PROFILES:
                 prospector_yaml = os.path.join(workdir, possible_profile)
@@ -222,12 +227,11 @@ Search path: {search_path}, or in module 'prospector_profile_{module_name}'
             return profile, strictness
 
     def _find_used_libraries(self, config: setoptconf.config.Configuration, profile: ProspectorProfile) -> list[str]:
-        libraries = []
+        libraries: list[str] = []
 
         # Bring in adaptors that we automatically detect are needed
         if config.autodetect and profile.autodetect is True:
-            for found_dep in autodetect_libraries(self.workdir):
-                libraries.append(found_dep)
+            libraries.extend(autodetect_libraries(self.workdir))
 
         # Bring in adaptors for the specified libraries
         for name in set(config.uses + profile.uses):
@@ -267,7 +271,7 @@ Search path: {search_path}, or in module 'prospector_profile_{module_name}'
                 # remove it from the list to run
                 to_run.remove(tool)
 
-        return sorted(list(to_run))
+        return sorted(to_run)
 
     def _determine_ignores(
         self, config: setoptconf.config.Configuration, profile: ProspectorProfile, libraries: list[str]
@@ -288,7 +292,7 @@ Search path: {search_path}, or in module 'prospector_profile_{module_name}'
         boundary = r"(^|/|\\)%s(/|\\|$)"
         for ignore_path in config.ignore_paths + profile.ignore_paths:
             ignore_path = str(ignore_path)
-            if ignore_path.endswith("/") or ignore_path.endswith("\\"):
+            if ignore_path.endswith(("/", "\\")):
                 ignore_path = ignore_path[:-1]
             ignores.append(re.compile(boundary % re.escape(ignore_path)))
 
@@ -326,7 +330,7 @@ Search path: {search_path}, or in module 'prospector_profile_{module_name}'
             return {}
         return tool.get("options", {})
 
-    def external_config_location(self, tool_name: str) -> Optional[Path]:
+    def external_config_location(self, tool_name: str) -> Path | None:
         return getattr(self.config, f"{tool_name}_config_file", None)
 
     @property

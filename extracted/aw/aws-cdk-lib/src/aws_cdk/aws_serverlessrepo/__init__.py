@@ -203,6 +203,7 @@ class CfnApplication(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -261,7 +262,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc8c3f552a7438c21eafef8b0e43abecebdd5821ba5ca507ac5da374e39b8d34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "author", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "author", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -274,7 +275,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9910b85b41a651c7376a10ea4ad990585535596a1af34d42c7b28caf817e5db1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -287,7 +288,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96ac8ae4a03288f1d108f3b920e712963af2f9842ddc0258307e5c02716528d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="homePageUrl")
@@ -300,7 +301,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9491193b759a5c867754a2fca2d1fa86ac9fec2ef02f3773ce8fa76fb81a4c4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "homePageUrl", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "homePageUrl", value)
 
     @builtins.property
     @jsii.member(jsii_name="labels")
@@ -313,7 +314,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eabdf636bbe95db771d1011ca34b92b42aadd3c258b46b55816a2f1c8d5f4405)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "labels", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "labels", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseBody")
@@ -326,7 +327,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0dd114d6a7c8c90fbafb5fe5325822a2e7c6c2f329a4bb94e6388d862e7225a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseBody", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseBody", value)
 
     @builtins.property
     @jsii.member(jsii_name="readmeBody")
@@ -339,7 +340,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d82d24714ae68bc3ff62f053ad913f853ea3efe34071a4da052ea59f779d74a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "readmeBody", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "readmeBody", value)
 
     @builtins.property
     @jsii.member(jsii_name="semanticVersion")
@@ -352,7 +353,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__893f570a5570e775fb89a26dc4bbcd48eabd6365a61eeb01fe8b85d73fa27531)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "semanticVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "semanticVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceCodeUrl")
@@ -365,7 +366,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__44adbd938bbc00c80db2841716fb0cbd589da0203b73dc67138de1bece5baea2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceCodeUrl", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceCodeUrl", value)
 
     @builtins.property
     @jsii.member(jsii_name="spdxLicenseId")
@@ -378,7 +379,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2131f87db6f45bf5f24176cf5b4889472409e25f7ce08856d75361c8824571ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "spdxLicenseId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "spdxLicenseId", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateBody")
@@ -391,7 +392,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ee4001d68a2d0805a28aace5df34f7a5db7072caee34d1de63db4cf2550a136)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateBody", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateBody", value)
 
 
 @jsii.data_type(

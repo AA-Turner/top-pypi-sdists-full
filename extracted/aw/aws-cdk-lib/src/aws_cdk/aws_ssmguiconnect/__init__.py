@@ -169,6 +169,7 @@ class CfnPreferences(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -214,7 +215,7 @@ class CfnPreferences(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9c66582ef0ec82c9acb896e156d048eb1944403cdb814f8c249895be7c4d8043)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionRecordingPreferences", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionRecordingPreferences", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ssmguiconnect.CfnPreferences.ConnectionRecordingPreferencesProperty",

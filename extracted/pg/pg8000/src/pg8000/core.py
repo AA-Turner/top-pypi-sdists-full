@@ -18,7 +18,6 @@ from pg8000.converters import (
 )
 from pg8000.exceptions import DatabaseError, InterfaceError
 
-
 ver = version("pg8000")
 
 
@@ -214,7 +213,6 @@ def _make_socket(
     else:
         raise InterfaceError("one of host, sock or unix_sock must be provided")
 
-    channel_binding = None
     if orig_ssl_context is not False:
         try:
             import ssl
@@ -232,9 +230,6 @@ def _make_socket(
             resp = sock.recv(1).decode("ascii")
             if resp == "S":
                 sock = ssl_context.wrap_socket(sock, server_hostname=host)
-                channel_binding = scramp.make_channel_binding(
-                    "tls-server-end-point", sock
-                )
             elif orig_ssl_context is not None:
                 if sock is not None:
                     sock.close()
@@ -242,10 +237,9 @@ def _make_socket(
 
         except ImportError:
             raise InterfaceError(
-                "SSL required but ssl module not available in this python "
-                "installation."
+                "SSL required but ssl module not available in this python installation."
             )
-    return channel_binding, sock
+    return sock
 
 
 class CoreConnection:
@@ -325,7 +319,7 @@ class CoreConnection:
 
         self._caches = {}
 
-        self.channel_binding, self._usock = _make_socket(
+        self._usock = _make_socket(
             unix_sock,
             sock,
             host,
@@ -595,12 +589,21 @@ class CoreConnection:
         elif auth_code == 10:
             # AuthenticationSASL
             mechanisms = [m.decode("ascii") for m in data[4:-2].split(NULL_BYTE)]
+            channel_binding = None
+            try:
+                from ssl import SSLSocket
+
+                if isinstance(self._usock, SSLSocket):
+                    channel_binding = "tls-server-end-point", self._usock
+
+            except ImportError:
+                pass
 
             self.auth = scramp.ScramClient(
                 mechanisms,
                 self.user.decode("utf8"),
                 self.password.decode("utf8"),
-                channel_binding=self.channel_binding,
+                channel_binding=channel_binding,
             )
 
             init = self.auth.get_client_first().encode("utf8")
@@ -859,8 +862,9 @@ class CoreConnection:
 
     def handle_PARAMETER_STATUS(self, data, context):
         pos = data.find(NULL_BYTE)
-        key, value = data[:pos].decode("ascii"), data[pos + 1 : -1].decode(
-            self._client_encoding
+        key, value = (
+            data[:pos].decode("ascii"),
+            data[pos + 1 : -1].decode(self._client_encoding),
         )
         self.parameter_statuses[key] = value
         if key == "client_encoding":

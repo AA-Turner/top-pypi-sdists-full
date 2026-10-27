@@ -198,6 +198,7 @@ class CfnTunnel(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -264,7 +265,7 @@ class CfnTunnel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__93cb9a326430a7dea1d996fcc0cb9946a8491062ca58889fbad511da7a5ceba7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="destinationConfig")
@@ -282,7 +283,7 @@ class CfnTunnel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__83251b635e4dd34ebc503bd1e88bc786f6fca7983e8c1ec26cdd12e213dd6f88)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "destinationConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "destinationConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -298,7 +299,7 @@ class CfnTunnel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eaf5fe1414c62b6af9b1c4dbb6af35b4ba0a08863ded6cf2937942d4aafad9c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="timeoutConfig")
@@ -316,7 +317,7 @@ class CfnTunnel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7335f4f23e532c657805ee877131847c988fe2b97db19094ded741c507fe4fe9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeoutConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "timeoutConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotsecuretunneling.CfnTunnel.DestinationConfigProperty",

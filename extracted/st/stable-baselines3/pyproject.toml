@@ -36,7 +36,7 @@ exclude = """(?x)(
 
 [tool.pytest.ini_options]
 # Deterministic ordering for tests; useful for pytest-xdist.
-env = ["PYTHONHASHSEED=0"]
+# env = ["PYTHONHASHSEED=0"]
 
 filterwarnings = [
     # multiprocessing and fork method, use of fork may lead to deadlocks
@@ -45,6 +45,8 @@ filterwarnings = [
     "ignore:You are trying to run (PPO|A2C) on the GPU",
     # Tensorboard warnings
     "ignore::DeprecationWarning:tensorboard",
+    # Torch tensorboard numpy newshape deprecation
+    "ignore:`newshape` keyword argument is deprecated:DeprecationWarning:torch.utils.tensorboard._utils",
     # Gymnasium warnings
     "ignore::UserWarning:gymnasium",
     # Taxi-v3 and CliffWalking-v0

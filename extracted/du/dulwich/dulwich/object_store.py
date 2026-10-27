@@ -2402,9 +2402,14 @@ class DiskObjectStore(PackBasedObjectStore):
                 delta_iter=indexer,  # type: ignore[arg-type]
             )
             copier.verify(progress=progress)
-            entries, ext_refs = self._index_pack(
-                indexer, len(copier), progress=progress
-            )
+            f.flush()
+            f.seek(0)
+            # Index from a mapping as add_pack does. Unmapped before completion.
+            with PackData(path, file=f, object_format=self.object_format) as pd:
+                indexer.set_pack_data(pd)
+                entries, ext_refs = self._index_pack(
+                    indexer, len(copier), progress=progress
+                )
             return self._complete_pack(f, path, entries, ext_refs, progress=progress)
 
     def add_pack(
@@ -3073,6 +3078,8 @@ class MemoryObjectStore(PackCapableObjectStore):
         read_all: Callable[[int], bytes],
         read_some: Callable[[int], bytes] | None,
         progress: Callable[[str], None] | None = None,
+        *,
+        max_input_size: int | None = None,
     ) -> None:
         """Add a new thin pack to this object store.
 
@@ -3086,7 +3093,16 @@ class MemoryObjectStore(PackCapableObjectStore):
           read_some: Read function that returns at least one byte, but may
             not return the number of bytes requested.
           progress: Optional progress reporting function.
+          max_input_size: Maximum number of bytes that may be read from
+            the wire while ingesting this pack. ``None`` (the default) or
+            ``0`` mean unlimited. Exceeding the cap raises
+            ``PackInputTooLarge``.
         """
+        if max_input_size:
+            read_all, read_some = _bound_read_callables(
+                read_all, read_some, max_input_size
+            )
+
         f, commit, abort = self.add_pack()
         try:
             copier = PackStreamCopier(
@@ -3348,26 +3364,31 @@ class MissingObjectFinder:
                 break
         if not leaf:
             o = self.object_store[sha]
-            if isinstance(o, Commit):
-                self.add_todo([(o.tree, b"", Tree.type_num, False)])
-            elif isinstance(o, Tree):
-                todos = []
-                for n, m, s in o.iteritems():
-                    assert m is not None
-                    assert n is not None
-                    assert s is not None
-                    if not S_ISGITLINK(m):
-                        todos.append(
-                            (
-                                s,
-                                n,
-                                (Blob.type_num if stat.S_ISREG(m) else Tree.type_num),
-                                not stat.S_ISDIR(m),
+            match o:
+                case Commit():
+                    self.add_todo([(o.tree, b"", Tree.type_num, False)])
+                case Tree():
+                    todos = []
+                    for n, m, s in o.iteritems():
+                        assert m is not None
+                        assert n is not None
+                        assert s is not None
+                        if not S_ISGITLINK(m):
+                            todos.append(
+                                (
+                                    s,
+                                    n,
+                                    (
+                                        Blob.type_num
+                                        if stat.S_ISREG(m)
+                                        else Tree.type_num
+                                    ),
+                                    not stat.S_ISDIR(m),
+                                )
                             )
-                        )
-                self.add_todo(todos)
-            elif isinstance(o, Tag):
-                self.add_todo([(o.object[1], None, o.object[0].type_num, False)])
+                    self.add_todo(todos)
+                case Tag():
+                    self.add_todo([(o.object[1], None, o.object[0].type_num, False)])
         if sha in self._tagged:
             self.add_todo([(self._tagged[sha], None, None, True)])
         self.sha_done.add(sha)

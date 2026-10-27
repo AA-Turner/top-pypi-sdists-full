@@ -211,6 +211,7 @@ class CfnInferenceScheduler(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -259,7 +260,7 @@ class CfnInferenceScheduler(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__365227ca843708d7c47c792c213d2cf21692d23134869ca543b029247bf2ef2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataInputConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataInputConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataOutputConfiguration")
@@ -272,7 +273,7 @@ class CfnInferenceScheduler(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9165239b8915d35741f44b361fc821a999bdb47130cb43a27d8cf09f80f712a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataOutputConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataOutputConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataUploadFrequency")
@@ -285,7 +286,7 @@ class CfnInferenceScheduler(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7807715afa3cbca8ca90a4959b2c5fe9277473776b971e9386384ebb3f0ac5e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataUploadFrequency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataUploadFrequency", value)
 
     @builtins.property
     @jsii.member(jsii_name="modelName")
@@ -298,7 +299,7 @@ class CfnInferenceScheduler(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e1573f2d4c90172f8eb332e09ebb677ffb64763843b7164c7a5c3c70bcdd0f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modelName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "modelName", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -311,7 +312,7 @@ class CfnInferenceScheduler(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0479b578a7facaebce13530dc4c25c978346cee11e72827f75e578d396dba957)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataDelayOffsetInMinutes")
@@ -324,7 +325,7 @@ class CfnInferenceScheduler(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__82e82307e3000a456cab9994d90efec36e0e6aed0e2a4157f70d5e09344b4fea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataDelayOffsetInMinutes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataDelayOffsetInMinutes", value)
 
     @builtins.property
     @jsii.member(jsii_name="inferenceSchedulerName")
@@ -337,7 +338,7 @@ class CfnInferenceScheduler(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d0cfd81055598a083475d35cfb84b12604f5d3a3a6635cfbf2bf13502f6eccd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inferenceSchedulerName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "inferenceSchedulerName", value)
 
     @builtins.property
     @jsii.member(jsii_name="serverSideKmsKeyId")
@@ -350,7 +351,7 @@ class CfnInferenceScheduler(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__04be4969945d95ed9e9d10a45a44a3433d46cc54ff5d3bf1b5a345fdff17b9b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serverSideKmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serverSideKmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -366,7 +367,7 @@ class CfnInferenceScheduler(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1cecca5c973b2c7607351e4c566be545c3f3776bb96c66814d141f60e64f10e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lookoutequipment.CfnInferenceScheduler.DataInputConfigurationProperty",

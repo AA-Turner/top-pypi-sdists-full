@@ -42,46 +42,43 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def _get_bert_embeddings(class_names: List[str]) -> Optional[np.ndarray]:
+def _get_bert_embeddings(class_names: List[str]) -> np.ndarray:
     """Get BERT embeddings for a list of strings via the Featrix string server.
 
-    Returns an (N, 384) numpy array, or None on failure.
+    Returns an (N, 384) numpy array. Raises RuntimeError when the Featrix
+    server library is not installed (it is not part of the featrixsphere pip
+    package) or the string server returns no embedding.
     """
+    # Optional dependency: the server-side neural library, present on Featrix
+    # nodes / a repo checkout with src/lib on PYTHONPATH, absent from a pip
+    # install. Imported here so the rest of label_utils (mapping mode) works
+    # without it.
     try:
-        import sys
-        import os
-
-        # Try the installed neural lib first, fall back to src/lib path
-        try:
-            from featrix.neural.simple_string_cache import SimpleStringCache
-        except ImportError:
-            # Running from repo root — add src/lib to path
-            repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            for subdir in ("src/lib", "src"):
-                p = os.path.join(repo_root, subdir)
-                if p not in sys.path:
-                    sys.path.insert(0, p)
-            from featrix.neural.simple_string_cache import SimpleStringCache
-
+        from featrix.neural.simple_string_cache import SimpleStringCache
         import torch
+    except ImportError as exc:
+        raise RuntimeError(
+            "Automatic label similarity (threshold / desired_label_count) needs the "
+            "Featrix server library (featrix.neural), which the featrixsphere pip "
+            "package does not include. Pass an explicit mapping={old: new} to "
+            "collapse_similar_labels(), or let the server collapse labels with "
+            "auto_collapse_synonyms=True or label_mapping= on create_*_classifier()."
+        ) from exc
 
-        cache = SimpleStringCache(initial_values=class_names, debugName="label_utils")
-        raw = cache.get_embeddings_batch(class_names)
+    cache = SimpleStringCache(initial_values=class_names, debugName="label_utils")
+    raw = cache.get_embeddings_batch(class_names)
 
-        vectors = []
-        for emb in raw:
-            if emb is None:
-                return None
-            if isinstance(emb, torch.Tensor):
-                emb = emb.cpu().numpy()
-            elif isinstance(emb, list):
-                emb = np.array(emb, dtype=np.float32)
-            vectors.append(emb)
+    vectors = []
+    for name, emb in zip(class_names, raw):
+        if emb is None:
+            raise RuntimeError(f"String server returned no embedding for label {name!r}")
+        if isinstance(emb, torch.Tensor):
+            emb = emb.cpu().numpy()
+        elif isinstance(emb, list):
+            emb = np.array(emb, dtype=np.float32)
+        vectors.append(emb)
 
-        return np.array(vectors, dtype=np.float32)
-    except Exception as exc:
-        logger.warning("Could not fetch BERT embeddings: %s", exc)
-        return None
+    return np.array(vectors, dtype=np.float32)
 
 
 def _cosine_similarity_matrix(embeddings: np.ndarray) -> np.ndarray:
@@ -264,11 +261,6 @@ def find_similar_labels(
 
     # Get BERT embeddings
     embeddings = _get_bert_embeddings(unique_classes)
-    if embeddings is None:
-        raise RuntimeError(
-            "Could not get BERT embeddings from string server. "
-            "Ensure the Featrix string server is reachable."
-        )
 
     sim_matrix = _cosine_similarity_matrix(embeddings)
 
@@ -347,8 +339,9 @@ def collapse_similar_labels(
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """Discover and apply label collapsing to a DataFrame column.
 
-    Combines discovery and application in one call. The DataFrame is
-    modified **in-place** by default (set ``inplace=False`` to get a copy).
+    Combines discovery and application in one call. By default the input
+    DataFrame is left untouched and a modified copy is returned (set
+    ``inplace=True`` to modify *df* in place).
 
     Args:
         df: DataFrame containing the label column.

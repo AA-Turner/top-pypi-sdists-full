@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -73,18 +74,47 @@ def test_an_update_for_several_agents_upgrades_the_cli_and_pi_once(one_update):
     assert all(outcome.ok for outcome in outcomes.values())
 
 
-def test_a_live_run_defers_every_agents_update(one_update, monkeypatch):
+@pytest.mark.parametrize(
+    ("deferred_for", "forced", "updates"),
+    [
+        (None, None, False),  # a run that just started
+        (60, None, False),
+        # Without a service, a day of runs is the limit, as the service's (C3).
+        (24 * 3600 + 60, None, True),
+        # The service decided to go past a run (D33) ...
+        (None, "run_in_flight", True),
+        # ... or past a setup only (C1): that is no decision about a run.
+        (None, "setup_running", False),
+    ],
+)
+def test_a_live_run_defers_every_agents_update_for_a_day_at_most(
+    one_update, monkeypatch, tmp_path, deferred_for, forced, updates
+):
+    import time
+
+    from probe import version_policy
     from probe.cli import autoupdate, run_lock, update_report
 
+    for name, sub in (("HOME", "home"), ("XDG_STATE_HOME", "state"), ("XDG_CONFIG_HOME", "config"),
+                      ("CLAUDE_CONFIG_DIR", "claude"), ("CODEX_HOME", "codex"), ("PI_CODING_AGENT_DIR", "pi")):
+        monkeypatch.setenv(name, str(tmp_path / sub))
     monkeypatch.setattr(run_lock, "any_live", lambda: True)
-    monkeypatch.setattr(autoupdate, "record_skip", lambda *a, **k: None)
     monkeypatch.setattr(update_report, "flush", lambda *a, **k: None)
-    monkeypatch.delenv(upgrading.FORCED_ENV, raising=False)
+    if forced:
+        monkeypatch.setenv(upgrading.FORCED_ENV, forced)
+    else:
+        monkeypatch.delenv(upgrading.FORCED_ENV, raising=False)
+    if deferred_for is not None:  # runs held it off since then, the latest a minute ago
+        version_policy.atomic_write_json(version_policy.state_path(), {
+            autoupdate.RUN_DEFERRED_SINCE_KEY: time.time() - deferred_for,
+            autoupdate.RUN_DEFERRED_LAST_KEY: time.time() - 60,
+        })
 
     outcomes = upgrading.perform_updates(["claude_code", "codex"], base_url="https://x")
 
-    assert one_update["cli"] == [] and one_update["plugins"] == []
-    assert all("deferred" in outcome.lines[0] for outcome in outcomes.values())
+    ran = (len(one_update["cli"]), sorted(one_update["plugins"]))
+    assert ran == ((1, ["claude_code", "codex"]) if updates else (0, []))
+    assert all(("deferred" in outcome.lines[0]) is not updates for outcome in outcomes.values())
 
 
 def test_the_install_batch_installs_each_agents_plugins_with_its_refresh(monkeypatch):
@@ -167,11 +197,12 @@ def test_kimi_is_asked_its_version_once_per_binary(monkeypatch, tmp_path):
     assert kimi_config.kimi_version() != first and len(asked) == 2
 
 
-def test_a_pass_that_raises_still_lets_the_others_be_recorded(one_update, monkeypatch):
+def test_a_pass_that_raises_fails_only_its_own_agent(one_update, monkeypatch):
     """The CLI moved and Claude Code's plugins too: those are recorded (the
-    only failure record a detached update writes) before the error rises, and
-    the pass that raised is recorded as the failure, so the run's merged
-    record and report do not say ok."""
+    only failure record a detached update writes) and answered ok, and the
+    pass that raised is recorded and answered as the failure, so the run's
+    merged record and report do not say ok. Nothing rises (plan A3, I7): the
+    update's other steps (the wizard's registration, its summary) go on."""
     from probe.cli import autoupdate, update_report
 
     recorded: list[tuple[str | None, autoupdate.Attempt]] = []
@@ -186,14 +217,232 @@ def test_a_pass_that_raises_still_lets_the_others_be_recorded(one_update, monkey
         raise RuntimeError("codex exploded")
 
     monkeypatch.setattr(updater, "update_codex_plugins", broken)
-    with pytest.raises(RuntimeError, match="codex exploded"):
-        upgrading.perform_updates(["claude_code", "codex"], base_url="https://x")
+    outcomes = upgrading.perform_updates(["claude_code", "codex"], base_url="https://x")
+    assert outcomes["claude_code"].ok and not outcomes["codex"].ok
+    assert any("codex exploded" in line for line in outcomes["codex"].lines)
+    assert any("codex exploded" in problem for problem in outcomes["codex"].problems)
     assert [agent for agent, _ in recorded] == ["Claude Code", "Codex"]
     merged = autoupdate.merge_attempts(recorded)
     assert not merged.plugin_ok and "codex exploded" in merged.plugin_detail
     report = update_report.merge_passes(reports)
     assert report["outcome"] == "failed"
     assert report["plugin"]["result"] == "error" and "codex exploded" in report["plugin"]["detail"]
+
+
+@pytest.fixture
+def short_deadline(monkeypatch):
+    """Each component's deadline (plan A3) cut to half a second; a hung
+    component's thread is let go when the test ends."""
+    monkeypatch.setenv(upgrading.COMPONENT_DEADLINE_ENV, "0.5")
+    release = threading.Event()
+    yield release
+    release.set()
+
+
+def _recording(monkeypatch):
+    from probe.cli import autoupdate
+
+    recorded: list = []
+    reports: list[dict] = []
+    monkeypatch.setattr(autoupdate, "record_attempt", lambda attempt, agent=None: recorded.append((agent, attempt)))
+    monkeypatch.setattr(upgrading, "_report_attempt", lambda build, **k: reports.append(build()))
+    return recorded, reports
+
+
+def test_a_hung_agent_fails_alone_at_its_deadline(one_update, monkeypatch, short_deadline):
+    """Codex's plugin step hangs (`codex plugin list` that never answers):
+    at its deadline it is failed and left running; the CLI's step and Claude
+    Code's finish, and every pass is recorded and reported."""
+    from probe.cli import update_report
+
+    recorded, reports = _recording(monkeypatch)
+    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr(updater, "update_codex_plugins", lambda *a: short_deadline.wait(30) and _plugin_result("codex"))
+
+    outcomes = upgrading.perform_updates(["claude_code", "codex"], base_url="https://x")
+
+    assert outcomes["claude_code"].ok and not outcomes["codex"].ok
+    assert any("did not finish within 0.5 s" in line for line in outcomes["codex"].lines)
+    assert len(one_update["cli"]) == 1 and len(one_update["pi"]) == 1
+    assert [agent for agent, _ in recorded] == ["Claude Code", "Codex"]
+    report = update_report.merge_passes(reports)
+    assert report["outcome"] == "failed" and report["plugin"]["result"] == "error"
+    assert "did not finish" in report["plugin"]["detail"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="process groups")
+def test_a_component_past_its_deadline_has_its_processes_stopped(one_update, monkeypatch, short_deadline, tmp_path):
+    """Codex's step hangs inside `codex plugin list`: at the deadline that
+    process's whole group is killed, and the step starts nothing more -- it
+    must not go on changing plugins after the update has moved on."""
+    from probe.cli import claude_cli
+
+    _recording(monkeypatch)
+    pidfile = tmp_path / "pid"
+    after: list = []
+
+    def hung_codex(*_args):
+        try:
+            claude_cli.capture(["sh", "-c", f"echo $$ > {pidfile}; exec sleep 30"], timeout=60)
+        except OSError as exc:
+            after.append(exc)
+        try:
+            claude_cli.capture(["true"], timeout=5)
+        except claude_cli.StoppedError as exc:
+            after.append(exc)
+        return _plugin_result("codex")
+
+    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr(updater, "update_codex_plugins", hung_codex)
+    outcomes = upgrading.perform_updates(["claude_code", "codex"], base_url="https://x")
+
+    assert not outcomes["codex"].ok and any("was stopped (1 process)" in line for line in outcomes["codex"].lines)
+    pid = int(pidfile.read_text())
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and len(after) < 2:
+        time.sleep(0.05)
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)
+    assert [type(exc) for exc in after] == [claude_cli.StoppedError, claude_cli.StoppedError]
+
+
+_SIGNALLED_UPDATE = """
+import sys
+from pathlib import Path
+
+from probe.cli import claude_cli, updater, upgrading
+
+out = Path(sys.argv[1])
+updater.fetch_latest = lambda base: {}
+updater.detect_install = lambda: updater.Install(updater.Method.EDITABLE)
+upgrading._update_pi_package = lambda: upgrading._PiUpdate([])
+upgrading._report_attempt = lambda *a, **k: None
+
+
+def hung(name):
+    def run(*_args):
+        claude_cli.capture(["sh", "-c", f"echo $$ > {out / name}; exec sleep 60"], timeout=120)
+        return updater.PluginResult(True, True, False, "1", "1", "ok")
+    return run
+
+
+updater.update_plugin = hung("claude")
+updater.update_codex_plugins = hung("codex")
+upgrading.perform_updates(["claude_code", "codex"], base_url="https://x")
+"""
+
+
+@pytest.mark.skipif(os.name == "nt", reason="process groups and POSIX signals")
+@pytest.mark.parametrize("sig", ["SIGINT", "SIGTERM"])
+def test_ctrl_c_or_the_services_sigterm_leaves_no_tracked_process(tmp_path, sig):
+    """Each agent's CLI runs in a session of its own (so its deadline can stop
+    its whole group), out of reach of a signal to the update's group: Ctrl-C
+    in a terminal, or the service's SIGTERM to its update child's group. The
+    update stops them itself on the way out."""
+    import signal
+    import subprocess
+    import sys
+
+    from probe._shared import handoff
+
+    script = tmp_path / "update.py"
+    script.write_text(_SIGNALLED_UPDATE)
+    update = subprocess.Popen([sys.executable, str(script), str(tmp_path)], start_new_session=True,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    try:
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline and not all((tmp_path / n).exists() for n in ("claude", "codex")):
+            assert update.poll() is None, update.stderr.read()
+            time.sleep(0.05)
+        pids = [int((tmp_path / name).read_text()) for name in ("claude", "codex")]
+        assert all(handoff.proc_start(pid) for pid in pids)
+        os.killpg(update.pid, getattr(signal, sig))
+        update.wait(30)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and any(handoff.proc_start(pid) for pid in pids):
+            time.sleep(0.05)
+        assert not any(handoff.proc_start(pid) for pid in pids), "a tracked process outlived the update"
+    finally:
+        if update.poll() is None:
+            update.kill()
+        for name in ("claude", "codex"):
+            with __import__("contextlib").suppress(Exception):
+                os.kill(int((tmp_path / name).read_text()), 9)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX signals")
+def test_the_wait_leaves_an_existing_handler_alone_and_puts_the_default_back():
+    """A handler someone set (the json session's `events._stop`) is theirs:
+    left as it is. A default SIGTERM gets the wait's own handler, which
+    ignores a second signal while the update stops, and the default is put
+    back after the wait."""
+    import signal
+
+    def theirs(*_args):
+        pass
+
+    previous = signal.signal(signal.SIGHUP, theirs)
+    term = signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    try:
+        with upgrading._stopped_with_the_update([]):
+            assert signal.getsignal(signal.SIGHUP) is theirs
+            assert signal.getsignal(signal.SIGTERM) is upgrading._exit_on_signal
+            with pytest.raises(SystemExit) as stopped:
+                upgrading._exit_on_signal(signal.SIGTERM, None)
+            assert stopped.value.code == 128 + signal.SIGTERM
+            assert signal.getsignal(signal.SIGTERM) is signal.SIG_IGN  # a second one waits its turn
+            assert signal.getsignal(signal.SIGHUP) is theirs
+        assert signal.getsignal(signal.SIGTERM) is signal.SIG_DFL
+        assert signal.getsignal(signal.SIGHUP) is theirs
+    finally:
+        signal.signal(signal.SIGHUP, previous)
+        signal.signal(signal.SIGTERM, term)
+
+
+def test_a_single_agent_update_whose_plugins_raise_still_answers(one_update, monkeypatch, short_deadline):
+    """`perform_update` (one agent): its plugin step raising is that step's
+    failure, recorded; the update answers instead of raising."""
+    recorded, _reports = _recording(monkeypatch)
+    monkeypatch.setattr(upgrading, "agent_source", lambda: "claude_code")
+
+    def broken(*_args):
+        raise RuntimeError("claude exploded")
+
+    monkeypatch.setattr(updater, "update_plugin", broken)
+    outcome = upgrading.perform_update(base_url="https://x")
+    assert not outcome.ok and any("claude exploded" in line for line in outcome.lines)
+    assert one_update["cli"] and recorded and not recorded[-1][1].plugin_ok
+
+
+@pytest.mark.parametrize("how", ["raises", "hangs"])
+def test_pi_failing_or_hanging_fails_only_pis_step(one_update, monkeypatch, short_deadline, how):
+    """pi's package step used to run unguarded in the shared prelude: one that
+    raised ended the whole update, one that hung held it. Now it is pi's step
+    that fails (owed, so pi's next start tries again); the CLI's step and the
+    agents' plugins finish."""
+    from probe.cli import autoupdate
+
+    _recording(monkeypatch)
+    owed: list[bool] = []
+    monkeypatch.setattr(autoupdate, "mark_pi_update_pending", lambda pending: owed.append(pending))
+    monkeypatch.setattr(updater, "update_plugin", lambda *a: _plugin_result("claude_code"))
+    monkeypatch.setattr(updater, "update_codex_plugins", lambda *a: _plugin_result("codex"))
+
+    def pi():
+        if how == "raises":
+            raise OSError("npm exploded")
+        short_deadline.wait(30)
+        return upgrading._PiUpdate(["pi current"])
+
+    monkeypatch.setattr(upgrading, "_update_pi_package", pi)
+    outcomes = upgrading.perform_updates(["claude_code", "codex", "pi"], base_url="https://x")
+
+    reason = "npm exploded" if how == "raises" else "did not finish within 0.5 s"
+    assert any(reason in line for line in outcomes["pi"].lines)
+    assert not outcomes["pi"].ok and owed == [True]
+    assert one_update["cli"]
+    for source in ("claude_code", "codex"):
+        assert any(f"{source} current" in line for line in outcomes[source].lines)
 
 
 def test_a_failed_cli_upgrade_is_named_on_every_agents_answer(one_update, monkeypatch):

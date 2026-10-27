@@ -28,14 +28,12 @@ from lib_log_rich.adapters import GraylogAdapter, QueueAdapter, RegexScrubber
 from lib_log_rich.application import ProcessPipelineDependencies
 from lib_log_rich.application.use_cases.process_event import create_process_log_event
 from lib_log_rich.application.use_cases.shutdown import create_flush, create_shutdown
-from lib_log_rich.domain import ContextBinder, LogEvent, LogLevel, RingBuffer, SeverityMonitor
+from lib_log_rich.domain import ContextBinder, DropReason, LogEvent, LogLevel, RingBuffer, SeverityMonitor
 
 from ._factories import (
-    LoggerProxy,
     SystemClock,
     SystemIdentityProvider,
     UuidProvider,
-    coerce_level,
     compute_thresholds,
     create_console,
     create_dump_renderer,
@@ -59,20 +57,21 @@ if TYPE_CHECKING:
         StructuredBackendPort,
         SystemIdentityPort,
     )
-    from lib_log_rich.application.use_cases._types import FanOutCallable, ProcessCallable
+    from lib_log_rich.application.use_cases._types import ProcessCallable
+    from lib_log_rich.application.use_cases.dump import CaptureDump
     from lib_log_rich.domain.enums import QueuePolicy
 
-    from ._settings import DiagnosticHook, PayloadLimits, RuntimeSettings
+    from .settings import DiagnosticHook, PayloadLimits, RuntimeSettings
 
-DROP_REASON_LABELS: tuple[str, str, str] = (
-    "rate_limited",
-    "queue_full",
-    "adapter_error",
+DROP_REASON_LABELS: tuple[DropReason, ...] = (
+    DropReason.RATE_LIMITED,
+    DropReason.QUEUE_FULL,
+    DropReason.ADAPTER_ERROR,
 )
 """Stable drop-reason labels shared with docs/systemdesign/module_reference.md."""
 
 
-__all__ = ["LoggerProxy", "build_runtime", "coerce_level"]
+__all__ = ["build_runtime"]
 
 
 def build_runtime(settings: RuntimeSettings) -> LoggingRuntime:
@@ -113,7 +112,11 @@ def _prepare_runtime_ingredients(settings: RuntimeSettings) -> _RuntimeIngredien
     identity_provider = SystemIdentityProvider()
     binder = create_runtime_binder(settings.service, settings.environment, identity_provider)
     severity_monitor = _create_severity_monitor()
-    ring_buffer = create_ring_buffer(enabled=settings.flags.ring_buffer, size=settings.ring_buffer_size)
+    ring_buffer = create_ring_buffer(
+        enabled=settings.flags.ring_buffer,
+        size=settings.ring_buffer_size,
+        checkpoint=settings.ring_buffer_checkpoint,
+    )
     console = _select_console_adapter(settings)
     structured_backends = create_structured_backends(settings.flags)
     graylog_adapter = create_graylog_adapter(settings.graylog)
@@ -195,7 +198,7 @@ def _require_console_port(adapter: object) -> ConsolePort:
     return cast("ConsolePort", adapter)
 
 
-def _create_dump_capture(ring_buffer: RingBuffer, settings: RuntimeSettings) -> Callable[..., str]:
+def _create_dump_capture(ring_buffer: RingBuffer, settings: RuntimeSettings) -> CaptureDump:
     """Bind dump collaborators into the runtime capture callable.
 
     Why:
@@ -205,7 +208,7 @@ def _create_dump_capture(ring_buffer: RingBuffer, settings: RuntimeSettings) -> 
         allows tests to swap in fakes.
 
     Returns:
-        Callable[..., str]: Prepared renderer that snapshots the ring buffer and
+        CaptureDump: Prepared renderer that snapshots the ring buffer and
         applies the correct formatting contract.
 
     """
@@ -213,7 +216,7 @@ def _create_dump_capture(ring_buffer: RingBuffer, settings: RuntimeSettings) -> 
         ring_buffer=ring_buffer,
         dump_defaults=settings.dump,
         theme=settings.console.theme,
-        console_styles=settings.console.styles,
+        console_styles=settings.console.configured_styles,
     )
 
 
@@ -350,11 +353,16 @@ def _compose_process_pipeline(
 
 
 def _fan_out_callable(process: ProcessCallable) -> Callable[[LogEvent], None]:
-    """Extract the fan-out helper exposed by the process use case."""
-    worker: FanOutCallable = process.fan_out
+    """Return the queue worker: deliver each dequeued event with full accounting.
+
+    The caller already got its ``queued`` result, so the delivery result has no
+    one to return to; ``deliver`` records an adapter failure in the drop counter
+    and the diagnostics instead, which the bare fan-out did not.
+    """
+    deliver = process.deliver
 
     def _worker(event: LogEvent) -> None:
-        worker(event)
+        deliver(event)
 
     return _worker
 
@@ -365,7 +373,7 @@ def _assemble_runtime(
     *,
     process: ProcessCallable,
     queue: QueueAdapter | None,
-    capture_dump: Callable[..., str],
+    capture_dump: CaptureDump,
     shutdown_async: Callable[[], Awaitable[None]],
     flush_async: Callable[[float | None, bool], Coroutine[Any, Any, None]],
 ) -> LoggingRuntime:
@@ -388,4 +396,5 @@ def _assemble_runtime(
         theme=settings.console.theme,
         console_styles=settings.console.styles,
         limits=ingredients.limits,
+        configured_console_styles=settings.console.configured_styles,
     )

@@ -11,7 +11,7 @@ registered operation, so that ``aggregate()`` resolves with a single lookup.
 """
 
 import functools
-from collections.abc import Callable, MutableMapping
+from collections.abc import Callable
 from functools import partial
 from typing import Any, TypeAlias, cast
 
@@ -21,19 +21,21 @@ import numpy.typing as npt
 
 from numpy_groupies.aggregate_numba import argreductions, averaging, collect, cumulative, reductions, specials
 from numpy_groupies.aggregate_numba.compose import KernelHandle
+from numpy_groupies.aggregate_numba.mt import mt_thread_count
 from numpy_groupies.aggregate_numba.steps import group_count, group_place, group_starts
 from numpy_groupies.aggregate_numpy.base import _aggregate_base
 from numpy_groupies.common import (
+    resolve_fill_value,
+)
+from numpy_groupies.registry import (
     DEFAULT_FILL_VALUE,
+    DefaultFillValue,
     FuncName,
     Registry,
     Resolved,
-    _DefaultFillValue,
     can_name_a_function,
     custom_callable,
     funcs_no_separate_nan,
-    is_scalar_input,
-    resolve_fill_value,
 )
 from numpy_groupies.utils_np import (
     AFillValue,
@@ -49,6 +51,7 @@ from numpy_groupies.utils_np import (
     resolve_output_dtype,
     scalar_dtype,
 )
+from numpy_groupies.validation import is_scalar_input
 
 # input dtypes for which the 'sum' output dtype depends on the input length
 # (the overflow guesses in resolve_output_dtype)
@@ -59,7 +62,7 @@ _N_DEPENDENT_ADTYPES = frozenset(
 # the dtypes and fill values that can be a key of the dtype plan cache:
 # the hashable ones - a list is not, and the cache raises a TypeError for it
 _KeyedDType: TypeAlias = str | type | np.dtype | None
-_HashableFillValue: TypeAlias = AScalar | None | tuple[AScalar, ...] | _DefaultFillValue
+_HashableFillValue: TypeAlias = AScalar | None | tuple[AScalar, ...] | DefaultFillValue
 
 
 @functools.lru_cache(maxsize=256)
@@ -135,6 +138,112 @@ def _driver_fill(handle: KernelHandle, fill_value: AFillValue) -> AScalar:
     return 0.0 if handle.assembles else cast("AScalar", fill_value)
 
 
+def _driver_call(handle: KernelHandle) -> Callable[..., Any]:
+    """Call the compiled driver of one variant with the arguments of a
+    python-level call.
+
+    The driver takes the argument the operation has of its own as its last
+    one, under whatever name that argument has in the operation - the
+    entry point of this module knows two of them: the ``ddof`` and the
+    ``q``.  The wrappers of ``_ARGUMENT_WRAPPERS`` hand the sample spacing of
+    the trapezoid and the reverse flag of the sort in through the ``ddof`` of
+    that signature, so picking the one the driver of a variant is written for
+    is all there is to it.
+
+    The operation can be reduced in chunks - then it has a parallel driver
+    beside its sequential one, and an operation whose loop over the groups is
+    cut into ranges has one too (see ``build_custom_kernel``).  The parallel
+    driver takes the number of the threads as its first argument (the threads
+    are read here, and a number read inside the compiled code would keep the
+    driver out of the on-disk cache - numba refuses to cache a function that
+    reads a dynamic global).  Read of every call and not once when the wrapper
+    is built: the threads of the pool of numba are the knob of the caller
+    (``numba.set_num_threads``), and a number captured at the import of the
+    package would keep them from turning.
+
+    The number is read only for the calls that are big enough for the
+    parallel path at all - the number of the threads of the pool is a call
+    into the runtime, and a call that is too small for the parallel path
+    should not pay for it.
+
+    The driver itself decides whether the parallel path is worth it (the cost
+    model of ``aggregate_numba.mt``) and falls back to the sequential one
+    when it is not.
+    """
+    driver = handle.driver
+    mt_driver = handle.mt_driver
+    min_values = handle.mt_min_values
+
+    if handle.variant == "none":
+
+        def call_nothing(
+            group_idx: npt.NDArray[np.integer],
+            a: npt.NDArray[np.number],
+            size_arg: int,
+            out_dtype: np.dtype,
+            aux_dtype: np.dtype,
+            fill_value: AScalar,
+            ddof: float,
+            q: float,
+        ) -> Any:
+            if mt_driver is not None and group_idx.size >= min_values:
+                # the number of the threads is asked of every call: a number
+                # captured when the wrapper was built would be the number the
+                # package was imported with, whatever the caller does with
+                # ``numba.set_num_threads`` after that - and the sequential
+                # path would be unreachable
+                n_threads = mt_thread_count()
+                if n_threads > 1:
+                    # without a second thread there is nothing to parallelize,
+                    # and the parallel driver would cost the overhead of the
+                    # parallel region (the thread pool of the runtime) without
+                    # any of its benefit
+                    return mt_driver(n_threads, group_idx, a, size_arg, out_dtype, aux_dtype, fill_value)
+            return driver(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value)
+
+        return call_nothing
+
+    if handle.variant == "q":
+
+        def call_q(
+            group_idx: npt.NDArray[np.integer],
+            a: npt.NDArray[np.number],
+            size_arg: int,
+            out_dtype: np.dtype,
+            aux_dtype: np.dtype,
+            fill_value: AScalar,
+            ddof: float,
+            q: float,
+        ) -> Any:
+            if mt_driver is not None and group_idx.size >= min_values:
+                n_threads = mt_thread_count()
+                if n_threads > 1:
+                    return mt_driver(n_threads, group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, q)
+            return driver(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, q)
+
+        return call_q
+
+    # ddof, dx and reverse: the three arrive in the ddof of the call
+
+    def call_ddof(
+        group_idx: npt.NDArray[np.integer],
+        a: npt.NDArray[np.number],
+        size_arg: int,
+        out_dtype: np.dtype,
+        aux_dtype: np.dtype,
+        fill_value: AScalar,
+        ddof: float,
+        q: float,
+    ) -> Any:
+        if mt_driver is not None and group_idx.size >= min_values:
+            n_threads = mt_thread_count()
+            if n_threads > 1:
+                return mt_driver(n_threads, group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, ddof)
+        return driver(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, ddof)
+
+    return call_ddof
+
+
 def build_aggregate_op(func: str, handle: KernelHandle) -> Callable[..., AResult]:
     """Create the python-level wrapper around one compiled kernel.
 
@@ -144,6 +253,7 @@ def build_aggregate_op(func: str, handle: KernelHandle) -> Callable[..., AResult
     dtypes that the compiled driver cannot handle go to the operation's
     python-level ``fallback`` (complex medians to the numpy implementation).
     """
+    driver_call = _driver_call(handle)
 
     def aggregate(
         group_idx: npt.NDArray[np.integer],
@@ -186,7 +296,7 @@ def build_aggregate_op(func: str, handle: KernelHandle) -> Callable[..., AResult
                 # unhashable dtype/fill_value - resolve on the slow path
                 plan_dtype = None
             if plan_dtype is not None:
-                ret = handle.driver(
+                ret = driver_call(
                     group_idx,
                     a,
                     -1 if size is None else size,
@@ -228,7 +338,7 @@ def build_aggregate_op(func: str, handle: KernelHandle) -> Callable[..., AResult
         group_idx = np.ascontiguousarray(group_idx)
         a = np.ascontiguousarray(a)
 
-        ret = handle.driver(
+        ret = driver_call(
             group_idx,
             a,
             flat_size,
@@ -347,32 +457,13 @@ def _get_cached_generic(func: Callable[..., AScalar]) -> Callable[..., AResult]:
     return build_generic_aggregate(func)
 
 
-def _compiled_loop(func: Callable[..., AScalar], cache: Any) -> Callable[..., AResult]:
-    """The compiled loop of a callable, memoized where the cache policy says.
-
-    The policy is a parameter of the call, so that one operation serves every
-    policy: the bounded LRU of this backend, the caller's own dictionary, or
-    nowhere at all.
-    """
-    if cache in (None, False):
-        # Keep None and False in order to accept empty dictionaries
-        return build_generic_aggregate(func)
-    if cache is True:
-        return _get_cached_generic(func)
-    cache_map = cast("MutableMapping[Callable[..., AScalar], Callable[..., AResult]]", cache)
-    op = cache_map.get(func)
-    if op is None:
-        op = build_generic_aggregate(func)
-        cache_map[func] = op
-    return op
-
-
 def _custom_operation(func: Callable[..., AScalar]) -> Resolved:
     """The operation of a callable of the caller's own.
 
     The callable is compiled into a loop over the groups.  The compilation is
-    the expensive part, and where its result is memoized is the caller's
-    choice - the operation takes the policy as a parameter of the call.
+    the expensive part, so the loop is memoized in the bounded LRU of this
+    backend - the policy is not a parameter of the call, it is the business
+    of the backend.
     """
     callable_ = custom_callable(func)
     if not can_name_a_function(callable_):
@@ -388,10 +479,9 @@ def _custom_operation(func: Callable[..., AScalar]) -> Resolved:
         order: RavelOrder = "C",
         dtype: npt.DTypeLike | None = None,
         axis: int | None = None,
-        cache: bool | MutableMapping[Callable[..., AScalar], Callable[..., AResult]] | None = True,
         **kwargs: Any,
     ) -> AResult:
-        loop = _compiled_loop(callable_, cache)
+        loop = _get_cached_generic(callable_)
         return loop(group_idx, a, size, fill_value, order, dtype, axis, **kwargs)
 
     return Resolved(callable_, op)
@@ -442,6 +532,11 @@ def _dx_argument(op: Callable[..., AResult]) -> Callable[..., AResult]:
     """Expose the trapezoid's sample spacing under its public name ``dx``.
 
     The kernels receive it in the position otherwise used for ``ddof``.
+
+    The default is the integer 1 and not the float 1.0: the value of the
+    argument is what numba compiles the kernel for, and a float in the slot of
+    the trapezoid measures a few percent slower than the integer (see the note
+    at the kernel builder of the trapezoid).
     """
 
     def trapezoid_op(
@@ -452,7 +547,7 @@ def _dx_argument(op: Callable[..., AResult]) -> Callable[..., AResult]:
         order: RavelOrder = "C",
         dtype: npt.DTypeLike | None = None,
         axis: int | None = None,
-        dx: float = 1.0,
+        dx: float = 1,
     ) -> AResult:
         return op(group_idx, a, size, fill_value, order, dtype, axis, dx)
 
@@ -460,9 +555,9 @@ def _dx_argument(op: Callable[..., AResult]) -> Callable[..., AResult]:
 
 
 def _sort_arguments(op: Callable[..., AResult]) -> Callable[..., AResult]:
-    """Expose ``reverse`` and keep the driver arguments jittable.
+    """Expose the reverse flag of the sort under its public name.
 
-    The flag reaches the kernel in the position otherwise used for ``ddof``,
+    The flag reaches the driver in the position otherwise used for ``ddof``,
     and the empty list the shared fill value resolution hands out for ``sort``
     - it tells the python twins to leave an absent group alone - becomes the
     scalar the compiled driver expects, since sort emits one value per input
@@ -481,7 +576,7 @@ def _sort_arguments(op: Callable[..., AResult]) -> Callable[..., AResult]:
     ) -> AResult:
         if fill_value is DEFAULT_FILL_VALUE:
             fill_value = 0
-        return op(group_idx, a, size, fill_value, order, dtype, axis, 1.0 if reverse else 0.0)
+        return op(group_idx, a, size, fill_value, order, dtype, axis, reverse)
 
     return sort_op
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.13.267
+Version: 1.13.271
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -42,8 +42,8 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: abxbus==2.5.79
-Requires-Dist: abxpkg==1.13.67
-Requires-Dist: abx-plugins==1.13.520
+Requires-Dist: abxpkg==1.13.70
+Requires-Dist: abx-plugins==1.13.568
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
@@ -170,6 +170,14 @@ not duplicate those phases. Omitting the callback runs the usual single
 snapshot. An explicit user abort completes after cleanup; an execution
 takeover (`CrawlAbortEvent(user_initiated=False)`) leaves completion to its new
 owner.
+
+If a background crawl-setup resource required by another selected plugin fails
+after readiness, the owner stops new snapshot admissions through `CrawlAbortEvent`
+with `user_initiated=False` and its `error`. Already-started captures clean up and
+complete with that failure; queued URLs are not attempted against the dead resource.
+An empty error with `user_initiated=False` remains ownership takeover and emits no
+terminal completion. Optional monitors and snapshot-level background downloads keep
+their independent failure behavior; this does not restart or recover a browser.
 
 Before destroying an embedded event bus, await `ProcessService.stop()` to stop
 its remaining hooks and deliver their process-completion facts. Keep per-snapshot
@@ -479,6 +487,11 @@ snapshot/crawl cleanup if empty. Plugins returning `noresults` leave no director
 when they wrote nothing; `.DS_Store` is discarded, while captures and failure logs are preserved. Process
 commands are recorded in `index.jsonl` and active process metadata, without
 generating per-hook shell scripts. Plugin-owned files remain unchanged.
+
+Default runtime personas (including Chrome profiles and writable extension
+copies) live under `TMP_DIR/personas`, isolated by output directory. An existing
+host-prepared `.persona` symlink is preserved. Explicit `PERSONAS_DIR` settings
+remain supported; keep runtime storage local, outside archive output mounts.
 
 Active hook stdout, stderr, and process-control PID files live under
 `TMP_DIR/process` (the system temporary directory when `TMP_DIR` is unset).

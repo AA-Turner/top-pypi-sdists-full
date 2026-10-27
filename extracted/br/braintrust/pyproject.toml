@@ -182,12 +182,6 @@ test-sqlalchemy-2-0 = [
     "sqlalchemy<2.1",
 ]
 
-test-pydantic-ai-otel-events = [
-    "opentelemetry-api==1.39.1",
-    # genai-prices 0.1 returns fields that older Pydantic AI RequestUsage models cannot accept.
-    "genai-prices==0.0.73",
-]
-
 test-strands = [
     {include-group = "test"},
     "openai==2.32.0",
@@ -195,11 +189,11 @@ test-strands = [
 
 test-pydantic-ai-logfire = [
     {include-group = "test"},
-    "logfire==4.39.0",
+    "logfire==5.3.0",
 ]
 
 test-pydantic-ai-logfire-constraints = [
-    "logfire==4.39.0",
+    "logfire==5.3.0",
 ]
 
 test-langchain = [
@@ -222,17 +216,11 @@ test-livekit-agents = [
     "livekit-plugins-silero>=1.8.8",
 ]
 
-test-livekit-agents-1-3 = [
+test-livekit-agents-1-8 = [
     {include-group = "test"},
-    # Pin the agents package so the plugins do not pull a newer 1.3.x.
-    "livekit-agents==1.3.1",
-    "livekit-plugins-openai==1.3.1",
-    "livekit-plugins-silero==1.3.1",
-    # livekit-agents 1.3.x imports opentelemetry.sdk._logs.LogData, removed in newer SDKs.
-    # This is a LiveKit runtime compatibility constraint, not a Braintrust OTel integration dependency.
-    "opentelemetry-sdk<1.39",
-    "opentelemetry-api<1.39",
-    "opentelemetry-exporter-otlp<1.39",
+    "livekit-agents==1.8.8",
+    "livekit-plugins-openai==1.8.8",
+    "livekit-plugins-silero==1.8.8",
 ]
 
 test-pipecat = [
@@ -252,8 +240,8 @@ test-crewai = [
 
 test-llamaindex = [
     {include-group = "test"},
-    "llama-index-llms-openai",
-    "llama-index-embeddings-openai",
+    "llama-index-llms-openai>=0.8.3",
+    "llama-index-embeddings-openai>=0.7.0",
 ]
 
 test-llamaindex-0-13 = [
@@ -339,15 +327,14 @@ lint = [
     # whose sdists cannot build yet (fastuuid via litellm, jiter<0.11 via
     # instructor, livekit-blingfire via livekit-agents).
     "dspy; python_version<'3.15'",
-    "google-adk",
+    # Google ADK caps OpenTelemetry below the patched release. The pylint
+    # session installs it separately via the provider matrix for import coverage.
     "google-genai",
     "google-cloud-discoveryengine",
     "instructor; python_version<'3.15'",
-    "litellm>=1.104.2; python_version<'3.15'",
+    "litellm==1.106.4; python_version<'3.15'",
     # Fork the resolution so 3.15 is not stuck on instructor's jiter<0.11.
     "jiter>=0.11; python_version>='3.15'",
-    "livekit-agents>=1.8.5; python_version<'3.15'",
-    "livekit-plugins-openai; python_version<'3.15'",
     # Keep these available to pylint without installing CrewAI (whose
     # transitive chromadb versions are unsuitable for shared CI).
     "opentelemetry-instrumentation-openai==0.59.1",
@@ -355,19 +342,25 @@ lint = [
     "langchain-core",
     "langchain-openai",
     "langchain-anthropic",
-    "llama-index-core",
-    "llama-index-llms-openai",
-    "llama-index-embeddings-openai",
+    "llama-index-core>=0.14.25",
+    "llama-index-llms-openai>=0.8.3",
+    "llama-index-embeddings-openai>=0.7.0",
     # pydantic-ai's matrix latest requires Python 3.11+, so pylint skips it on
     # 3.10. Use slim to resolve pydantic_ai imports without optional extras.
     "pydantic-ai-slim>=2.53.0; python_version >= '3.11'",
     # Keep the lint environment's optional SDK dependencies lock-resolved
     # instead of installing the unconstrained [all] extra separately.
-    "opentelemetry-api==1.39.1",
-    "opentelemetry-exporter-otlp-proto-http==1.39.1",
-    "opentelemetry-sdk==1.39.1",
+    "opentelemetry-api==1.45.1",
+    "opentelemetry-exporter-otlp-proto-http==1.45.1",
+    "opentelemetry-sdk==1.45.1",
     "orjson",
     {include-group = "test-cli"},
+]
+
+# Current LiveKit requires OpenAI 3, which conflicts with Instructor and
+# LiteLLM in the shared lint group. Pylint installs this group separately.
+lint-livekit = [
+    "livekit-plugins-openai==1.8.9",
 ]
 
 # -- Build and code-generation deps --------------------------------------------
@@ -412,7 +405,7 @@ explicit = true
 # ---------------------------------------------------------------------------
 
 [tool.uv]
-exclude-newer = "2026-10-20T19:24:36Z"
+exclude-newer = "2026-10-26T06:02:31Z"
 conflicts = [
     # Groups that pin or transitively require conflicting openai versions.
     [
@@ -428,29 +421,9 @@ conflicts = [
         {group = "test-llamaindex-0-13"},
         {group = "test-instructor"},
         {group = "test-livekit-agents"},
-        {group = "test-livekit-agents-1-3"},
+        {group = "test-livekit-agents-1-8"},
         {group = "lint"},
-    ],
-    # opentelemetry-sdk version conflicts (google-adk/livekit vs logfire).
-    [
-        {group = "lint"},
-        {group = "test-pydantic-ai-logfire"},
-        {group = "test-livekit-agents"},
-        {group = "test-livekit-agents-1-3"},
-    ],
-    [
-        {group = "test-pydantic-ai-otel-events"},
-        {group = "test-livekit-agents"},
-        {group = "test-livekit-agents-1-3"},
-    ],
-    [
-        {group = "lint"},
-        {group = "test-pydantic-ai-otel-events"},
-    ],
-    [
-        {group = "test-pydantic-ai-logfire-constraints"},
-        {group = "test-livekit-agents"},
-        {group = "test-livekit-agents-1-3"},
+        {group = "lint-livekit"},
     ],
     [
         {group = "test-llamaindex"},
@@ -482,17 +455,18 @@ latest = "ai[openai]==0.8.0"
 "0.4.0" = "ai[openai]==0.4.0"
 
 [tool.braintrust.matrix.openai]
-latest = "openai==3.35.1"
+latest = "openai==3.37.0"
 "1.92.0" = "openai==1.92.0"
 "1.77.0" = "openai==1.77.0"
 "1.71.0" = "openai==1.71.0"
 
 [tool.braintrust.matrix.anthropic]
-latest = "anthropic==1.15.0"
+latest = "anthropic==2.3.0"
+"1.17.0" = "anthropic==1.17.0"
 "0.48.0" = "anthropic==0.48.0"
 
 [tool.braintrust.matrix.cohere]
-latest = "cohere==7.2.0"
+latest = "cohere==7.3.0"
 "5.0.0" = "cohere==5.0.0"
 
 [tool.braintrust.matrix.openai-agents]
@@ -503,19 +477,19 @@ latest = "openai-agents==0.24.0"
 [tool.braintrust.matrix.litellm]
 # 1.92.0 only publishes Linux wheels through CPython 3.13, but the test
 # matrix also covers Windows and CPython 3.14.
-latest = "litellm==1.106.0"
+latest = "litellm==1.106.4"
 "1.74.0" = "litellm==1.74.0"
 
 [tool.braintrust.matrix.livekit-agents]
-latest = "livekit-agents==1.8.8"
-"1.3.1" = "livekit-agents==1.3.1"
+latest = "livekit-agents==1.8.9"
+"1.8.8" = "livekit-agents==1.8.8"
 
 [tool.braintrust.matrix.pipecat-ai]
-latest = "pipecat-ai==1.12.0"
+latest = "pipecat-ai==1.14.0"
 "1.3.0" = "pipecat-ai==1.3.0"
 
 [tool.braintrust.matrix.claude-agent-sdk]
-latest = "claude-agent-sdk==0.2.168"
+latest = "claude-agent-sdk==0.2.174"
 # The integration still supports >=0.1.10, but 0.1.9-0.1.17 were deleted from
 # PyPI, so 0.1.18 is the oldest installable version we can test against.
 "0.1.18" = "claude-agent-sdk==0.1.18"
@@ -523,11 +497,11 @@ latest = "claude-agent-sdk==0.2.168"
 [tool.braintrust.matrix.cursor-sdk]
 # 1.0.25 fixes bridge callback tokens that could be parsed as CLI flags while
 # retaining per-turn usage, sync/async consumption, multimodal, and custom tools.
-latest = "cursor-sdk==1.0.38"
+latest = "cursor-sdk==1.0.40"
 "1.0.25" = "cursor-sdk==1.0.25"
 
 [tool.braintrust.matrix.agno]
-latest = "agno==3.1.4"
+latest = "agno==3.1.10"
 "2.4.0" = "agno==2.4.0"
 "2.1.0" = "agno==2.1.0"
 
@@ -544,20 +518,19 @@ latest = "autogen-ext[openai]==0.7.5"
 "0.7.0" = "autogen-ext[openai]==0.7.0"
 
 [tool.braintrust.matrix.strands-agents]
-latest = "strands-agents==1.61.1"
+latest = "strands-agents==1.62.0"
 "1.20.0" = "strands-agents==1.20.0"
 
 [tool.braintrust.matrix.pydantic-ai-integration]
-latest = "pydantic-ai==2.57.0"
-"1.10.0" = "pydantic-ai==1.10.0"
+latest = "pydantic-ai==2.61.0"
+"1.107.9" = "pydantic-ai==1.107.9"
 
 [tool.braintrust.matrix.pydantic-ai-wrap-openai]
-latest = "pydantic-ai==2.57.0"
-"1.0.1" = "pydantic-ai==1.0.1"
-"0.1.9" = "pydantic-ai==0.1.9"
+latest = "pydantic-ai==2.61.0"
+"1.107.9" = "pydantic-ai==1.107.9"
 
 [tool.braintrust.matrix.autoevals]
-latest = "autoevals==0.4.0"
+latest = "autoevals==0.4.1"
 "0.0.129" = "autoevals==0.0.129"
 
 [tool.braintrust.matrix.instructor]
@@ -565,7 +538,7 @@ latest = "instructor==1.17.0"
 "1.11.0" = "instructor==1.11.0"
 
 [tool.braintrust.matrix.google-genai]
-latest = "google-genai==2.31.0"
+latest = "google-genai==2.33.0"
 "1.75.0" = "google-genai==1.75.0"
 "1.30.0" = "google-genai==1.30.0"
 
@@ -577,23 +550,23 @@ latest = "dspy==3.4.1"
 "2.6.0" = "dspy==2.6.0"
 
 [tool.braintrust.matrix.deepagents]
-latest = "deepagents==0.7.28"
+latest = "deepagents==0.7.32"
 "0.6.0" = "deepagents==0.6.0"
 
 [tool.braintrust.matrix.crewai]
 # 1.13.0 is the first release with the full causal-id surface (event_id /
 # parent_event_id / started_event_id on BaseEvent) plus the ``usage`` field on
 # LLMCallCompletedEvent that the Braintrust CrewAI integration depends on.
-latest = "crewai==1.15.28"
+latest = "crewai==1.15.30"
 "1.13.0" = "crewai==1.13.0"
 
 [tool.braintrust.matrix.google-adk]
-latest = "google-adk[mcp]==2.12.0"
+latest = "google-adk[mcp]==2.13.0"
 "2.6.3" = "google-adk[mcp]==2.6.3"
 "1.14.1" = "google-adk[mcp]==1.14.1"
 
 [tool.braintrust.matrix.langchain-core]
-latest = "langchain-core==1.6.12"
+latest = "langchain-core==1.7.0"
 "0.3.28" = "langchain-core==0.3.28"
 
 [tool.braintrust.matrix.llama-index-core]
@@ -601,11 +574,11 @@ latest = "llama-index-core==0.14.25"
 "0.13.0" = "llama-index-core==0.13.0"
 
 [tool.braintrust.matrix.openrouter]
-latest = "openrouter==1.3.66"
+latest = "openrouter==1.3.79"
 "0.6.0" = "openrouter==0.6.0"
 
 [tool.braintrust.matrix.mistralai]
-latest = "mistralai==3.2.0"
+latest = "mistralai==3.5.0"
 "2.10.1" = "mistralai==2.10.1"
 "1.12.4" = "mistralai==1.12.4"
 
@@ -618,11 +591,11 @@ latest = "typesafe-sdk==0.7.5"
 # ``provider="auto"`` routing mode the integration relies on for multi-
 # provider use, while still keeping the same chat_completion /
 # text_generation / feature_extraction / sentence_similarity method names.
-latest = "huggingface-hub==2.2.0"
+latest = "huggingface-hub==2.3.0"
 "0.32.0" = "huggingface-hub==0.32.0"
 
 [tool.braintrust.matrix.transformers]
-latest = "transformers==5.20.1"
+latest = "transformers==5.20.2"
 "4.42.0" = "transformers==4.42.0"
 
 [tool.braintrust.matrix.temporalio]
@@ -631,7 +604,7 @@ latest = "temporalio==1.34.0"
 "1.19.0" = "temporalio==1.19.0"
 
 [tool.braintrust.matrix.harbor]
-latest = "harbor==0.24.0"
+latest = "harbor==0.25.0"
 # 0.16.0 is the oldest supported release: it is the first with
 # TrialEvent.AGENT_END, which the lifecycle state machine subscribes to. Harbor
 # gained its plugin system in 0.13.2, so 0.13.2-0.15.0 can load the plugin but
@@ -648,31 +621,23 @@ latest = "pytest==9.1.1"
 latest = "braintrust-core==0.0.59"
 
 [tool.braintrust.matrix.boto3]
-latest = "boto3==1.43.114"
+latest = "boto3==1.43.118"
 "1.34.116" = "boto3==1.34.116"
 
 [tool.braintrust.matrix.botocore]
-latest = "botocore==1.43.114"
+latest = "botocore==1.43.118"
 "1.34.116" = "botocore==1.34.116"
 
 # OpenTelemetry api/sdk/exporter release in lockstep; keep their keys in sync.
-# 1.45.0 moved OTLP HTTP exporter headers onto an internal client, so keep a
-# pre-1.45 version covered alongside latest. 1.16.0 is the oldest release that
-# imports without pkg_resources; test_otel skips it on Python 3.14 (protobuf<5).
+# Test releases containing the tracestate parsing security fix (1.45.1+).
 [tool.braintrust.matrix.opentelemetry-api]
 latest = "opentelemetry-api==1.45.1"
-"1.44.0" = "opentelemetry-api==1.44.0"
-"1.16.0" = "opentelemetry-api==1.16.0"
 
 [tool.braintrust.matrix.opentelemetry-sdk]
 latest = "opentelemetry-sdk==1.45.1"
-"1.44.0" = "opentelemetry-sdk==1.44.0"
-"1.16.0" = "opentelemetry-sdk==1.16.0"
 
 [tool.braintrust.matrix.opentelemetry-exporter-otlp-proto-http]
 latest = "opentelemetry-exporter-otlp-proto-http==1.45.1"
-"1.44.0" = "opentelemetry-exporter-otlp-proto-http==1.44.0"
-"1.16.0" = "opentelemetry-exporter-otlp-proto-http==1.16.0"
 
 # ---------------------------------------------------------------------------
 # Vendor packages — optional third-party packages the SDK can work without.

@@ -1,6 +1,5 @@
 from pg8000.legacy import convert_paramstyle as convert
 
-
 # Tests of the convert_paramstyle function.
 
 

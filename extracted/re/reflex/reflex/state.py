@@ -8,7 +8,9 @@ import dataclasses
 import functools
 import hashlib
 import inspect
+import json
 import logging
+import operator
 import pickle
 import re
 import sys
@@ -87,6 +89,7 @@ from reflex.istate.data import (
 from reflex.istate.delta import (
     Delta,
     DeltaMapping,
+    _replay_client_storage,
     _resolve_delta,
     build_delta,
     clean_state,
@@ -1105,8 +1108,10 @@ class BaseState(EvenMoreBasicBaseState, state_root=True):
                     parent_state.get_parent_state(),
                 )
 
-        # Reset cached schema value
+        # Reset cached schema values; the frontend schema spans the tree, so a
+        # change to any state invalidates every cached root.
         cls._to_schema.cache_clear()
+        _frontend_schema.cache_clear()
 
     @classmethod
     def _iter_functions(cls) -> Iterator[tuple[str, FunctionType]]:
@@ -1298,7 +1303,13 @@ class BaseState(EvenMoreBasicBaseState, state_root=True):
                 f'Found var "{prop._js_expr}" with type {prop._var_type}.'
             )
             raise VarTypeError(msg)
-        cls.__fields__[name]._var = prop
+        field = cls.__fields__[name]
+        field._var = prop
+        if types.safe_issubclass(field.type_, ClientStorageBase) or any(
+            issubclass(member, ClientStorageBase) for member in field._plain_types
+        ):
+            # Storage annotations configure persistence; browser values are strings.
+            field._plain_types |= {str}
         if cls.is_user_defined() and get_state_auto_setters() is True:
             cls._create_setter(name, prop)
         cls._set_default_value(name, prop)
@@ -1857,16 +1868,25 @@ class BaseState(EvenMoreBasicBaseState, state_root=True):
             return await value
         return value
 
-    def _mark_dirty_computed_vars(self, var_names: Iterable[str] | None = None) -> None:
-        """Invalidate the computed vars depending on changed vars of this state, transitively.
+    def _mark_dirty_computed_vars(
+        self, var_names: Iterable[str] | None = None, *, invalidate: bool = True
+    ) -> None:
+        """Mark the computed vars depending on changed vars of this state dirty, transitively.
 
+        Invalidates their cached values, so that the next read recomputes them.
         Uncached and expired computed vars recompute on access, so they count as
         changed along with any var.
 
         Args:
             var_names: The changed vars of this state; all its dirty vars if omitted.
+            invalidate: Whether the dependents' caches are invalidated. False marks
+                them for delivery only, leaving their caches and the uncached and
+                expired computed vars alone, so that an unchanged value is sent
+                as it is rather than recomputed.
         """
-        if self._always_dirty_computed_vars or self._interval_computed_var_names:
+        if invalidate and (
+            self._always_dirty_computed_vars or self._interval_computed_var_names
+        ):
             recomputed = (
                 self._always_dirty_computed_vars | self._expired_computed_vars()
             )
@@ -1895,7 +1915,8 @@ class BaseState(EvenMoreBasicBaseState, state_root=True):
                 else:
                     target = state._get_root_state().get_substate(state_name.split("."))
                     target._mark_ancestors_dirty()
-                target.computed_vars[cvar_name].mark_dirty(instance=target)
+                if invalidate:
+                    target.computed_vars[cvar_name].mark_dirty(instance=target)
                 target.dirty_vars.add(cvar_name)
                 if cvar_name in target._var_dependencies:
                     pending.append((target, cvar_name))
@@ -2152,6 +2173,22 @@ class BaseState(EvenMoreBasicBaseState, state_root=True):
             )
         ).hexdigest()
 
+    @classmethod
+    def _to_frontend_schema(cls) -> str:
+        """Hash what a compiled frontend depends on, over the whole state tree.
+
+        For each state below (and including) this one: its full name, the
+        names and types of its frontend vars (base and computed), and its
+        event handler names. Defaults and values are left out, so a frontend
+        compiled from one tree matches a backend running another exactly when
+        the two trees are compatible. The compiler writes this hash into the
+        frontend and the backend compares it on each socket connect.
+
+        Returns:
+            The hash of the frontend schema.
+        """
+        return _frontend_schema(cls, RegistrationContext.get())
+
     def _serialize(self) -> bytes:
         """Serialize the state for redis.
 
@@ -2244,6 +2281,48 @@ class BaseState(EvenMoreBasicBaseState, state_root=True):
         ):
             raise StateSchemaMismatchError
         return state
+
+
+@functools.lru_cache
+def _frontend_schema(root: type[BaseState], context: RegistrationContext) -> str:
+    """Hash the frontend schema of the state tree below ``root``.
+
+    The tree is read from ``context``, which is part of the cache key: apps in
+    one process run on forked registration contexts that share the root class
+    but not its substates. ``BaseState._init_var_dependency_dicts`` clears the
+    cache whenever a state is added or changed.
+
+    Args:
+        root: The state at the top of the tree.
+        context: The registration context holding the tree.
+
+    Returns:
+        The hash of the frontend schema.
+    """
+
+    def _state_entry(state: type[BaseState]) -> list[Any]:
+        fields = state.get_fields()
+        return [
+            state.get_full_name(),
+            sorted(
+                (name, _serialize_type(fields[name].type_)) for name in state.base_vars
+            ),
+            sorted(
+                (name, _serialize_type(cvar._var_type))
+                for name, cvar in state.computed_vars.items()
+                if not cvar._backend
+            ),
+            sorted(state.event_handlers),
+        ]
+
+    entries = []
+    pending = [root]
+    while pending:
+        state = pending.pop()
+        entries.append(_state_entry(state))
+        pending.extend(context.get_substates(state))
+    entries.sort(key=operator.itemgetter(0))
+    return md5(json.dumps(entries, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
 def _legacy_state_schema(state_cls: type[BaseState]) -> str:
@@ -2377,10 +2456,12 @@ class State(BaseState):
         storage reset, the browser-provided client storage values and the
         state snapshot under one state lock avoids separate load/persist
         cycles of the state tree. The snapshot does not pass through
-        ``get_delta`` and may not write browser storage, so this event's own
-        delta carries the browser-provided values again, as
+        ``get_delta`` and may not write browser storage, so a second delta
+        carries the browser-provided values again, as
         ``update_vars_internal``'s does: ``get_delta`` overrides see them
-        there, and the browser stores what they return. A page with on_load
+        there, and the browser stores what they return. Cached dependents are
+        included without invalidating their snapshot caches; real assignments
+        in an override invalidate those caches normally. A page with on_load
         handlers then gets ``on_load_internal``, which only locks its leaf
         substate.
 
@@ -2416,11 +2497,9 @@ class State(BaseState):
             await ctx.emit_delta(delta=delta)
             # Follow-up corrections must be allowed to write browser storage.
             self.dirty_vars.discard(constants.CompileVars.IS_HYDRATED)
-        # The browser's values only: the reset defaults stay clean, so they are
-        # not written back to the browser.
-        for var_state, var_name in applied:
-            var_state.dirty_vars.add(var_name)
-            var_state._mark_dirty((var_name,))
+            if applied:
+                delta = await _get_client_storage_delta(self, applied)
+                await ctx.emit_delta(delta=delta)
         if not RegistrationContext.get().app.get_load_events(self.rx_router_url.path):
             self.is_hydrated = True
             return None
@@ -2429,6 +2508,33 @@ class State(BaseState):
         # page's unfinished on_load chain was already cancelled when this
         # event was enqueued (see BaseStateEventProcessor._supersede_previous).
         return [OnLoadInternalState.on_load_internal]
+
+
+async def _get_client_storage_delta(
+    root: BaseState, applied: list[tuple[BaseState, str]]
+) -> Delta:
+    """Replay browser storage without discarding real override mutations.
+
+    Args:
+        root: The hydrated root state.
+        applied: Browser storage fields applied by this hydration.
+
+    Returns:
+        Override-filtered storage and cached dependent values.
+    """
+    # Include cached storage dependents in the one public traversal, even when
+    # their branch is visited before the override changes the storage value.
+    # Mark delivery only: unchanged caches still hold the snapshot's values.
+    for state, name in applied:
+        state._mark_dirty_computed_vars((name,), invalidate=False)
+        state.dirty_vars.add(name)
+        state._mark_ancestors_dirty()
+    token = _replay_client_storage.set(True)
+    try:
+        return await root._get_resolved_delta()
+    finally:
+        _replay_client_storage.reset(token)
+        root._clean()
 
 
 T = TypeVar("T", bound=BaseState)
@@ -2901,10 +3007,9 @@ class ComponentState(State, mixin=True):
 class StateUpdate:
     """A state update sent to the frontend.
 
-    Each substate key in the delta must have a dispatch function registered in
-    the frontend; otherwise the frontend reports a fatal ``client_error`` back
-    to the backend (see ``EventNamespace.on_client_error``), since this
-    indicates mismatched frontend and backend state definitions.
+    Substates without a registered frontend dispatch function are skipped and
+    reported to the backend through ``client_error`` (see
+    ``EventNamespace.on_client_error``).
     """
 
     # The state delta.
@@ -2952,9 +3057,9 @@ def code_uses_state_contexts(javascript_code: str) -> bool:
         javascript_code: The Javascript code to check.
 
     Returns:
-        True if the code attempts to access a member of StateContexts.
+        True if the code subscribes to a state context.
     """
-    return bool("useContext(StateContexts" in javascript_code)
+    return "useStateContext(" in javascript_code
 
 
 def reload_state_module(

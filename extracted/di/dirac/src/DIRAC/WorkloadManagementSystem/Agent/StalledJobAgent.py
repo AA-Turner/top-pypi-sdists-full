@@ -21,7 +21,7 @@ from DIRAC.Core.Utilities.ClassAd.ClassAdLight import ClassAd
 from DIRAC.Core.Utilities.ObjectLoader import ObjectLoader
 from DIRAC.Core.Utilities.TimeUtilities import DiracTime, fromString, second, toEpoch
 from DIRAC.WorkloadManagementSystem.Client import JobMinorStatus, JobStatus
-from DIRAC.WorkloadManagementSystem.DB.JobParametersDB import getJobParameters
+from DIRAC.WorkloadManagementSystem.DB.JobParametersDB import getJobParametersUtility
 from DIRAC.WorkloadManagementSystem.DB.StatusUtils import kill_delete_jobs
 from DIRAC.WorkloadManagementSystem.Service.JobPolicy import RIGHT_KILL
 from DIRAC.WorkloadManagementSystem.Utilities.Utils import rescheduleJobs
@@ -290,12 +290,11 @@ class StalledJobAgent(AgentModule):
 
     def _getJobPilotStatus(self, jobID):
         """Get the job pilot status."""
-        result = getJobParameters([jobID], "Pilot_Reference")
+        result = getJobParametersUtility([jobID], "Pilot_Reference")
         if not result["OK"]:
             return result
-        # getJobParameters returns {jobID: {parName: value, ...}, ...}, with jobID being either an int (JobDB)
-        # or a str (JobParametersDB), so look it up both ways
-        jobParameters = result["Value"].get(jobID) or result["Value"].get(str(jobID)) or {}
+        # getJobParametersUtility returns {jobID: {parName: value, ...}, ...}, keyed by the int jobID
+        jobParameters = result["Value"].get(jobID) or {}
         pilotReference = jobParameters.get("Pilot_Reference")
         if not pilotReference:
             # There is no pilot reference, hence its status is unknown
@@ -428,10 +427,9 @@ class StalledJobAgent(AgentModule):
             if lastHeartBeatTime is not None and lastHeartBeatTime > endTime:
                 endTime = lastHeartBeatTime
 
-            result = getJobParameters([jobID], "CPUNormalizationFactor")
-            # getJobParameters returns {jobID: {parName: value, ...}, ...}, with jobID being either an int (JobDB)
-            # or a str (JobParametersDB), so look it up both ways
-            jobParameters = result.get("Value", {}).get(jobID) or result.get("Value", {}).get(str(jobID)) or {}
+            result = getJobParametersUtility([jobID], "CPUNormalizationFactor")
+            # getJobParametersUtility returns {jobID: {parName: value, ...}, ...}, keyed by the int jobID
+            jobParameters = result.get("Value", {}).get(jobID) or {}
             if not result["OK"] or not jobParameters.get("CPUNormalizationFactor"):
                 errorMsg = f"- {result['Message']}" if "Message" in result else "empty"
                 self.log.warn(
@@ -563,34 +561,39 @@ class StalledJobAgent(AgentModule):
         """Reschedule jobs stuck in initialization status Rescheduled, Matched."""
 
         message = ""
-
-        checkTime = DiracTime.utcnow() - self.matchedTime * second
-        result = self.jobDB.selectJobs({"Status": JobStatus.MATCHED}, older=checkTime)
-        if not result["OK"]:
-            self.log.error("Failed to select jobs", result["Message"])
-            return result
-
-        jobIDs = result["Value"]
-        if jobIDs:
-            self.log.info(f"Rescheduling {len(jobIDs)} jobs stuck in {JobStatus.MATCHED} status")
-            result = rescheduleJobs(jobIDs)
+        for status, stuckTime in ((JobStatus.MATCHED, self.matchedTime), (JobStatus.RESCHEDULED, self.rescheduledTime)):
+            checkTime = DiracTime.utcnow() - stuckTime * second
+            result = self.jobDB.selectJobs({"Status": status}, older=checkTime)
             if not result["OK"]:
-                message = f"Failed to reschedule jobs stuck in {JobStatus.MATCHED} status"
-                message += "\n" + result["Message"]
+                self.log.error("Failed to select jobs", result["Message"])
+                return result
 
-        checkTime = DiracTime.utcnow() - self.rescheduledTime * second
-        result = self.jobDB.selectJobs({"Status": JobStatus.RESCHEDULED}, older=checkTime)
-        if not result["OK"]:
-            self.log.error("Failed to select jobs", result["Message"])
-            return result
-
-        jobIDs = result["Value"]
-        if jobIDs:
-            self.log.info(f"Rescheduling {len(jobIDs)} jobs stuck in {JobStatus.RESCHEDULED} status")
-            result = rescheduleJobs(jobIDs)
-            if not result["OK"]:
-                message = f"Failed to reschedule jobs stuck in {JobStatus.RESCHEDULED} status"
-                message += "\n" + result["Message"]
+            jobIDs = result["Value"]
+            if not jobIDs:
+                continue
+            self.log.info(f"Rescheduling {len(jobIDs)} jobs stuck in {status} status")
+            failedJobIDs = []
+            for jobID in jobIDs:
+                # The job may have moved on since it was selected (e.g. a pilot picked it up),
+                # so check again just before rescheduling it
+                result = self.jobDB.selectJobs({"JobID": jobID, "Status": status}, older=checkTime)
+                if not result["OK"]:
+                    failedJobIDs.append(jobID)
+                    continue
+                if not result["Value"]:
+                    self.log.info("Job is no longer stuck, not rescheduling", f"{jobID} ({status})")
+                    continue
+                result = rescheduleJobs(
+                    [jobID],
+                    source="StalledJobAgent",
+                    jobDB=self.jobDB,
+                    taskQueueDB=self.taskQueueDB,
+                    jobLoggingDB=self.logDB,
+                )
+                if not result["OK"]:
+                    failedJobIDs.append(jobID)
+            if failedJobIDs:
+                message += f"Failed to reschedule jobs stuck in {status} status: {failedJobIDs}\n"
 
         if message:
             self.log.error(message)

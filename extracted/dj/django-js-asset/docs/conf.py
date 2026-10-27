@@ -1,8 +1,7 @@
-import os
-import sys
+import datetime as dt
+import re
+from pathlib import Path
 
-
-sys.path.append(os.path.abspath(".."))
 
 extensions = []
 
@@ -13,9 +12,13 @@ source_suffix = ".rst"
 master_doc = "index"
 
 project = "django-js-asset"
-copyright = "2017 - {dt.date.today().year} Feinheit AG"
+copyright = f"2017 - {dt.date.today().year} Feinheit AG"
 
-version = __import__("js_asset").__version__
+# Read the version like hatch does, importing js_asset would require Django.
+version = re.search(
+    r'__version__ = "([^"]+)"',
+    (Path(__file__).parent.parent / "js_asset" / "__init__.py").read_text(),
+)[1]
 release = version
 
 pygments_style = "sphinx"

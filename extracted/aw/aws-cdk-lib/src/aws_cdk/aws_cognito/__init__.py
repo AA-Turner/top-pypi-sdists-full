@@ -2381,6 +2381,7 @@ class CfnIdentityPool(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2440,7 +2441,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db6ea31d27c717c9763b6408e0f3923cd9b6dc2e5d79b1a66ce864122450159f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowUnauthenticatedIdentities", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allowUnauthenticatedIdentities", value)
 
     @builtins.property
     @jsii.member(jsii_name="cognitoEvents")
@@ -2453,7 +2454,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__360f21073c65bd16eeda7bcf34ec57609826f7d58ba6dc4fc009286320ef72de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cognitoEvents", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cognitoEvents", value)
 
     @builtins.property
     @jsii.member(jsii_name="supportedLoginProviders")
@@ -2466,7 +2467,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__905e78c8fb6056ab2fc4961e4c0d8d7817993690aff93e2be1384e79b1effe9a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supportedLoginProviders", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "supportedLoginProviders", value)
 
     @builtins.property
     @jsii.member(jsii_name="allowClassicFlow")
@@ -2484,7 +2485,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c5b513e4bd7ec3f84408bf9a2b747fb0b06357d05747f6825c473e9274958606)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowClassicFlow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allowClassicFlow", value)
 
     @builtins.property
     @jsii.member(jsii_name="cognitoIdentityProviders")
@@ -2502,7 +2503,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fbb45d26060f7e1f74033e6a37741666fb843374b7a2b735483dea6f9b824230)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cognitoIdentityProviders", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cognitoIdentityProviders", value)
 
     @builtins.property
     @jsii.member(jsii_name="cognitoStreams")
@@ -2520,7 +2521,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__502164af12ab71961d7f4f2e11817973d435bc4577d049f15a4cf62796079879)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cognitoStreams", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cognitoStreams", value)
 
     @builtins.property
     @jsii.member(jsii_name="developerProviderName")
@@ -2533,7 +2534,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f2b5f037f02889c2a585909dfa772a6165c4470d0984cfa622e1374ed7852936)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "developerProviderName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "developerProviderName", value)
 
     @builtins.property
     @jsii.member(jsii_name="identityPoolName")
@@ -2546,7 +2547,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6010d0ddbf0b577c8e7ea0796913ba4085881df0b32cec744c271c99300165af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityPoolName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identityPoolName", value)
 
     @builtins.property
     @jsii.member(jsii_name="identityPoolTags")
@@ -2564,7 +2565,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__caf91efc577806bf48a176729ecabaf6b30c2d71ecfff869256e7500e4dcb9bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityPoolTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identityPoolTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProviderArns")
@@ -2582,7 +2583,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__61d80fcbd99af6003aec5d0b96e0ec9abdb3d4f6e2f44f67bdd2e746351a3517)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "openIdConnectProviderArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "openIdConnectProviderArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="pushSync")
@@ -2600,7 +2601,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__37451572b0d939f18081b9fd4743a223e16c702244d56835c0e577ed22f85c70)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pushSync", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "pushSync", value)
 
     @builtins.property
     @jsii.member(jsii_name="samlProviderArns")
@@ -2616,7 +2617,7 @@ class CfnIdentityPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d2aad48eb5d6c1e553867325f44b35ef0b577c7971cf240ed4b646c07303a760)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "samlProviderArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "samlProviderArns", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnIdentityPool.CognitoIdentityProviderProperty",
@@ -2984,6 +2985,7 @@ class CfnIdentityPoolPrincipalTag(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3017,7 +3019,7 @@ class CfnIdentityPoolPrincipalTag(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__18add40294e453336d39c4b2518445fd0e172f25c23bd78b598609632a714548)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identityPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="identityProviderName")
@@ -3030,7 +3032,7 @@ class CfnIdentityPoolPrincipalTag(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__671325bd1b5eb381434a0ced3b0ca5b3646c379113e1014679b7ebacca38cc3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityProviderName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identityProviderName", value)
 
     @builtins.property
     @jsii.member(jsii_name="principalTags")
@@ -3043,7 +3045,7 @@ class CfnIdentityPoolPrincipalTag(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__941cd9f870d419478e147197cb0134b687f7c233a8bc805887d04a761669aefc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "principalTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "principalTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="useDefaults")
@@ -3061,7 +3063,7 @@ class CfnIdentityPoolPrincipalTag(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__615ac6e1fae0725987511e0b22108f8d03202321eadeee202779d4e5248fd19a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "useDefaults", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "useDefaults", value)
 
 
 @jsii.data_type(
@@ -3543,6 +3545,7 @@ class CfnIdentityPoolRoleAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3585,7 +3588,7 @@ class CfnIdentityPoolRoleAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c00bf0f77c984f55d1c0f4d659a057ac347b7a1e253f7f07e04e7cb5836f96be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identityPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="roles")
@@ -3598,7 +3601,7 @@ class CfnIdentityPoolRoleAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__987142230d77cd554d510e7265f08bb6c8a2ff277afb6532b8166d2315b9510c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roles", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleMappings")
@@ -3616,7 +3619,7 @@ class CfnIdentityPoolRoleAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__260d54d4ee9e4e92869ee257cefc54f19659c465c953f833a73ba65eac311091)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleMappings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleMappings", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnIdentityPoolRoleAttachment.MappingRuleProperty",
@@ -4149,6 +4152,7 @@ class CfnLogDeliveryConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4191,7 +4195,7 @@ class CfnLogDeliveryConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2182e97aaa93da941d4811edec2c32bd2af08481e5b611636933cf688c72d4a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="logConfigurations")
@@ -4209,7 +4213,7 @@ class CfnLogDeliveryConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40a6b8e2f773442c634fa6b71515839097ae56e3de02083447219aae5f9c1a9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logConfigurations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logConfigurations", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnLogDeliveryConfiguration.CloudWatchLogsConfigurationProperty",
@@ -4727,6 +4731,7 @@ class CfnManagedLoginBranding(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4769,7 +4774,7 @@ class CfnManagedLoginBranding(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f22fe695e1f64d8a038409355220b2e920e04882727bafb532a5728f1ffe677c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "settings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "settings", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -4782,7 +4787,7 @@ class CfnManagedLoginBranding(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__73b2532ea6e2300654d7fcc90b2b1fd38f772128b765556475cff8c1be577731)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="assets")
@@ -4800,7 +4805,7 @@ class CfnManagedLoginBranding(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc790275f28767420e82246bd64663082d888a2c93af667d6c769ece2924f786)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "assets", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "assets", value)
 
     @builtins.property
     @jsii.member(jsii_name="clientId")
@@ -4813,7 +4818,7 @@ class CfnManagedLoginBranding(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a668420e0b3cbceec0ade65febad3505a8186912fb1310c4ecdfbbcd6bac7dc2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clientId", value)
 
     @builtins.property
     @jsii.member(jsii_name="returnMergedResources")
@@ -4831,7 +4836,7 @@ class CfnManagedLoginBranding(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ea8e49ce2efc2678bcbf1fdf919c5bbeac64755b39b20ef47a3f76532c424dfc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "returnMergedResources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "returnMergedResources", value)
 
     @builtins.property
     @jsii.member(jsii_name="useCognitoProvidedValues")
@@ -4849,7 +4854,7 @@ class CfnManagedLoginBranding(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4b61f0689e78fea36c23c402c48085be3f2c198b922507818947333d59445895)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "useCognitoProvidedValues", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "useCognitoProvidedValues", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnManagedLoginBranding.AssetTypeProperty",
@@ -5277,6 +5282,7 @@ class CfnTerms(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5317,7 +5323,7 @@ class CfnTerms(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f61b831431a9a8cd9abc071d0372ef9f7481c4297f99d22362f79e4456530000)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enforcement", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enforcement", value)
 
     @builtins.property
     @jsii.member(jsii_name="links")
@@ -5335,7 +5341,7 @@ class CfnTerms(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4f9dfce3805ce6a5b41ec8b8adeb160b16b2bb09e9af48569f2f3a28a1301c36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "links", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "links", value)
 
     @builtins.property
     @jsii.member(jsii_name="termsName")
@@ -5348,7 +5354,7 @@ class CfnTerms(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__68b51d1ab80adde15516db14033542fe90da3c6c88f931ab391ca9a06f2b57a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "termsName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "termsName", value)
 
     @builtins.property
     @jsii.member(jsii_name="termsSource")
@@ -5361,7 +5367,7 @@ class CfnTerms(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d5aa2b8f439bae6d46ca78a5e059a5ed10c4d8f1fa1e7624f714272d8d13b98e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "termsSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "termsSource", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -5374,7 +5380,7 @@ class CfnTerms(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bedec026b3875318368cb2e1f7df8e4146e8efed23c452b2176302d00eac9db3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="clientId")
@@ -5387,7 +5393,7 @@ class CfnTerms(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b52c4f91e8237836ed692eed70ef894814f27cdb9a5c5fe5278b59f348ab3bb9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clientId", value)
 
 
 @jsii.data_type(
@@ -5923,6 +5929,7 @@ class CfnUserPool(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5996,7 +6003,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c0ac7e31445bc4b1c75709a8cde084565899b188ecd5ed75a434afb3fecf7e3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolTagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolTagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="accountRecoverySetting")
@@ -6014,7 +6021,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__da99efaebeb66459045576f8f7065b4ef07804424df0623f038bbd64d754aacc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountRecoverySetting", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accountRecoverySetting", value)
 
     @builtins.property
     @jsii.member(jsii_name="adminCreateUserConfig")
@@ -6032,7 +6039,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eaaa881203c259b6afa777936a9ca0096f8c631069a5ebd10e4ad0bd2c5229d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "adminCreateUserConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "adminCreateUserConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="aliasAttributes")
@@ -6048,7 +6055,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cc3f2402f4f88736f7b230549074e49d6aee20281b90dbeeb4a0bb5c031e81d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "aliasAttributes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "aliasAttributes", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoVerifiedAttributes")
@@ -6064,7 +6071,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__67b5b672ef087a1ed7f05991df5c156df67b6c51d144847ad452e5f52c4bcbe5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoVerifiedAttributes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoVerifiedAttributes", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtection")
@@ -6077,7 +6084,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__455a3b25859643cc12071049235f2feb590ee06f70ec42d2cd83bc166d9e9c9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="deviceConfiguration")
@@ -6095,7 +6102,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7eb821a70b459056b6d26722d06f8b948b315111a936804d8aba0e7ff07d13bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deviceConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deviceConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="emailAuthenticationMessage")
@@ -6110,7 +6117,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3cf4765f879f49f79c6984252af6993fe6fdf6838989608b11e192c544fce53c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "emailAuthenticationMessage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "emailAuthenticationMessage", value)
 
     @builtins.property
     @jsii.member(jsii_name="emailAuthenticationSubject")
@@ -6125,7 +6132,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e1d4523d17f0641e76142be67287be5dc758d191f5eba3fa217d8c5d0170791)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "emailAuthenticationSubject", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "emailAuthenticationSubject", value)
 
     @builtins.property
     @jsii.member(jsii_name="emailConfiguration")
@@ -6143,7 +6150,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__32d0b53f74dc294b25f20f54bcdaf8477a3dfc8b505387d70f97f7febe6ae209)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "emailConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "emailConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="emailVerificationMessage")
@@ -6156,7 +6163,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__82f2fd26b3ec2cf294bdc8be0a8bbae7dbacd31abbdbead2a75eac9566efd913)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "emailVerificationMessage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "emailVerificationMessage", value)
 
     @builtins.property
     @jsii.member(jsii_name="emailVerificationSubject")
@@ -6169,7 +6176,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e72167174985dddad82c3fffee5bd2e72f61e1a560cae39101e0f0bfa55a6c74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "emailVerificationSubject", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "emailVerificationSubject", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabledMfas")
@@ -6182,7 +6189,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__043cb4b4941782c98919a853fc16bce8663c274df01579f9caeb0cc2a0e4c28a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabledMfas", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabledMfas", value)
 
     @builtins.property
     @jsii.member(jsii_name="issuerConfiguration")
@@ -6199,7 +6206,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__837b254daa968778419c3daf6587e301f79a4cf136dccf6c46fe05c223e817be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "issuerConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "issuerConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="keyConfiguration")
@@ -6216,7 +6223,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__33595e077b6a8f08f618c063b74db1043509e8c51844f81306c50a1d1e1b9c0d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="lambdaConfig")
@@ -6234,7 +6241,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8c7be7c0b2e4badc8ab3ce5fb0f327b3c26ebcb18bb31bc39a369f1c5fd64877)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lambdaConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lambdaConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="mfaConfiguration")
@@ -6247,7 +6254,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02262b9b75d7d340810cfbaca693eeab69c3422010742739d64170db818cd1c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mfaConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mfaConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="policies")
@@ -6265,7 +6272,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cc547f06b5c5b29499b9c1debda606db3aa38d2243e5ea837490a194d6ee562d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policies", value)
 
     @builtins.property
     @jsii.member(jsii_name="schema")
@@ -6283,7 +6290,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f0e5b663faa7be35e96a6bb7a25793a3650b322376c4df96db6ab04037432ec8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schema", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "schema", value)
 
     @builtins.property
     @jsii.member(jsii_name="smsAuthenticationMessage")
@@ -6296,7 +6303,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b0033e90845dce5d5ed18e8cdb36333bda83daa85a52bf9b317447a2b26bb923)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "smsAuthenticationMessage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "smsAuthenticationMessage", value)
 
     @builtins.property
     @jsii.member(jsii_name="smsConfiguration")
@@ -6314,7 +6321,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7770291e207a266c6092133c98f74702280b1b762eadf5a38996872fd156c65d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "smsConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "smsConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="smsVerificationMessage")
@@ -6327,7 +6334,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__698f1380b9328c4a773190401993fe201c403d6b9d10c9d4d82aac1836766754)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "smsVerificationMessage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "smsVerificationMessage", value)
 
     @builtins.property
     @jsii.member(jsii_name="userAttributeUpdateSettings")
@@ -6345,7 +6352,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__092e452d396de66cdb0e7fad3a126dc88f5db6854ad416e350af1806e6465101)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userAttributeUpdateSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userAttributeUpdateSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="usernameAttributes")
@@ -6361,7 +6368,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__70fd85fe188c058531323dc3601df251b6fe7e56cbb9e62fb3d7b9f710f2597c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "usernameAttributes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "usernameAttributes", value)
 
     @builtins.property
     @jsii.member(jsii_name="usernameConfiguration")
@@ -6379,7 +6386,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5021fa9a3421f51a3fb6735566cc12e369ce2d1a11bc37330e0278145be57e21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "usernameConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "usernameConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolAddOns")
@@ -6397,7 +6404,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9387d4cd9039881cdf533356e5c6db2db0d1781598e0bee842b7485eca8c8fb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolAddOns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolAddOns", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolName")
@@ -6410,7 +6417,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a877e7ca735a6cf85b712d1b09de98f59adcdbef66ffacb8f24d5687caa6a37a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolName", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolTier")
@@ -6423,7 +6430,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b34a7e631952732eaf3564630f968b4a1066c2249e1bd77fa5894ac20d552db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolTier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolTier", value)
 
     @builtins.property
     @jsii.member(jsii_name="verificationMessageTemplate")
@@ -6441,7 +6448,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9163d1ccc0cf294430031f1b8b5289192a6e048b52e8181e9ca8707780aac888)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "verificationMessageTemplate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "verificationMessageTemplate", value)
 
     @builtins.property
     @jsii.member(jsii_name="webAuthnFactorConfiguration")
@@ -6456,7 +6463,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__428cbd214650a4798db1a6db90368ed69e4abc45108aaef6c2e661eb91df94bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "webAuthnFactorConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "webAuthnFactorConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="webAuthnRelyingPartyId")
@@ -6469,7 +6476,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2a2852b3b820fa8903c8ee86e4c615c763dbc2f40270d7dddb4851a596a4b629)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "webAuthnRelyingPartyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "webAuthnRelyingPartyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="webAuthnUserVerification")
@@ -6482,7 +6489,7 @@ class CfnUserPool(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__39e1b7a43a4375c7269c036061949915e9a6e4528f8341df4df0a6b046ac6a11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "webAuthnUserVerification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "webAuthnUserVerification", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPool.AccountRecoverySettingProperty",
@@ -9336,6 +9343,7 @@ class CfnUserPoolClient(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -9392,7 +9400,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b25b3f1d7835d1e1c5594b9c3dffd6b2c3b2773f547e55b57c8e0919e93a204)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="accessTokenValidity")
@@ -9405,7 +9413,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9c22b177f80150859dd3fc0ec6040fd86d6718dde2ccbb4e6e2993f4f0179616)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accessTokenValidity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accessTokenValidity", value)
 
     @builtins.property
     @jsii.member(jsii_name="allowedOAuthFlows")
@@ -9421,7 +9429,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a4e6becf32885d0d881b59d33ec61072e6d7812d751551a739cadf93d3754c73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowedOAuthFlows", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allowedOAuthFlows", value)
 
     @builtins.property
     @jsii.member(jsii_name="allowedOAuthFlowsUserPoolClient")
@@ -9439,7 +9447,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__21873ac965a2fe0f5bdf6747b41efd7cf29a1e20f79888c68d664a70a929167f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowedOAuthFlowsUserPoolClient", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allowedOAuthFlowsUserPoolClient", value)
 
     @builtins.property
     @jsii.member(jsii_name="allowedOAuthScopes")
@@ -9455,7 +9463,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96cd6c659670b16fdec9188b6f46c9069df3c2c6e960eb82c804a6eee58c0676)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowedOAuthScopes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allowedOAuthScopes", value)
 
     @builtins.property
     @jsii.member(jsii_name="analyticsConfiguration")
@@ -9473,7 +9481,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__20f4094b4b15bf8a99ce9e0a2bb559a164606de26b84fc2bb8855aa07e1b624b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "analyticsConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "analyticsConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="authSessionValidity")
@@ -9486,7 +9494,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c933dc37f47234e60d586123e1b18e9c28a667f37c5d5427aa85b4409376ea07)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authSessionValidity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "authSessionValidity", value)
 
     @builtins.property
     @jsii.member(jsii_name="callbackUrLs")
@@ -9499,7 +9507,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d014efcb2549aac6515f36258ccaf4ecec07ac09bca5d035df6559947c4ac2c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "callbackUrLs", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "callbackUrLs", value)
 
     @builtins.property
     @jsii.member(jsii_name="clientName")
@@ -9512,7 +9520,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0137f7e9c73233d74a2df7b39c8c4bb8d81b22d045b5741333e0b7f4cad603ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clientName", value)
 
     @builtins.property
     @jsii.member(jsii_name="defaultRedirectUri")
@@ -9525,7 +9533,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dfdc028ae25dd39e3553917a9d4209340b6c920f4ae1efe20b0c2c400f79d71b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultRedirectUri", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "defaultRedirectUri", value)
 
     @builtins.property
     @jsii.member(jsii_name="enablePropagateAdditionalUserContextData")
@@ -9543,7 +9551,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1c6e219444196075c25c38bf5995f93c8a7cec9a53523c8ac01a848afffefd1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enablePropagateAdditionalUserContextData", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enablePropagateAdditionalUserContextData", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableTokenRevocation")
@@ -9561,7 +9569,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fb0c7908c7db28417fc0f3140fa5d8ceb244c98f8aa1729c6e2945ed0e1c43cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableTokenRevocation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableTokenRevocation", value)
 
     @builtins.property
     @jsii.member(jsii_name="explicitAuthFlows")
@@ -9577,7 +9585,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40565d8b2082bb82a66f2c2881526bbe7e4d5f0f2f08ba6dc2976e98f59f7c8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "explicitAuthFlows", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "explicitAuthFlows", value)
 
     @builtins.property
     @jsii.member(jsii_name="generateSecret")
@@ -9595,7 +9603,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__957788b79d759b4d61639c557602d69d56690104c1f0aaa40f50729534e68c16)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "generateSecret", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "generateSecret", value)
 
     @builtins.property
     @jsii.member(jsii_name="idTokenValidity")
@@ -9608,7 +9616,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc02869bb5973b6100efb5c37bedca5b74e381117419f1bac379398aaffc2d11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "idTokenValidity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "idTokenValidity", value)
 
     @builtins.property
     @jsii.member(jsii_name="logoutUrLs")
@@ -9621,7 +9629,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__794ffdcf30a3962d0a3f7e5f05ddfd74a6fef4d201947dd6201c7a686f541188)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logoutUrLs", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logoutUrLs", value)
 
     @builtins.property
     @jsii.member(jsii_name="preventUserExistenceErrors")
@@ -9637,7 +9645,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__69feb00103083800cef9fe6cb134d68a642b9492532f75a271736355bf5da06d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preventUserExistenceErrors", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preventUserExistenceErrors", value)
 
     @builtins.property
     @jsii.member(jsii_name="readAttributes")
@@ -9653,7 +9661,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d0450b9a1c4091ecc8dc0197c1b8b862535cb1a705df2e839371c83db2f684ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "readAttributes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "readAttributes", value)
 
     @builtins.property
     @jsii.member(jsii_name="refreshTokenRotation")
@@ -9671,7 +9679,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0bbedb8c9ce56c5989c32027dce03245fe2e0733c111bf0e0c1447818d50a781)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "refreshTokenRotation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "refreshTokenRotation", value)
 
     @builtins.property
     @jsii.member(jsii_name="refreshTokenValidity")
@@ -9684,7 +9692,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ffd4a00853573a9063ab6bfb4bd488904d41fa8453a02d33cc8b44f6638125c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "refreshTokenValidity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "refreshTokenValidity", value)
 
     @builtins.property
     @jsii.member(jsii_name="supportedIdentityProviders")
@@ -9702,7 +9710,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__97736930ca8413d8b00c7851c37dde3d55fed9ca3778ecbfeb14cf25389e28c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supportedIdentityProviders", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "supportedIdentityProviders", value)
 
     @builtins.property
     @jsii.member(jsii_name="tokenValidityUnits")
@@ -9720,7 +9728,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dd54ee51ef07c33acd2cbd8e02b234784fa5a6a1c7879a29066514822e4147fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tokenValidityUnits", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tokenValidityUnits", value)
 
     @builtins.property
     @jsii.member(jsii_name="writeAttributes")
@@ -9736,7 +9744,7 @@ class CfnUserPoolClient(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d9ed7bc7a68b64df6709c00059cae06196e10a1a3cf55f0554b70dc90d3f9945)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "writeAttributes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "writeAttributes", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolClient.AnalyticsConfigurationProperty",
@@ -10716,6 +10724,7 @@ class CfnUserPoolDomain(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -10756,7 +10765,7 @@ class CfnUserPoolDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__60984af4b9f95693c974811dba163dc41c64348226be0621cde58067d75c2a75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domain", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -10769,7 +10778,7 @@ class CfnUserPoolDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__01784117c77cfebe2ef420bdb95cfa641714c4080a504ef08ebfbc5cb9e64418)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="customDomainConfig")
@@ -10787,7 +10796,7 @@ class CfnUserPoolDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__534c4957c36eac9a89217ff1b762b65d25e33f26c5048218fc840dc7f7ee2b0e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customDomainConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customDomainConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="managedLoginVersion")
@@ -10800,7 +10809,7 @@ class CfnUserPoolDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1d6e8e96816f3572291ff67691b98d76a166cf058320e0e73e58062b8093526)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedLoginVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "managedLoginVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="routing")
@@ -10817,7 +10826,7 @@ class CfnUserPoolDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6c33f81862d280c36447fed98b3e55fa6a44d50cc6a91594df213fdb81d3b094)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routing", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routing", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolDomain.CustomDomainConfigTypeProperty",
@@ -11271,6 +11280,7 @@ class CfnUserPoolGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -11302,7 +11312,7 @@ class CfnUserPoolGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca8402c546b7f090c567d019103e9d2674bfb6e4c199608669a4b2acc2afc5f3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -11315,7 +11325,7 @@ class CfnUserPoolGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7bda9e548a82a5206aec39e356f410d438353851dcd1f974bd59be186f5ff66a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="groupName")
@@ -11328,7 +11338,7 @@ class CfnUserPoolGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__50cee63463b0a00e9516a517c3ecba89edae39efb6890c70ea606f9e3cfca0bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "groupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="precedence")
@@ -11341,7 +11351,7 @@ class CfnUserPoolGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1542aa260237dd220738bd8c2fdd54d12089e9f7ff0f7f70cd927c2f8d90da2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "precedence", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "precedence", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -11354,7 +11364,7 @@ class CfnUserPoolGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3a22fc1c6f27de296195da5e404a5a9d43aea635361d630ed9185ab2d04e6ee2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
 
 @jsii.data_type(
@@ -11605,6 +11615,7 @@ class CfnUserPoolIdentityProvider(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -11638,7 +11649,7 @@ class CfnUserPoolIdentityProvider(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb44cf93ad9714e2bf7765a12f95e3a12d5a4b89bee8d2de779a247dbd587039)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeMapping", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "attributeMapping", value)
 
     @builtins.property
     @jsii.member(jsii_name="providerDetails")
@@ -11651,7 +11662,7 @@ class CfnUserPoolIdentityProvider(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dd9b80463fd736be9b8b32bf8d2368b0c44578e3b056d45e068ca1e5fdfdb299)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "providerDetails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "providerDetails", value)
 
     @builtins.property
     @jsii.member(jsii_name="providerName")
@@ -11664,7 +11675,7 @@ class CfnUserPoolIdentityProvider(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__03fef1ca3436f487bdb2ac4c72e914ca702f01a40d12470aaa64c77a0f7e15a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "providerName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "providerName", value)
 
     @builtins.property
     @jsii.member(jsii_name="providerType")
@@ -11677,7 +11688,7 @@ class CfnUserPoolIdentityProvider(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ee8fc97c7ce3a7223eabd6be18090c6fec027c8b81ecf420c175e278dafb535)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "providerType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "providerType", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -11690,7 +11701,7 @@ class CfnUserPoolIdentityProvider(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8f109ed40a77a3077cbab955821323c4293e2697420abd221b2032bb4abc2edb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="idpIdentifiers")
@@ -11706,7 +11717,7 @@ class CfnUserPoolIdentityProvider(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7662247fd2cd01f6776c3a84fedff308a45861e95cabe426cb256482aaeaead5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "idpIdentifiers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "idpIdentifiers", value)
 
 
 @jsii.data_type(
@@ -12818,6 +12829,7 @@ class CfnUserPoolRegionalConfigurationAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -12856,7 +12868,7 @@ class CfnUserPoolRegionalConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4bf0ebd473111dec12eaa8830bdb2a067a61c15d93bce1b3365b02949cc1a166)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="emailConfiguration")
@@ -12873,7 +12885,7 @@ class CfnUserPoolRegionalConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__42b2ba8449964fd827bddbf51611bae3d0da55b28cbf1beb899e13c6b0274c53)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "emailConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "emailConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="lambdaConfig")
@@ -12890,7 +12902,7 @@ class CfnUserPoolRegionalConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__163d375cd6ba526ca525f623c9a0b9c3bb056399ba1a812adadd6c5e3b409439)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lambdaConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lambdaConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="smsConfiguration")
@@ -12907,7 +12919,7 @@ class CfnUserPoolRegionalConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1d02bad06c3c1d23ce5aa21772b56cf6ad0d762e9922c71d392c41f7289620e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "smsConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "smsConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -12920,7 +12932,7 @@ class CfnUserPoolRegionalConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7bf7a6602d444a5f6d3334104a702b245659abe6b1619f90c1f41f428bb44abb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolTags")
@@ -12937,7 +12949,7 @@ class CfnUserPoolRegionalConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b0ac7611ee47d696719018c2611d9bc010113852d245ac49408165ad5c81bfc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolTags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRegionalConfigurationAttachment.CustomEmailSenderProperty",
@@ -14161,6 +14173,7 @@ class CfnUserPoolReplica(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -14197,7 +14210,7 @@ class CfnUserPoolReplica(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e051147647bb4e88af28fe069ca244f7afc9ee868869e826ce1588c07e0922ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "regionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -14209,7 +14222,7 @@ class CfnUserPoolReplica(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d711db6ae7edbcf83393ccad6af8f3560c62ef18f9c5fb78842f81f6bf8ab71e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolTagsAtCreate")
@@ -14226,7 +14239,7 @@ class CfnUserPoolReplica(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a57c5f9867f2d553cc39d4153b55d0846ef7de91cec3a3e0c205a3e9ab4aa380)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolTagsAtCreate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolTagsAtCreate", value)
 
 
 @jsii.data_type(
@@ -14425,6 +14438,7 @@ class CfnUserPoolResourceServer(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -14458,7 +14472,7 @@ class CfnUserPoolResourceServer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0784cedf1608a8758f1c44b7e3aacb96f3672ac970fc80673ae8a281382775da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -14471,7 +14485,7 @@ class CfnUserPoolResourceServer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__091a350381e1228e09795024704316d40f0bce3ead6bff97b512b103b8bb1ee6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -14484,7 +14498,7 @@ class CfnUserPoolResourceServer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__050918e589a6f0ea5348f6c36799b16672c9d8127f2e78e25499ac0ee092b4fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="scopes")
@@ -14502,7 +14516,7 @@ class CfnUserPoolResourceServer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__160fcb672d8fdc3b92b02edf7b6742270c60fcaadc1b0091d06e1413b15e3583)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scopes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scopes", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolResourceServer.ResourceServerScopeTypeProperty",
@@ -14867,6 +14881,7 @@ class CfnUserPoolRiskConfigurationAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -14900,7 +14915,7 @@ class CfnUserPoolRiskConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3a5b05e9407391c0557e201e4e58dfac89a06f57c4adc732162c79169e069fc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clientId", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -14913,7 +14928,7 @@ class CfnUserPoolRiskConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__258e8ccdb5a39874f49d032edd3b21eafc55726e815291b2ba0aeb3d1e5e57f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="accountTakeoverRiskConfiguration")
@@ -14931,7 +14946,7 @@ class CfnUserPoolRiskConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b17909dd0638cbbc0f1921202089390881098b016d096fd0e7523987a4e30ba9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountTakeoverRiskConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accountTakeoverRiskConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="compromisedCredentialsRiskConfiguration")
@@ -14949,7 +14964,7 @@ class CfnUserPoolRiskConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__114c02dca6d5bbc7b9068e92676886981e1fa4247a8584ed917e5391b74f2d2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "compromisedCredentialsRiskConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "compromisedCredentialsRiskConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="riskExceptionConfiguration")
@@ -14967,7 +14982,7 @@ class CfnUserPoolRiskConfigurationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2bce41f342258d692515e8eebb6c2745c7105edc270a2bbcfb45f41d2bf1ca46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "riskExceptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "riskExceptionConfiguration", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolRiskConfigurationAttachment.AccountTakeoverActionTypeProperty",
@@ -16037,6 +16052,7 @@ class CfnUserPoolUICustomizationAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -16070,7 +16086,7 @@ class CfnUserPoolUICustomizationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2fb840d14a15822261415d3d8b15b58403a1bf218216b5d0aba1826076c9cb03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clientId", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -16083,7 +16099,7 @@ class CfnUserPoolUICustomizationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc21fab90e665a827c26364efaa1568390b907cce17d5fc3f8621bfe65268d7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="css")
@@ -16096,7 +16112,7 @@ class CfnUserPoolUICustomizationAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__95fdebc4b645acafac0d58bca95a8d84ac0be5fcf3ca3d612ad578dbb3faa891)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "css", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "css", value)
 
 
 @jsii.data_type(
@@ -16316,6 +16332,7 @@ class CfnUserPoolUser(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -16347,7 +16364,7 @@ class CfnUserPoolUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__feefc710cb336bda2be62c58dcbdfc764a535ab2e52aa19e44511aca0956258c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
     @builtins.property
     @jsii.member(jsii_name="clientMetadata")
@@ -16365,7 +16382,7 @@ class CfnUserPoolUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__674b44537db9d65119536a886fe3b7990cd0df2f1aa1c3c2880711f8b302ae40)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientMetadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clientMetadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="desiredDeliveryMediums")
@@ -16381,7 +16398,7 @@ class CfnUserPoolUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__91542a3b74c01d216df5ff651d130ee1327aa0fc3c895cbd605609cf901699ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "desiredDeliveryMediums", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "desiredDeliveryMediums", value)
 
     @builtins.property
     @jsii.member(jsii_name="forceAliasCreation")
@@ -16399,7 +16416,7 @@ class CfnUserPoolUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c2c789fa64d9c856de89108f23fbf51d514f0cffa783771cfbacd552aee676c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "forceAliasCreation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "forceAliasCreation", value)
 
     @builtins.property
     @jsii.member(jsii_name="messageAction")
@@ -16412,7 +16429,7 @@ class CfnUserPoolUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9f0192dc3faa77898f91fb1e03cf55e5b740abf20bba3ba939ce4df47ae4227d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "messageAction", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "messageAction", value)
 
     @builtins.property
     @jsii.member(jsii_name="userAttributes")
@@ -16430,7 +16447,7 @@ class CfnUserPoolUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3a84d0d411d439647c27dc7ac7d1d6e760fe129e919aa8a0a8b4194179281b3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userAttributes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userAttributes", value)
 
     @builtins.property
     @jsii.member(jsii_name="username")
@@ -16443,7 +16460,7 @@ class CfnUserPoolUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__942108c1e34b7c1e541ffb7d9f565c31400708ae6fa3757029d02956f7e7086d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "username", value)
 
     @builtins.property
     @jsii.member(jsii_name="validationData")
@@ -16461,7 +16478,7 @@ class CfnUserPoolUser(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__69a6ee7471fbb46c9acd4942399424982966d6d11c89f8748a188ab7f08e54be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "validationData", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "validationData", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolUser.AttributeTypeProperty",
@@ -16872,6 +16889,7 @@ class CfnUserPoolUserToGroupAttachment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -16905,7 +16923,7 @@ class CfnUserPoolUserToGroupAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__76f277297f14c067592421ffe39f914d1d4341dd9bc83f4c42c66f73914f3488)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "groupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="username")
@@ -16918,7 +16936,7 @@ class CfnUserPoolUserToGroupAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a387f868c25297921e89f6892a60def04748b83f31771d79ae06623bc4eb435b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "username", value)
 
     @builtins.property
     @jsii.member(jsii_name="userPoolId")
@@ -16931,7 +16949,7 @@ class CfnUserPoolUserToGroupAttachment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__82177f095c7231924dc4eb6d3e0b1affc9151da04e151d35489d6ee497b571cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userPoolId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userPoolId", value)
 
 
 @jsii.data_type(
@@ -18974,12 +18992,14 @@ class OAuthScope(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COGNITO_ADMIN")
+    @builtins.classmethod
     def COGNITO_ADMIN(cls) -> "OAuthScope":
         '''Grants access to Amazon Cognito User Pool API operations that require access tokens, such as UpdateUserAttributes and VerifyUserAttribute.'''
         return typing.cast("OAuthScope", jsii.sget(cls, "COGNITO_ADMIN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EMAIL")
+    @builtins.classmethod
     def EMAIL(cls) -> "OAuthScope":
         '''Grants access to the 'email' and 'email_verified' claims.
 
@@ -18989,12 +19009,14 @@ class OAuthScope(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENID")
+    @builtins.classmethod
     def OPENID(cls) -> "OAuthScope":
         '''Returns all user attributes in the ID token that are readable by the client.'''
         return typing.cast("OAuthScope", jsii.sget(cls, "OPENID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PHONE")
+    @builtins.classmethod
     def PHONE(cls) -> "OAuthScope":
         '''Grants access to the 'phone_number' and 'phone_number_verified' claims.
 
@@ -19004,6 +19026,7 @@ class OAuthScope(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROFILE")
+    @builtins.classmethod
     def PROFILE(cls) -> "OAuthScope":
         '''Grants access to all user attributes that are readable by the client Automatically includes access to ``OAuthScope.OPENID``.'''
         return typing.cast("OAuthScope", jsii.sget(cls, "PROFILE"))
@@ -19498,168 +19521,196 @@ class ProviderAttribute(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_EMAIL")
+    @builtins.classmethod
     def AMAZON_EMAIL(cls) -> "ProviderAttribute":
         '''The email attribute provided by Amazon.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "AMAZON_EMAIL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NAME")
+    @builtins.classmethod
     def AMAZON_NAME(cls) -> "ProviderAttribute":
         '''The name attribute provided by Amazon.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "AMAZON_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_POSTAL_CODE")
+    @builtins.classmethod
     def AMAZON_POSTAL_CODE(cls) -> "ProviderAttribute":
         '''The postal code attribute provided by Amazon.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "AMAZON_POSTAL_CODE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_USER_ID")
+    @builtins.classmethod
     def AMAZON_USER_ID(cls) -> "ProviderAttribute":
         '''The user id attribute provided by Amazon.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "AMAZON_USER_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPLE_EMAIL")
+    @builtins.classmethod
     def APPLE_EMAIL(cls) -> "ProviderAttribute":
         '''The email attribute provided by Apple.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "APPLE_EMAIL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPLE_EMAIL_VERIFIED")
+    @builtins.classmethod
     def APPLE_EMAIL_VERIFIED(cls) -> "ProviderAttribute":
         '''The email verified attribute provided by Apple.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "APPLE_EMAIL_VERIFIED"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPLE_FIRST_NAME")
+    @builtins.classmethod
     def APPLE_FIRST_NAME(cls) -> "ProviderAttribute":
         '''The first name attribute provided by Apple.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "APPLE_FIRST_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPLE_LAST_NAME")
+    @builtins.classmethod
     def APPLE_LAST_NAME(cls) -> "ProviderAttribute":
         '''The last name attribute provided by Apple.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "APPLE_LAST_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPLE_NAME")
+    @builtins.classmethod
     def APPLE_NAME(cls) -> "ProviderAttribute":
         '''The name attribute provided by Apple.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "APPLE_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK_BIRTHDAY")
+    @builtins.classmethod
     def FACEBOOK_BIRTHDAY(cls) -> "ProviderAttribute":
         '''The birthday attribute provided by Facebook.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "FACEBOOK_BIRTHDAY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK_EMAIL")
+    @builtins.classmethod
     def FACEBOOK_EMAIL(cls) -> "ProviderAttribute":
         '''The email attribute provided by Facebook.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "FACEBOOK_EMAIL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK_FIRST_NAME")
+    @builtins.classmethod
     def FACEBOOK_FIRST_NAME(cls) -> "ProviderAttribute":
         '''The first name attribute provided by Facebook.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "FACEBOOK_FIRST_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK_GENDER")
+    @builtins.classmethod
     def FACEBOOK_GENDER(cls) -> "ProviderAttribute":
         '''The gender attribute provided by Facebook.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "FACEBOOK_GENDER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK_ID")
+    @builtins.classmethod
     def FACEBOOK_ID(cls) -> "ProviderAttribute":
         '''The user id attribute provided by Facebook.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "FACEBOOK_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK_LAST_NAME")
+    @builtins.classmethod
     def FACEBOOK_LAST_NAME(cls) -> "ProviderAttribute":
         '''The last name attribute provided by Facebook.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "FACEBOOK_LAST_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK_LOCALE")
+    @builtins.classmethod
     def FACEBOOK_LOCALE(cls) -> "ProviderAttribute":
         '''The locale attribute provided by Facebook.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "FACEBOOK_LOCALE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK_MIDDLE_NAME")
+    @builtins.classmethod
     def FACEBOOK_MIDDLE_NAME(cls) -> "ProviderAttribute":
         '''The middle name attribute provided by Facebook.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "FACEBOOK_MIDDLE_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK_NAME")
+    @builtins.classmethod
     def FACEBOOK_NAME(cls) -> "ProviderAttribute":
         '''The name attribute provided by Facebook.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "FACEBOOK_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE_BIRTHDAYS")
+    @builtins.classmethod
     def GOOGLE_BIRTHDAYS(cls) -> "ProviderAttribute":
         '''The birthday attribute provided by Google.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "GOOGLE_BIRTHDAYS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE_EMAIL")
+    @builtins.classmethod
     def GOOGLE_EMAIL(cls) -> "ProviderAttribute":
         '''The email attribute provided by Google.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "GOOGLE_EMAIL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE_EMAIL_VERIFIED")
+    @builtins.classmethod
     def GOOGLE_EMAIL_VERIFIED(cls) -> "ProviderAttribute":
         '''The email verified attribute provided by Google.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "GOOGLE_EMAIL_VERIFIED"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE_FAMILY_NAME")
+    @builtins.classmethod
     def GOOGLE_FAMILY_NAME(cls) -> "ProviderAttribute":
         '''The family name attribute provided by Google.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "GOOGLE_FAMILY_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE_GENDER")
+    @builtins.classmethod
     def GOOGLE_GENDER(cls) -> "ProviderAttribute":
         '''The gender attribute provided by Google.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "GOOGLE_GENDER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE_GIVEN_NAME")
+    @builtins.classmethod
     def GOOGLE_GIVEN_NAME(cls) -> "ProviderAttribute":
         '''The given name attribute provided by Google.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "GOOGLE_GIVEN_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE_NAME")
+    @builtins.classmethod
     def GOOGLE_NAME(cls) -> "ProviderAttribute":
         '''The name attribute provided by Google.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "GOOGLE_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE_NAMES")
+    @builtins.classmethod
     def GOOGLE_NAMES(cls) -> "ProviderAttribute":
         '''The name attribute provided by Google.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "GOOGLE_NAMES"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE_PHONE_NUMBERS")
+    @builtins.classmethod
     def GOOGLE_PHONE_NUMBERS(cls) -> "ProviderAttribute":
         '''The phone number attribute provided by Google.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "GOOGLE_PHONE_NUMBERS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE_PICTURE")
+    @builtins.classmethod
     def GOOGLE_PICTURE(cls) -> "ProviderAttribute":
         '''The picture attribute provided by Google.'''
         return typing.cast("ProviderAttribute", jsii.sget(cls, "GOOGLE_PICTURE"))
@@ -21588,6 +21639,7 @@ class UserPool(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -21759,6 +21811,7 @@ class UserPoolClient(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -21829,6 +21882,7 @@ class UserPoolClientIdentityProvider(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON")
+    @builtins.classmethod
     def AMAZON(cls) -> "UserPoolClientIdentityProvider":
         '''Allow users to sign in using 'Login With Amazon'.
 
@@ -21838,6 +21892,7 @@ class UserPoolClientIdentityProvider(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPLE")
+    @builtins.classmethod
     def APPLE(cls) -> "UserPoolClientIdentityProvider":
         '''Allow users to sign in using 'Sign In With Apple'.
 
@@ -21847,12 +21902,14 @@ class UserPoolClientIdentityProvider(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COGNITO")
+    @builtins.classmethod
     def COGNITO(cls) -> "UserPoolClientIdentityProvider":
         '''Allow users to sign in directly as a user of the User Pool.'''
         return typing.cast("UserPoolClientIdentityProvider", jsii.sget(cls, "COGNITO"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK")
+    @builtins.classmethod
     def FACEBOOK(cls) -> "UserPoolClientIdentityProvider":
         '''Allow users to sign in using 'Facebook Login'.
 
@@ -21862,6 +21919,7 @@ class UserPoolClientIdentityProvider(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE")
+    @builtins.classmethod
     def GOOGLE(cls) -> "UserPoolClientIdentityProvider":
         '''Allow users to sign in using 'Google Login'.
 
@@ -22727,6 +22785,7 @@ class UserPoolDomain(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -23327,6 +23386,7 @@ class UserPoolGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -23700,6 +23760,7 @@ class UserPoolIdentityProviderAmazon(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -23826,6 +23887,7 @@ class UserPoolIdentityProviderApple(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -23942,6 +24004,7 @@ class UserPoolIdentityProviderFacebook(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -24029,6 +24092,7 @@ class UserPoolIdentityProviderGoogle(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -24166,6 +24230,7 @@ class UserPoolIdentityProviderOidc(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -24368,6 +24433,7 @@ class UserPoolIdentityProviderSaml(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -24705,6 +24771,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CREATE_AUTH_CHALLENGE")
+    @builtins.classmethod
     def CREATE_AUTH_CHALLENGE(cls) -> "UserPoolOperation":
         '''Creates a challenge in a custom auth flow.
 
@@ -24714,6 +24781,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CUSTOM_EMAIL_SENDER")
+    @builtins.classmethod
     def CUSTOM_EMAIL_SENDER(cls) -> "UserPoolOperation":
         '''Amazon Cognito invokes this trigger to send email notifications to users.
 
@@ -24723,6 +24791,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CUSTOM_MESSAGE")
+    @builtins.classmethod
     def CUSTOM_MESSAGE(cls) -> "UserPoolOperation":
         '''Advanced customization and localization of messages.
 
@@ -24732,6 +24801,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CUSTOM_SMS_SENDER")
+    @builtins.classmethod
     def CUSTOM_SMS_SENDER(cls) -> "UserPoolOperation":
         '''Amazon Cognito invokes this trigger to send email notifications to users.
 
@@ -24741,6 +24811,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFINE_AUTH_CHALLENGE")
+    @builtins.classmethod
     def DEFINE_AUTH_CHALLENGE(cls) -> "UserPoolOperation":
         '''Determines the next challenge in a custom auth flow.
 
@@ -24750,6 +24821,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="POST_AUTHENTICATION")
+    @builtins.classmethod
     def POST_AUTHENTICATION(cls) -> "UserPoolOperation":
         '''Event logging for custom analytics.
 
@@ -24759,6 +24831,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="POST_CONFIRMATION")
+    @builtins.classmethod
     def POST_CONFIRMATION(cls) -> "UserPoolOperation":
         '''Custom welcome messages or event logging for custom analytics.
 
@@ -24768,6 +24841,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PRE_AUTHENTICATION")
+    @builtins.classmethod
     def PRE_AUTHENTICATION(cls) -> "UserPoolOperation":
         '''Custom validation to accept or deny the sign-in request.
 
@@ -24777,6 +24851,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PRE_SIGN_UP")
+    @builtins.classmethod
     def PRE_SIGN_UP(cls) -> "UserPoolOperation":
         '''Custom validation to accept or deny the sign-up request.
 
@@ -24786,6 +24861,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PRE_TOKEN_GENERATION")
+    @builtins.classmethod
     def PRE_TOKEN_GENERATION(cls) -> "UserPoolOperation":
         '''Add or remove attributes in Id tokens.
 
@@ -24799,6 +24875,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PRE_TOKEN_GENERATION_CONFIG")
+    @builtins.classmethod
     def PRE_TOKEN_GENERATION_CONFIG(cls) -> "UserPoolOperation":
         '''Add or remove attributes in Id tokens and Access tokens.
 
@@ -24808,6 +24885,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="USER_MIGRATION")
+    @builtins.classmethod
     def USER_MIGRATION(cls) -> "UserPoolOperation":
         '''Migrate a user from an existing user directory to user pools.
 
@@ -24817,6 +24895,7 @@ class UserPoolOperation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VERIFY_AUTH_CHALLENGE_RESPONSE")
+    @builtins.classmethod
     def VERIFY_AUTH_CHALLENGE_RESPONSE(cls) -> "UserPoolOperation":
         '''Determines if a response is correct in a custom auth flow.
 
@@ -25542,6 +25621,7 @@ class UserPoolResourceServer(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

@@ -56,7 +56,7 @@ class _FakeAgent:
 
     def __call__(self, folder, prompt, **kw):
         self.calls.append({"prompt": prompt, **kw})
-        if self.writes and kw.get("path_prepend") and "are yours (relative to the folder)" in prompt:
+        if self.writes and kw.get("path_prepend") and "Say what these files" in prompt:
             note(kw, {p: "n" for p in unit_paths(prompt)[:self.rows]})
         return self.ok, self.tail
 
@@ -263,133 +263,10 @@ def test_each_unit_writes_its_own_manifest(folder, state_dir, monkeypatch):
     assert {o.manifest.name for o in out} == {"ua.jsonl", "ub.jsonl"}
 
 
-# -- projects up front -------------------------------------------------------
-
-
-class _FakeClient:
-    """Resolve-or-create, the two calls backfill actually makes.
-
-    Deliberately has NO `ensure_project`: that is the guarded path, and a fake
-    offering it would let the code drift back onto the method whose near-miss
-    guard cannot tell a sibling from a typo.
-    """
-
-    def __init__(self, fail: set[str] | None = None, existing: set[str] | None = None):
-        self.made: list[str] = []
-        self.fail = fail or set()
-        self.existing = existing or set()
-
-    def resolve_project(self, slug):
-        return {"id": "u-" + slug, "slug": slug} if slug in self.existing else None
-
-    def create_project(self, slug, name=None, description=None, **kw):
-        if slug in self.fail:
-            raise RuntimeError("nope")
-        self.made.append(slug)
-        return {"id": "u-" + slug, "slug": slug}
-
-
-def test_every_project_is_created_before_any_unit_runs():
-    """Up front removes the create race by construction rather than by locking."""
-    client = _FakeClient()
-    plan = bp.Plan(
-        projects=[bp.ProjectSpec(slug="odyssey", name="Odyssey", description="d")],
-        assignments=[],
-    )
-    made, problems = br.ensure_projects(client, plan, {"a": "odyssey", "b": "odyssey"})
-    assert made == ["odyssey"] and problems == []
-    assert client.made == ["odyssey"], "one call per project, not per file"
-
-
-def test_a_project_that_cannot_be_created_is_reported_not_swallowed():
-    client = _FakeClient(fail={"esm3"})
-    plan = bp.Plan(projects=[], assignments=[])
-    made, problems = br.ensure_projects(client, plan, {"a": "odyssey", "b": "esm3"})
-    assert made == ["odyssey"]
-    assert problems and "esm3" in problems[0]
-
-
-def test_a_project_with_no_spec_still_gets_created_under_its_slug():
-    client = _FakeClient()
-    made, problems = br.ensure_projects(
-        client, bp.Plan(projects=[], assignments=[]), {"a": "orphan"}
-    )
-    assert made == ["orphan"] and not problems
-
-
-def test_sibling_projects_do_not_block_each_other():
-    """The bug that killed four real imports.
-
-    `ensure_project` runs the near-miss guard against the namespace as it is
-    NOW -- which by the third call includes the two this loop created moments
-    earlier. It read the siblings as typos of each other, refused the last, and
-    left the rest behind as orphans."""
-    client = _FakeClient()
-    siblings = {
-        "a": "odyssey-cluster-deploy",
-        "b": "odyssey-protein-benchmarks",
-        "c": "odyssey-protein-lm",
-    }
-    made, problems = br.ensure_projects(client, bp.Plan(projects=[], assignments=[]), siblings)
-    assert not problems
-    assert sorted(made) == sorted(set(siblings.values()))
-
-
-def test_an_existing_project_is_reused_never_recreated():
-    """Dropping the guard must not start duplicating what is already there.
-
-    This is the property the guard was a proxy for, and it is enforced by the
-    resolve, not by string distance -- so it holds exactly, for the real case."""
-    client = _FakeClient(existing={"odyssey"})
-    made, problems = br.ensure_projects(
-        client, bp.Plan(projects=[], assignments=[]), {"a": "odyssey", "b": "esm3"}
-    )
-    assert not problems
-    assert client.made == ["esm3"], "an existing project must not be re-created"
-    assert sorted(made) == ["esm3", "odyssey"]
-
-
-def test_losing_a_create_race_resolves_instead_of_failing():
-    """Get-or-create promises the project EXISTS afterwards, not that we made
-    it. A concurrent process winning the create is not the caller's problem."""
-    from probe.sdk import errors
-
-    class _Racy(_FakeClient):
-        def __init__(self):
-            super().__init__()
-            self.attempts = 0
-
-        def resolve_project(self, slug):
-            # Absent on the first look, present once the race is lost.
-            return {"slug": slug} if self.attempts else None
-
-        def create_project(self, slug, name=None, description=None, **kw):
-            self.attempts += 1
-            raise errors.ConflictError("already exists")
-
-    client = _Racy()
-    made, problems = br.ensure_projects(
-        client, bp.Plan(projects=[], assignments=[]), {"a": "odyssey"}
-    )
-    assert made == ["odyssey"] and not problems
-
-
-def test_a_conflict_that_still_leaves_nothing_is_a_real_error():
-    """The swallow has to stay narrow: a 409 on a project that then still is
-    not there meant something other than a race."""
-    from probe.sdk import errors
-
-    class _Broken(_FakeClient):
-        def resolve_project(self, slug):
-            return None
-
-        def create_project(self, slug, name=None, description=None, **kw):
-            raise errors.ConflictError("something else")
-
-    made, problems = br.ensure_projects(
-        _Broken(), bp.Plan(projects=[], assignments=[]), {"a": "odyssey"}
-    )
-    assert made == [] and problems and "odyssey" in problems[0]
+# -- projects ------------------------------------------------------------------
+#
+# Creation lives in `backfill_projects.destination` (new by default, existing
+# only by origin); its tests are in test_backfill_project_reuse.py.
 
 
 # -- the approval screen -----------------------------------------------------
@@ -461,7 +338,7 @@ def test_classify_is_told_when_its_evidence_was_truncated(folder, monkeypatch):
     evidence = ev.gather(folder)
     evidence.sample_budget_hit = True
     br.classify(folder, evidence, agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".work")
-    assert "sample budget was reached" in fake.calls[0]["prompt"]
+    assert "sample budget ran out" in fake.calls[0]["prompt"]
 
 
 def test_classify_gets_its_own_larger_deadline(folder, monkeypatch):

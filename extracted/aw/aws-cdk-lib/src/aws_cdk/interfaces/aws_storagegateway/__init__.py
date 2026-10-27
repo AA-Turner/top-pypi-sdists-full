@@ -38,6 +38,96 @@ else:
     _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_storagegateway.INFSFileShareRef")
+class INFSFileShareRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a NFSFileShare.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="nfsFileShareRef")
+    def nfs_file_share_ref(self) -> "NFSFileShareReference":
+        '''(experimental) A reference to a NFSFileShare resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _INFSFileShareRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a NFSFileShare.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_storagegateway.INFSFileShareRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="nfsFileShareRef")
+    def nfs_file_share_ref(self) -> "NFSFileShareReference":
+        '''(experimental) A reference to a NFSFileShare resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("NFSFileShareReference", jsii.get(self, "nfsFileShareRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, INFSFileShareRef).__jsii_proxy_class__ = lambda : _INFSFileShareRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_storagegateway.ISMBFileShareRef")
+class ISMBFileShareRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SMBFileShare.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="smbFileShareRef")
+    def smb_file_share_ref(self) -> "SMBFileShareReference":
+        '''(experimental) A reference to a SMBFileShare resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISMBFileShareRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SMBFileShare.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_storagegateway.ISMBFileShareRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="smbFileShareRef")
+    def smb_file_share_ref(self) -> "SMBFileShareReference":
+        '''(experimental) A reference to a SMBFileShare resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SMBFileShareReference", jsii.get(self, "smbFileShareRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISMBFileShareRef).__jsii_proxy_class__ = lambda : _ISMBFileShareRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_storagegateway.ITapePoolRef")
 class ITapePoolRef(
     _constructs_77d1e7e8.IConstruct,
@@ -171,6 +261,104 @@ class _IVolumeRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IVolumeRef).__jsii_proxy_class__ = lambda : _IVolumeRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_storagegateway.NFSFileShareReference",
+    jsii_struct_bases=[],
+    name_mapping={"file_share_arn": "fileShareArn"},
+)
+class NFSFileShareReference:
+    def __init__(self, *, file_share_arn: builtins.str) -> None:
+        '''A reference to a NFSFileShare resource.
+
+        :param file_share_arn: The FileShareARN of the NFSFileShare resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_storagegateway as interfaces_storagegateway
+            
+            n_fs_file_share_reference = interfaces_storagegateway.NFSFileShareReference(
+                file_share_arn="fileShareArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a9fdf3e97ceda0f80f4a80a4404d1cf3950112c471d37bd7f9fa4e896e458cfc)
+            check_type(argname="argument file_share_arn", value=file_share_arn, expected_type=type_hints["file_share_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "file_share_arn": file_share_arn,
+        }
+
+    @builtins.property
+    def file_share_arn(self) -> builtins.str:
+        '''The FileShareARN of the NFSFileShare resource.'''
+        result = self._values.get("file_share_arn")
+        assert result is not None, "Required property 'file_share_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NFSFileShareReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_storagegateway.SMBFileShareReference",
+    jsii_struct_bases=[],
+    name_mapping={"file_share_arn": "fileShareArn"},
+)
+class SMBFileShareReference:
+    def __init__(self, *, file_share_arn: builtins.str) -> None:
+        '''A reference to a SMBFileShare resource.
+
+        :param file_share_arn: The FileShareARN of the SMBFileShare resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_storagegateway as interfaces_storagegateway
+            
+            s_mb_file_share_reference = interfaces_storagegateway.SMBFileShareReference(
+                file_share_arn="fileShareArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3b751ab17ed1eedd1bbad6367298ff48b93b36a2c1244811851a0f55e6cd5335)
+            check_type(argname="argument file_share_arn", value=file_share_arn, expected_type=type_hints["file_share_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "file_share_arn": file_share_arn,
+        }
+
+    @builtins.property
+    def file_share_arn(self) -> builtins.str:
+        '''The FileShareARN of the SMBFileShare resource.'''
+        result = self._values.get("file_share_arn")
+        assert result is not None, "Required property 'file_share_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SMBFileShareReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -332,15 +520,33 @@ class VolumeReference:
 
 
 __all__ = [
+    "INFSFileShareRef",
+    "ISMBFileShareRef",
     "ITapePoolRef",
     "ITapeRef",
     "IVolumeRef",
+    "NFSFileShareReference",
+    "SMBFileShareReference",
     "TapePoolReference",
     "TapeReference",
     "VolumeReference",
 ]
 
 publication.publish()
+
+def _typecheckingstub__a9fdf3e97ceda0f80f4a80a4404d1cf3950112c471d37bd7f9fa4e896e458cfc(
+    *,
+    file_share_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b751ab17ed1eedd1bbad6367298ff48b93b36a2c1244811851a0f55e6cd5335(
+    *,
+    file_share_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__931a079c099cafcf7c3658f645d8e30f357c406d91c831ab4fc86f2ae8c9fdce(
     *,
@@ -364,5 +570,5 @@ def _typecheckingstub__fa56affb5b28498dfa94bfc6e9e66be39cd6b3647aaa44b547b63aa80
     """Type checking stubs"""
     pass
 
-for cls in [ITapePoolRef, ITapeRef, IVolumeRef]:
+for cls in [INFSFileShareRef, ISMBFileShareRef, ITapePoolRef, ITapeRef, IVolumeRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

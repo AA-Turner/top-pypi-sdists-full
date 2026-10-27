@@ -61,7 +61,7 @@ class CompressionResponder:
         start_message: Message | None = None
         encoder: StreamEncoder | None = None
         streaming = False
-        extensions = scope.get('extensions', ())
+        extensions: dict[str, object] = scope.get('extensions', {})
         pathsend_capable = 'http.response.pathsend' in extensions
 
         # Encoded path: never advertise zerocopysend — after Content-Encoding
@@ -79,9 +79,7 @@ class CompressionResponder:
 
             if message_type == 'http.response.start':
                 if started:
-                    raise AssertionError(
-                        'Unexpected repeated http.response.start message'
-                    )
+                    raise RuntimeError('http.response.start has already been received')
 
                 verdict = classify_start_message(message)
                 if verdict == 'skip':
@@ -146,6 +144,7 @@ class CompressionResponder:
                     headers.add_vary_header('Accept-Encoding')
                     headers['Content-Length'] = str(len(compressed_body))
                     message['body'] = compressed_body
+                    del body
                     pending = start_message
                     start_message = None
                     await send(pending)

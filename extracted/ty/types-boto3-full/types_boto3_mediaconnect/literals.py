@@ -31,10 +31,22 @@ __all__ = (
     "ContentQualityAnalysisStateType",
     "DayType",
     "DesiredStateType",
+    "DestinationEndpointConnectedWaiterName",
+    "DestinationEndpointConnectionStateType",
+    "DestinationEndpointDeregisteredWaiterName",
+    "DestinationEndpointDisconnectedWaiterName",
+    "DestinationEndpointNetworkingTypeType",
+    "DestinationEndpointProtocolType",
+    "DestinationEndpointRegisteredWaiterName",
+    "DestinationEndpointRegistrationStateType",
+    "DestinationEndpointTypeType",
     "DurationUnitsType",
     "EncoderProfileType",
     "EncodingNameType",
     "EncodingProfileType",
+    "EndpointEncryptionSecretTypeType",
+    "EndpointEncryptionTypeType",
+    "EndpointLifecycleType",
     "EntitlementStatusType",
     "FabricLatencyModeType",
     "FailoverInputSourcePriorityModeType",
@@ -52,6 +64,7 @@ __all__ = (
     "InstanceStateType",
     "KeyTypeType",
     "ListBridgesPaginatorName",
+    "ListDestinationEndpointsPaginatorName",
     "ListEntitlementsPaginatorName",
     "ListFlowsPaginatorName",
     "ListGatewayInstancesPaginatorName",
@@ -61,6 +74,7 @@ __all__ = (
     "ListRouterInputsPaginatorName",
     "ListRouterNetworkInterfacesPaginatorName",
     "ListRouterOutputsPaginatorName",
+    "ListSourceEndpointsPaginatorName",
     "MaintenanceDayType",
     "MaintenanceScheduleTypeType",
     "MaintenanceTypeType",
@@ -85,6 +99,8 @@ __all__ = (
     "RegionName",
     "ReservationStateType",
     "ResourceServiceName",
+    "ResourceShareOwnershipType",
+    "ResourceShareStateType",
     "ResourceTypeType",
     "RouterContentQualityAnalysisTypeType",
     "RouterInputProtocolType",
@@ -102,6 +118,17 @@ __all__ = (
     "RoutingScopeType",
     "ScanModeType",
     "ServiceName",
+    "SourceEndpointConnectedWaiterName",
+    "SourceEndpointConnectingWaiterName",
+    "SourceEndpointConnectionStateType",
+    "SourceEndpointDeregisteredWaiterName",
+    "SourceEndpointDisconnectedWaiterName",
+    "SourceEndpointDisconnectingWaiterName",
+    "SourceEndpointNetworkingTypeType",
+    "SourceEndpointProtocolType",
+    "SourceEndpointRegisteredWaiterName",
+    "SourceEndpointRegistrationStateType",
+    "SourceEndpointTypeType",
     "SourceTypeType",
     "StateType",
     "StatusType",
@@ -136,10 +163,28 @@ ConnectionStatusType = Literal["CONNECTED", "DISCONNECTED"]
 ContentQualityAnalysisStateType = Literal["DISABLED", "ENABLED"]
 DayType = Literal["FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"]
 DesiredStateType = Literal["ACTIVE", "DELETED", "STANDBY"]
+DestinationEndpointConnectedWaiterName = Literal["destination_endpoint_connected"]
+DestinationEndpointConnectionStateType = Literal[
+    "CONNECTED", "CONNECTING", "DISCONNECTED", "DISCONNECTING"
+]
+DestinationEndpointDeregisteredWaiterName = Literal["destination_endpoint_deregistered"]
+DestinationEndpointDisconnectedWaiterName = Literal["destination_endpoint_disconnected"]
+DestinationEndpointNetworkingTypeType = Literal["PUBLIC", "VPC"]
+DestinationEndpointProtocolType = Literal["RIST", "RTP", "SRT_CALLER", "SRT_LISTENER"]
+DestinationEndpointRegisteredWaiterName = Literal["destination_endpoint_registered"]
+DestinationEndpointRegistrationStateType = Literal[
+    "DEREGISTERING", "REGISTERED", "REGISTERING", "REGISTRATION_FAILED"
+]
+DestinationEndpointTypeType = Literal["ROUTER_INPUT", "STANDARD"]
 DurationUnitsType = Literal["MONTHS"]
 EncoderProfileType = Literal["high", "main"]
 EncodingNameType = Literal["jxsv", "pcm", "raw", "smpte291"]
 EncodingProfileType = Literal["CONTRIBUTION_H264_DEFAULT", "DISTRIBUTION_H264_DEFAULT"]
+EndpointEncryptionSecretTypeType = Literal[
+    "AES_128_KEY", "AES_192_KEY", "AES_256_KEY", "SRT_PASSPHRASE"
+]
+EndpointEncryptionTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
+EndpointLifecycleType = Literal["MANAGED", "UNMANAGED"]
 EntitlementStatusType = Literal["DISABLED", "ENABLED"]
 FabricLatencyModeType = Literal["BALANCED", "LOW_LATENCY"]
 FailoverInputSourcePriorityModeType = Literal["NO_PRIORITY", "PRIMARY_SECONDARY"]
@@ -164,6 +209,7 @@ InstanceStateType = Literal[
 ]
 KeyTypeType = Literal["speke", "srt-password", "static-key"]
 ListBridgesPaginatorName = Literal["list_bridges"]
+ListDestinationEndpointsPaginatorName = Literal["list_destination_endpoints"]
 ListEntitlementsPaginatorName = Literal["list_entitlements"]
 ListFlowsPaginatorName = Literal["list_flows"]
 ListGatewayInstancesPaginatorName = Literal["list_gateway_instances"]
@@ -173,6 +219,7 @@ ListReservationsPaginatorName = Literal["list_reservations"]
 ListRouterInputsPaginatorName = Literal["list_router_inputs"]
 ListRouterNetworkInterfacesPaginatorName = Literal["list_router_network_interfaces"]
 ListRouterOutputsPaginatorName = Literal["list_router_outputs"]
+ListSourceEndpointsPaginatorName = Literal["list_source_endpoints"]
 MaintenanceDayType = Literal[
     "Friday", "Monday", "Saturday", "Sunday", "Thursday", "Tuesday", "Wednesday"
 ]
@@ -208,6 +255,8 @@ ProtocolType = Literal[
 ]
 RangeType = Literal["FULL", "FULLPROTECT", "NARROW"]
 ReservationStateType = Literal["ACTIVE", "CANCELED", "EXPIRED", "PROCESSING"]
+ResourceShareOwnershipType = Literal["CONSUMED", "OWNED"]
+ResourceShareStateType = Literal["SHARED", "UNSHARED"]
 ResourceTypeType = Literal["Mbps_Outbound_Bandwidth"]
 RouterContentQualityAnalysisTypeType = Literal["CONTENT_LEVEL"]
 RouterInputProtocolType = Literal["RIST", "RTP", "SRT_CALLER", "SRT_LISTENER"]
@@ -226,7 +275,12 @@ RouterInputStateType = Literal[
 RouterInputTierType = Literal["INPUT_100", "INPUT_20", "INPUT_250", "INPUT_50", "INPUT_500"]
 RouterInputTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 RouterInputTypeType = Literal[
-    "FAILOVER", "MEDIACONNECT_FLOW", "MEDIALIVE_CHANNEL", "MERGE", "STANDARD"
+    "DESTINATION_ENDPOINT",
+    "FAILOVER",
+    "MEDIACONNECT_FLOW",
+    "MEDIALIVE_CHANNEL",
+    "MERGE",
+    "STANDARD",
 ]
 RouterNetworkInterfaceStateType = Literal[
     "ACTIVE", "CREATING", "DELETING", "ERROR", "RECOVERING", "UPDATING"
@@ -247,9 +301,26 @@ RouterOutputStateType = Literal[
     "UPDATING",
 ]
 RouterOutputTierType = Literal["OUTPUT_100", "OUTPUT_20", "OUTPUT_250", "OUTPUT_50", "OUTPUT_500"]
-RouterOutputTypeType = Literal["MEDIACONNECT_FLOW", "MEDIALIVE_INPUT", "STANDARD"]
+RouterOutputTypeType = Literal[
+    "MEDIACONNECT_FLOW", "MEDIALIVE_INPUT", "SOURCE_ENDPOINT", "STANDARD"
+]
 RoutingScopeType = Literal["GLOBAL", "REGIONAL"]
 ScanModeType = Literal["interlace", "progressive", "progressive-segmented-frame"]
+SourceEndpointConnectedWaiterName = Literal["source_endpoint_connected"]
+SourceEndpointConnectingWaiterName = Literal["source_endpoint_connecting"]
+SourceEndpointConnectionStateType = Literal[
+    "CONNECTED", "CONNECTING", "DISCONNECTED", "DISCONNECTING"
+]
+SourceEndpointDeregisteredWaiterName = Literal["source_endpoint_deregistered"]
+SourceEndpointDisconnectedWaiterName = Literal["source_endpoint_disconnected"]
+SourceEndpointDisconnectingWaiterName = Literal["source_endpoint_disconnecting"]
+SourceEndpointNetworkingTypeType = Literal["PUBLIC", "VPC"]
+SourceEndpointProtocolType = Literal["RIST", "RTP", "SRT_CALLER", "SRT_LISTENER"]
+SourceEndpointRegisteredWaiterName = Literal["source_endpoint_registered"]
+SourceEndpointRegistrationStateType = Literal[
+    "DEREGISTERING", "REGISTERED", "REGISTERING", "REGISTRATION_FAILED"
+]
+SourceEndpointTypeType = Literal["ROUTER_OUTPUT", "STANDARD"]
 SourceTypeType = Literal["ENTITLED", "OWNED"]
 StateType = Literal["DISABLED", "ENABLED"]
 StatusType = Literal["ACTIVE", "DELETING", "ERROR", "STANDBY", "STARTING", "STOPPING", "UPDATING"]
@@ -746,6 +817,7 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "list_bridges",
+    "list_destination_endpoints",
     "list_entitlements",
     "list_flows",
     "list_gateway_instances",
@@ -755,8 +827,13 @@ PaginatorName = Literal[
     "list_router_inputs",
     "list_router_network_interfaces",
     "list_router_outputs",
+    "list_source_endpoints",
 ]
 WaiterName = Literal[
+    "destination_endpoint_connected",
+    "destination_endpoint_deregistered",
+    "destination_endpoint_disconnected",
+    "destination_endpoint_registered",
     "flow_active",
     "flow_deleted",
     "flow_standby",
@@ -768,6 +845,12 @@ WaiterName = Literal[
     "output_routed",
     "output_standby",
     "output_unrouted",
+    "source_endpoint_connected",
+    "source_endpoint_connecting",
+    "source_endpoint_deregistered",
+    "source_endpoint_disconnected",
+    "source_endpoint_disconnecting",
+    "source_endpoint_registered",
 ]
 RegionName = Literal[
     "af-south-1",

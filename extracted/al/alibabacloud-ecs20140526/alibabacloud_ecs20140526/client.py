@@ -5430,6 +5430,8 @@ class Client(OpenApiClient):
             query['ImageName'] = request.image_name
         if not DaraCore.is_null(request.image_options):
             query['ImageOptions'] = request.image_options
+        if not DaraCore.is_null(request.image_security_options):
+            query['ImageSecurityOptions'] = request.image_security_options
         if not DaraCore.is_null(request.import_image_options):
             query['ImportImageOptions'] = request.import_image_options
         if not DaraCore.is_null(request.instance_type):
@@ -5518,6 +5520,8 @@ class Client(OpenApiClient):
             query['ImageName'] = request.image_name
         if not DaraCore.is_null(request.image_options):
             query['ImageOptions'] = request.image_options
+        if not DaraCore.is_null(request.image_security_options):
+            query['ImageSecurityOptions'] = request.image_security_options
         if not DaraCore.is_null(request.import_image_options):
             query['ImportImageOptions'] = request.import_image_options
         if not DaraCore.is_null(request.instance_type):

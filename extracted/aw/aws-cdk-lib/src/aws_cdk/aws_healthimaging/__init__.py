@@ -225,6 +225,7 @@ class CfnDatastore(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -307,7 +308,7 @@ class CfnDatastore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5031635295d3986a365da0e431ec71e51bd788c65bab48a8d6f6bdcb3742eda0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "datastoreName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "datastoreName", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
@@ -320,7 +321,7 @@ class CfnDatastore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__23bc8d23f4b6e4945b6b893192f673deeee7f593b8395cb7a14deed34ab51a8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -336,7 +337,7 @@ class CfnDatastore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6d245bacf34b43fbfa31b2fb6f2cebd4f675510d4d7607d2e2ec945e1c946895)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(

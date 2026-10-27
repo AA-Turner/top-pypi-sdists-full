@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#pylint: disable=invalid-name
+#pylint: disable=invalid-name, too-many-locals, import-outside-toplevel
 
 """Copyright 2018 Roger R Labbe Jr.
 
@@ -58,7 +58,7 @@ def kinematic_state_transition(order, dt):
     return F
 
 
-def kinematic_kf(dim, order, dt=1., dim_z=1, order_by_dim=True):
+def kinematic_kf(dim, order, dt=1., dim_z=1, order_by_dim=True, kf=None):
     """
     Returns a KalmanFilter using newtonian kinematics of arbitrary order
     for any number of dimensions. For example, a constant velocity filter
@@ -134,9 +134,14 @@ def kinematic_kf(dim, order, dt=1., dim_z=1, order_by_dim=True):
         whereas `False` interleaves the dimensions
 
         [x y z x' y' z' x'' y'' z'']
+
+    kf : kalman filter like object, optional, default None
+        Provide your own pre-created filter. This lets you use classes other
+        than KalmanFilter.
     """
 
     from filterpy.kalman import KalmanFilter
+
     if dim < 1:
         raise ValueError("dim must be >= 1")
     if order < 0:
@@ -146,12 +151,15 @@ def kinematic_kf(dim, order, dt=1., dim_z=1, order_by_dim=True):
 
     dim_x = order + 1
 
-    kf = KalmanFilter(dim_x=dim * dim_x, dim_z=dim)
+    if kf is None:
+        kf = KalmanFilter(dim_x=dim * dim_x, dim_z=dim_z)
+    assert kf.dim_x == dim * dim_x
+    assert kf.dim_z == dim_z
+
     F = kinematic_state_transition(order, dt)
     if order_by_dim:
         diag = [F] * dim
         kf.F = block_diag(*diag)
-
     else:
         kf.F.fill(0.0)
         for i, x in enumerate(F.ravel()):
@@ -161,18 +169,12 @@ def kinematic_kf(dim, order, dt=1., dim_z=1, order_by_dim=True):
             kf.F[ix:ix+dim, iy:iy+dim] = f
 
     if order_by_dim:
-        for i in range(dim):
-            kf.H[i, i * dim_x] = 1.
+        for i in range(dim_z):
+            for j in range(dim):
+                kf.H[i, j * dim_x] = 1.
     else:
-        for i in range(dim):
-            kf.H[i, i] = 1.
+        for i in range(dim_z):
+            for j in range(dim):
+                kf.H[i, j] = 1.
 
     return kf
-
-
-if __name__ == "__main__":
-    _kf = kinematic_kf(2, 1, dt=3., order_by_dim=False)
-    print(_kf.F)
-    print('\n\n')
-    _kf = kinematic_kf(3, 1, dt=3., order_by_dim=False)
-    print(_kf.F)

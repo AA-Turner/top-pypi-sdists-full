@@ -9,7 +9,7 @@
 use std::{fmt::Debug, marker::PhantomData, sync::LazyLock};
 
 use aho_corasick::{AhoCorasick, Match};
-use discord_confusables::skeleton;
+use discord_confusables::{Direction, display_order, internal_skeleton};
 use enumset::{enum_set, enum_set_difference};
 use nom::{
 	Check, Complete, Finish, Mode, OutputM, Parser,
@@ -23,7 +23,7 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
-	span::Span,
+	span::{Span, Syntax as _},
 	syntax::{Syntax, SyntaxSet},
 };
 
@@ -42,16 +42,16 @@ mod text;
 /// hiding one behind a masked link is the same attack.
 #[tracing::instrument(level = Level::TRACE)]
 fn has_no_link(text: &str, context: &Context) -> bool {
-	let text = text
-		.chars()
-		.filter(|ch| !is_suspicious_whitespace(*ch))
-		.collect::<String>();
-
-	let process_text = |text: String| -> bool {
-		// The skeleton maps every confusable to its prototype and reorders
-		// bidirectional text into display order, so a URL is searched for as
-		// it would be seen, not as it is encoded.
-		let text = skeleton(&text);
+	let process_text = |text: &str| -> bool {
+		// Search for a URL as it would be seen, not as it is encoded: reorder bidirectional text
+		// into display order, drop invisible whitespace that could split a link without changing
+		// how it looks, then map every confusable to its prototype. Controls steer the reordering,
+		// so they are only stripped after it.
+		let text = display_order(Direction::Ltr, text)
+			.chars()
+			.filter(|ch| !is_suspicious_whitespace(*ch))
+			.collect::<String>();
+		let text = internal_skeleton(&text);
 
 		let context = context.fresh();
 		for mat in candidates(&text) {
@@ -71,7 +71,7 @@ fn has_no_link(text: &str, context: &Context) -> bool {
 		true
 	};
 
-	process_text(text.chars().rev().collect()) && process_text(text)
+	process_text(&text.chars().rev().collect::<String>()) && process_text(text)
 }
 
 /// Byte offsets where a link could begin.
@@ -138,7 +138,7 @@ where
 	S: Span,
 	E: ParseError<'data> + 'ctx,
 {
-	type Output = Link<S, Element<'data, S>>;
+	type Output = (Link<S, Element<'data, S>>, S::Syntax);
 	type Error = E;
 
 	#[tracing::instrument(name = "masked_parser", level = Level::TRACE, fields(ok, output))]
@@ -156,12 +156,15 @@ where
 		map(
 			pair(
 				text::segment::<S, E>(self.context.clone()),
-				link::segment::<E>(self.context),
+				link::segment::<S, E>(self.context),
 			),
-			|(text, (url, title))| Link {
-				text: Some(text),
-				url,
-				title,
+			|((text, text_syntax), (url, title, link_syntax))| {
+				let link = Link {
+					text: Some(text),
+					url,
+					title,
+				};
+				(link, text_syntax.join(link_syntax))
 			},
 		)
 		.process::<OM>(input)
@@ -175,7 +178,7 @@ where
 #[must_use]
 pub fn masked<'ctx, 'data, S, E>(
 	context: &'ctx Context,
-) -> impl Parser<Input<'data>, Output = Link<S, Element<'data, S>>, Error = E> + 'ctx
+) -> impl Parser<Input<'data>, Output = (Link<S, Element<'data, S>>, S::Syntax), Error = E> + 'ctx
 where
 	S: Span,
 	E: ParseError<'data> + 'ctx,
@@ -223,6 +226,25 @@ mod test {
 		}
 	}
 
+	/// Directional controls are read before invisible whitespace is stripped, so a link that only
+	/// forms once part of the text is overridden is still found, even if split by invisible
+	/// characters.
+	#[test]
+	fn link_formed_by_directional_override_is_rejected() {
+		for s in [
+			// displays as `discord.gg/x`: neither the logical order nor its reverse is a link
+			"[discord\u{202e}g.\u{202c}g/x](https://good.com)",
+			"[discord\u{202e}g\u{200b}\u{2009}.\u{202c}g/x](https://good.com)",
+			"[discord\u{2009}.gg/x](https://good.com)",
+		] {
+			masked::<(), _>(&Context::default())
+				.parse_complete(s.into())
+				.finish()
+				.map_err(handle_nom_err(s))
+				.expect_err("able to parse");
+		}
+	}
+
 	/// The guard reads the text segment at every depth.
 	///
 	/// `Inline::content` used to stop at the direct children, so two levels of markup looked like a
@@ -254,7 +276,7 @@ mod test {
 			r"[text](https://good.com.)",
 			r"[text](https://good.com/a..)",
 		] {
-			let (rem, res) = masked::<(), _>(&Context::default())
+			let (rem, (res, ())) = masked::<(), _>(&Context::default())
 				.parse_complete(s.into())
 				.finish()
 				.map_err(handle_nom_err(s))
@@ -308,7 +330,7 @@ mod test {
 	#[test]
 	fn benign_title_is_allowed() {
 		let s = r#"[foo](https://good.com "my discord server")"#;
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -339,7 +361,7 @@ mod test {
 	#[test]
 	fn schemaless_link_target() {
 		let s = r"[join](discord.gg/abc)";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -369,7 +391,7 @@ mod test {
 	#[test]
 	fn simple_masked_link() {
 		let s = r"[test](https://wnelson.dev)";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -388,7 +410,7 @@ mod test {
 	#[test]
 	fn inline_masked_link() {
 		let s = r"[_foo_ **bar**](https://wnelson.dev)";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -407,7 +429,7 @@ mod test {
 	#[test]
 	fn masked_link_with_new_line() {
 		let s = "[foo\nbar](https://wnelson.dev)";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -437,7 +459,7 @@ mod test {
 	#[test]
 	fn no_emoji() {
 		let s = r"[<:abcd:1234>](https://wnelson.dev)";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -456,7 +478,7 @@ mod test {
 	#[test]
 	fn masked_link_with_title() {
 		let s = "[foo](https://wnelson.dev  \"Will Nelson's website\")";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -476,7 +498,7 @@ mod test {
 	#[test]
 	fn masked_autolink_with_title() {
 		let s = "[foo](<https://wnelson.dev> \"Will Nelson's website\")";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -495,7 +517,7 @@ mod test {
 	#[test]
 	fn masked_link_with_parens() {
 		let s = "[Endemic](https://en.wikipedia.org/wiki/Endemic_(epidemiology))";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -529,7 +551,7 @@ mod test {
 	#[test]
 	fn masked_link_with_intraword_underscores_is_not_a_hidden_link() {
 		let s = r"[foo **h**ttp_s_://foo](https://wnelson.dev)";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -552,7 +574,7 @@ mod test {
 	#[test]
 	fn sms_masked_link() {
 		let s = r"[test](sms:+18005882300)";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -571,7 +593,7 @@ mod test {
 	#[test]
 	fn mailto_masked_link() {
 		let s = r"[test](mailto:tim@apple.com)";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -590,7 +612,7 @@ mod test {
 	#[test]
 	fn masked_link_with_matching_brackets() {
 		let s = r"[[foo] bar](https://wnelson.dev)";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -610,7 +632,7 @@ mod test {
 	#[test]
 	fn masked_link_with_complex_matching_brackets() {
 		let s = r"[foo [bar_baz]](https://wnelson.dev)";
-		let (rem, res) = masked::<(), _>(&Context::default())
+		let (rem, (res, ())) = masked::<(), _>(&Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))

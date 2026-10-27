@@ -114,16 +114,19 @@ from __future__ import annotations
 import abc
 import codecs
 import contextlib
+import datetime
 import inspect
 import itertools
 import os
 import re
 import string
+import weakref
 
-from typing import TYPE_CHECKING, Any, Callable
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Callable, Iterable, MutableMapping
 
 from refinery.lib.environment import environment
-from refinery.lib.mime import get_cached_file_magic_info
+from refinery.lib.mime import FileMagicInfo
 from refinery.lib.structures import MemoryFile
 from refinery.lib.tools import entropy, index_of_coincidence
 from refinery.lib.types import buf, isbuffer, typename
@@ -158,8 +161,44 @@ class CustomStringRepresentation(abc.ABC):
         ...
 
 
+class MV(str, Enum):
+    """
+    Canonical names for meta variables that are shared between units, either because more than one
+    unit emits the variable or because one unit emits it and another reads it back. Referencing these
+    members instead of string literals keeps the name of such a variable defined in a single place.
+    Members compare, hash, and format exactly like the string they stand for, so they can be used as
+    dictionary keys, as keyword arguments, and inside format strings without conversion.
+    """
+    ADDR = 'addr'
+    ARG = 'arg'
+    ATIME = 'atime'
+    BTIME = 'btime'
+    COUNT = 'count'
+    CTIME = 'ctime'
+    DATE = 'date'
+    DST = 'dst'
+    END = 'end'
+    FILE = 'file'
+    KEY = 'key'
+    METHOD = 'method'
+    MTIME = 'mtime'
+    NAME = 'name'
+    PATH = 'path'
+    SRC = 'src'
+    URL = 'url'
+    START = 'start'
+    STREAM = 'stream'
+    TAG = 'tag'
+    TYPE = 'type'
+
+    def __str__(self):
+        return self.value
+
+
 _INDEX = 'index'
+_TEMPVAL = '_'
 _BIGINT = '__bi__'
+_BIGNEG = '__bn__'
 
 _HIGH_ASCII = '¹²³«»¡¿¼½¾¢£¥§©®±µ·÷øÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöùúûüýþÿ'
 _8BIT_ASCII = string.printable + _HIGH_ASCII
@@ -178,6 +217,60 @@ def is_print_safe(string: str):
     return string.isprintable() or not any(
         (code := ord(letter)) < len(_PT) and not _PT[code] for letter in string
     )
+
+
+def normalized(value, nested: bool = False):
+    """
+    Converts a metadata value to the form in which a unit receives it after serialization. Tuples,
+    sets, and ranges become lists, the items of containers are converted, and subclasses of basic
+    types become those types. A datetime, date, or time becomes its ISO representation. Byte
+    strings and the wrapper types of this module are left to `LazyMetaOracle.autowrap` unless
+    they are nested. Other values are kept, and serialization reports them.
+    """
+    if type(value) in (str, bytes, int, float, bool) or value is None:
+        return value
+    if isinstance(value, CustomStringRepresentation) and not nested:
+        return value
+    if isinstance(value, Enum):
+        return normalized(value.value, nested)
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float):
+        return float(value)
+    if isinstance(value, str):
+        return str(value)
+    if isinstance(value, (bytearray, memoryview)):
+        return bytes(value) if nested else value
+    if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+        return value.isoformat()
+    if isinstance(value, (set, frozenset)):
+        items = [normalized(v, True) for v in value]
+        with contextlib.suppress(TypeError):
+            items = sorted(items)
+        return items
+    if isinstance(value, (list, tuple, range)):
+        return [normalized(v, True) for v in value]
+    if isinstance(value, dict):
+        return {_normalized_key(k): normalized(v, True) for k, v in value.items()}
+    return value
+
+
+def _serializable(value):
+    """
+    Returns a metadata value in the form in which it is serialized. An integer that does not fit
+    into 64 bits becomes a dictionary that stores its magnitude under a key for its sign.
+    """
+    if isinstance(value, int) and not -0x8000000000000000 <= value <= 0xFFFFFFFFFFFFFFFF:
+        q, r = divmod(value.bit_length(), 8)
+        q += int(bool(r))
+        return {_BIGINT: value.to_bytes(q)} if value > 0 else {_BIGNEG: (-value).to_bytes(q)}
+    return value
+
+
+def _normalized_key(key):
+    if isinstance(normal := normalized(key, True), list):
+        return key
+    return normal
 
 
 class ByteStringWrapper(bytearray, CustomStringRepresentation):
@@ -239,12 +332,12 @@ class ByteStringWrapper(bytearray, CustomStringRepresentation):
                 try:
                     self._string = value = self.decode(codec)
                 except UnicodeError as e:
-                    _error = _error or e
+                    _error = _error or str(e)
                 else:
                     self.codec = codec
                     break
             else:
-                raise AttributeError(F'Codec unknown: {_error!s}')
+                raise AttributeError(F'Codec unknown: {_error}')
         return value
 
     def __eq__(self, other):
@@ -277,8 +370,11 @@ class ByteStringWrapper(bytearray, CustomStringRepresentation):
             pretty = None
         else:
             if not is_print_safe(pretty):
-                pretty = None
-            elif prefix != 's' or self.requires_prefix(pretty):
+                if pretty[-1:] == '\0' and is_print_safe(p := pretty[:-1]):
+                    pretty = F'{p}\\0'
+                else:
+                    pretty = None
+            if pretty is not None and (prefix != 's' or self.requires_prefix(pretty)):
                 pretty = F'{prefix}:{pretty}'
         if pretty is None:
             pretty = F'h:{self.hex()}'
@@ -292,9 +388,15 @@ class ByteStringWrapper(bytearray, CustomStringRepresentation):
         return self.string.__format__(spec)
 
 
-def is_valid_variable_name(name: str, allow_wildcards: bool = False) -> bool:
+def is_valid_variable_name(
+    name: str,
+    allow_wildcards: bool = False,
+    allow_derivations: bool = True,
+) -> bool:
     """
-    All single-letter, uppercase variable names are reserved.
+    All single-letter, uppercase variable names are reserved. Pass `allow_derivations` as `False`
+    when the name is taken from the input data rather than from the command line, because such a
+    name would otherwise be able to shadow a derived property.
     """
     if allow_wildcards:
         parts = re.split(r'([\*\?\[\]])', name)
@@ -313,7 +415,7 @@ def is_valid_variable_name(name: str, allow_wildcards: bool = False) -> bool:
         parts = [name]
     try:
         for part in parts:
-            check_variable_name(part, allow_derivations=True)
+            check_variable_name(part, allow_derivations=allow_derivations)
     except ValueError:
         return False
     else:
@@ -328,7 +430,7 @@ def check_variable_name(name: str | None, allow_derivations=False) -> str | None
     error = None
     if name is None:
         return None
-    elif len(name) == 1 and name.upper() == name:
+    elif len(name) == 1 and name.upper() == name and name != _TEMPVAL:
         error = 'a capitalzed single letter, which are reserved for state machines.'
     elif not name.isidentifier():
         error = 'not an identifier.'
@@ -338,6 +440,20 @@ def check_variable_name(name: str | None, allow_derivations=False) -> str | None
     if error:
         raise ValueError(F'The variable name "{name}" is invalid; it is {error}')
     return name
+
+
+def check_variable_names_of_unit(names: Iterable[str]) -> None:
+    """
+    Verify that a unit does not attach meta variables whose names are reserved for a property that
+    `refinery.lib.meta.LazyMetaOracle` derives from the chunk itself. Such a variable would shadow
+    the derived property, which makes the name mean something different downstream of that unit
+    than it does anywhere else.
+    """
+    for name in names:
+        if name == _INDEX or name in LazyMetaOracle.derivations:
+            raise ValueError(
+                F'A unit attempted to set the meta variable "{name}", but that name is reserved '
+                F'for a property that is derived from the chunk.')
 
 
 class SizeInt(int, CustomStringRepresentation):
@@ -396,7 +512,7 @@ class _NoDerivationAvailable(Exception):
     pass
 
 
-class _LazyMetaMeta(type):
+class _LazyMetaMeta(abc.ABCMeta):
     def __new__(cls, name: str, bases, namespace: dict):
         derivations: dict = namespace['derivations']
         for obj in namespace.values():
@@ -442,7 +558,7 @@ STRING_FORMAT_HELP = inspect.cleandoc(
 )
 
 
-class LazyMetaOracle(metaclass=_LazyMetaMeta):
+class LazyMetaOracle(MutableMapping[str, Any], metaclass=_LazyMetaMeta):
     """
     A dictionary that can be queried lazily for all potential options of the common meta variable
     unit. For example, a SHA-256 hash is computed only as soon as the oracle is accessed at the
@@ -457,7 +573,8 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
     corresponding value on a chunk of binary input data.
     """
 
-    chunk: buf
+    _chunk: buf | weakref.ref[buf]
+    _magic: FileMagicInfo | None
     cache: dict[str, str | int | float]
     index: int | None
 
@@ -465,8 +582,15 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
     current: dict[str, Any]
     updated: dict[str, bool]
 
-    def __init__(self, chunk: buf, scope: int = 1, seed: dict[str, list[tuple[bool, Any]]] | None = None):
-        self.chunk = chunk
+    def __init__(
+        self,
+        chunk: buf,
+        scope: int = 1,
+        seed: dict[str, list[tuple[bool, Any]]] | None = None,
+        owned: bool = False,
+    ):
+        self._chunk = weakref.ref(chunk) if owned else chunk
+        self._magic = None
         self.cache = {}
         self.index = None
         self.scope = scope
@@ -485,12 +609,11 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
                 for is_link, value in reversed(stack):
                     while is_link:
                         is_link, value = stack[value]
-                    try:
-                        bigint: bytes = value[_BIGINT]
-                    except Exception:
-                        pass
-                    else:
-                        value = int.from_bytes(bigint)
+                    if isinstance(value, dict) and len(value) == 1:
+                        if (bigint := value.get(_BIGINT)) is not None:
+                            value = int.from_bytes(bigint)
+                        elif (bigint := value.get(_BIGNEG)) is not None:
+                            value = -int.from_bytes(bigint)
                     if value is not None:
                         self.current[key] = self.autowrap(key, value)
                         self.updated[key] = False
@@ -501,16 +624,31 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
         else:
             self.history = {}
 
-    def update(self, other: dict | LazyMetaOracle):
-        if isinstance(other, LazyMetaOracle):
+    @property
+    def chunk(self) -> buf:
+        """
+        The data that this metadata describes. When the metadata belongs to a chunk, it refers to
+        that chunk weakly, so the chunk has to be kept for as long as values are derived from its
+        data.
+        """
+        chunk = self._chunk
+        if isinstance(chunk, weakref.ref):
+            if (chunk := chunk()) is None:
+                raise RuntimeError(
+                    'The chunk that this metadata belongs to no longer exists; keep a reference to the chunk to '
+                    'derive values from its data.'
+                )
+        return chunk
+
+    def update(self, other=(), /, **kwds):
+        if type(other) is LazyMetaOracle:
             self.current.update(other.current)
             self.updated.update(other.updated)
             self.tempval.update(other.tempval)
             self.rescope.update(other.rescope)
             self.history = other.history
-            return
-        for key, value in other.items():
-            self[key] = value
+            other = ()
+        return super().update(other, **kwds)
 
     def inherit(self, parent: LazyMetaOracle):
         """
@@ -519,10 +657,12 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
         if not self.history:
             self.history = parent.history
         elif self.history is not parent.history:
-            for key in parent.current.keys():
-                if key not in self.current:
+            if missing := [key for key in parent.current if key not in self.current]:
+                self.history = history = dict(self.history)
+                for key in missing:
                     self.current[key] = parent.current[key]
-                    self.history[key] = parent.history[key]
+                    if (stack := parent.history.get(key)) is not None:
+                        history[key] = stack
         self.scope = parent.scope
         for key in parent.keys():
             try:
@@ -570,7 +710,7 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
         current_scope = self.scope
         if current_scope == 0:
             padding = [(True, 0)] * (target_scope - 1)
-            return {key: [(False, value)] + padding for key, value in self.current.items()}
+            return {key: [(False, _serializable(value))] + padding for key, value in self.current.items()}
         serializable = {key: list(stack) for key, stack in self.history.items()}
         if target_scope > current_scope:
             padding = target_scope - current_scope
@@ -585,10 +725,7 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
         for key, value in self.current.items():
             if value is None:
                 raise RuntimeError(F'Meta variable "{key}" was set to None.')
-            elif isinstance(value, int) and value > 0xFFFFFFFFFFFFFFFF:
-                q, r = divmod(value.bit_length(), 8)
-                q += int(bool(r))
-                value = {_BIGINT: value.to_bytes(q)}
+            value = _serializable(value)
             try:
                 item_scope = self.rescope[key]
             except KeyError:
@@ -627,24 +764,14 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
             del serializable[key]
         return serializable
 
-    def items(self):
-        yield (_INDEX, self.index)
-        yield from self.tempval.items()
-        yield from self.current.items()
-
-    def keys(self):
-        yield _INDEX
-        yield from self.tempval.keys()
-        yield from self.current.keys()
-
     def variable_names(self):
         yield _INDEX
         yield from self.current.keys()
 
-    def values(self):
-        yield from (v for _, v in self.items())
-
-    __iter__ = keys
+    def __iter__(self):
+        yield _INDEX
+        yield from self.tempval.keys()
+        yield from self.current.keys()
 
     def format_str(
         self,
@@ -896,8 +1023,8 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
         return value
 
     def __setitem__(self, key, value):
-        new = self.autowrap(key, value)
-        if not is_valid_variable_name(key):
+        new = self.autowrap(key, normalized(value))
+        if not is_valid_variable_name(key) or key == _TEMPVAL:
             self.tempval[key] = new
             return
         self.current[key] = new
@@ -920,7 +1047,7 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
         except KeyError:
             return default
 
-    def pop(self, key, default=nodefault):
+    def pop(self, key: str, default: Any = nodefault) -> Any:
         try:
             value = self[key]
         except KeyError:
@@ -985,17 +1112,22 @@ class LazyMetaOracle(metaclass=_LazyMetaMeta):
     def derive(self, key):
         self[key] = self[key]
 
+    def _file_type_info(self) -> FileMagicInfo:
+        if (info := self._magic) is None:
+            self._magic = info = FileMagicInfo(self.chunk)
+        return info
+
     @_derivation('mime')
     def _derive_mime(self):
-        return get_cached_file_magic_info(self.chunk).mime
+        return self._file_type_info().mime
 
     @_derivation('ext')
     def _derive_ext(self):
-        return get_cached_file_magic_info(self.chunk).extension
+        return self._file_type_info().extension
 
     @_derivation('magic')
     def _derive_magic(self):
-        return get_cached_file_magic_info(self.chunk).description
+        return self._file_type_info().description
 
     @_derivation('size', wrap=SizeInt)
     def _derive_size(self):

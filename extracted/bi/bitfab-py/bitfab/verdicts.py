@@ -20,7 +20,7 @@ from bitfab.warn_once import warn_once
 VerdictConfidence = Literal["VeryLow", "Low", "Medium", "High", "VeryHigh"]
 VerdictAction = Literal["set", "archived", "no-active-verdict", "skipped", "abstained"]
 VerdictStatus = Literal["judged", "skipped", "not-judged"]
-VerdictSource = Literal["human", "agent"]
+VerdictSource = Literal["human", "agent", "bitfab_judge"]
 Verdict = Literal["pass", "fail", "abstained"]
 
 LabelStatus = Literal["labeled", "skipped", "unlabeled"]

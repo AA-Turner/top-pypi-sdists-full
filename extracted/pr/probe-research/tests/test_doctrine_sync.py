@@ -161,10 +161,10 @@ _FEATURE_PHRASES: dict[str, tuple[str, ...]] = {
     "question": ("--question",),
     "conclusion": ("--conclusion",),
     # A project's headline metric and best pick (`probe project set --metric
-    # --goal / --best --reason`): the researcher names the metric and its
-    # direction, and agrees to a new pick before it is set.
-    "project headline metric": ("which way is better",),
-    "project best pick": ("only if they agree",),
+    # --goal / --best --reason`): the agent sets both itself and tells the
+    # researcher.
+    "project headline metric": ("tell the researcher in one line",),
+    "project best pick": ("better experiment to use than the pick",),
     # The researcher's block is theirs by policy since 2026-09-17 (the
     # `--summary` flag still exists); the rest of the summary is the recorder's
     # (`probe summary`, the write-summary skill), and so are an experiment's

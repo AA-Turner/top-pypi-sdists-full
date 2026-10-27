@@ -84,13 +84,13 @@ class _Agent:
 
     def __call__(self, folder, prompt, **kw):
         self.prompts.append(prompt)
-        if "work out what is in it" in prompt:
+        if "what lines of work one slice" in prompt:
             if self.fail_on == "survey":
                 return False, "died"
             return True, _envelope(
                 {"findings": [{"work": "training", "evidence": [], "approx_files": 3}], "notes": ""}
             )
-        if "deciding how one research folder" in prompt:
+        if ("Decide which project each file" in prompt or "Decide the project list" in prompt):
             if self.fail_on == "name":
                 return False, "died"
             return True, _envelope(
@@ -138,7 +138,7 @@ def test_a_folder_that_fits_still_goes_to_one_agent(folder, monkeypatch):
     monkeypatch.setattr(bf, "launch_agent", filing(fake))
     br.classify(folder, _evidence(3), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w")
     assert len(calls) == 1
-    assert "deciding how one research folder should be organised" in calls[0]
+    assert "Decide which project each file" in calls[0]
 
 
 def test_a_folder_too_big_for_one_prompt_is_chunked(folder, monkeypatch):
@@ -181,10 +181,10 @@ def test_no_survey_slice_is_told_about_another_slice(folder, monkeypatch):
     monkeypatch.setattr(bf, "launch_agent", filing(agent))
     br.classify(folder, _evidence(600), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".w")
 
-    surveys = [p for p in agent.prompts if "work out what is in it" in p]
+    surveys = [p for p in agent.prompts if "what lines of work one slice" in p]
     assert len(surveys) > 1, "the evidence did not actually split"
     for prompt in surveys:
-        assert "Do NOT name projects yet" in prompt
+        assert "Do not name projects" in prompt
         assert "not all of it" in prompt
 
 
@@ -199,7 +199,7 @@ def test_the_assign_pass_is_given_the_projects_and_cannot_invent_one(folder, mon
     assert assigns
     for prompt in assigns:
         assert "alpha" in prompt and "beta" in prompt
-        assert "may not invent one" in prompt
+        assert "do not invent or rename one" in prompt
 
 
 def test_an_invented_project_is_refused_at_the_call_and_its_files_wait(folder, monkeypatch):
@@ -249,7 +249,7 @@ def test_a_pass_that_fails_everywhere_returns_no_plan(folder, monkeypatch, stage
 
 class _NamesNothing(_Agent):
     def __call__(self, folder_, prompt, **kw):
-        if "deciding how one research folder" in prompt:
+        if ("Decide which project each file" in prompt or "Decide the project list" in prompt):
             self.prompts.append(prompt)
             return True, _envelope({"projects": [], "summary": ""})
         return super().__call__(folder_, prompt, **kw)
@@ -459,11 +459,11 @@ def test_the_truncation_caveat_reaches_the_chunked_prompts(folder, monkeypatch):
     # prompt" carries it let the survey pass lose it silently while the assign
     # pass kept it -- and the survey pass is the one deciding what the folder
     # even contains.
-    surveys = [p for p in agent.prompts if "work out what is in it" in p]
+    surveys = [p for p in agent.prompts if "what lines of work one slice" in p]
     assigns = [p for p in agent.prompts if "already decided" in p]
     assert surveys and assigns
-    assert all("sample budget was reached" in p for p in surveys), "survey pass"
-    assert all("sample budget was reached" in p for p in assigns), "assign pass"
+    assert all("sample budget ran out" in p for p in surveys), "survey pass"
+    assert all("sample budget ran out" in p for p in assigns), "assign pass"
 
 
 def test_a_failed_pass_reports_what_the_agent_actually_said(folder, monkeypatch):
@@ -488,7 +488,7 @@ def test_a_transient_pass_failure_is_retried(folder, monkeypatch):
 
     class _Flaky(_Agent):
         def __call__(self, folder_, prompt, **kw):
-            if "work out what is in it" in prompt:
+            if "what lines of work one slice" in prompt:
                 attempts.append(1)
                 if len(attempts) == 1:
                     return False, "connection reset"
@@ -521,7 +521,7 @@ def test_slice_summaries_are_dropped_whole_never_cut_mid_object():
 
 def test_the_naming_pass_carries_a_reviewer_correction():
     prompt = bp.name_projects(
-        root="/r", findings_json="[]", existing=[], feedback="lockfiles are not research"
+        root="/r", findings_json="[]", own=[], feedback="lockfiles are not research"
     )
     assert "lockfiles are not research" in prompt
     assert "outranks" in prompt
@@ -534,7 +534,6 @@ def test_a_correction_on_a_chunked_folder_is_one_session_not_every_slice(folder,
     monkeypatch.setattr(bf, "launch_agent", filing(_Agent()))
     monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
     monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
-    monkeypatch.setattr(br, "ensure_projects", lambda c, p, a: (["alpha"], []))
     # `enrich`, not `gather`: `_execute` runs the two phases separately now so
     # the early exits can skip sampling, and it never calls `gather` at all.
     monkeypatch.setattr(br.evidence_mod, "enrich", lambda f, records: _evidence(600))
@@ -568,7 +567,7 @@ def test_tags_survive_the_chunked_route(folder, monkeypatch):
 
     class _Tagged(_Agent):
         def __call__(self, folder_, prompt, **kw):
-            if "deciding how one research folder" in prompt:
+            if ("Decide which project each file" in prompt or "Decide the project list" in prompt):
                 return True, _envelope(
                     {
                         "projects": [

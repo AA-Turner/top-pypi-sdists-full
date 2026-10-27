@@ -15,6 +15,7 @@ Represents a trained embedding space (foundational model).
 import gc
 import gzip
 import io
+import json
 import sys
 import time
 import logging
@@ -23,6 +24,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
+
+from .record_utils import clean_record
 
 if TYPE_CHECKING:
     from .http_client import ClientContext
@@ -380,7 +383,8 @@ class FoundationalModel:
                 probabilities, fixed 0.5 threshold). When None, resolves from cost_*
                 kwargs or defaults to "balanced".
             auto_collapse_synonyms: Auto-detect and merge near-duplicate class labels
-                using BERT embedding similarity (default: True via config). Set False to disable.
+                using BERT embedding similarity. Default (None) uses the server config
+                ``sp_auto_collapse_synonyms``, which is False. Pass True to enable.
             synonym_collapse_threshold: Cosine similarity threshold for synonym detection
                 (default: 0.90 via config). Pairs above this are merged.
             label_mapping: Explicit old→new class name mapping, e.g.
@@ -493,7 +497,8 @@ class FoundationalModel:
             k: Required when intent="top_k_hit". Number of top predictions to
                 count as a hit (e.g. k=3).
             auto_collapse_synonyms: Auto-detect and merge near-duplicate class labels
-                using BERT embedding similarity (default: True via config). Set False to disable.
+                using BERT embedding similarity. Default (None) uses the server config
+                ``sp_auto_collapse_synonyms``, which is False. Pass True to enable.
             synonym_collapse_threshold: Cosine similarity threshold for synonym detection
                 (default: 0.90 via config). Pairs above this are merged.
             label_mapping: Explicit old→new class name mapping, e.g.
@@ -716,10 +721,11 @@ class FoundationalModel:
 
         Unlike every other predictor type, there's no gradient-trained head
         — "training" builds a nearest-neighbor index over row embeddings.
-        predict() defaults to the fast path (the nearest training row's real
-        value); pass ``generate=True`` to predict() to instead few-shot an
-        LLM with the nearest training rows for a non-verbatim answer. See
-        Predictor.predict()'s ``generate`` parameter.
+        Training also scores both ways of answering on held-out rows — the
+        nearest training row's real value, and an LLM few-shotted with the
+        nearest rows — and predict() serves the better one by default;
+        ``generate=True/False`` forces one. See Predictor.predict()'s
+        ``generate`` parameter.
 
         Args:
             target_column: Column name to generate
@@ -738,12 +744,12 @@ class FoundationalModel:
                 target_column="company_description",
             )
             result = predictor.predict({"industry": "logistics", "state": "CA"})
-            print(result.predicted_class)  # nearest training row's description
+            print(result.predicted_class)  # whichever way scored better in training
 
             result = predictor.predict(
                 {"industry": "logistics", "state": "CA"}, generate=True,
             )
-            print(result.predicted_class)  # LLM-generated, not verbatim
+            print(result.predicted_class)  # forced: LLM-generated, not verbatim
         """
         return self._create_predictor(
             target_column=target_column,
@@ -1037,10 +1043,6 @@ class FoundationalModel:
         The proxy handles finding the FM on any node and forwarding its session
         data to the target compute node.
         """
-        import io
-        import gzip
-        import json
-
         # Prepare the labels data
         if labels_df is not None:
             csv_buffer = io.StringIO()
@@ -2133,7 +2135,7 @@ class FoundationalModel:
             records = records.to_dict('records')
 
         # Clean records
-        cleaned = [self._clean_record(r) for r in records]
+        cleaned = [clean_record(r) for r in records]
 
         body: Dict[str, Any] = {"records": cleaned}
         if intent is not None:
@@ -2213,7 +2215,7 @@ class FoundationalModel:
         elif hasattr(records, 'to_dict'):
             records = records.to_dict('records')
 
-        cleaned = [self._clean_record(r) for r in records]
+        cleaned = [clean_record(r) for r in records]
 
         payload = {"records": cleaned, "strategy": strategy}
         if columns is not None:
@@ -2294,7 +2296,7 @@ class FoundationalModel:
         elif hasattr(records, 'to_dict'):
             records = records.to_dict('records')
 
-        cleaned = [self._clean_record(r) for r in records]
+        cleaned = [clean_record(r) for r in records]
 
         payload: Dict[str, Any] = {
             "records": cleaned,
@@ -2521,7 +2523,7 @@ class FoundationalModel:
             records = records.to_dict('records')
 
         # Clean records
-        cleaned = [self._clean_record(r) for r in records]
+        cleaned = [clean_record(r) for r in records]
 
         response = self._ctx.post_json(
             f"/compute/session/{self.id}/light_predict",
@@ -2582,7 +2584,7 @@ class FoundationalModel:
         elif hasattr(records, 'to_dict'):
             records = records.to_dict('records')
 
-        cleaned = [self._clean_record(r) for r in records]
+        cleaned = [clean_record(r) for r in records]
 
         response = self._ctx.post_json(
             f"/compute/session/{self.id}/light_predict",
@@ -2983,28 +2985,6 @@ class FoundationalModel:
 
         return predictors
 
-    def refresh(self) -> Dict[str, Any]:
-        """Re-fetch status from the server and update this object's fields.
-
-        Returns:
-            The raw session response dict.
-        """
-        if not self._ctx:
-            raise ValueError("FoundationalModel not connected to client")
-
-        response_data = self._ctx.get_json(f"/compute/session/{self.id}")
-        self._update_from_session(response_data)
-        return response_data
-
-    def is_ready(self) -> bool:
-        """Check if training is complete by refreshing status from the server.
-
-        Returns:
-            True if status is "done", False otherwise.
-        """
-        self.refresh()
-        return self.status == "done"
-
     def _update_from_session(self, response_data: Dict[str, Any]) -> None:
         """Update fields from session API response.
 
@@ -3074,20 +3054,6 @@ class FoundationalModel:
                 err = job.get('error') or job.get('error_message') or job.get('failure_reason')
                 if err:
                     self.error_message = err
-
-    def _clean_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean a record for API submission."""
-        import math
-
-        cleaned = {}
-        for key, value in record.items():
-            if isinstance(value, float):
-                if math.isnan(value) or math.isinf(value):
-                    value = None
-            if hasattr(value, 'item'):
-                value = value.item()
-            cleaned[key] = value
-        return cleaned
 
     def get_columns(self) -> List[str]:
         """

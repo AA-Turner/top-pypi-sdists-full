@@ -15,6 +15,16 @@ export function parse(content, flags, fuel) {
 	);
 }
 
+export function parseLossless(content, flags, fuel) {
+	return decodeAstJson(
+		NativeDiscordMarkdown.parseLosslessToAstString(
+			content,
+			flags ?? undefined,
+			fuel ?? undefined,
+		),
+	);
+}
+
 export function unparse(nodes) {
 	return NativeDiscordMarkdown.unparseFromAstString(encodeAstJson(nodes));
 }

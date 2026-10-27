@@ -8,6 +8,7 @@ codes distinct from main()'s 1/2 (H7).
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -85,6 +86,31 @@ def test_detect_managed_out_of_project_poetry(monkeypatch):
         "/home/u/.cache/pypoetry/virtualenvs/proj-abc123-py3.12/lib/python3.12/site-packages/probe",
     )
     assert updater.detect_install().method == updater.Method.MANAGED
+
+
+@pytest.mark.parametrize(
+    ("pkg", "managed"),
+    [
+        ("/home/u/.local/share/uv/tools/probe-research/lib/python3.12/site-packages/probe", True),
+        ("/home/u/.local/share/uv/probe-versions/0.325.0/probe-research/lib/python3.12/site-packages/probe", True),
+        ("/home/u/.local/share/uv/tools/probe-agent/lib/python3.12/site-packages/probe", True),
+        ("/home/u/.local/share/pipx/venvs/probe-research/lib/python3.12/site-packages/probe", False),
+        ("/home/u/dev/research-os-agent/src/probe", False),
+        ("/home/u/.cache/pypoetry/virtualenvs/proj-abc123-py3.12/lib/python3.12/site-packages/probe", False),
+        ("/home/u/proj/.venv/lib/python3.12/site-packages/probe", False),
+    ],
+)
+def test_auto_update_is_on_by_default_for_the_uv_tool_installs_only(monkeypatch, pkg, managed):
+    """The auto-update default (on unless turned off, plan C2) is the machine's
+    managed CLI's alone: the installs `detect_install` names a uv tool, one
+    version of it side by side included. A pipx, editable, project or pip
+    install keeps its opt-in (D4), so `version_policy.managed_cli` must agree
+    with `detect_install` on every one."""
+    from probe import version_policy
+
+    _patch_pkg(monkeypatch, pkg)
+    uv_tool = updater.detect_install().method in {updater.Method.UV_TOOL, updater.Method.UV_TOOL_LEGACY}
+    assert (uv_tool, version_policy.managed_cli(f"{pkg}/version_policy.py")) == (managed, managed)
 
 
 def test_venv_root_both_layouts():
@@ -503,7 +529,9 @@ def test_codex_add_failure_names_the_plugin_and_stops(monkeypatch):
 
 def test_codex_reinstall_it_cannot_confirm_says_so(monkeypatch):
     """`codex plugin list` failing and a plugin genuinely missing both leave
-    nothing listed, so the message claims neither; `list_unreadable` says which."""
+    nothing listed: the message says which it was, and why the list could not
+    be read (2026-10-25: two machines reported both plugins unconfirmed with
+    nothing to tell the two apart)."""
     _fake_codex(monkeypatch, {"plugin list --json": _failed_with("boom")})
 
     res = updater.update_codex_plugins()
@@ -511,8 +539,24 @@ def test_codex_reinstall_it_cannot_confirm_says_so(monkeypatch):
     assert not res.confirmed
     assert res.list_unreadable
     assert res.message == (
+        "could not confirm probe-research or probe-research-tap: `codex plugin list --json` "
+        "could not be read after reinstalling (boom)"
+    )
+
+
+def test_codex_reinstall_a_list_without_probe_says_what_it_lists(monkeypatch):
+    listed = json.dumps({"installed": [{"name": "visualize", "version": "1.0.55"}]})
+    _fake_codex(
+        monkeypatch,
+        {"plugin list --json": subprocess.CompletedProcess([], 0, stdout=listed, stderr="")},
+    )
+
+    res = updater.update_codex_plugins()
+
+    assert not res.confirmed and not res.list_unreadable
+    assert res.message == (
         "could not confirm probe-research or probe-research-tap in "
-        "`codex plugin list --json` after reinstalling"
+        "`codex plugin list --json` after reinstalling (it lists 1 plugin)"
     )
 
 
@@ -724,3 +768,169 @@ def test_an_update_required_beside_the_running_version_goes_past_a_live_run(monk
     monkeypatch.delenv(updater.REQUIRE_SIDE_BY_SIDE_ENV)
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=False)
     assert asked == ["99.0.0"] and "in flight" in " ".join(outcome.lines)
+
+
+# -- installer fallbacks (plan A4) ------------------------------------------
+@pytest.fixture
+def side_by_side(monkeypatch, tmp_path):
+    """A uv tool install that updates beside the running version, its
+    `installs` steps stood in for: what each install was asked for, and what
+    the switch recorded."""
+    from probe._shared import installs
+    from probe.core import adopt
+
+    adopt.reset()
+    seen = {"installs": [], "dropped": [], "activated": [], "fail_pin": True, "fail_with": True,
+            "with_said": "No solution found when resolving tool dependencies: wandb conflicts with probe-research"}
+    monkeypatch.setattr(installs, "tool_dir", lambda: tmp_path / "tools")
+    monkeypatch.setattr(installs, "dropped_with", lambda tools=None: list(seen.get("dropped_before", [])))
+    monkeypatch.setattr(installs, "usable", lambda tools=None: True)
+    monkeypatch.setattr(installs, "rejected", lambda tools=None: {})
+    monkeypatch.setattr(installs, "selftest", lambda env: None)
+    monkeypatch.setattr(installs, "activate", lambda env, tools=None: seen["activated"].append(env) or {})
+    monkeypatch.setattr(installs, "prune", lambda tools=None: [])
+    monkeypatch.setattr(installs, "dropped_python", lambda tools=None: None)
+
+    def record(packages, tools=None, *, python=None):
+        seen["dropped"].append(list(packages))
+        seen["dropped_python"] = python
+
+    monkeypatch.setattr(installs, "record_dropped_with", record)
+    old = updater.KeptInstall(with_packages=("wandb>=0.17",), python="/gone/bin/python3.12")
+    # The running install's receipt, or the new env's: what its install got.
+    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: seen.get("receipt", old)
+                        if prefix is not None else seen.get("old", old))
+
+    def install(version, spec, *, with_packages=(), python=None, tools=None, timeout=0):
+        seen["installs"].append((tuple(with_packages), python))
+        if python and seen["fail_pin"]:
+            raise RuntimeError("the requested interpreter is gone")
+        if with_packages and seen["fail_with"]:
+            raise RuntimeError(f"`uv tool install` exited 1 and left nothing: {seen['with_said']}")
+        seen["receipt"] = updater.KeptInstall(with_packages=tuple(with_packages),
+                                              python=python or "/uv/python/cpython-3.13/bin/python3.13")
+        return tmp_path / "probe-versions" / version / "probe-research"
+
+    monkeypatch.setattr(installs, "install", install)
+    yield seen
+    adopt.reset()
+
+
+def test_a_pin_uv_cannot_use_then_with_packages_that_will_not_resolve_are_left_out(side_by_side):
+    result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
+    assert result.ok and result.changed
+    assert side_by_side["installs"] == [
+        (("wandb>=0.17",), "/gone/bin/python3.12"), (("wandb>=0.17",), None), ((), None)]
+    assert side_by_side["dropped"] == [["wandb>=0.17"]]
+    assert "left out --with wandb>=0.17" in result.message and "probe doctor" in result.message
+
+
+@pytest.mark.parametrize("said", [
+    "error: Distribution not found at: file:///home/u/src/mine",
+    "error: Git operation failed: Repository not found",
+    "error: Failed to build `mine`",
+])
+def test_with_packages_are_left_out_last_whatever_failed(side_by_side, said):
+    side_by_side["with_said"] = said
+    result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
+    assert result.ok and side_by_side["installs"][-1] == ((), None)
+    assert side_by_side["dropped"] == [["wandb>=0.17"]]
+
+
+def test_with_packages_left_out_before_are_tried_first_and_forgotten_once_back(side_by_side):
+    side_by_side["fail_pin"] = side_by_side["fail_with"] = False
+    side_by_side["dropped_before"] = ["torch==2.4", "wandb"]
+    result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
+    assert result.ok and side_by_side["installs"] == [(("wandb>=0.17", "torch==2.4"), "/gone/bin/python3.12")]
+    assert side_by_side["dropped"] == [[]]  # all back: the record is cleared
+
+
+def test_a_pin_uv_cannot_use_alone_keeps_the_with_packages(side_by_side):
+    side_by_side["fail_with"] = False
+    result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
+    assert result.ok and side_by_side["installs"][-1] == (("wandb>=0.17",), None)
+    # The packages are all there; the exact Python is not, and is said and recorded.
+    assert side_by_side["dropped"] == [[]] and side_by_side["dropped_python"] == "/gone/bin/python3.12"
+    assert "left out --python /gone/bin/python3.12" in result.message
+
+
+def test_a_uv_that_times_out_ends_the_install(side_by_side, monkeypatch):
+    """The machine or the network, not the package set: no other try now (four
+    300 s tries would outlast the service's 30 min for the whole update)."""
+    from probe._shared import installs
+
+    calls = []
+
+    def hangs(version, spec, *, with_packages=(), python=None, tools=None, timeout=0):
+        calls.append(timeout)
+        raise subprocess.TimeoutExpired(["uv"], timeout)
+
+    monkeypatch.setattr(installs, "install", hangs)
+    result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
+    assert not result.ok and "timed out after 300 s" in result.message and calls == [300.0]
+
+
+def test_an_env_kept_from_an_earlier_install_loses_nothing_unsaid(side_by_side, monkeypatch, tmp_path):
+    """An earlier install left wandb out and was never switched to (its check
+    timed out), so nothing recorded the drop. Reusing that complete env (no
+    install, nothing dropped now), what is left out is read from the
+    receipts -- the running one has wandb, the new one does not -- and said."""
+    from probe._shared import installs
+
+    side_by_side["receipt"] = updater.KeptInstall(with_packages=(), python="/gone/bin/python3.12")
+    monkeypatch.setattr(installs, "install", lambda version, *a, **k: tmp_path / "probe-versions" / version)
+    result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
+    assert result.ok and side_by_side["dropped"] == [["wandb>=0.17"]]
+    assert "left out --with wandb>=0.17" in result.message
+
+
+def test_what_the_receipt_cannot_restate_is_said_not_a_reason_to_stay(side_by_side, monkeypatch):
+    monkeypatch.setattr(updater, "kept_from_uv_receipt", lambda prefix=None: updater.KeptInstall(
+        dropped=("--with mine",)))
+    result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
+    assert result.ok and "not carried over from the uv receipt" in result.message and "--with mine" in result.message
+
+
+def test_no_readable_release_on_a_side_by_side_machine_never_updates_in_place(side_by_side, monkeypatch):
+    calls = []
+    monkeypatch.setattr(updater, "_run", lambda cmd, timeout: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    monkeypatch.setattr(updater, "_finalize", lambda before, target, tool: updater.CliResult(
+        True, True, True, before, "0.2.0", "upgraded in place"))
+    result = updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "0.1.0", None)
+    assert not result.ok and "could not be read" in result.message and calls == []
+    monkeypatch.setenv(updater.IN_PLACE_ENV, "1")  # a person who asked for in place still gets it
+    assert updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "0.1.0", None).ok and calls
+
+
+@pytest.mark.parametrize("said, expected", [
+    ({"result": "install_failed", "latest": "0.2.0", "detail": "no solution found"}, "no solution found"),
+    ({"result": "busy", "detail": "another update holds it"}, "holds the install lock"),
+])
+def test_what_stage_one_could_not_do_is_reported_not_tried_again(side_by_side, said, expected):
+    from probe.core import adopt
+
+    adopt._answer = said
+    result = updater.upgrade_side_by_side("0.1.0", "0.2.0")
+    assert not result.ok and expected in result.message and result.before == "0.1.0"
+    assert side_by_side["installs"] == []
+
+
+def test_a_confirmed_codex_update_approves_probes_hooks(monkeypatch):
+    """The path that heals machines installed before the wizard approved Probe's
+    hooks, and any entry an update changed: every confirmed Codex plugin update
+    approves them and says so."""
+    from probe.cli import codex_hooks
+
+    _fake_codex(monkeypatch, {})
+    versions = {updater.tracking_plugin_name("codex"): "1.0.0", "probe-research-tap": "0.10.24"}
+    monkeypatch.setattr(updater, "_codex_plugin_versions", lambda _codex=None: dict(versions))
+    asked: list[int] = []
+
+    def approve(*_a, **_k):
+        asked.append(1)
+        return codex_hooks.Approval(approved=("k",), done=True)
+
+    monkeypatch.setattr(codex_hooks, "approve", approve)
+    res = updater.update_codex_plugins()
+    assert res.confirmed and asked == [1]
+    assert res.message.endswith("; approved 1 Probe hook in Codex")

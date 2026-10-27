@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: langchain-modal
-Version: 0.0.6
+Version: 0.0.7
 Summary: Modal sandbox integration for Deep Agents
 Project-URL: Homepage, https://github.com/langchain-ai/deepagents/tree/main/libs/partners/modal
 Project-URL: Repository, https://github.com/langchain-ai/deepagents
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0,>=3.11
-Requires-Dist: deepagents<0.8.0,>=0.7.0
+Requires-Dist: deepagents<0.8.0,>=0.7.32
 Requires-Dist: modal
 Description-Content-Type: text/markdown
 

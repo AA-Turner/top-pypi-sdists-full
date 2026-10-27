@@ -8,10 +8,14 @@ use nom::{
 	character::char,
 	combinator::{map, opt},
 	error::ParseError,
-	sequence::{delimited, terminated},
 };
 
-use crate::{Input, unparse::Unparse};
+use crate::{
+	Input,
+	lossless::TokenKind,
+	span::{Span, Syntax, WithToken},
+	unparse::Unparse,
+};
 
 pub const DELIMITER: &str = "```";
 
@@ -46,8 +50,10 @@ impl Unparse for CodeBlock<'_> {
 /// # Errors
 /// If the content does not begin with a codeblock.
 #[must_use]
-pub fn code_block<'data, E>() -> impl Parser<Input<'data>, Output = CodeBlock<'data>, Error = E>
+pub fn code_block<'data, S, E>()
+-> impl Parser<Input<'data>, Output = (CodeBlock<'data>, S::Syntax), Error = E>
 where
+	S: Span,
 	E: ParseError<Input<'data>>,
 {
 	fn is_language_char(ch: char) -> bool {
@@ -55,23 +61,36 @@ where
 	}
 
 	map(
-		delimited(
-			tag(DELIMITER),
-			(
-				opt(terminated(
-					// we need 2 separate `opt`s so that we consume an empty line without making an empty language
-					opt(take_while1(is_language_char)),
-					char('\n'),
-				))
-				.map(Option::flatten),
-				// TODO: we don't really support escape sequences in codeblocks today
-				escaped_transform(take_until1(DELIMITER), '\\', tag(DELIMITER)),
-			),
-			tag(DELIMITER),
+		(
+			tag(DELIMITER).token::<S>(TokenKind::CodeFence),
+			// we need 2 separate `opt`s so that we consume an empty line without making an empty language
+			opt((
+				opt(take_while1(is_language_char)).with_token::<S>(TokenKind::Language),
+				char('\n').token::<S>(TokenKind::LineEnding),
+			))
+			.map(|first_line| match first_line {
+				Some(((language, language_syntax), line_ending)) => {
+					(language, language_syntax.join(line_ending))
+				}
+				None => (None, S::Syntax::default()),
+			}),
+			// TODO: we don't really support escape sequences in codeblocks today
+			escaped_transform(take_until1(DELIMITER), '\\', tag(DELIMITER))
+				.with_token::<S>(TokenKind::CodeContent),
+			tag(DELIMITER).token::<S>(TokenKind::CodeFence),
 		),
-		|(language, content): (Option<Input<'data>>, String)| CodeBlock {
-			language: language.map(|l| Cow::Borrowed(l.content)),
-			content,
+		|(open, (language, first_line), (content, content_syntax), close): (
+			_,
+			(Option<Input<'data>>, _),
+			(String, _),
+			_,
+		)| {
+			let code_block = CodeBlock {
+				language: language.map(|l| Cow::Borrowed(l.content)),
+				content,
+			};
+			let syntax = open.join(first_line).join(content_syntax).join(close);
+			(code_block, syntax)
 		},
 	)
 }
@@ -87,7 +106,7 @@ mod test {
 	#[test]
 	fn basic_codeblock() {
 		let s = "```foo```";
-		let (rem, res) = code_block()
+		let (rem, (res, ())) = code_block::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -106,7 +125,7 @@ mod test {
 	#[test]
 	fn one_line_codeblock_with_trailing_newline() {
 		let s = "```foo```\n";
-		let (rem, res) = code_block()
+		let (rem, (res, ())) = code_block::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -125,7 +144,7 @@ mod test {
 	#[test]
 	fn leading_new_line() {
 		let s = "```\nfoo```";
-		let (rem, res) = code_block()
+		let (rem, (res, ())) = code_block::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -144,7 +163,7 @@ mod test {
 	#[test]
 	fn empty_codeblock() {
 		let s = "``````";
-		code_block()
+		code_block::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -155,7 +174,7 @@ mod test {
 	#[ignore = "supported today but dubious"]
 	fn codeblock_with_new_line() {
 		let s = "```\n```";
-		let (rem, res) = code_block()
+		let (rem, (res, ())) = code_block::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -174,7 +193,7 @@ mod test {
 	#[test]
 	fn codeblock_with_language() {
 		let s = "```foo\nbar```";
-		let (rem, res) = code_block()
+		let (rem, (res, ())) = code_block::<(), _>()
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pioarduino
-Version: 6.2.0
+Version: 6.2.0.post1
 Summary: pioarduino core is needed to run pioarduino Platform espressif32. 
 Home-page: https://github.com/pioarduino
 Author: PlatformIO Labs and pioarduino
@@ -33,10 +33,9 @@ Requires-Dist: certifi
 Requires-Dist: intelhex
 Requires-Dist: rich_click
 Requires-Dist: ajsonrpc==1.2.*
-Requires-Dist: starlette<1
+Requires-Dist: starlette<2,>=1.3.1
 Requires-Dist: uvicorn<0.43,>=0.16
 Requires-Dist: wsproto==1.*
-Requires-Dist: chardet<6,>=3.0.2; platform_system == "Darwin" and "arm" in platform_machine
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

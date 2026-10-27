@@ -148,6 +148,51 @@ class _IDatabaseRefProxy(
 typing.cast(typing.Any, IDatabaseRef).__jsii_proxy_class__ = lambda : _IDatabaseRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_timestream.IInfluxDBBackupRef")
+class IInfluxDBBackupRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a InfluxDBBackup.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="influxDbBackupRef")
+    def influx_db_backup_ref(self) -> "InfluxDBBackupReference":
+        '''(experimental) A reference to a InfluxDBBackup resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInfluxDBBackupRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InfluxDBBackup.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_timestream.IInfluxDBBackupRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="influxDbBackupRef")
+    def influx_db_backup_ref(self) -> "InfluxDBBackupReference":
+        '''(experimental) A reference to a InfluxDBBackup resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InfluxDBBackupReference", jsii.get(self, "influxDbBackupRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInfluxDBBackupRef).__jsii_proxy_class__ = lambda : _IInfluxDBBackupRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_timestream.IInfluxDBClusterRef")
 class IInfluxDBClusterRef(
     _constructs_77d1e7e8.IConstruct,
@@ -326,6 +371,55 @@ class _ITableRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ITableRef).__jsii_proxy_class__ = lambda : _ITableRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_timestream.InfluxDBBackupReference",
+    jsii_struct_bases=[],
+    name_mapping={"influx_db_backup_arn": "influxDbBackupArn"},
+)
+class InfluxDBBackupReference:
+    def __init__(self, *, influx_db_backup_arn: builtins.str) -> None:
+        '''A reference to a InfluxDBBackup resource.
+
+        :param influx_db_backup_arn: The Arn of the InfluxDBBackup resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_timestream as interfaces_timestream
+            
+            influx_db_backup_reference = interfaces_timestream.InfluxDBBackupReference(
+                influx_db_backup_arn="influxDbBackupArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__40535ee1520cb57dac9c978fe79387ef388f14e0b25503412b8b135863a9c347)
+            check_type(argname="argument influx_db_backup_arn", value=influx_db_backup_arn, expected_type=type_hints["influx_db_backup_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "influx_db_backup_arn": influx_db_backup_arn,
+        }
+
+    @builtins.property
+    def influx_db_backup_arn(self) -> builtins.str:
+        '''The Arn of the InfluxDBBackup resource.'''
+        result = self._values.get("influx_db_backup_arn")
+        assert result is not None, "Required property 'influx_db_backup_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InfluxDBBackupReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -597,10 +691,12 @@ class TableReference:
 __all__ = [
     "DatabaseReference",
     "IDatabaseRef",
+    "IInfluxDBBackupRef",
     "IInfluxDBClusterRef",
     "IInfluxDBInstanceRef",
     "IScheduledQueryRef",
     "ITableRef",
+    "InfluxDBBackupReference",
     "InfluxDBClusterReference",
     "InfluxDBInstanceReference",
     "ScheduledQueryReference",
@@ -613,6 +709,13 @@ def _typecheckingstub__f77d2bae58103bc359e516b09f6a3553472665a4ec6b584e2a0a662b3
     *,
     database_arn: builtins.str,
     database_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40535ee1520cb57dac9c978fe79387ef388f14e0b25503412b8b135863a9c347(
+    *,
+    influx_db_backup_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -649,5 +752,5 @@ def _typecheckingstub__049ab22138340cfe02e26aa8b1e344151cb526a4f6008de057ba3654f
     """Type checking stubs"""
     pass
 
-for cls in [IDatabaseRef, IInfluxDBClusterRef, IInfluxDBInstanceRef, IScheduledQueryRef, ITableRef]:
+for cls in [IDatabaseRef, IInfluxDBBackupRef, IInfluxDBClusterRef, IInfluxDBInstanceRef, IScheduledQueryRef, ITableRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

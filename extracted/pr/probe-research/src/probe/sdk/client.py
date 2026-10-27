@@ -3071,6 +3071,31 @@ class Client:
         browser session AND owner/admin, so it 403s from the CLI (by design)."""
         self.transport.delete(f"/v1/tokens/{token_id}")
 
+    # -- per-run tokens (a remote job's credential, one run only) ------------
+    def mint_run_token(self, run_id: str, *, ttl_seconds: int | None = None) -> dict:
+        """``POST /v1/runs/{id}/tokens`` -- a ``probe_run_`` token that records this
+        run and nothing else, for a job on another machine. ``ttl_seconds`` is its
+        life (the server's default when None); minting again never shortens an
+        earlier token's. Returns ``{token, run_id, expires_at, ttl_seconds, gen}``."""
+        body = {} if ttl_seconds is None else {"ttl_seconds": int(ttl_seconds)}
+        return self.transport.post(f"/v1/runs/{run_id}/tokens", json_body=body)
+
+    def extend_run_tokens(self, run_id: str, *, ttl_seconds: int) -> dict:
+        """``POST /v1/runs/{id}/tokens/extend`` -- every token of this run now
+        expires ``ttl_seconds`` from now. The running job keeps its token."""
+        return self.transport.post(
+            f"/v1/runs/{run_id}/tokens/extend", json_body={"ttl_seconds": int(ttl_seconds)}
+        )
+
+    def revoke_run_tokens(self, run_id: str) -> dict:
+        """``POST /v1/runs/{id}/tokens/revoke`` -- every token minted for this run
+        so far stops at its next request."""
+        return self.transport.post(f"/v1/runs/{run_id}/tokens/revoke", json_body={})
+
+    def run_token_state(self, run_id: str) -> dict:
+        """``GET /v1/runs/{id}/tokens`` -- when this run's tokens expire. Never a token."""
+        return self.transport.get(f"/v1/runs/{run_id}/tokens")
+
     # -- client installations ----------------------------------------------
     def register_client_capabilities(
         self,
@@ -3130,6 +3155,20 @@ class Client:
         return self.transport.put(
             f"/v1/client-installations/{installation_id}/credentials/current",
             {"grant": grant},
+        )
+
+    def mint_companion_credential(self) -> dict:
+        """The Probe daemon's key for THIS installation, minted with its own
+        `api` credential (no browser). Answers one approval-exchange grant
+        entry: `{"grant": "companion", "token", "token_id"}`."""
+        return self.transport.post("/v1/client-installations/current/companion-credential")
+
+    def mint_capture_credential(self, source: str) -> dict:
+        """One coding agent's capture key for THIS installation, minted with its
+        own `api` credential (no browser). Answers one approval-exchange grant
+        entry: `{"grant": "capture", "token", "device_id", "capture_source"}`."""
+        return self.transport.post(
+            "/v1/client-installations/current/capture-credential", {"source": source}
         )
 
     def list_client_installations(self) -> dict:

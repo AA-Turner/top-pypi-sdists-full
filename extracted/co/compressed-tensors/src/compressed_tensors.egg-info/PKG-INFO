@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: compressed-tensors
-Version: 0.19.0
+Version: 0.20.0
 Summary: Library for utilization of compressed safetensors of neural network models
 Home-page: https://github.com/vllm-project/compressed-tensors
 Author: The vLLM Project
 Author-email: vllm-questions@lists.berkeley.edu
 License: Apache 2.0
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.10.0
@@ -22,6 +23,7 @@ Requires-Dist: pre-commit>=4.0.0; extra == "dev"
 Requires-Dist: pytest>=6.0.0; extra == "dev"
 Requires-Dist: nbconvert>=7.16.3; extra == "dev"
 Requires-Dist: accelerate; extra == "dev"
+Requires-Dist: datasets; extra == "dev"
 Provides-Extra: accelerate
 Requires-Dist: accelerate; extra == "accelerate"
 Provides-Extra: docs
@@ -38,6 +40,7 @@ Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 # compressed-tensors
@@ -121,6 +124,19 @@ To bypass the hooks for a single commit, use `git commit --no-verify`; to skip o
 The following example loads Llama 3 8B, applies round-to-nearest (RTN) MXFP4 weight quantization, compresses the weights, and saves the result. No calibration data is needed — scales are computed directly from the weights.
 
 ```python
+import math
+
+import torch
+from transformers import AutoModelForCausalLM
+
+from compressed_tensors.compressors import ModelCompressor
+from compressed_tensors.offload import update_offload_parameter
+from compressed_tensors.quantization import (
+    QuantizationConfig,
+    apply_quantization_config,
+)
+from compressed_tensors.quantization.utils import calculate_qparams
+
 model_name = "meta-llama/Meta-Llama-3-8B"
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 

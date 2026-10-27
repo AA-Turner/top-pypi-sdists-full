@@ -3,6 +3,8 @@
 //!
 //! [UTS #39 §4]: https://www.unicode.org/reports/tr39/#Confusable_Detection
 
+use std::borrow::Cow;
+
 use icu_normalizer::DecomposingNormalizer;
 use icu_properties::{CodePointSetData, props::DefaultIgnorableCodePoint};
 use unicode_bidi::{BidiClass, bidi_class};
@@ -24,7 +26,10 @@ pub enum Direction {
 
 /// The `internalSkeleton` transform: NFD, remove default-ignorable code
 /// points, map each character to its prototype, and reapply NFD.
-fn internal_skeleton(x: &str) -> String {
+///
+/// Unlike [`skeleton`], this does no bidirectional reordering, so it suits
+/// text already in display order (see [`display_order`]).
+pub fn internal_skeleton(x: &str) -> String {
 	let nfd = DecomposingNormalizer::new_nfd();
 	let default_ignorable = CodePointSetData::new::<DefaultIgnorableCodePoint>();
 
@@ -104,11 +109,19 @@ fn is_reorder_free(x: &str) -> bool {
 ///
 /// The result is meant only for confusability comparison, never for display.
 pub fn bidi_skeleton(direction: Direction, x: &str) -> String {
+	internal_skeleton(&display_order(direction, x))
+}
+
+/// Reorder `x` for display per the Unicode Bidirectional Algorithm (rules
+/// L1–L4) with base direction `direction`: steps 1–3 of [`bidi_skeleton`].
+///
+/// The result is meant only for confusability comparison, never for display.
+pub fn display_order(direction: Direction, x: &str) -> Cow<'_, str> {
 	if direction == Direction::Ltr && is_reorder_free(x) {
-		return internal_skeleton(x);
+		return Cow::Borrowed(x);
 	}
 
-	internal_skeleton(&bidi::reorder(direction, x))
+	Cow::Owned(bidi::reorder(direction, x))
 }
 
 /// The `skeleton` transform of UTS #39 §4, equivalent to

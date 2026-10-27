@@ -459,7 +459,9 @@ class TransactionState {
     /// e.g. `"write to local file xyz"`.
     virtual std::string Describe();
 
-    /// Sets an error status on the entire transaction.
+    /// Sets an error status on the entire transaction. This may only be called
+    /// while holding an open transaction node or while performing a commit
+    /// operation.
     ///
     /// \dchecks `!error.ok()`
     void SetError(const absl::Status& error);
@@ -943,10 +945,10 @@ template <typename Node>
 OpenTransactionPtr ToOpenTransactionPtr(OpenTransactionNodePtr<Node> node) {
   // `OpenTransactionNodePtr` is equivalent to `OpenTransactionPtr` +
   // `WeakTransactionNodePtr`.
-  if (node) {
-    WeakTransactionNodePtr<Node>::traits_type::decrement(node.get());
-  }
-  return OpenTransactionPtr(node.release(), internal::adopt_object_ref);
+  if (!node) return {};
+  TransactionState* transaction = node->transaction();
+  WeakTransactionNodePtr<Node>::traits_type::decrement(node.release());
+  return OpenTransactionPtr(transaction, internal::adopt_object_ref);
 }
 
 /// Returns either the existing transaction or a new implicit transaction.

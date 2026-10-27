@@ -96,6 +96,7 @@ class ControlPlaneDouble:
     existing_deployments: list[dict] = field(default_factory=list)
     push_token_status: int = 200
     push_token_extra: dict = field(default_factory=dict)
+    upload_url_extra: dict = field(default_factory=dict)
     create_error: str | None = None
     listeners: list[dict] = field(default_factory=list)
     listeners_by_id: dict[str, dict] = field(default_factory=dict)
@@ -111,7 +112,11 @@ class ControlPlaneDouble:
     def _respond(self, request: httpx.Request) -> httpx.Response:
         method, path = request.method, request.url.path
         if (method, path) == ("GET", "/v2/listeners"):
-            return httpx.Response(200, json={"resources": self.listeners})
+            offset = int(request.url.params.get("offset", 0))
+            limit = int(request.url.params.get("limit", 20))
+            return httpx.Response(
+                200, json={"resources": self.listeners[offset : offset + limit]}
+            )
         if method == "GET" and path.startswith("/v2/listeners/"):
             listener_id = path.rsplit("/", 1)[-1]
             if not _looks_like_a_uuid(listener_id):
@@ -159,7 +164,12 @@ class ControlPlaneDouble:
             )
         if path.endswith("/upload-url"):
             return httpx.Response(
-                200, json={"upload_url": SIGNED_UPLOAD_URL, "object_path": OBJECT_PATH}
+                200,
+                json={
+                    "upload_url": SIGNED_UPLOAD_URL,
+                    "object_path": OBJECT_PATH,
+                    **self.upload_url_extra,
+                },
             )
         if method == "PATCH":
             return httpx.Response(200, json={"tenant_id": "tenant-1"})
@@ -276,7 +286,7 @@ class DeployProject:
     control_plane: ControlPlaneDouble
     docker: DockerDouble
     timeline: list[str]
-    uploads: list[tuple[str, str, int]]
+    uploads: list[tuple[str, str, int, dict[str, str] | None]]
 
     def run(self, *args: str, host_url: str = CONTROL_PLANE_URL) -> Result:
         return CliRunner().invoke(
@@ -313,16 +323,21 @@ def deploy_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> DeployPro
     timeline: list[str] = []
     control_plane = ControlPlaneDouble(timeline)
     docker = DockerDouble(timeline)
-    uploads: list[tuple[str, str, int]] = []
+    uploads: list[tuple[str, str, int, dict[str, str] | None]] = []
 
     @contextmanager
     def fake_create_archive(config_path: Path, config: dict) -> Iterator[tuple]:
         timeline.append("create_archive")
         yield ARCHIVE
 
-    def fake_upload(signed_url: str, file_path: str, file_size: int) -> None:
+    def fake_upload(
+        signed_url: str,
+        file_path: str,
+        file_size: int,
+        upload_headers: dict[str, str] | None,
+    ) -> None:
         timeline.append("upload_archive")
-        uploads.append((signed_url, file_path, file_size))
+        uploads.append((signed_url, file_path, file_size, upload_headers))
 
     monkeypatch.setattr(deploy_module, "_no_input", False)
     monkeypatch.setattr(deploy_module, "_emitter", None)
@@ -340,7 +355,7 @@ def deploy_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> DeployPro
     )
     monkeypatch.setattr(deploy_module.platform, "machine", lambda: "x86_64")
     monkeypatch.setattr(archive_module, "create_archive", fake_create_archive)
-    monkeypatch.setattr(deploy_module, "_upload_to_gcs", fake_upload)
+    monkeypatch.setattr(deploy_module, "_upload_source_tarball", fake_upload)
     return DeployProject(control_plane, docker, timeline, uploads)
 
 
@@ -699,6 +714,9 @@ def test_deployment_not_created_by_the_cli_gets_an_actionable_error(
 def test_remote_build_creates_an_internal_source_deployment_and_uploads_the_archive(
     deploy_project: DeployProject,
 ) -> None:
+    upload_headers = {"Content-Type": "application/gzip", "x-ms-blob-type": "BlockBlob"}
+    deploy_project.control_plane.upload_url_extra = {"upload_headers": upload_headers}
+
     result = deploy_project.run("--remote", "--install-command", "yarn install")
 
     assert result.exit_code == 0, result.output
@@ -713,7 +731,12 @@ def test_remote_build_creates_an_internal_source_deployment_and_uploads_the_arch
     assert deploy_project.control_plane.bodies[CREATE_DEPLOYMENT]["source"] == (
         "internal_source"
     )
-    assert deploy_project.uploads == [(SIGNED_UPLOAD_URL, ARCHIVE[0], ARCHIVE[1])]
+    assert deploy_project.control_plane.bodies[_upload_url(CREATED_ID)] == {
+        "supports_upload_headers": True
+    }
+    assert deploy_project.uploads == [
+        (SIGNED_UPLOAD_URL, ARCHIVE[0], ARCHIVE[1], upload_headers)
+    ]
     assert deploy_project.control_plane.bodies[_patch(CREATED_ID)] == {
         "revision_source": "internal_source",
         "source_revision_config": {
@@ -1288,14 +1311,16 @@ def test_listener_flags_without_push_to_make_no_call_at_all(
     assert deploy_project.timeline == []
 
 
-def test_a_truncated_listener_page_says_so(deploy_project: DeployProject) -> None:
+def test_listeners_beyond_the_first_page_are_counted(
+    deploy_project: DeployProject,
+) -> None:
     deploy_project.control_plane.listeners = [
         {
             "id": str(uuid.UUID(int=index)),
             "compute_id": "cluster",
             "compute_config": {"k8s_namespaces": ["agents"]},
         }
-        for index in range(100)
+        for index in range(101)
     ]
 
     result = deploy_project.run(
@@ -1303,7 +1328,8 @@ def test_a_truncated_listener_page_says_so(deploy_project: DeployProject) -> Non
     )
 
     assert result.exit_code != 0
-    assert "first 100" in result.output
+    assert "... and 91 more" in result.output
+    assert "first 100" not in result.output
 
 
 def test_a_managed_build_in_a_listener_workspace_points_at_push_to(

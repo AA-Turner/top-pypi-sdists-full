@@ -210,6 +210,7 @@ class CfnCRL(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -256,7 +257,7 @@ class CfnCRL(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ed66d9ba863eea6d35e2d4cbfd1edf02e98c56dc7dda3b94fc817d6daca3df97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "crlData", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "crlData", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -269,7 +270,7 @@ class CfnCRL(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f1d928fdb432014275751561985f35592cf848df677c7665616a8cf2fa5d2c60)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -287,7 +288,7 @@ class CfnCRL(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__67f67da1cd6496f50acb69ea70845c06791dc58959676ea4d9ad986cf862e13d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -303,7 +304,7 @@ class CfnCRL(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d3f1ac51324ba6d6018ab752309c8b3267919f50018712dd42bc06bee1676aaa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="trustAnchorArn")
@@ -316,7 +317,7 @@ class CfnCRL(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__48d0f45de99868389bb39fb7a554a49b731bd29a705766a60e1905c74ce60268)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "trustAnchorArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "trustAnchorArn", value)
 
 
 @jsii.data_type(
@@ -637,6 +638,7 @@ class CfnProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -692,7 +694,7 @@ class CfnProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__688802799b2e2e92a74275812390344e30681aca3a945368a5aefaa1ba56cb2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArns")
@@ -705,7 +707,7 @@ class CfnProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e8d24089a88ab86238c5340434a58996a10c5d047049180f8bfea3a52c48d03c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="acceptRoleSessionName")
@@ -723,7 +725,7 @@ class CfnProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b73e942d39a5b84fc4c5c5ea2f2c292a52e77c9c53c9877b433b70fea88f171d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptRoleSessionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "acceptRoleSessionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="attributeMappings")
@@ -741,7 +743,7 @@ class CfnProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a933bc8a589ca2e29de261062eefb4537f3f9eee0b743f26a28b8b55ea20b163)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeMappings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "attributeMappings", value)
 
     @builtins.property
     @jsii.member(jsii_name="durationSeconds")
@@ -754,7 +756,7 @@ class CfnProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c198b2977e47134c474ca242dadf9d96676c95614df55d34d80a89658dbb1f75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "durationSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "durationSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -772,7 +774,7 @@ class CfnProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5c15a55f732285f57f742ed7762ed5a0b7ee11c61c9fe4d09dae35efacf487f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="managedPolicyArns")
@@ -788,7 +790,7 @@ class CfnProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3a5ba76ab9b068fc7d546e708f8eb49f1139ea08824b7940db1ecc46d892581)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedPolicyArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "managedPolicyArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="requireInstanceProperties")
@@ -806,7 +808,7 @@ class CfnProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a0e912d03975c81c39b553f40f759c521d19500722ee88d157ee1f254cbba4b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "requireInstanceProperties", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "requireInstanceProperties", value)
 
     @builtins.property
     @jsii.member(jsii_name="sessionPolicy")
@@ -819,7 +821,7 @@ class CfnProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e9dc15859e3e9704568f9e80b68a145d23ee9b43107d5f48098e5dc7f40af7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sessionPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sessionPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -835,7 +837,7 @@ class CfnProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__99305adebaa684e99f5f2849196087f9cc1788f2b87af7300c436a0feeab285b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rolesanywhere.CfnProfile.AttributeMappingProperty",
@@ -1369,6 +1371,7 @@ class CfnTrustAnchor(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1424,7 +1427,7 @@ class CfnTrustAnchor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__265c9ab39383974ed99c7175f30b9a4ceb5f22cd577edbe2f82df8bf06a4b9a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="source")
@@ -1442,7 +1445,7 @@ class CfnTrustAnchor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b96b35b1c2f1a1254cda56368cc47ef0b688766951d9ea203e33c12867524fc6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "source", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -1460,7 +1463,7 @@ class CfnTrustAnchor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__71c1dcfb08f1fa865b29567c29660256ff1249099dfa782cfa24a3d18aa3505b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="notificationSettings")
@@ -1478,7 +1481,7 @@ class CfnTrustAnchor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__23701df66bc277a4e25d78f1e47cfa62da72b1c3d4213f38fc9576a483ebe50a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notificationSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notificationSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1494,7 +1497,7 @@ class CfnTrustAnchor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d275a36ee2ff1f9512bd9df7c7f4cb41f4083d1e9467ade7c410954159920c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rolesanywhere.CfnTrustAnchor.NotificationSettingProperty",

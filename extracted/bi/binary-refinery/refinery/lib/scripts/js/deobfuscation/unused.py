@@ -1,7 +1,7 @@
 """
 Remove unreachable function declarations and unused variable assignments.
 
-This transformer performs four phases:
+This transformer performs seven phases:
 
 1. **Dead function removal** — transitive reachability analysis: starting from non-function
    statements, it collects all function names referenced directly or transitively. Function
@@ -22,28 +22,55 @@ This transformer performs four phases:
    true local, tightening a global the obfuscator hoisted back to where it is used. The liveness model
    proves the move observes no value carried across calls or from load; the later sweeps then act on
    the tightened scope.
+
+5. **Redundant global member store removal** — a store to a member of the global object whose value
+   an earlier store in the same unbroken run of such stores already left there, judged per run of
+   consecutive store statements rather than per adjacent pair, so an obfuscator interleaving two
+   stores with their duplicates loses each duplicate. A descriptor installed anywhere on the global
+   object, or any reflective surface, keeps every store: an installed accessor fires on each one.
+
+6. **Discarded completion value removal** — a `return` of an inert constant, in a function whose
+   every invocation throws its completion value away and that carries no name a host could call it
+   by, ends the body with a value nothing observes; the statement goes and control falls off the
+   end the same way.
+
+7. **Empty statement removal** — an empty statement standing in a statement list executes nothing
+   and goes; one standing as the whole body of a branch stays, being that branch's body itself.
 """
 from __future__ import annotations
 
-from refinery.lib.scripts import Node, _remove_from_parent
-from refinery.lib.scripts.js.analysis.cache import model_cache
-from refinery.lib.scripts.js.analysis.effects import EffectModel, object_member_access_runs_accessor
+from typing import Iterable, Iterator, NamedTuple
+
+from refinery.lib.scripts import ListRemoval, Node, set_child, tree_root
+from refinery.lib.scripts.js.analysis.cache import ModelCache, model_cache
+from refinery.lib.scripts.js.analysis.effects import EffectModel
 from refinery.lib.scripts.js.analysis.liveness import LivenessModel
-from refinery.lib.scripts.js.analysis.reaching import ReachingModel
 from refinery.lib.scripts.js.analysis.model import (
+    FUNCTION_NODES,
+    GLOBAL_OBJECT_ALIASES,
+    SAME_REALM_GLOBAL_OBJECT_ALIASES,
     Binding,
     BindingKind,
-    FUNCTION_NODES,
     Scope,
     ScopeKind,
     SemanticModel,
+    annex_b_suppressor_names,
+    enclosing_function,
     is_simple_assignment_target,
+    is_the_this_of_a_script,
+    may_be_global_object_base,
 )
+from refinery.lib.scripts.js.analysis.reaching import ReachingModel
 from refinery.lib.scripts.js.deobfuscation.helpers import (
     BodyProcessingTransformer,
-    GLOBAL_OBJECT_ALIASES,
+    a_host_reaches_the_binding,
+    access_key,
     collect_identifier_names,
+    definitely_answers_the_completion,
+    extract_literal_value,
+    insert_after_prologue,
     is_binding_site,
+    reaches_script_completion,
     remove_declarator,
     walk_scope,
 )
@@ -51,94 +78,206 @@ from refinery.lib.scripts.js.model import (
     JsArrayExpression,
     JsArrayPattern,
     JsAssignmentExpression,
+    JsBinaryExpression,
     JsBlockStatement,
+    JsBooleanLiteral,
     JsCallExpression,
+    JsConditionalExpression,
+    JsDoWhileStatement,
+    JsEmptyStatement,
     JsExpressionStatement,
+    JsForStatement,
     JsFunctionDeclaration,
     JsIdentifier,
+    JsIfStatement,
+    JsLabeledStatement,
     JsMemberExpression,
     JsNewExpression,
+    JsNullLiteral,
+    JsNumericLiteral,
     JsObjectExpression,
     JsObjectPattern,
+    JsParenthesizedExpression,
     JsProperty,
+    JsReturnStatement,
     JsScript,
+    JsStringLiteral,
+    JsThisExpression,
+    JsUnaryExpression,
     JsVariableDeclaration,
     JsVariableDeclarator,
     JsVarKind,
+    JsWhileStatement,
     Statement,
+    object_member_access_runs_accessor,
+    strip_parens,
+    value_is_discarded,
 )
+from refinery.lib.scripts.js.options import preserves_script_return
+from refinery.lib.scripts.js.strict import is_bare_string_statement, is_use_strict_directive
 
 
-def _const_global_alias_names(root: Node) -> frozenset[str]:
+def _global_alias_read_names(model: SemanticModel, root: Node) -> frozenset[str]:
+    """
+    The global properties *root* reads through the global object, which are the ones a write of may
+    not be removed for want of a reader.
+
+    The base is read through `may_be_global_object_base`, so every spelling of the global object
+    counts here, including a `this` a call may supply the global object for and the two names that
+    denote another realm's global object. That set is wider than the one the write side keys on, and
+    deliberately: a name found here keeps a write, and keeping one costs a reduction where missing
+    one deletes a read.
+
+    A name the file gives the object to counts as well, and the model is asked which those are —
+    `refinery.lib.scripts.js.analysis.model.SemanticModel.names_the_global_object`.
+
+    A computed access with a statically known string key (`globalThis['g']`) reads the same name its
+    dot spelling reads, so it counts here through `access_key`; one whose key the text does not state
+    is not a read of any one name but of potentially all of them, which is
+    `_the_global_object_escapes`'s question rather than this scan's.
+    """
     names: set[str] = set()
     for node in root.walk():
-        if not isinstance(node, JsVariableDeclaration) or node.kind is not JsVarKind.CONST:
+        if not isinstance(node, JsMemberExpression):
             continue
-        for decl in node.declarations:
-            if (
-                isinstance(decl, JsVariableDeclarator)
-                and isinstance(decl.id, JsIdentifier)
-                and isinstance(decl.init, JsIdentifier)
-                and decl.init.name in GLOBAL_OBJECT_ALIASES
-            ):
-                names.add(decl.id.name)
-    return frozenset(names)
-
-
-def _global_alias_read_names(root: Node, aliases: frozenset[str]) -> frozenset[str]:
-    names: set[str] = set()
-    for node in root.walk():
-        if not isinstance(node, JsMemberExpression) or node.computed:
-            continue
-        if not isinstance(node.property, JsIdentifier):
-            continue
-        if not isinstance(node.object, JsIdentifier):
+        name = access_key(node)
+        if name is None:
             continue
         if is_simple_assignment_target(node):
             continue
-        if node.object.name in GLOBAL_OBJECT_ALIASES or node.object.name in aliases:
-            names.add(node.property.name)
+        base = node.object
+        if may_be_global_object_base(base) or model.names_the_global_object(base):
+            names.add(name)
     return frozenset(names)
+
+
+_IDENTITY_OBSERVING_UNARY = frozenset({'typeof', 'void', '!'})
+
+_IDENTITY_COMPARISONS = frozenset({'===', '!=='})
+
+
+def _observes_no_global_property(node: Node) -> bool:
+    """
+    Whether the position *node* stands in cannot read a property of the global object it denotes:
+    the base of a member access whose key `access_key` states, a plain overwrite of the name, a
+    `typeof`/`void`/`!` operand, an operand of a strict comparison, the test of a branch or a loop,
+    or an expression statement whose value nothing takes. Every other position — a call or `new`
+    argument, a `for-in` subject, an initializer, a return value, a computed access with no static
+    key — hands the object itself onward, where its properties are readable without being spelled.
+    """
+    parent = node.parent
+    while isinstance(parent, JsParenthesizedExpression):
+        parent = parent.parent
+    if isinstance(parent, JsMemberExpression) and strip_parens(parent.object) is node:
+        return access_key(parent) is not None
+    if isinstance(parent, JsUnaryExpression):
+        return (
+            parent.operator in _IDENTITY_OBSERVING_UNARY
+            and strip_parens(parent.operand) is node
+        )
+    if isinstance(parent, JsBinaryExpression):
+        return parent.operator in _IDENTITY_COMPARISONS
+    if isinstance(parent, (
+        JsConditionalExpression,
+        JsDoWhileStatement,
+        JsIfStatement,
+        JsWhileStatement,
+    )):
+        return strip_parens(parent.test) is node
+    if isinstance(parent, JsForStatement):
+        return parent.test is not None and strip_parens(parent.test) is node
+    if isinstance(parent, JsExpressionStatement):
+        return strip_parens(parent.expression) is node
+    return is_simple_assignment_target(node)
+
+
+def _the_global_object_escapes(model: SemanticModel, root: Node) -> bool:
+    """
+    Whether the global object itself reaches a position the per-name scans cannot read through: a
+    spelling of it that nothing else binds, the `this` of the top level, or a name the model says
+    holds it, standing anywhere `_observes_no_global_property` does not accept. From such a position
+    every global is readable without its name being spelled — `Object.keys(globalThis)` holds them
+    all, a `for-in` walks them, and `(function (w) { ... })(window)` reads them through `w` — so
+    while one exists no global-property write can be proven unread.
+
+    The `this` question is the narrow one every rewrite-driving reader of the model asks. A method's
+    `this` is its receiver, and taking every escaping method `this` for the global object would turn
+    the sweep off for ordinary object code, the same trade `_is_reflective_member` writes down.
+    """
+    for node in root.walk():
+        if isinstance(node, JsThisExpression):
+            if is_the_this_of_a_script(node) and not _observes_no_global_property(node):
+                return True
+            continue
+        if not isinstance(node, JsIdentifier) or not model.is_reference(node):
+            continue
+        if _observes_no_global_property(node):
+            continue
+        if node.name in GLOBAL_OBJECT_ALIASES:
+            binding = model.resolve(node)
+            if binding is None or binding.kind is BindingKind.IMPLICIT_GLOBAL:
+                return True
+        if model.names_the_global_object(node):
+            return True
+    return False
 
 
 def _reachable_functions(
     body: list[Statement],
     functions: dict[str, JsFunctionDeclaration],
+    entrypoints: frozenset[str] = frozenset(),
 ) -> tuple[set[str], dict[str, list[Statement]]]:
     """
     Compute the set of function names transitively reachable from non-function statements in
     *body*. A function is reachable if its name appears as any identifier in a reachable statement
     or in the body of another reachable function.
 
-    Functions that are only referenced as the object of property-write statements
-    (`funcName.prop = ...`) where neither the function nor its properties are read anywhere else
-    are considered unreachable. Returns a `(set, dict)` pair: the set of reachable function
-    names and a dict mapping each write-only function name to the statements that are its only
-    references.
+    A name in *entrypoints* is reachable regardless of what the file references, because a host invokes
+    it from outside: in the script execution model a top-level function is a property of the global
+    object, so the file is not the whole program and its references are not the whole call graph.
+    Seeding such a name here rather than exempting it from removal later is what makes everything it
+    calls survive too — the transitive closure below then does that work — which matters because the
+    entrypoint is typically the root of the whole program.
+
+    A function whose only references in *body* are property-write statements (`funcName.prop =
+    ...`), with neither the function nor its properties read anywhere else in *body*, is
+    write-only. Those statements do not make it reachable: it is reachable only where the body of
+    another reachable function names it, as a reachable `f` returning `W.extra` names `W`, and
+    once it is, the names its statements hold are reachable too. Two write-only functions that
+    only name each other stay unreachable. A name in *entrypoints* is never write-only: code
+    outside *body* reaches it, and what it reads of it is not in *body* to see. Returns a
+    `(set, dict)` pair: the set of reachable function names and a dict mapping each unreachable
+    write-only function name to the statements that are its only references.
     """
     referenced: set[str] = set()
+    named: list[tuple[Statement, set[str]]] = []
     for stmt in body:
         if isinstance(stmt, JsFunctionDeclaration):
             continue
-        referenced |= collect_identifier_names(stmt)
-    reachable = referenced & functions.keys()
+        names = collect_identifier_names(stmt)
+        named.append((stmt, names))
+        referenced |= names
+    write_only: dict[str, list[Statement]] = {}
+    for name in (referenced & functions.keys()) - entrypoints:
+        stmts = _classify_property_write_only(body, name)
+        if stmts is not None:
+            write_only[name] = stmts
+    written = {id(stmt) for stmts in write_only.values() for stmt in stmts}
+    reachable: set[str] = set(entrypoints & functions.keys())
+    for stmt, names in named:
+        if id(stmt) not in written:
+            reachable |= names & functions.keys()
     frontier = list(reachable)
     while frontier:
         name = frontier.pop()
-        func = functions[name]
-        for ident_name in collect_identifier_names(func):
+        names = collect_identifier_names(functions[name])
+        for stmt in write_only.get(name, ()):
+            names |= collect_identifier_names(stmt)
+        for ident_name in names:
             if ident_name in functions and ident_name not in reachable:
                 reachable.add(ident_name)
                 frontier.append(ident_name)
-    write_only_stmts: dict[str, list[Statement]] = {}
-    for name in list(reachable):
-        if name not in functions:
-            continue
-        stmts = _classify_property_write_only(body, name)
-        if stmts is not None:
-            reachable.discard(name)
-            write_only_stmts[name] = stmts
-    return reachable, write_only_stmts
+    return reachable, {name: stmts for name, stmts in write_only.items() if name not in reachable}
 
 
 def _classify_property_write_only(
@@ -260,6 +399,37 @@ def _destructuring_target_safe(left: Node | None, right: Node | None) -> bool:
     return False
 
 
+def _stores_the_same_value(first: Node, second: Node) -> bool:
+    """
+    Whether the store values *first* and *second* denote the same value every time the run
+    executes: the same bare name — one body's statements read one binding by that name — or a
+    literal spelling the same constant. A number compares by the text of its value as well as the
+    value itself, so a `-0` the second store would replace a `0` with stays a different store. A
+    string literal the lenient parser could not decode carries no value; two such are never taken
+    for equal, since their differing spellings may still stand for different bytes.
+    """
+    if isinstance(first, JsIdentifier) and isinstance(second, JsIdentifier):
+        return first.name == second.name
+    if type(first) is not type(second):
+        return False
+    if isinstance(first, JsNumericLiteral):
+        return first.value == second.value and repr(first.value) == repr(second.value)
+    if isinstance(first, JsNullLiteral):
+        return True
+    left = first.value
+    return left is not None and left == second.value
+
+
+class _GlobalMemberStore(NamedTuple):
+    """
+    A store-class statement `base.key = value`: the global property it stores, the value it stores
+    there, and the name it reads the global object through.
+    """
+    key: str
+    value: Node
+    base: JsIdentifier
+
+
 class JsUnusedCodeRemoval(BodyProcessingTransformer):
     """
     Remove function declarations that are never referenced from live code, and remove assignments
@@ -272,32 +442,46 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         super().__init__()
         self.preserve_globals = preserve_globals
         self._has_reflection = False
-        self._model: SemanticModel | None = None
-        self._effects: EffectModel | None = None
-        self._liveness: LivenessModel | None = None
-        self._reaching: ReachingModel | None = None
+        self._cache: ModelCache | None = None
+        self._names_read_in_the_script: set[str] | None = None
 
     def visit_JsScript(self, node: JsScript):
         """
-        Rebuild the semantic model and sweep the whole script until a fixpoint. The model is computed
-        once per pass and queried by every removal below; mutations within a pass only ever delete
-        references, so a fact taken from the pass-start model can never wrongly classify a live binding
-        as dead, and the next pass — over a freshly-built model — sweeps anything the staleness held
-        back. Transitive deadness therefore falls out of the loop rather than needing the pipeline.
+        Sweep the whole script until a fixpoint, each sweep holding the models of the tree it
+        started on through `refinery.lib.scripts.modelcache.ModelCacheBase.pinned`, with every
+        model that reads the tree when it is built warmed at the sweep's start, liveness included.
+        Transitive deadness falls out of the loop rather than needing the pipeline: the next sweep,
+        over models rebuilt for the edited tree, takes whatever the held answers held back.
+
+        A held answer is never more permissive than one from models rebuilt after the sweep's own
+        edits, because those edits only take facts away. They remove statements, declarators and
+        returns, leaving an empty statement where a removed declaration was the one statement of
+        another; they put a right-hand side in place of the assignment holding it; they drop an
+        initializer; and they add a bare `var` for a name they take from the script scope. A
+        removal deletes references, so a binding the held model calls live may be dead now, never
+        the reverse, and a write it calls established still precedes every read it established.
+        None of the edits puts a node that was in the tree at the sweep's start under a node the
+        sweep creates, so the held control-flow model, which places a node by climbing its parents
+        when asked, places every such node where it was built. The tampering model enumerates
+        invocations over the live tree when asked, so it is asked only by the first stage, before
+        any edit.
         """
         while True:
             previously_changed = self.changed
             self.changed = False
             cache = model_cache(self, node)
-            self._model = cache.model
-            self._effects = cache.effects
-            self._liveness = cache.liveness
-            self._reaching = cache.reaching
-            self._has_reflection = self._model.has_reflection_surface()
-            self._remove_dead_stores(node)
-            self._localize_pseudo_globals(node)
-            self.generic_visit(node)
-            self._process_body(node, node.body)
+            with cache.pinned():
+                cache.warm('_liveness')
+                self._cache = cache
+                self._names_read_in_the_script = None
+                self._has_reflection = cache.model.has_reflection_surface()
+                self._remove_discarded_completions(node)
+                self._remove_dead_stores(node)
+                self._remove_redundant_global_stores(node)
+                self._remove_empty_statements(node)
+                self._localize_pseudo_globals(node)
+                self.generic_visit(node)
+                self._process_body(node, node.body)
             pass_changed = self.changed
             # Carry the cumulative change flag without going through the setter: this is bookkeeping,
             # not a tree mutation, so it must not drop the shared model cache.
@@ -308,23 +492,23 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
 
     @property
     def model(self) -> SemanticModel:
-        assert self._model is not None
-        return self._model
+        assert self._cache is not None
+        return self._cache.model
 
     @property
     def effects(self) -> EffectModel:
-        assert self._effects is not None
-        return self._effects
+        assert self._cache is not None
+        return self._cache.effects
 
     @property
     def liveness(self) -> LivenessModel:
-        assert self._liveness is not None
-        return self._liveness
+        assert self._cache is not None
+        return self._cache.liveness
 
     @property
     def reaching(self) -> ReachingModel:
-        assert self._reaching is not None
-        return self._reaching
+        assert self._cache is not None
+        return self._cache.reaching
 
     def _remove_dead_stores(self, root: JsScript):
         """
@@ -334,11 +518,12 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         uncaptured function-local `var`/`let` qualifies (the liveness model enforces this and reports
         nothing under any reflection surface); a fully dead binding is left to the binding-level sweep.
 
-        Candidates are collected over the pristine tree before any removal, which keeps the verdicts
-        mutually consistent: removing a dead store deletes no read, so it cannot revive another store's
-        value. A dead assignment statement is dropped when its right-hand side is itself removable and
-        otherwise kept as a bare expression for its effect; a dead declarator initializer is dropped
-        only when removable, leaving `var x;` so the still-live binding keeps its declaration.
+        Candidates and their verdicts are taken over the pristine tree before any edit, which keeps
+        the verdicts mutually consistent: removing a dead store deletes no read, so it cannot revive
+        another store's value. A dead assignment statement is dropped when its right-hand side is
+        itself removable and otherwise kept as a bare expression for its effect; a dead declarator
+        initializer is dropped only when removable, leaving `var x;` so the still-live binding keeps
+        its declaration.
         """
         assignments: list[JsExpressionStatement] = []
         declarators: list[JsVariableDeclarator] = []
@@ -359,20 +544,29 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
                     and self._is_flow_dead_store(node.id)
                 ):
                     declarators.append(node)
+        lists = ListRemoval()
+        kept_for_effect: list[JsExpressionStatement] = []
         for stmt in assignments:
             expr = stmt.expression
             assert isinstance(expr, JsAssignmentExpression)
             if expr.right is None or self._is_removable(expr.right):
-                if _remove_from_parent(stmt):
-                    self.mark_changed()
+                lists.remove(stmt)
             else:
-                stmt.expression = expr.right
-                expr.right.parent = stmt
-                self.mark_changed()
-        for decl in declarators:
-            if decl.init is not None and self._is_removable(decl.init):
-                decl.init = None
-                self.mark_changed()
+                kept_for_effect.append(stmt)
+        cleared = [
+            decl for decl in declarators
+            if decl.init is not None and self._is_removable(decl.init)
+        ]
+        if lists.apply():
+            self.mark_changed()
+        for stmt in kept_for_effect:
+            expr = stmt.expression
+            assert isinstance(expr, JsAssignmentExpression)
+            set_child(stmt, 'expression', expr.right)
+            self.mark_changed()
+        for decl in cleared:
+            set_child(decl, 'init', None)
+            self.mark_changed()
 
     def _is_flow_dead_store(self, write: JsIdentifier) -> bool:
         """
@@ -384,6 +578,195 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
             return False
         binding = self.model.binding_of(write) or self.model.resolve(write)
         return binding is not None and binding.is_read
+
+    def _remove_redundant_global_stores(self, root: JsScript):
+        """
+        Drop a store to a member of the global object whose value an earlier store in the same
+        unbroken run of such stores already left there. The run — every consecutive store-class
+        statement in one body — is the unit rather than the adjacent pair, because the interleaved
+        residue this sweep exists for (`global.r = f; global.m = g; global.r = f; global.m = g;`)
+        repeats neither store beside its own duplicate. Any other statement breaks the run: one of
+        them could read the member back, write it under a computed key, or install the accessor the
+        next store would fire, so a duplicate across a break is a store of something the program may
+        have observed changing.
+
+        The whole sweep runs only where the global object is pristine
+        (`EffectModel.global_pristine`): no reflective surface stands, no property is stored under a
+        runtime key, and no accessor is installed anywhere — on the object or on a prototype it
+        inherits, since a setter reached through the chain fires on every plain-looking store alike.
+        Under that precondition a stored value that is a bare name or a literal can be re-read
+        without firing a getter or throwing. A bare name that reads a global, though, reads a
+        property of the object — the same property a store to the member of that same name writes —
+        so a store to member `k` earlier in the run may rewrite what a later value spelled `k`
+        denotes. The run therefore retires any remembered value spelled with the store's own key,
+        keeping the later store of a name that now means something else; a value spelled like a true
+        local is retired too, at the cost only of a dedup no realistic run offers.
+
+        A store reads its base before it writes, and a base the host may not define — `window`
+        where no host is pinned — raises a `ReferenceError` there (`SemanticModel.read_may_throw`).
+        Such a duplicate goes only where a store the run keeps ahead of it already read the same
+        base: control reaches the duplicate only after that read succeeded, and nothing in a run
+        of stores takes a property off the global object.
+        """
+        if not self.effects.global_pristine:
+            return
+        removals: list[JsExpressionStatement] = []
+        for body in self._statement_lists(root):
+            stored: dict[str, Node] = {}
+            bases_read: set[str] = set()
+            for stmt in body:
+                store = self._global_member_store(stmt)
+                if store is None:
+                    stored = {}
+                    bases_read = set()
+                    continue
+                stored = {
+                    key: held for key, held in stored.items()
+                    if not (isinstance(held, JsIdentifier) and held.name == store.key)
+                }
+                if (
+                    stored.get(store.key) is not None
+                    and _stores_the_same_value(stored[store.key], store.value)
+                    and (
+                        store.base.name in bases_read
+                        or not self.model.read_may_throw(store.base)
+                    )
+                ):
+                    removals.append(stmt)
+                else:
+                    stored[store.key] = store.value
+                    bases_read.add(store.base.name)
+        self._remove_all(removals)
+
+    @staticmethod
+    def _statement_lists(root: JsScript) -> Iterator[list[Statement]]:
+        """
+        Every statement list the script runs in order: the script body and each block's, the one
+        unit a run of consecutive stores is read over.
+        """
+        for node in root.walk():
+            if isinstance(node, (JsScript, JsBlockStatement)):
+                yield node.body
+
+    def _global_member_store(self, stmt: Statement) -> _GlobalMemberStore | None:
+        """
+        The store *stmt* makes, when it is a store-class statement: an expression statement
+        `global.key = value` whose base is spelled with a same-realm global name nothing binds where
+        it stands, whose key the text states, and whose value is a bare name or a literal. `None`
+        for any other statement, which breaks a store run.
+        """
+        if not isinstance(stmt, JsExpressionStatement):
+            return None
+        expr = stmt.expression
+        if not isinstance(expr, JsAssignmentExpression) or expr.operator != '=':
+            return None
+        target = strip_parens(expr.left)
+        value = strip_parens(expr.right)
+        if not isinstance(target, JsMemberExpression):
+            return None
+        if not isinstance(value, (
+            JsIdentifier,
+            JsStringLiteral,
+            JsNumericLiteral,
+            JsBooleanLiteral,
+            JsNullLiteral,
+        )):
+            return None
+        base = strip_parens(target.object)
+        if not isinstance(base, JsIdentifier) or base.name not in SAME_REALM_GLOBAL_OBJECT_ALIASES:
+            return None
+        if access_key(target) is None:
+            return None
+        name = self.model.global_alias_member_name(target)
+        if name is None:
+            return None
+        return _GlobalMemberStore(name, value, base)
+
+    def _remove_discarded_completions(self, root: JsScript):
+        """
+        Drop the `return` of an inert constant in a function whose every invocation throws its
+        completion value away, when that return ends the body — control falls off the end either
+        way. The invocation question is the tampering model's
+        (`TamperingModel.every_invocation_discards_the_value` over the forward value-flow
+        enumeration): a function whose value escapes anywhere, or that the text never invokes,
+        keeps its return.
+
+        Two gates keep this to residue. The value is a constant the program spelled, so nothing
+        any later pass could fold from the invocation is lost — a fold splices a callee's value
+        only where it can prove the callee pure, a proof that can arrive after this sweep runs, and
+        a constant return discarded everywhere is a wrapper's vestigial answer, not information.
+        And the function carries no name a host could call it by: a top-level function is a
+        property of the global object, so the file is not the whole program and a caller outside it
+        may read a completion value every invocation in the text discards.
+        """
+        assert self._cache is not None
+        removals: list[JsReturnStatement] = []
+        for node in root.walk():
+            if not isinstance(node, JsReturnStatement) or node.argument is None:
+                continue
+            if not isinstance(strip_parens(node.argument), (
+                JsStringLiteral,
+                JsNumericLiteral,
+                JsBooleanLiteral,
+                JsNullLiteral,
+            )):
+                continue
+            function = enclosing_function(node)
+            if function is None:
+                continue
+            body = getattr(function, 'body', None)
+            if not isinstance(body, JsBlockStatement) or not body.body or body.body[-1] is not node:
+                continue
+            names = self.model.function_names(function)
+            if names is not None and any(
+                name.exported
+                or (owner := name.scope.var_scope) is None
+                or owner.kind is ScopeKind.SCRIPT
+                for name in names.bindings
+            ):
+                continue
+            if not self._cache.tampering.every_invocation_discards_the_value(
+                function, value_is_discarded,
+            ):
+                continue
+            removals.append(node)
+        self._remove_all(removals)
+
+    def _remove_empty_statements(self, root: JsScript):
+        """
+        Drop an empty statement standing in a statement list: it executes nothing, so removing it
+        changes no run. One standing as the whole body of a branch or a loop is not a member of a
+        list and stays, since unwrapping it would rewrite the construct around it. An empty block
+        in a list is the same non-event — it declares nothing (a declaration inside it would be a
+        member keeping it alive) and runs nothing — so it goes too, unless it is labeled, the one
+        form a jump can target from within, or it carries comments, which are content rather than
+        residue, or the file ended inside it, which the output has to keep saying.
+        """
+        removals: list[Statement] = []
+        for body in self._statement_lists(root):
+            for stmt in body:
+                if isinstance(stmt, JsEmptyStatement):
+                    removals.append(stmt)
+                elif (
+                    isinstance(stmt, JsBlockStatement)
+                    and not stmt.body
+                    and stmt.terminated
+                    and not isinstance(stmt.parent, JsLabeledStatement)
+                    and not stmt.leading_comments
+                    and not stmt.trailing_comments
+                ):
+                    removals.append(stmt)
+        self._remove_all(removals)
+
+    def _remove_all(self, statements: Iterable[Statement]):
+        """
+        Remove every one of *statements* from the list holding it, each list edited once.
+        """
+        lists = ListRemoval()
+        for stmt in statements:
+            lists.remove(stmt)
+        if lists.apply():
+            self.mark_changed()
 
     def _localize_pseudo_globals(self, root: JsScript):
         """
@@ -397,10 +780,18 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         Targets are gathered from the pass-start liveness before any mutation. Relocating one binding
         removes no reference to another, and a localization candidate is never a dead-store candidate
         (one is script-scope, the other strictly function-local), so the batch stays mutually consistent.
+
+        Relocation takes the name out of the global scope, so a binding the analyst declared a host
+        reaches by name is left where it stands. The localizer's own eligibility rule keeps a
+        realistic entrypoint out of reach already — a host-observed global holds a value across load
+        and is not overwritten before every read of it — so this is the invariant made structural
+        rather than a case that fires today.
         """
         relocations: dict[int, tuple[JsBlockStatement, list[str]]] = {}
         declarators: list[JsVariableDeclarator] = []
         for binding, function in self.liveness.localizable_bindings():
+            if self._named_host_entrypoint(binding):
+                continue
             body = getattr(function, 'body', None)
             if not isinstance(body, JsBlockStatement):
                 continue
@@ -418,8 +809,7 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
                 kind=JsVarKind.VAR,
                 declarations=[JsVariableDeclarator(id=JsIdentifier(name=name)) for name in names],
             )
-            declaration.parent = body
-            body.body.insert(0, declaration)
+            insert_after_prologue(body, [declaration])
         self.mark_changed()
 
     @staticmethod
@@ -449,18 +839,32 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         returns (a decoder-factory IIFE building a scratch container) is removable, its mutation being
         unobservable once the result is thrown away.
         """
+        assert self._cache is not None
         return self.effects.is_side_effect_free(
-            node, defunct, member_safe=self._member_read_ok, call_established=self._call_established,
-            discarded=True)
+            node,
+            defunct,
+            member_safe=self._member_read_ok,
+            call_established=self._call_established,
+            discarded=True,
+            reads_may_throw=True,
+            read_established=self._cache.read_established,
+            coercions_may_write=True,
+        )
 
     def _call_established(self, call: JsCallExpression | JsNewExpression) -> bool:
         """
         Whether a pure call may be dropped: its callee is a trusted intrinsic, or a local function whose
         definition reaches the call, so a call textually before a not-yet-established function keeps its
-        runtime throw.
+        runtime throw. A callee whose summary defers outer `let`/`const`/`class` reads
+        (`EffectSummary.dead_zone_reads`) keeps its throw unless each such binding's declaration is
+        guaranteed to have run before the call, so a dead store to a dead-zone reader is not
+        dropped.
         """
         return self.effects.call_clearable(
-            call, lambda func: self.reaching.dominance.established_before(func, call))
+            call,
+            lambda name: self.reaching.dominance.binding_established_before(name, call),
+            lambda binding: self.reaching.dominance.past_dead_zone(binding, call),
+        )
 
     def _member_read_ok(self, member: JsMemberExpression) -> bool:
         """
@@ -482,20 +886,45 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
 
     def _reflection_reachable(self, binding: Binding | None) -> bool:
         """
-        Whether reflection could read *binding* by name without a reference the model records, so its
-        declaration and assignments must be kept even when no static reference remains. A function-local
-        is at risk only from a `with` or direct `eval` inside its own function; a global, from any
-        surface. The model decides; a `None` binding (a synthesized node the model never saw) is treated
-        as not reachable, matching the surrounding removal logic.
-        """
-        return binding is not None and self.model.reflection_can_reach(binding)
+        Whether code this pass cannot read could name *binding*, so its declaration and assignments
+        must be kept even when no static reference remains. A function-local is at risk only from a
+        `with` or direct `eval` inside its own function; a global, from any surface, from a caller
+        outside the file, and from a body the file hands the global object to; and an exported
+        binding, from an importer that reads its value once the module has run.
 
-    def _at_script_scope(self, parent: Node) -> bool:
+        Those last cases have references the model does record where the text spells them, and they
+        keep everything reached through such a name. What they cannot reach is the reachability walk
+        over function declarations, which finds a function only where a statement names it, so the
+        fact is read here as well. The model decides them all; a `None` binding (a synthesized node
+        the model never saw) is treated as not reachable, matching the surrounding removal logic.
         """
-        Whether *parent* (a body) lies at the script scope rather than inside any function, so the
-        names it binds are globals. When a reflection surface is present these must be preserved,
-        because reflective code could read them by name.
+        if binding is None:
+            return False
+        if binding.reachable_through_a_handed_object or binding.exported:
+            return True
+        if self._named_host_entrypoint(binding):
+            return True
+        return self.model.reflection_can_reach(binding)
+
+    def _named_host_entrypoint(self, binding: Binding) -> bool:
         """
+        Whether *binding* is one the caller declared a host reaches by name. This answers the same
+        question reflection does — could code outside the recorded references reach this binding — for the
+        case the model cannot see at all, a caller living outside the file.
+        """
+        return a_host_reaches_the_binding(self.model, binding, self.options)
+
+    def _binds_names_global_code_sees(self, parent: Node) -> bool:
+        """
+        Whether the names *parent* (a body) binds are seen by global code, which names a binding by
+        its name at runtime: the body lies outside every function of a script, where its names are
+        globals. When a reflection surface is present these must be preserved, because such code
+        could read them. In a module of either kind the names of its top scope are the file's own,
+        which only the file's text can name, and each removal asks about every name it takes
+        (`_reflection_reachable`).
+        """
+        if self.model.file_kind.scopes_declarations_to_the_file:
+            return False
         scope = self.model.scope_of(parent)
         while scope is not None:
             if scope.kind is ScopeKind.FUNCTION:
@@ -532,7 +961,7 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         return isinstance(parent, JsBlockStatement) and isinstance(parent.parent, FUNCTION_NODES)
 
     def _process_body(self, parent: Node, body: list[Statement]):
-        if self.preserve_globals and self._has_reflection and self._at_script_scope(parent):
+        if self.preserve_globals and self._has_reflection and self._binds_names_global_code_sees(parent):
             return
         removed_functions = self._remove_dead_functions(body)
         dead_variables, preserved = self._remove_dead_variables(parent, body, removed_functions)
@@ -550,7 +979,8 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
                 functions[stmt.id.name] = stmt
         if not functions:
             return set()
-        reachable, write_only_stmts = _reachable_functions(body, functions)
+        roots = self._host_entrypoints(functions) | self._referenced_outside(body, functions)
+        reachable, write_only_stmts = _reachable_functions(body, functions, roots)
         kept_by_reflection = {
             name for name, func in functions.items()
             if isinstance(func.id, JsIdentifier)
@@ -562,12 +992,64 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         non_func_stmts = [s for s in body if not isinstance(s, JsFunctionDeclaration)]
         if not non_func_stmts:
             return set()
+        lists = ListRemoval()
         for name in unreachable:
-            _remove_from_parent(functions[name])
+            lists.remove(functions[name])
             for stmt in write_only_stmts.get(name, ()):
-                _remove_from_parent(stmt)
-        self.mark_changed()
+                lists.remove(stmt)
+        if lists.apply():
+            self.mark_changed()
         return unreachable
+
+    def _referenced_outside(
+        self, body: list[Statement], functions: dict[str, JsFunctionDeclaration],
+    ) -> frozenset[str]:
+        """
+        Which of *functions* the model resolves a reference to from outside the statement list
+        *body*. Reachability is otherwise read off the names *body* spells, which covers every
+        reference only when *body* is all of the function's scope. A function declared in a block
+        is copied into the enclosing function by Annex B (§B.3.3), and a call after the block
+        reaches it from a list that walk never sees.
+        """
+        members = {id(stmt) for stmt in body}
+        names: set[str] = set()
+        for name, func in functions.items():
+            if not isinstance(func.id, JsIdentifier):
+                continue
+            binding = self.model.binding_of(func.id)
+            if binding is None:
+                continue
+            declared = self.model.function_names(func)
+            if declared is not None and declared.copy is not None:
+                names.add(name)
+                continue
+            for reference in self.model.references(binding):
+                cursor: Node | None = reference
+                while cursor is not None and id(cursor) not in members:
+                    cursor = cursor.parent
+                if cursor is None:
+                    names.add(name)
+                    break
+        return frozenset(names)
+
+    def _host_entrypoints(
+        self, functions: dict[str, JsFunctionDeclaration],
+    ) -> frozenset[str]:
+        """
+        Which of *functions* the caller declared a host invokes by name. Naming one seeds it as a
+        reachability root, so everything it calls is reachable through it and survives too — which is the
+        point, since an entrypoint is usually the root of the whole program. The binding is taken from each
+        declaration's own identifier rather than looked up by name, so a same-named function in a nested
+        body is judged on its own merits.
+        """
+        names: set[str] = set()
+        for name, func in functions.items():
+            if not isinstance(func.id, JsIdentifier):
+                continue
+            binding = self.model.binding_of(func.id)
+            if binding is not None and self._named_host_entrypoint(binding):
+                names.add(name)
+        return frozenset(names)
 
     def _remove_dead_variables(
         self, parent: Node, body: list[Statement], defunct: set[str],
@@ -581,6 +1063,12 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         whole-program model, so a binding read across a function boundary or captured by a closure stays
         live. A side-effect-free right-hand side is dropped with the statement; an effectful one is kept
         as a bare expression. Returns the dead target names and the statements kept for their side effects.
+
+        A statement the tree refuses to give up — one standing as the unbraced body of a branch or a
+        loop, a single-node field no `refinery.lib.scripts.ListRemoval` can take it out of — keeps
+        its binding out of the returned names: the write survives, so the declaration must survive
+        with it, and a pass that changed nothing must say so or the fixpoint driver never stops
+        rebuilding the model.
         """
         if not self._is_var_scope_root(parent):
             return set(), set()
@@ -602,29 +1090,40 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
                 stores.setdefault(binding, []).append(node)
         if not stores:
             return set(), set()
-        dead = self._dead_store_bindings(stores)
+        lists = ListRemoval()
+        dead, removable = self._dead_store_bindings(stores, defunct, lists)
         if not dead:
             return set(), set()
-        dead_names = {binding.name for binding in dead}
-        all_defunct = defunct | dead_names
         preserved: set[JsExpressionStatement] = set()
+        eliminated: set[str] = set()
         for binding in dead:
+            fully = True
             for stmt in stores[binding]:
                 expr = stmt.expression
                 assert isinstance(expr, JsAssignmentExpression)
-                if expr.right is None or self._is_removable(expr.right, all_defunct):
-                    _remove_from_parent(stmt)
+                if expr.right is None or removable[id(stmt)]:
+                    if not lists.remove(stmt):
+                        fully = False
                 else:
-                    stmt.expression = expr.right
-                    expr.right.parent = stmt
                     preserved.add(stmt)
-        self._remove_empty_declarators(parent, body, dead_names)
-        self.mark_changed()
-        return dead_names, preserved
+            if fully:
+                eliminated.add(binding.name)
+        if lists.apply():
+            self.mark_changed()
+        for stmt in preserved:
+            expr = stmt.expression
+            assert isinstance(expr, JsAssignmentExpression)
+            set_child(stmt, 'expression', expr.right)
+            self.mark_changed()
+        self._remove_empty_declarators(parent, body, eliminated)
+        return eliminated, preserved
 
     def _dead_store_bindings(
-        self, stores: dict[Binding, list[JsExpressionStatement]],
-    ) -> set[Binding]:
+        self,
+        stores: dict[Binding, list[JsExpressionStatement]],
+        defunct: set[str],
+        lists: ListRemoval,
+    ) -> tuple[set[Binding], dict[int, bool]]:
         """
         From candidate bindings mapped to their removable assignments, return those that are dead. A
         binding is live if it has a read that is *not* contained in the right-hand side of any candidate
@@ -635,31 +1134,73 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         nothing observes the value. A read nested arbitrarily deep inside a candidate's right-hand side
         (for instance within an assigned function body) is covered by the outermost candidate, which is
         what distinguishes a read inside a dead store from one inside a live function declaration.
+        A read goes with its store only where *lists* can take that store out of a list.
         """
         candidates = set(stores)
         rhs_owner: dict[int, Binding] = {}
+        rhs_names: dict[int, frozenset[str]] = {}
+        all_statements: list[JsExpressionStatement] = []
         for binding, statements in stores.items():
             for stmt in statements:
+                all_statements.append(stmt)
                 expr = stmt.expression
                 if isinstance(expr, JsAssignmentExpression) and expr.right is not None:
                     rhs_owner[id(expr.right)] = binding
-        readers: dict[Binding, set[Binding]] = {binding: set() for binding in candidates}
+                    rhs_names[id(stmt)] = frozenset(collect_identifier_names(expr.right))
+        in_a_list = {id(stmt) for stmt in all_statements if lists.owning_list(stmt) is not None}
         live: set[Binding] = set()
-        for binding in candidates:
-            for read in binding.reads:
-                owner = self._covering_store(read, rhs_owner)
-                if owner is None or owner is binding:
-                    live.add(binding)
-                else:
-                    readers[binding].add(owner)
-        changed = True
-        while changed:
-            changed = False
+        removable: dict[int, bool] = {}
+        rhs_verdicts: dict[int, bool] = {}
+        pending = list(all_statements)
+        while True:
+            assumed_dead = candidates - live
+            defunct_now = defunct | {binding.name for binding in assumed_dead}
+            for stmt in pending:
+                expr = stmt.expression
+                assert isinstance(expr, JsAssignmentExpression)
+                if expr.right is not None:
+                    verdict = self._is_removable(expr.right, defunct_now)
+                    removable[id(stmt)] = verdict
+                    rhs_verdicts[id(expr.right)] = verdict and id(stmt) in in_a_list
+            grown = set(live)
             for binding in candidates - live:
-                if readers[binding] & live:
-                    live.add(binding)
-                    changed = True
-        return candidates - live
+                for read in binding.reads:
+                    owner = self._covering_store(read, rhs_owner)
+                    if owner is None or owner is binding:
+                        grown.add(binding)
+                        break
+                    if not self._read_deleted(read, rhs_owner, rhs_verdicts, assumed_dead):
+                        grown.add(binding)
+                        break
+            newly_live = grown - live
+            if not newly_live:
+                break
+            live = grown
+            newly_names = {binding.name for binding in newly_live}
+            pending = [
+                stmt for stmt in all_statements
+                if rhs_names.get(id(stmt), frozenset()) & newly_names
+            ]
+        return candidates - live, removable
+
+    @staticmethod
+    def _read_deleted(
+        read: Node,
+        rhs_owner: dict[int, Binding],
+        rhs_verdicts: dict[int, bool],
+        assumed_dead: set[Binding],
+    ) -> bool:
+        cursor: Node | None = read
+        while cursor is not None:
+            owner = rhs_owner.get(id(cursor))
+            if (
+                owner is not None
+                and owner in assumed_dead
+                and rhs_verdicts.get(id(cursor), False)
+            ):
+                return True
+            cursor = cursor.parent
+        return False
 
     @staticmethod
     def _covering_store(node: Node, rhs_owner: dict[int, Binding]) -> Binding | None:
@@ -683,14 +1224,17 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         """
         Remove destructuring-assignment statements (`[a, b] = rhs`) whose every target the variable
         scope owns, that are never read, and whose right-hand side is side-effect-free. These arise from
-        CFF recovery of vestigial state variables. Reads are taken over the whole scope including nested
-        functions, so a closure reference or any use other than a plain assignment keeps a target alive.
+        CFF recovery of vestigial state variables. Reads are taken over the whole scope including
+        nested functions, so a closure reference or any use other than a plain assignment keeps a
+        target alive. An implicit global is owned by every scope that writes it and read by any code
+        in the script, so the reads of a statement with such a target are taken over the whole
+        script.
         """
         if not self._is_var_scope_root(parent):
             return set()
         scope = self.model.scope_of(parent)
         assert scope is not None
-        candidates: list[tuple[JsExpressionStatement, list[str]]] = []
+        candidates: list[tuple[JsExpressionStatement, list[str], bool]] = []
         for node in walk_scope(parent):
             if not isinstance(node, JsExpressionStatement):
                 continue
@@ -700,31 +1244,33 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
             targets = _pattern_target_idents(expr.left)
             if not targets:
                 continue
-            if any(not self._owns(scope, self.model.resolve(t)) for t in targets):
+            bindings = [self.model.resolve(t) for t in targets]
+            if any(not self._owns(scope, binding) for binding in bindings):
                 continue
-            if any(self._reflection_reachable(self.model.resolve(t)) for t in targets):
+            if any(self._reflection_reachable(binding) for binding in bindings):
                 continue
             if expr.right is None or not self._is_removable(expr.right, defunct):
                 continue
             if not _destructuring_target_safe(expr.left, expr.right):
                 continue
-            candidates.append((node, [t.name for t in targets]))
+            writes_a_global = any(
+                binding is not None and binding.kind is BindingKind.IMPLICIT_GLOBAL
+                for binding in bindings
+            )
+            candidates.append((node, [t.name for t in targets], writes_a_global))
         if not candidates:
             return set()
-        read_names: set[str] = set()
-        for node in parent.walk():
-            if not isinstance(node, JsIdentifier):
-                continue
-            if is_binding_site(node) or is_simple_assignment_target(node):
-                continue
-            read_names.add(node.name)
+        read_in_scope = self._names_read_in(parent)
+        lists = ListRemoval()
         removed: set[str] = set()
-        for stmt, targets in candidates:
+        for stmt, targets, writes_a_global in candidates:
+            read_names = self._names_read_in_script(parent) if writes_a_global else read_in_scope
             if any(t in read_names for t in targets):
                 continue
-            _remove_from_parent(stmt)
+            if not lists.remove(stmt):
+                continue
             removed.update(targets)
-        if not removed:
+        if not lists.apply():
             return set()
         still_written = {
             node.name
@@ -739,13 +1285,68 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         self.mark_changed()
         return dead
 
+    def _names_read_in_script(self, node: Node) -> set[str]:
+        """
+        The names read anywhere in the script holding *node*, found once per sweep, the first time
+        the sweep needs them. The sweep's edits only take reads away, so an answer found earlier in
+        the sweep may still name a read that is gone, which keeps a write the next sweep takes.
+        """
+        if self._names_read_in_the_script is None:
+            self._names_read_in_the_script = self._names_read_in(tree_root(node))
+        return self._names_read_in_the_script
+
+    @staticmethod
+    def _names_read_in(root: Node) -> set[str]:
+        """
+        The name of every identifier under *root* that stands neither where a binding is declared
+        nor as the target of a plain assignment.
+        """
+        return {
+            node.name
+            for node in root.walk()
+            if isinstance(node, JsIdentifier)
+            and not is_binding_site(node)
+            and not is_simple_assignment_target(node)
+        }
+
     def _remove_dead_global_properties(
         self, parent: JsScript, defunct: set[str],
     ) -> set[str]:
         """
         Remove global-property write statements (`global.x = value`) where property name `x` is
         never referenced anywhere in the script (not by any identifier or member expression).
+
+        The base has to denote the global object where the write stands, which is the model's
+        question rather than the spelling's: a declaration of the alias name binds it, and from then
+        on `window.x = 1` writes a property of an ordinary object the program may read back whole,
+        through `JSON.stringify` or any second name for it, without ever spelling `x`. The spelling
+        test stays as the sweep's own policy on top of the model's answer, because a removal keys on
+        the same-realm names only, and the model's alias set is wider by two names, `top` and
+        `frames`, that a removal must not trust to denote this document's global object.
+
+        The same whole-object read exists for the global object itself, and needs no declaration:
+        `Object.keys(globalThis)` holds every dead-looking name, a `for-in` walks them, and
+        `(function (w) { ... })(window)` hands the object to a body that reads them through `w`.
+        While `_the_global_object_escapes` finds any such position, nothing is removed, because no
+        property can be proven unread.
+
+        A base whose own read may throw is no candidate at all: `window.x = 1` reads `window` before it
+        writes, so in a host without `window` the statement raises a `ReferenceError` that removing it
+        would drop (`SemanticModel.read_may_throw`). Only `globalThis` and a bound alias resolve for
+        certain, so only a write through one of those is a dead store to sweep.
+
+        The whole sweep runs only where the global object is pristine
+        (`EffectModel.global_pristine`): a store to a plain-looking property fires an inherited
+        setter where one was installed — through `Object.defineProperty` or a prototype swapped
+        onto the global object through `__proto__` — so the write is observable and cannot be
+        dropped though its property is never read.
+
+        Under `preserve_script_return`, a name whose store can reach the script's completion is
+        spared though its property is dead: the store's value is the value the script yields, which
+        dropping the store would change (`reaches_script_completion`).
         """
+        if not self.effects.global_pristine:
+            return set()
         write_stmts: dict[str, list[JsExpressionStatement]] = {}
         for node in walk_scope(parent):
             if not isinstance(node, JsExpressionStatement):
@@ -755,17 +1356,21 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
                 continue
             lhs = expr.left
             if (
-                isinstance(lhs, JsMemberExpression)
-                and not lhs.computed
-                and isinstance(lhs.object, JsIdentifier)
-                and isinstance(lhs.property, JsIdentifier)
-                and lhs.object.name in GLOBAL_OBJECT_ALIASES
+                not isinstance(lhs, JsMemberExpression)
+                or lhs.computed
+                or not isinstance(lhs.object, JsIdentifier)
+                or lhs.object.name not in SAME_REALM_GLOBAL_OBJECT_ALIASES
+                or self.model.read_may_throw(lhs.object)
             ):
-                write_stmts.setdefault(lhs.property.name, []).append(node)
+                continue
+            name = self.model.global_alias_member_name(lhs)
+            if name is not None:
+                write_stmts.setdefault(name, []).append(node)
         if not write_stmts:
             return set()
-        aliases = _const_global_alias_names(parent)
-        alias_reads = _global_alias_read_names(parent, aliases)
+        if _the_global_object_escapes(self.model, parent):
+            return set()
+        alias_reads = _global_alias_read_names(self.model, parent)
         bare_refs: set[str] = set()
         for node in parent.walk():
             if not isinstance(node, JsIdentifier) or node.name not in write_stmts:
@@ -776,21 +1381,33 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
             if isinstance(p, JsMemberExpression) and p.property is node and not p.computed:
                 continue
             bare_refs.add(node.name)
+        lists = ListRemoval()
+        kept_for_effect: list[JsExpressionStatement] = []
         dead: set[str] = set()
         for name, stmts in write_stmts.items():
             if name in alias_reads or name in bare_refs:
                 continue
+            if preserves_script_return(self.options) and any(
+                reaches_script_completion(stmt, parent) for stmt in stmts
+            ):
+                continue
             dead.add(name)
             for stmt in stmts:
                 expr = stmt.expression
-                if not isinstance(expr, JsAssignmentExpression) or expr.right is None:
-                    _remove_from_parent(stmt)
-                elif self._is_removable(expr.right, defunct | dead):
-                    _remove_from_parent(stmt)
+                if (
+                    not isinstance(expr, JsAssignmentExpression)
+                    or expr.right is None
+                    or self._is_removable(expr.right, defunct | dead)
+                ):
+                    lists.remove(stmt)
                 else:
-                    stmt.expression = expr.right
-                    expr.right.parent = stmt
-        if dead:
+                    kept_for_effect.append(stmt)
+        if lists.apply():
+            self.mark_changed()
+        for stmt in kept_for_effect:
+            expr = stmt.expression
+            assert isinstance(expr, JsAssignmentExpression)
+            set_child(stmt, 'expression', expr.right)
             self.mark_changed()
         return dead
 
@@ -804,6 +1421,26 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         that would be side-effect-free if the function were defunct. A reference that *calls* the
         function only counts as removable when the function is itself pure — dropping a call to an
         impure function would discard its effect — whereas a bare reference is removable regardless.
+
+        A Use Strict Directive is the one statement here that computes nothing and yet cannot go. Its
+        effect is on the code around it rather than on any value, so every test this loop applies says
+        it is dead; dropping it leaves a body that runs in the other mode, where an assignment to an
+        undeclared name silently creates a global instead of throwing. Deleting a directive that is
+        *not* `use strict` is safe, and shortening a prefix-closed run from the front cannot change
+        what any statement behind it is.
+
+        The other statement a removal here must not promote is a string literal standing behind one
+        that ends the Directive Prologue. The run is a prefix, so a statement that ends it is one
+        behind which no literal is a directive; deleting it hands that literal the directive position
+        and with it a mode the body never ran in. A candidate is therefore refused while the
+        statements still standing ahead of it are all directives and a string literal follows it —
+        which it cannot itself be, since removing a directive only shortens the run from the front.
+
+        The completion value is the other statement that computes nothing here and stays: the last
+        value-producing statement of a list is the value the list answers — the value an `eval` of
+        the file receives, or a function hands its caller when control falls off its end — so a
+        bare read is removed only where a statement behind it certainly supplies one, which
+        `definitely_answers_the_completion` decides.
         """
         functions: dict[str, JsFunctionDeclaration] = {}
         for stmt in body:
@@ -852,22 +1489,78 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
                     if orphan and has_reference:
                         defunct.add(name)
                         extended = True
-        if not defunct:
-            return
-        for stmt in list(body):
-            if not isinstance(stmt, JsExpressionStatement):
-                continue
-            if stmt.expression is None:
-                continue
-            if isinstance(stmt.expression, JsAssignmentExpression):
-                continue
-            if self._is_removable(stmt.expression, defunct):
-                _remove_from_parent(stmt)
-                self.mark_changed()
+        statements = list(body)
+        answering = (
+            index
+            for index in reversed(range(len(statements)))
+            if definitely_answers_the_completion(statements[index])
+        )
+        last_answer = next(answering, -1)
+        lists = ListRemoval()
+        prologue_intact = True
+        for index, stmt in enumerate(statements):
+            if self._dead_expression_may_go(
+                stmt, statements, index, index < last_answer, prologue_intact, defunct
+            ):
+                lists.remove(stmt)
+            else:
+                prologue_intact = prologue_intact and is_bare_string_statement(stmt)
         for name in defunct:
             if name in functions:
-                _remove_from_parent(functions[name])
-                self.mark_changed()
+                lists.remove(functions[name])
+        if lists.apply():
+            self.mark_changed()
+
+    def _dead_expression_may_go(
+        self,
+        stmt: Statement,
+        statements: list[Statement],
+        index: int,
+        answered_behind: bool,
+        prologue_intact: bool,
+        defunct: set[str],
+    ) -> bool:
+        """
+        Whether *stmt*, a candidate from the sweep over *statements*, leaves the list without
+        changing what any statement behind it computes, answers, or declares. The value the list
+        itself hands back is one such thing — a bare read standing last is the list's completion —
+        and it is defended, so a computed value the program ends on stays. The one completion not
+        defended is one that spells `undefined`: a `void 0` a fold left where a call returned
+        nothing carries no value a reader wants, so when `preserve_script_return` does not ask for
+        the end value it goes, clearing the residue of a dropped wrapper while the program's own
+        last value stays. *answered_behind* is whether a statement behind it certainly supplies the
+        completion instead. *prologue_intact* is whether the statements still standing ahead of it
+        are all directives, which is what its removal needs to promote the string literal behind it;
+        a removed candidate does not disturb it, so the sweep hands each statement a prefix the tree
+        still has. A statement that stores goes only where no code observes the store
+        (`refinery.lib.scripts.js.analysis.effects.EffectModel.store_unobserved`).
+        """
+        if not isinstance(stmt, JsExpressionStatement):
+            return False
+        if stmt.expression is None:
+            return False
+        if isinstance(stmt.expression, JsAssignmentExpression):
+            target = strip_parens(stmt.expression.left)
+            if not isinstance(target, JsMemberExpression) or not self.effects.store_unobserved(target):
+                return False
+        if is_use_strict_directive(stmt):
+            return False
+        if not answered_behind:
+            if preserves_script_return(self.options):
+                return False
+            answered, value = extract_literal_value(stmt.expression)
+            if not (answered and value is None):
+                return False
+        if not self._is_removable(stmt.expression, defunct):
+            return False
+        if (
+            prologue_intact
+            and not is_bare_string_statement(stmt)
+            and index + 1 < len(statements)
+            and is_bare_string_statement(statements[index + 1])
+        ):
+            return False
+        return True
 
     def _remove_empty_declarators(
         self, parent: Node, body: list[Statement], dead_names: set[str],
@@ -881,21 +1574,50 @@ class JsUnusedCodeRemoval(BodyProcessingTransformer):
         side-effect-free. A binding still written by a surviving statement keeps its declaration, so it
         does not silently become an implicit global; a binding read across a function boundary or
         captured by a closure likewise keeps its declaration.
+
+        A declaration whose every declarator goes is taken out of *body* whole. The removals from
+        *body* and from the declarator lists are taken through one
+        `refinery.lib.scripts.ListRemoval`, so many dead declarations in one long body cost one
+        edit of it.
         """
-        for stmt in list(body):
+        lists = ListRemoval()
+        for stmt in body:
             if not isinstance(stmt, JsVariableDeclaration):
                 continue
-            for decl in list(stmt.declarations):
-                if not isinstance(decl, JsVariableDeclarator) or not isinstance(decl.id, JsIdentifier):
-                    continue
-                binding = self.model.binding_of(decl.id)
-                if self._reflection_reachable(binding):
-                    continue
-                unreferenced = binding is not None and not binding.reads and not binding.writes
-                if decl.init is None:
-                    if decl.id.name in dead_names or unreferenced:
-                        remove_declarator(decl)
-                        self.mark_changed()
-                elif unreferenced and self._is_removable(decl.init):
-                    remove_declarator(decl)
-                    self.mark_changed()
+            load_bearing = (
+                annex_b_suppressor_names(stmt, self.model.file_kind)
+                if stmt.kind in (JsVarKind.LET, JsVarKind.CONST)
+                else frozenset()
+            )
+            dropped = [
+                decl for decl in stmt.declarations
+                if self._empty_declarator_may_go(decl, load_bearing, dead_names)
+            ]
+            if not dropped:
+                continue
+            if len(dropped) == len(stmt.declarations):
+                lists.remove(stmt)
+                continue
+            for decl in dropped:
+                lists.remove(decl)
+        if lists.apply():
+            self.mark_changed()
+
+    def _empty_declarator_may_go(
+        self, decl: Node, load_bearing: frozenset[str], dead_names: set[str],
+    ) -> bool:
+        """
+        Whether `_remove_empty_declarators` drops *decl*, a declarator of a declaration whose names
+        in *load_bearing* keep their declarators.
+        """
+        if not isinstance(decl, JsVariableDeclarator) or not isinstance(decl.id, JsIdentifier):
+            return False
+        if decl.id.name in load_bearing:
+            return False
+        binding = self.model.binding_of(decl.id)
+        if self._reflection_reachable(binding):
+            return False
+        unreferenced = binding is not None and not binding.reads and not binding.writes
+        if decl.init is None:
+            return decl.id.name in dead_names or unreferenced
+        return unreferenced and self._is_removable(decl.init)

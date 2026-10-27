@@ -13,11 +13,10 @@ statement to preserve execution order.
 """
 from __future__ import annotations
 
-from refinery.lib.scripts import Block, Transformer, _replace_in_parent
-from refinery.lib.scripts.ps1.deobfuscation.helpers import (
-    get_body,
-    make_string_literal,
-)
+from refinery.lib.scripts import Block, Transformer
+from refinery.lib.scripts.ps1.analysis.values import make_string_literal
+from refinery.lib.scripts.ps1.ast import get_body
+from refinery.lib.scripts.ps1.deobfuscation.substitution import substitute, substitute_statement
 from refinery.lib.scripts.ps1.model import (
     Ps1AssignmentExpression,
     Ps1BinaryExpression,
@@ -30,10 +29,6 @@ from refinery.lib.scripts.ps1.model import (
 
 
 class Ps1ExpandableStringHoist(Transformer):
-    """
-    Extract void subexpressions from expandable strings into preceding or following statements,
-    then replace the expandable string with a plain string literal.
-    """
 
     def visit(self, node):
         for container in list(node.walk()):
@@ -42,26 +37,21 @@ class Ps1ExpandableStringHoist(Transformer):
                 continue
             i = 0
             while i < len(body):
-                before, after = self._extract_void_subexpressions(body[i])
+                before, after, replaced = self._extract_void_subexpressions(body[i])
                 if before or after:
-                    for stmt in before:
-                        stmt.parent = container
-                    for stmt in after:
-                        stmt.parent = container
-                    body[i + 1:i + 1] = after
-                    body[i:i] = before
+                    hoisted = [*before, body[i], *after]
+                    if substitute_statement(container, body[i], hoisted):
+                        i += len(before) + len(after)
+                if replaced:
                     self.mark_changed()
-                    i += len(before) + len(after)
                 i += 1
         return None
 
     @staticmethod
     def _is_void_statement(stmt) -> bool:
         """
-        A statement is void when it contributes nothing to an interpolating string. Only assignments
-        qualify: a command invocation inside `$( ... )` writes its output into the surrounding
-        string, so hoisting it out would drop that interpolated value and leak the command's output
-        to the pipeline.
+        A statement is void when it contributes nothing to an interpolating string, which only an
+        assignment does.
         """
         if not isinstance(stmt, Ps1ExpressionStatement):
             return False
@@ -88,16 +78,28 @@ class Ps1ExpandableStringHoist(Transformer):
             parent = parent.parent
         return True
 
-    def _extract_void_subexpressions(self, stmt) -> tuple[list, list]:
+    def _extract_void_subexpressions(self, stmt) -> tuple[list, list, bool]:
         """
-        Walk the statement tree, find expandable strings where all
-        subexpressions are void, replace them with string literals, and
-        return `(before_stmts, after_stmts)`.
+        Walk the statement tree, find expandable strings whose every part is literal text or a void
+        subexpression, replace them with string literals, and return `(before, after, replaced)`.
+
+        Every part has to be accounted for: a part that is neither — the `$env:APPDATA` in
+        `"$env:APPDATA$($z=1)\\dropper.exe"` — has no text this can write down, so rewriting the
+        string around it would silently delete what it interpolated. `replaced` is reported apart
+        from the two lists because a subexpression with an empty body rewrites the string while
+        hoisting no statement; and hoisting is done only after the replace, so a string nested inside
+        one already rewritten is not reached and run twice.
         """
         before: list = []
         after: list = []
+        replaced = False
         for node in list(stmt.walk_in_order()):
             if not isinstance(node, Ps1ExpandableString):
+                continue
+            if not all(
+                isinstance(part, (Ps1StringLiteral, Ps1SubExpression))
+                for part in node.parts
+            ):
                 continue
             subs = [p for p in node.parts if isinstance(p, Ps1SubExpression)]
             if not subs:
@@ -114,10 +116,13 @@ class Ps1ExpandableStringHoist(Transformer):
             collected: list = []
             for sub in subs:
                 collected.extend(sub.body)
-            if self._is_leftmost(node):
+            leftmost = self._is_leftmost(node)
+            literal = make_string_literal(''.join(text_parts))
+            if not substitute(node, literal, moved=collected):
+                continue
+            if leftmost:
                 before.extend(collected)
             else:
                 after.extend(collected)
-            replacement = make_string_literal(''.join(text_parts))
-            _replace_in_parent(node, replacement)
-        return before, after
+            replaced = True
+        return before, after, replaced

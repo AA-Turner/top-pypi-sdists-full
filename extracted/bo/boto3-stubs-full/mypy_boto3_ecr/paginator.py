@@ -15,10 +15,12 @@ Usage::
         DescribeImageScanFindingsPaginator,
         DescribeImagesPaginator,
         DescribePullThroughCacheRulesPaginator,
+        DescribeReplicationBackfillResultsPaginator,
         DescribeRepositoriesPaginator,
         DescribeRepositoryCreationTemplatesPaginator,
         GetLifecyclePolicyPreviewPaginator,
         ListImagesPaginator,
+        ListReplicationBackfillsPaginator,
     )
 
     session = Session()
@@ -27,10 +29,12 @@ Usage::
     describe_image_scan_findings_paginator: DescribeImageScanFindingsPaginator = client.get_paginator("describe_image_scan_findings")
     describe_images_paginator: DescribeImagesPaginator = client.get_paginator("describe_images")
     describe_pull_through_cache_rules_paginator: DescribePullThroughCacheRulesPaginator = client.get_paginator("describe_pull_through_cache_rules")
+    describe_replication_backfill_results_paginator: DescribeReplicationBackfillResultsPaginator = client.get_paginator("describe_replication_backfill_results")
     describe_repositories_paginator: DescribeRepositoriesPaginator = client.get_paginator("describe_repositories")
     describe_repository_creation_templates_paginator: DescribeRepositoryCreationTemplatesPaginator = client.get_paginator("describe_repository_creation_templates")
     get_lifecycle_policy_preview_paginator: GetLifecyclePolicyPreviewPaginator = client.get_paginator("get_lifecycle_policy_preview")
     list_images_paginator: ListImagesPaginator = client.get_paginator("list_images")
+    list_replication_backfills_paginator: ListReplicationBackfillsPaginator = client.get_paginator("list_replication_backfills")
     ```
 """
 
@@ -48,6 +52,8 @@ from .type_defs import (
     DescribeImagesResponseTypeDef,
     DescribePullThroughCacheRulesRequestPaginateTypeDef,
     DescribePullThroughCacheRulesResponseTypeDef,
+    DescribeReplicationBackfillResultsRequestPaginateTypeDef,
+    DescribeReplicationBackfillResultsResponseTypeDef,
     DescribeRepositoriesRequestPaginateTypeDef,
     DescribeRepositoriesResponseTypeDef,
     DescribeRepositoryCreationTemplatesRequestPaginateTypeDef,
@@ -56,6 +62,8 @@ from .type_defs import (
     GetLifecyclePolicyPreviewResponseTypeDef,
     ListImagesRequestPaginateTypeDef,
     ListImagesResponseTypeDef,
+    ListReplicationBackfillsRequestPaginateTypeDef,
+    ListReplicationBackfillsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -68,10 +76,12 @@ __all__ = (
     "DescribeImageScanFindingsPaginator",
     "DescribeImagesPaginator",
     "DescribePullThroughCacheRulesPaginator",
+    "DescribeReplicationBackfillResultsPaginator",
     "DescribeRepositoriesPaginator",
     "DescribeRepositoryCreationTemplatesPaginator",
     "GetLifecyclePolicyPreviewPaginator",
     "ListImagesPaginator",
+    "ListReplicationBackfillsPaginator",
 )
 
 
@@ -137,6 +147,29 @@ class DescribePullThroughCacheRulesPaginator(_DescribePullThroughCacheRulesPagin
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/paginator/DescribePullThroughCacheRules.html#ECR.Paginator.DescribePullThroughCacheRules.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/paginators/#describepullthroughcacherulespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeReplicationBackfillResultsPaginatorBase = Paginator[
+        DescribeReplicationBackfillResultsResponseTypeDef
+    ]
+else:
+    _DescribeReplicationBackfillResultsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeReplicationBackfillResultsPaginator(_DescribeReplicationBackfillResultsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/paginator/DescribeReplicationBackfillResults.html#ECR.Paginator.DescribeReplicationBackfillResults)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/paginators/#describereplicationbackfillresultspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeReplicationBackfillResultsRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeReplicationBackfillResultsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/paginator/DescribeReplicationBackfillResults.html#ECR.Paginator.DescribeReplicationBackfillResults.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/paginators/#describereplicationbackfillresultspaginator)
         """
 
 
@@ -225,4 +258,25 @@ class ListImagesPaginator(_ListImagesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/paginator/ListImages.html#ECR.Paginator.ListImages.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/paginators/#listimagespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListReplicationBackfillsPaginatorBase = Paginator[ListReplicationBackfillsResponseTypeDef]
+else:
+    _ListReplicationBackfillsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListReplicationBackfillsPaginator(_ListReplicationBackfillsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/paginator/ListReplicationBackfills.html#ECR.Paginator.ListReplicationBackfills)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/paginators/#listreplicationbackfillspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListReplicationBackfillsRequestPaginateTypeDef]
+    ) -> PageIterator[ListReplicationBackfillsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/paginator/ListReplicationBackfills.html#ECR.Paginator.ListReplicationBackfills.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/paginators/#listreplicationbackfillspaginator)
         """

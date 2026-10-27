@@ -35,9 +35,9 @@ class Actions:
         source: typing.Optional[typing.Union["Source", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param preset: (experimental) The actions preset to use.
-        :param recommended: (experimental) It enables the assist actions recommended by Biome. ``true`` by default.
-        :param source: 
+        :param preset: (experimental) Selects the baseline set of assist actions. ``recommended`` enables Biome's recommended actions, ``all`` enables all actions, and ``none`` starts with no actions enabled. Group presets and explicit action settings override this preset. Defaults to ``recommended``. Default: recommended`.
+        :param recommended: (experimental) Enables or disables Biome's recommended assist actions across all action groups. Defaults to ``true``. Default: true`.
+        :param source: (experimental) Configures source-level actions such as organizing imports and sorting declarations. These actions are exposed through editor source actions and through CLI checking and application.
 
         :stability: experimental
         :schema: Actions
@@ -59,7 +59,14 @@ class Actions:
 
     @builtins.property
     def preset(self) -> typing.Optional["PresetConfig"]:
-        '''(experimental) The actions preset to use.
+        '''(experimental) Selects the baseline set of assist actions.
+
+        ``recommended`` enables Biome's
+        recommended actions, ``all`` enables all actions, and ``none`` starts with no actions
+        enabled. Group presets and explicit action settings override this preset.
+        Defaults to ``recommended``.
+
+        :default: recommended`.
 
         :stability: experimental
         :schema: Actions#preset
@@ -69,9 +76,11 @@ class Actions:
 
     @builtins.property
     def recommended(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) It enables the assist actions recommended by Biome.
+        '''(experimental) Enables or disables Biome's recommended assist actions across all action groups.
 
-        ``true`` by default.
+        Defaults to ``true``.
+
+        :default: true`.
 
         :stability: experimental
         :schema: Actions#recommended
@@ -81,7 +90,10 @@ class Actions:
 
     @builtins.property
     def source(self) -> typing.Optional["Source"]:
-        '''
+        '''(experimental) Configures source-level actions such as organizing imports and sorting declarations.
+
+        These actions are exposed through editor source actions and through CLI checking and application.
+
         :stability: experimental
         :schema: Actions#source
         '''
@@ -108,12 +120,16 @@ class ArrowParentheses(enum.Enum):
     '''
 
     ALWAYS = "ALWAYS"
-    '''(experimental) always.
+    '''(experimental) Always prints parentheses around arrow-function parameters.
+
+    (always)
 
     :stability: experimental
     '''
     AS_NEEDED = "AS_NEEDED"
-    '''(experimental) asNeeded.
+    '''(experimental) Omits parentheses when an arrow function has one parameter and the syntax permits it.
+
+    (asNeeded)
 
     :stability: experimental
     '''
@@ -133,9 +149,9 @@ class AssistConfiguration:
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param actions: (experimental) Whether Biome should fail in CLI if the assist were not applied to the code.
-        :param enabled: (experimental) Whether Biome should enable assist via LSP and CLI.
-        :param includes: (experimental) A list of glob patterns. Biome will include files/folders that will match these patterns.
+        :param actions: (experimental) The assist-action configuration.
+        :param enabled: (experimental) Enables configured assist actions in the CLI and editor integrations. Defaults to ``true``. Default: true`.
+        :param includes: (experimental) A list of glob patterns selecting files on which assist actions can run. If omitted, all files selected by ``files.includes`` remain eligible for assist actions. An empty list selects no files. This option can only narrow the files selected by ``files.includes``.
 
         :stability: experimental
         :schema: AssistConfiguration
@@ -157,7 +173,7 @@ class AssistConfiguration:
 
     @builtins.property
     def actions(self) -> typing.Optional["Actions"]:
-        '''(experimental) Whether Biome should fail in CLI if the assist were not applied to the code.
+        '''(experimental) The assist-action configuration.
 
         :stability: experimental
         :schema: AssistConfiguration#actions
@@ -167,7 +183,11 @@ class AssistConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether Biome should enable assist via LSP and CLI.
+        '''(experimental) Enables configured assist actions in the CLI and editor integrations.
+
+        Defaults to ``true``.
+
+        :default: true`.
 
         :stability: experimental
         :schema: AssistConfiguration#enabled
@@ -177,10 +197,11 @@ class AssistConfiguration:
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) A list of glob patterns.
+        '''(experimental) A list of glob patterns selecting files on which assist actions can run.
 
-        Biome will include files/folders that will
-        match these patterns.
+        If omitted, all files
+        selected by ``files.includes`` remain eligible for assist actions. An empty list selects no
+        files. This option can only narrow the files selected by ``files.includes``.
 
         :stability: experimental
         :schema: AssistConfiguration#includes
@@ -202,18 +223,23 @@ class AssistConfiguration:
 
 @jsii.enum(jsii_type="projen.javascript.biome_config.AttributePosition")
 class AttributePosition(enum.Enum):
-    '''
+    '''(experimental) Controls attribute placement in HTML-like languages.
+
     :stability: experimental
     :schema: AttributePosition
     '''
 
     AUTO = "AUTO"
-    '''(experimental) auto.
+    '''(experimental) Places attributes automatically and wraps them when needed.
+
+    (auto)
 
     :stability: experimental
     '''
     MULTILINE = "MULTILINE"
-    '''(experimental) multiline.
+    '''(experimental) Places each attribute on its own line when an element has multiple attributes.
+
+    (multiline)
 
     :stability: experimental
     '''
@@ -234,11 +260,14 @@ class AttributePosition(enum.Enum):
         "javascript": "javascript",
         "json": "json",
         "linter": "linter",
+        "markdown": "markdown",
         "overrides": "overrides",
         "plugins": "plugins",
         "root": "root",
         "schema": "schema",
+        "tailwind": "tailwind",
         "vcs": "vcs",
+        "yaml": "yaml",
     },
 )
 class BiomeConfiguration:
@@ -247,7 +276,7 @@ class BiomeConfiguration:
         *,
         assist: typing.Optional[typing.Union["AssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         css: typing.Optional[typing.Union["CssConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
-        extends: typing.Optional[typing.Sequence[builtins.str]] = None,
+        extends: typing.Any = None,
         files: typing.Optional[typing.Union["FilesConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[typing.Union["FormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         graphql: typing.Optional[typing.Union["GraphqlConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -256,30 +285,36 @@ class BiomeConfiguration:
         javascript: typing.Optional[typing.Union["JsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         json: typing.Optional[typing.Union["JsonConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         linter: typing.Optional[typing.Union["LinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        markdown: typing.Optional[typing.Union["MarkdownConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         overrides: typing.Optional[typing.Sequence[typing.Union["OverridePattern", typing.Dict[builtins.str, typing.Any]]]] = None,
         plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
         root: typing.Optional[builtins.bool] = None,
         schema: typing.Optional[builtins.str] = None,
+        tailwind: typing.Optional[typing.Union["TailwindConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         vcs: typing.Optional[typing.Union["VcsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        yaml: typing.Optional[typing.Union["YamlConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
-        '''(experimental) The configuration contained in ``biome.json``.
+        '''(experimental) The configuration contained in ``biome.json`` or ``biome.jsonc``.
 
         :param assist: (experimental) The assist configuration.
         :param css: (experimental) Configuration specific to CSS.
-        :param extends: (experimental) A list of paths to other JSON files, used to extend the current configuration.
-        :param files: (experimental) The file handling configuration.
-        :param formatter: (experimental) The formatter configuration.
+        :param extends: (experimental) Extends the current configuration with settings from one or more other Biome configurations. Use ``"//"`` in a nested configuration to extend the root configuration at any nesting depth. Use an array to extend configurations by relative path or installed package specifier. Biome merges configurations from left to right. Later configurations take precedence for single-value options, list entries are combined, and the current file is applied last.
+        :param files: (experimental) Configures which files Biome can discover and process.
+        :param formatter: (experimental) Configures formatting for selected files.
         :param graphql: (experimental) Configuration specific to GraphQL.
         :param grit: (experimental) Configuration specific to GritQL.
         :param html: (experimental) Configuration specific to HTML.
         :param javascript: (experimental) Configuration specific to JavaScript.
         :param json: (experimental) Configuration specific to JSON.
         :param linter: (experimental) The linter configuration.
-        :param overrides: (experimental) A list of granular patterns applied only to a subset of files.
-        :param plugins: (experimental) List of plugins to load.
-        :param root: (experimental) Indicates whether this configuration file is at the root of a Biome project. By default, this is ``true``.
-        :param schema: (experimental) A field for the JSON schema specification: https://json-schema.org/.
+        :param markdown: (experimental) Configuration specific to Markdown.
+        :param overrides: (experimental) Configures settings for files selected by each override. When multiple overrides configure the same single-value setting, the last matching override takes precedence.
+        :param plugins: (experimental) A list of GritQL plugins to load.
+        :param root: (experimental) Marks whether this file is the root configuration for a Biome project. The root configuration establishes the project's base settings, while ``false`` marks a configuration found inside the project as nested rather than a second project root. Defaults to ``true``. Biome implicitly treats ``root`` as ``false`` when a nested configuration uses ``"extends": "//"``. All other nested configurations must explicitly set ``root`` to ``false``. Default: true``. Biome implicitly treats ``root``as``false` when a nested configuration uses
+        :param schema: (experimental) The JSON Schema used to validate the configuration and provide editor completion. Biome emits a diagnostic when a ``biomejs.dev`` schema URL specifies a version that differs from the running CLI version.
+        :param tailwind: (experimental) Configures how Biome recognizes Tailwind class strings.
         :param vcs: (experimental) The version control integration configuration.
+        :param yaml: (experimental) Configuration specific to YAML.
 
         :stability: experimental
         :schema: BiomeConfiguration
@@ -304,8 +339,14 @@ class BiomeConfiguration:
             json = JsonConfiguration(**json)
         if isinstance(linter, dict):
             linter = LinterConfiguration(**linter)
+        if isinstance(markdown, dict):
+            markdown = MarkdownConfiguration(**markdown)
+        if isinstance(tailwind, dict):
+            tailwind = TailwindConfiguration(**tailwind)
         if isinstance(vcs, dict):
             vcs = VcsConfiguration(**vcs)
+        if isinstance(yaml, dict):
+            yaml = YamlConfiguration(**yaml)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d80cddd85ec22ae5e9ee130a7150db72ca1333e6e292553494d0e61d7b92e10)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
@@ -319,11 +360,14 @@ class BiomeConfiguration:
             check_type(argname="argument javascript", value=javascript, expected_type=type_hints["javascript"])
             check_type(argname="argument json", value=json, expected_type=type_hints["json"])
             check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
+            check_type(argname="argument markdown", value=markdown, expected_type=type_hints["markdown"])
             check_type(argname="argument overrides", value=overrides, expected_type=type_hints["overrides"])
             check_type(argname="argument plugins", value=plugins, expected_type=type_hints["plugins"])
             check_type(argname="argument root", value=root, expected_type=type_hints["root"])
             check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+            check_type(argname="argument tailwind", value=tailwind, expected_type=type_hints["tailwind"])
             check_type(argname="argument vcs", value=vcs, expected_type=type_hints["vcs"])
+            check_type(argname="argument yaml", value=yaml, expected_type=type_hints["yaml"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if assist is not None:
             self._values["assist"] = assist
@@ -347,6 +391,8 @@ class BiomeConfiguration:
             self._values["json"] = json
         if linter is not None:
             self._values["linter"] = linter
+        if markdown is not None:
+            self._values["markdown"] = markdown
         if overrides is not None:
             self._values["overrides"] = overrides
         if plugins is not None:
@@ -355,8 +401,12 @@ class BiomeConfiguration:
             self._values["root"] = root
         if schema is not None:
             self._values["schema"] = schema
+        if tailwind is not None:
+            self._values["tailwind"] = tailwind
         if vcs is not None:
             self._values["vcs"] = vcs
+        if yaml is not None:
+            self._values["yaml"] = yaml
 
     @builtins.property
     def assist(self) -> typing.Optional["AssistConfiguration"]:
@@ -379,18 +429,24 @@ class BiomeConfiguration:
         return typing.cast(typing.Optional["CssConfiguration"], result)
 
     @builtins.property
-    def extends(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) A list of paths to other JSON files, used to extend the current configuration.
+    def extends(self) -> typing.Any:
+        '''(experimental) Extends the current configuration with settings from one or more other Biome configurations.
+
+        Use ``"//"`` in a nested configuration to extend the root configuration at any nesting depth.
+        Use an array to extend configurations by relative path or installed package specifier.
+
+        Biome merges configurations from left to right. Later configurations take precedence for
+        single-value options, list entries are combined, and the current file is applied last.
 
         :stability: experimental
         :schema: BiomeConfiguration#extends
         '''
         result = self._values.get("extends")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def files(self) -> typing.Optional["FilesConfiguration"]:
-        '''(experimental) The file handling configuration.
+        '''(experimental) Configures which files Biome can discover and process.
 
         :stability: experimental
         :schema: BiomeConfiguration#files
@@ -400,7 +456,7 @@ class BiomeConfiguration:
 
     @builtins.property
     def formatter(self) -> typing.Optional["FormatterConfiguration"]:
-        '''(experimental) The formatter configuration.
+        '''(experimental) Configures formatting for selected files.
 
         :stability: experimental
         :schema: BiomeConfiguration#formatter
@@ -469,8 +525,21 @@ class BiomeConfiguration:
         return typing.cast(typing.Optional["LinterConfiguration"], result)
 
     @builtins.property
+    def markdown(self) -> typing.Optional["MarkdownConfiguration"]:
+        '''(experimental) Configuration specific to Markdown.
+
+        :stability: experimental
+        :schema: BiomeConfiguration#markdown
+        '''
+        result = self._values.get("markdown")
+        return typing.cast(typing.Optional["MarkdownConfiguration"], result)
+
+    @builtins.property
     def overrides(self) -> typing.Optional[typing.List["OverridePattern"]]:
-        '''(experimental) A list of granular patterns applied only to a subset of files.
+        '''(experimental) Configures settings for files selected by each override.
+
+        When multiple overrides configure
+        the same single-value setting, the last matching override takes precedence.
 
         :stability: experimental
         :schema: BiomeConfiguration#overrides
@@ -480,7 +549,7 @@ class BiomeConfiguration:
 
     @builtins.property
     def plugins(self) -> typing.Optional[typing.List[typing.Any]]:
-        '''(experimental) List of plugins to load.
+        '''(experimental) A list of GritQL plugins to load.
 
         :stability: experimental
         :schema: BiomeConfiguration#plugins
@@ -490,9 +559,16 @@ class BiomeConfiguration:
 
     @builtins.property
     def root(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Indicates whether this configuration file is at the root of a Biome project.
+        '''(experimental) Marks whether this file is the root configuration for a Biome project.
 
-        By default, this is ``true``.
+        The root configuration
+        establishes the project's base settings, while ``false`` marks a configuration found inside the
+        project as nested rather than a second project root.
+
+        Defaults to ``true``. Biome implicitly treats ``root`` as ``false`` when a nested configuration uses
+        ``"extends": "//"``. All other nested configurations must explicitly set ``root`` to ``false``.
+
+        :default: true``. Biome implicitly treats ``root``as``false` when a nested configuration uses
 
         :stability: experimental
         :schema: BiomeConfiguration#root
@@ -502,13 +578,27 @@ class BiomeConfiguration:
 
     @builtins.property
     def schema(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A field for the JSON schema specification: https://json-schema.org/.
+        '''(experimental) The JSON Schema used to validate the configuration and provide editor completion.
+
+        Biome
+        emits a diagnostic when a ``biomejs.dev`` schema URL specifies a version that differs from the
+        running CLI version.
 
         :stability: experimental
         :schema: BiomeConfiguration#$schema
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tailwind(self) -> typing.Optional["TailwindConfiguration"]:
+        '''(experimental) Configures how Biome recognizes Tailwind class strings.
+
+        :stability: experimental
+        :schema: BiomeConfiguration#tailwind
+        '''
+        result = self._values.get("tailwind")
+        return typing.cast(typing.Optional["TailwindConfiguration"], result)
 
     @builtins.property
     def vcs(self) -> typing.Optional["VcsConfiguration"]:
@@ -519,6 +609,16 @@ class BiomeConfiguration:
         '''
         result = self._values.get("vcs")
         return typing.cast(typing.Optional["VcsConfiguration"], result)
+
+    @builtins.property
+    def yaml(self) -> typing.Optional["YamlConfiguration"]:
+        '''(experimental) Configuration specific to YAML.
+
+        :stability: experimental
+        :schema: BiomeConfiguration#yaml
+        '''
+        result = self._values.get("yaml")
+        return typing.cast(typing.Optional["YamlConfiguration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -541,7 +641,7 @@ class CssAssistConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Options that change how CSS assist behaves.
 
-        :param enabled: (experimental) Controls assist actions for CSS files.
+        :param enabled: (experimental) Enables or disables assist actions for CSS.
 
         :stability: experimental
         :schema: CssAssistConfiguration
@@ -555,7 +655,7 @@ class CssAssistConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls assist actions for CSS files.
+        '''(experimental) Enables or disables assist actions for CSS.
 
         :stability: experimental
         :schema: CssAssistConfiguration#enabled
@@ -596,11 +696,14 @@ class CssConfiguration:
         linter: typing.Optional[typing.Union["CssLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         parser: typing.Optional[typing.Union["CssParserConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
-        '''(experimental) Options applied to CSS files.
+        '''(experimental) Options applied to CSS and languages that extend it.
+
+        Language-specific settings take precedence over corresponding global settings. Global settings
+        apply when their language-specific counterparts are omitted, unless stated otherwise.
 
         :param assist: (experimental) CSS assist options.
         :param formatter: (experimental) CSS formatter options.
-        :param globals: (experimental) CSS globals.
+        :param globals: (experimental) Reserved for future CSS analyzer support. This option currently has no effect.
         :param linter: (experimental) CSS linter options.
         :param parser: (experimental) CSS parsing options.
 
@@ -656,7 +759,9 @@ class CssConfiguration:
 
     @builtins.property
     def globals(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) CSS globals.
+        '''(experimental) Reserved for future CSS analyzer support.
+
+        This option currently has no effect.
 
         :stability: experimental
         :schema: CssConfiguration#globals
@@ -726,12 +831,12 @@ class CssFormatterConfiguration:
         '''(experimental) Options that change how the CSS formatter behaves.
 
         :param delimiter_spacing: (experimental) Controls spaces inside CSS parentheses and square brackets when their content fits on one line. When enabled, ``rgb(0, 0, 0)`` becomes ``rgb( 0, 0, 0 )`` and ``[data-attr]`` becomes ``[ data-attr ]``. Empty delimiters are unchanged. If unset, inherits the global delimiter spacing setting.
-        :param enabled: (experimental) Controls the formatter for CSS and languages that extend it.
+        :param enabled: (experimental) Enables or disables the formatter for CSS and languages that extend it.
         :param indent_style: (experimental) The indent style applied to CSS and languages that extend it. If unset, inherits the global indentation style.
         :param indent_width: (experimental) The indentation width applied to CSS and languages that extend it. If unset, inherits the global indentation width.
         :param line_ending: (experimental) The line ending applied to CSS and languages that extend it. If unset, inherits the global line ending.
-        :param line_width: (experimental) The maximum line width for CSS and languages that extend it. If unset, inherits the global line width.
-        :param quote_style: (experimental) The type of quotes used in CSS code. Defaults to ``double``. Default: double`.
+        :param line_width: (experimental) The preferred maximum line width for CSS and languages that extend it. If unset, inherits the global line width.
+        :param quote_style: (experimental) Selects the preferred quote style for CSS strings. Biome may use the alternate quote when that avoids additional escaping. Quotes in ``@charset`` rules are currently preserved. Defaults to ``double``. Default: double`.
         :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. If unset, inherits the global trailing newline setting.
 
         :stability: experimental
@@ -782,7 +887,7 @@ class CssFormatterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the formatter for CSS and languages that extend it.
+        '''(experimental) Enables or disables the formatter for CSS and languages that extend it.
 
         :stability: experimental
         :schema: CssFormatterConfiguration#enabled
@@ -831,10 +936,10 @@ class CssFormatterConfiguration:
 
     @builtins.property
     def line_width(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The maximum line width for CSS and languages that extend it.
+        '''(experimental) The preferred maximum line width for CSS and languages that extend it.
 
-        If unset, inherits the global
-        line width.
+        If unset, inherits
+        the global line width.
 
         :stability: experimental
         :schema: CssFormatterConfiguration#lineWidth
@@ -844,8 +949,10 @@ class CssFormatterConfiguration:
 
     @builtins.property
     def quote_style(self) -> typing.Optional["QuoteStyle"]:
-        '''(experimental) The type of quotes used in CSS code.
+        '''(experimental) Selects the preferred quote style for CSS strings.
 
+        Biome may use the alternate quote when
+        that avoids additional escaping. Quotes in ``@charset`` rules are currently preserved.
         Defaults to ``double``.
 
         :default: double`.
@@ -890,7 +997,7 @@ class CssLinterConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Options that change how the CSS linter behaves.
 
-        :param enabled: (experimental) Controls the linter for CSS files.
+        :param enabled: (experimental) Enables or disables the linter for CSS.
 
         :stability: experimental
         :schema: CssLinterConfiguration
@@ -904,7 +1011,7 @@ class CssLinterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the linter for CSS files.
+        '''(experimental) Enables or disables the linter for CSS.
 
         :stability: experimental
         :schema: CssLinterConfiguration#enabled
@@ -943,9 +1050,9 @@ class CssParserConfiguration:
     ) -> None:
         '''(experimental) Options that change how the CSS parser behaves.
 
-        :param allow_wrong_line_comments: (experimental) Allows comments to appear on incorrect lines in ``.css`` files.
-        :param css_modules: (experimental) Enables parsing of CSS Modules-specific features. Enable this feature only when your files don't end in ``.module.css``.
-        :param tailwind_directives: (experimental) Enables parsing of Tailwind CSS 4.0 directives and functions.
+        :param allow_wrong_line_comments: (experimental) Enables ``//`` line comments in plain CSS. Standard CSS treats ``//`` as delimiter characters rather than as a comment, and SCSS accepts ``//`` comments independently of this option. Defaults to ``false``. Default: false`.
+        :param css_modules: (experimental) Enables CSS Modules-specific syntax such as ``:local``, ``:global``, ``composes``, and ``@value``. When unset, Biome enables this syntax automatically for files whose names end in ``.module.css`` or ``.module.scss; otherwise, it defaults to ``false`. Enable it explicitly when CSS Module files use another naming convention.
+        :param tailwind_directives: (experimental) Enables parsing Tailwind CSS 4.0 directives and functions, including ``@theme``, ``@utility``, ``@variant``, ``@source``, and ``@apply``. Defaults to ``false``. Default: false`.
 
         :stability: experimental
         :schema: CssParserConfiguration
@@ -965,7 +1072,13 @@ class CssParserConfiguration:
 
     @builtins.property
     def allow_wrong_line_comments(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Allows comments to appear on incorrect lines in ``.css`` files.
+        '''(experimental) Enables ``//`` line comments in plain CSS.
+
+        Standard CSS treats ``//`` as delimiter characters
+        rather than as a comment, and SCSS accepts ``//`` comments independently of this option.
+        Defaults to ``false``.
+
+        :default: false`.
 
         :stability: experimental
         :schema: CssParserConfiguration#allowWrongLineComments
@@ -975,10 +1088,11 @@ class CssParserConfiguration:
 
     @builtins.property
     def css_modules(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables parsing of CSS Modules-specific features.
+        '''(experimental) Enables CSS Modules-specific syntax such as ``:local``, ``:global``, ``composes``, and ``@value``.
 
-        Enable this feature only
-        when your files don't end in ``.module.css``.
+        When unset, Biome enables this syntax automatically for files whose names end in
+        ``.module.css`` or ``.module.scss; otherwise, it defaults to ``false`. Enable it explicitly when CSS Module files
+        use another naming convention.
 
         :stability: experimental
         :schema: CssParserConfiguration#cssModules
@@ -988,7 +1102,9 @@ class CssParserConfiguration:
 
     @builtins.property
     def tailwind_directives(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables parsing of Tailwind CSS 4.0 directives and functions.
+        '''(experimental) Enables parsing Tailwind CSS 4.0 directives and functions, including ``@theme``, ``@utility``, ``@variant``, ``@source``, and ``@apply``. Defaults to ``false``.
+
+        :default: false`.
 
         :stability: experimental
         :schema: CssParserConfiguration#tailwindDirectives
@@ -1060,10 +1176,10 @@ class FilesConfiguration:
     ) -> None:
         '''(experimental) The file handling configuration.
 
-        :param experimental_scanner_ignores: (experimental) **Deprecated:** Please use *force-ignore syntax* in ``files.includes`` instead: `https://biomejs.dev/reference/configuration/#filesincludes <https://biomejs.dev/reference/configuration/#filesincludes>`_. Set of file and folder names that should be unconditionally ignored by Biome's scanner.
-        :param ignore_unknown: (experimental) Prevents Biome from emitting diagnostics for unrecognized file types.
-        :param includes: (experimental) A list of glob patterns. Biome handles only files and directories that match these patterns.
-        :param max_size: (experimental) The maximum source file size in bytes. Biome ignores larger files. Defaults to ``1 MiB``. Default: 1 MiB`.
+        :param experimental_scanner_ignores: (experimental) **Deprecated:** Please use *force-ignore syntax* in ``files.includes`` instead: `https://biomejs.dev/reference/configuration/#filesincludes <https://biomejs.dev/reference/configuration/#filesincludes>`_. File or directory names that the scanner ignores unconditionally while crawling. Each value matches a complete path component, not a glob. Ignored files are not added to the module graph, so types are not inferred from them.
+        :param ignore_unknown: (experimental) Prevents Biome from emitting diagnostics for unrecognized file types. Defaults to ``false``. Default: false`.
+        :param includes: (experimental) A list of glob patterns selecting which files and directories Biome can process. If omitted, this option does not further restrict the supported files Biome can process. An empty list selects no files. Biome ignores files under ``node_modules`` even when they match a pattern. The scanner uses these patterns and, when enabled, VCS ignore files while discovering nested configuration and ignore files. When enabled rules use the ``project`` or ``types`` domains, it also indexes source files and project dependencies. It may still discover required metadata or index excluded source files needed for analysis. A pattern beginning with ``!!`` prevents the scanner from indexing matching paths. Patterns are evaluated in order, and a pattern beginning with ``!`` excludes matches.
+        :param max_size: (experimental) The maximum source-file size in bytes. Biome skips larger files and emits a warning diagnostic. Defaults to ``1 MiB``. Default: 1 MiB`.
 
         :stability: experimental
         :schema: FilesConfiguration
@@ -1090,8 +1206,9 @@ class FilesConfiguration:
     ) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) **Deprecated:** Please use *force-ignore syntax* in ``files.includes`` instead: `https://biomejs.dev/reference/configuration/#filesincludes <https://biomejs.dev/reference/configuration/#filesincludes>`_.
 
-        Set of file and folder names that should be unconditionally ignored by
-        Biome's scanner.
+        File or directory names that the scanner ignores unconditionally while crawling. Each value
+        matches a complete path component, not a glob. Ignored files are not added to the module graph,
+        so types are not inferred from them.
 
         :stability: experimental
         :schema: FilesConfiguration#experimentalScannerIgnores
@@ -1103,6 +1220,10 @@ class FilesConfiguration:
     def ignore_unknown(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Prevents Biome from emitting diagnostics for unrecognized file types.
 
+        Defaults to ``false``.
+
+        :default: false`.
+
         :stability: experimental
         :schema: FilesConfiguration#ignoreUnknown
         '''
@@ -1111,10 +1232,18 @@ class FilesConfiguration:
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) A list of glob patterns.
+        '''(experimental) A list of glob patterns selecting which files and directories Biome can process.
 
-        Biome handles only files and directories that match these
-        patterns.
+        If omitted,
+        this option does not further restrict the supported files Biome can process. An empty list
+        selects no files. Biome ignores files under ``node_modules`` even when they match a pattern.
+
+        The scanner uses these patterns and, when enabled, VCS ignore files while discovering nested
+        configuration and ignore files. When enabled rules use the ``project`` or ``types`` domains, it
+        also indexes source files and project dependencies. It may still discover required metadata or
+        index excluded source files needed for analysis. A pattern beginning with ``!!`` prevents the
+        scanner from indexing matching paths. Patterns are evaluated in order, and a pattern beginning
+        with ``!`` excludes matches.
 
         :stability: experimental
         :schema: FilesConfiguration#includes
@@ -1124,9 +1253,10 @@ class FilesConfiguration:
 
     @builtins.property
     def max_size(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The maximum source file size in bytes.
+        '''(experimental) The maximum source-file size in bytes.
 
-        Biome ignores larger files. Defaults to ``1 MiB``.
+        Biome skips larger files and emits a warning
+        diagnostic. Defaults to ``1 MiB``.
 
         :default: 1 MiB`.
 
@@ -1187,22 +1317,22 @@ class FormatterConfiguration:
         trailing_newline: typing.Optional[builtins.bool] = None,
         use_editorconfig: typing.Optional[builtins.bool] = None,
     ) -> None:
-        '''(experimental) Generic options applied to all files.
+        '''(experimental) Configures formatting for selected files.
 
         :param attribute_position: (experimental) The attribute position style in HTML-like languages. Defaults to ``auto``. Default: auto`.
-        :param bracket_same_line: (experimental) Places the ``>`` of a multiline HTML or JSX element at the end of the last line instead of on the next line. Self-closing elements are unaffected. Defaults to ``false``. Default: false`.
-        :param bracket_spacing: (experimental) Whether to insert spaces inside braces in object literals. Defaults to ``true``. Default: true`.
+        :param bracket_same_line: (experimental) Controls the placement of the closing bracket for multiline HTML and JSX opening tags. Biome places the bracket at the end of the last attribute line when enabled and on its own line when disabled. This also affects self-closing HTML elements, but self-closing JSX elements are unaffected. Defaults to ``false``. Default: false`.
+        :param bracket_spacing: (experimental) Controls spaces inside braces in supported single-line structures. The affected structures vary by language. Defaults to ``true``. Default: true`.
         :param delimiter_spacing: (experimental) Controls spaces immediately inside supported delimiters when their content fits on one line. It doesn't add spaces before opening delimiters or inside empty delimiters. The affected delimiters vary by language. Defaults to ``false``. Default: false`.
-        :param enabled: 
+        :param enabled: (experimental) Enables or disables the formatter. Defaults to ``true``. Default: true`.
         :param expand: (experimental) Controls whether arrays and objects are formatted on one line or multiple lines. ``auto`` formats objects on multiple lines if the first property has a newline, and arrays on one line if they fit. ``always`` formats arrays and objects on multiple lines. ``never`` formats arrays and objects on one line if they fit. Defaults to ``auto``. When formatting ``package.json``, Biome uses ``always`` unless configured otherwise. Default: auto`.
         :param format_with_errors: (experimental) Allows formatting files that contain syntax errors when set to ``true``. Defaults to ``false``. Default: false`.
-        :param includes: (experimental) A list of glob patterns. The formatter will include files/folders that will match these patterns.
+        :param includes: (experimental) A list of glob patterns selecting files to format. If omitted, all files selected by ``files.includes`` remain eligible for formatting. An empty list selects no files. This option can only narrow the files selected by ``files.includes``.
         :param indent_style: (experimental) Uses tabs or spaces for indentation. Defaults to ``tab``. Default: tab`.
-        :param indent_width: (experimental) The indentation width. Defaults to ``2``. Default: 2`.
+        :param indent_width: (experimental) Sets the indentation width. With space indentation, this is the number of spaces emitted per indentation level. With tab indentation, Biome emits one tab per level and uses this value as the tab's display width when calculating line length. Accepted values are ``0`` through ``24``. Defaults to ``2``. Default: 2`.
         :param line_ending: (experimental) Selects the line ending. ``auto`` uses the platform convention. Defaults to ``lf``. Default: lf`.
-        :param line_width: (experimental) The maximum line width. Defaults to ``80``. Default: 80`.
-        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Defaults to ``true``; disabling this option can cause compatibility problems with other tools. Default: true`; disabling
-        :param use_editorconfig: (experimental) Uses ``.editorconfig`` files to configure the formatter. Settings in ``biome.json`` or ``biome.jsonc`` override ``.editorconfig`` settings. Defaults to ``false``. Default: false`.
+        :param line_width: (experimental) Sets the preferred maximum line width used when deciding where to wrap code. Some content, such as long unbreakable strings, may still exceed this width. Accepted values are ``1`` through ``320``. Defaults to ``80``. Default: 80`.
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Defaults to ``true``. Disabling this option can cause compatibility problems with other tools. Default: true`. Disabling
+        :param use_editorconfig: (experimental) Controls whether Biome loads formatter settings from an ``.editorconfig`` file. Biome reads ``indent_style``, ``indent_size``, ``end_of_line``, and ``insert_final_newline``. Settings in ``biome.json`` or ``biome.jsonc`` take precedence. Biome loads only one ``.editorconfig``. Nested cascading configurations and the EditorConfig ``root`` property are not supported. Defaults to ``false``. Default: false`.
 
         :stability: experimental
         :schema: FormatterConfiguration
@@ -1269,9 +1399,12 @@ class FormatterConfiguration:
 
     @builtins.property
     def bracket_same_line(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Places the ``>`` of a multiline HTML or JSX element at the end of the last line instead of on the next line.
+        '''(experimental) Controls the placement of the closing bracket for multiline HTML and JSX opening tags.
 
-        Self-closing elements are unaffected. Defaults to ``false``.
+        Biome
+        places the bracket at the end of the last attribute line when enabled and on its own line when
+        disabled. This also affects self-closing HTML elements, but self-closing JSX elements are
+        unaffected. Defaults to ``false``.
 
         :default: false`.
 
@@ -1283,9 +1416,10 @@ class FormatterConfiguration:
 
     @builtins.property
     def bracket_spacing(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to insert spaces inside braces in object literals.
+        '''(experimental) Controls spaces inside braces in supported single-line structures.
 
-        Defaults to ``true``.
+        The affected structures
+        vary by language. Defaults to ``true``.
 
         :default: true`.
 
@@ -1313,7 +1447,12 @@ class FormatterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''
+        '''(experimental) Enables or disables the formatter.
+
+        Defaults to ``true``.
+
+        :default: true`.
+
         :stability: experimental
         :schema: FormatterConfiguration#enabled
         '''
@@ -1359,10 +1498,11 @@ class FormatterConfiguration:
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) A list of glob patterns.
+        '''(experimental) A list of glob patterns selecting files to format.
 
-        The formatter will include files/folders that will
-        match these patterns.
+        If omitted, all files selected by
+        ``files.includes`` remain eligible for formatting. An empty list selects no files. This option
+        can only narrow the files selected by ``files.includes``.
 
         :stability: experimental
         :schema: FormatterConfiguration#includes
@@ -1386,8 +1526,11 @@ class FormatterConfiguration:
 
     @builtins.property
     def indent_width(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The indentation width.
+        '''(experimental) Sets the indentation width.
 
+        With space indentation, this is the number of spaces emitted per
+        indentation level. With tab indentation, Biome emits one tab per level and uses this value as
+        the tab's display width when calculating line length. Accepted values are ``0`` through ``24``.
         Defaults to ``2``.
 
         :default: 2`.
@@ -1414,9 +1557,11 @@ class FormatterConfiguration:
 
     @builtins.property
     def line_width(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The maximum line width.
+        '''(experimental) Sets the preferred maximum line width used when deciding where to wrap code.
 
-        Defaults to ``80``.
+        Some content,
+        such as long unbreakable strings, may still exceed this width. Accepted values are ``1`` through
+        ``320``. Defaults to ``80``.
 
         :default: 80`.
 
@@ -1430,10 +1575,10 @@ class FormatterConfiguration:
     def trailing_newline(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Whether to add a trailing newline at the end of the file.
 
-        Defaults to ``true``; disabling
+        Defaults to ``true``. Disabling
         this option can cause compatibility problems with other tools.
 
-        :default: true`; disabling
+        :default: true`. Disabling
 
         :stability: experimental
         :schema: FormatterConfiguration#trailingNewline
@@ -1443,7 +1588,7 @@ class FormatterConfiguration:
 
     @builtins.property
     def use_editorconfig(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Uses ``.editorconfig`` files to configure the formatter. Settings in ``biome.json`` or ``biome.jsonc`` override ``.editorconfig`` settings. Defaults to ``false``.
+        '''(experimental) Controls whether Biome loads formatter settings from an ``.editorconfig`` file. Biome reads ``indent_style``, ``indent_size``, ``end_of_line``, and ``insert_final_newline``. Settings in ``biome.json`` or ``biome.jsonc`` take precedence. Biome loads only one ``.editorconfig``. Nested cascading configurations and the EditorConfig ``root`` property are not supported. Defaults to ``false``.
 
         :default: false`.
 
@@ -1474,7 +1619,7 @@ class GraphqlAssistConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Options that change how GraphQL assist behaves.
 
-        :param enabled: (experimental) Controls assist actions for GraphQL files.
+        :param enabled: (experimental) Enables or disables assist actions for GraphQL. Defaults to ``false``. Default: false`.
 
         :stability: experimental
         :schema: GraphqlAssistConfiguration
@@ -1488,7 +1633,11 @@ class GraphqlAssistConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls assist actions for GraphQL files.
+        '''(experimental) Enables or disables assist actions for GraphQL.
+
+        Defaults to ``false``.
+
+        :default: false`.
 
         :stability: experimental
         :schema: GraphqlAssistConfiguration#enabled
@@ -1522,6 +1671,9 @@ class GraphqlConfiguration:
         linter: typing.Optional[typing.Union["GraphqlLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options applied to GraphQL files.
+
+        Language-specific settings take precedence over corresponding global settings. Global settings
+        apply when their language-specific counterparts are omitted, unless stated otherwise.
 
         :param assist: (experimental) GraphQL assist options.
         :param formatter: (experimental) GraphQL formatter options.
@@ -1620,13 +1772,13 @@ class GraphqlFormatterConfiguration:
     ) -> None:
         '''(experimental) Options that change how the GraphQL formatter behaves.
 
-        :param bracket_spacing: (experimental) Whether to insert spaces inside braces in object literals. If unset, inherits the global bracket spacing setting.
-        :param enabled: (experimental) Controls the formatter for GraphQL files.
+        :param bracket_spacing: (experimental) Controls spaces inside the braces of single-line GraphQL object values. Biome formats ``{name: "Biome"}`` when disabled and ``{ name: "Biome" }`` when enabled. If unset, inherits the global bracket spacing setting.
+        :param enabled: (experimental) Enables or disables the formatter for GraphQL.
         :param indent_style: (experimental) The indent style applied to GraphQL files. If unset, inherits the global indentation style.
         :param indent_width: (experimental) The indentation width applied to GraphQL files. If unset, inherits the global indentation width.
         :param line_ending: (experimental) The line ending applied to GraphQL files. If unset, inherits the global line ending.
-        :param line_width: (experimental) The maximum line width for GraphQL files. If unset, inherits the global line width.
-        :param quote_style: (experimental) The type of quotes used in GraphQL code. Defaults to ``double``. Default: double`.
+        :param line_width: (experimental) The preferred maximum line width for GraphQL files. If unset, inherits the global line width.
+        :param quote_style: (experimental) Reserved for future formatter support. The current formatter preserves standard double-quoted GraphQL strings and does not use this setting.
         :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. If unset, inherits the global trailing newline setting.
 
         :stability: experimental
@@ -1662,10 +1814,11 @@ class GraphqlFormatterConfiguration:
 
     @builtins.property
     def bracket_spacing(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to insert spaces inside braces in object literals.
+        '''(experimental) Controls spaces inside the braces of single-line GraphQL object values.
 
-        If unset, inherits the global
-        bracket spacing setting.
+        Biome formats
+        ``{name: "Biome"}`` when disabled and ``{ name: "Biome" }`` when enabled. If unset, inherits the
+        global bracket spacing setting.
 
         :stability: experimental
         :schema: GraphqlFormatterConfiguration#bracketSpacing
@@ -1675,7 +1828,7 @@ class GraphqlFormatterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the formatter for GraphQL files.
+        '''(experimental) Enables or disables the formatter for GraphQL.
 
         :stability: experimental
         :schema: GraphqlFormatterConfiguration#enabled
@@ -1722,9 +1875,10 @@ class GraphqlFormatterConfiguration:
 
     @builtins.property
     def line_width(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The maximum line width for GraphQL files.
+        '''(experimental) The preferred maximum line width for GraphQL files.
 
-        If unset, inherits the global line width.
+        If unset, inherits the global line
+        width.
 
         :stability: experimental
         :schema: GraphqlFormatterConfiguration#lineWidth
@@ -1734,11 +1888,10 @@ class GraphqlFormatterConfiguration:
 
     @builtins.property
     def quote_style(self) -> typing.Optional["QuoteStyle"]:
-        '''(experimental) The type of quotes used in GraphQL code.
+        '''(experimental) Reserved for future formatter support.
 
-        Defaults to ``double``.
-
-        :default: double`.
+        The current formatter preserves standard
+        double-quoted GraphQL strings and does not use this setting.
 
         :stability: experimental
         :schema: GraphqlFormatterConfiguration#quoteStyle
@@ -1780,7 +1933,7 @@ class GraphqlLinterConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Options that change how the GraphQL linter behaves.
 
-        :param enabled: (experimental) Controls the linter for GraphQL files.
+        :param enabled: (experimental) Enables or disables the linter for GraphQL.
 
         :stability: experimental
         :schema: GraphqlLinterConfiguration
@@ -1794,7 +1947,7 @@ class GraphqlLinterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the linter for GraphQL files.
+        '''(experimental) Enables or disables the linter for GraphQL.
 
         :stability: experimental
         :schema: GraphqlLinterConfiguration#enabled
@@ -1823,7 +1976,7 @@ class GritAssistConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Options that change how GritQL assist behaves.
 
-        :param enabled: (experimental) Controls assist actions for GritQL files.
+        :param enabled: (experimental) Enables or disables assist actions for GritQL.
 
         :stability: experimental
         :schema: GritAssistConfiguration
@@ -1837,7 +1990,7 @@ class GritAssistConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls assist actions for GritQL files.
+        '''(experimental) Enables or disables assist actions for GritQL.
 
         :stability: experimental
         :schema: GritAssistConfiguration#enabled
@@ -1871,6 +2024,9 @@ class GritConfiguration:
         linter: typing.Optional[typing.Union["GritLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options applied to GritQL files.
+
+        Language-specific settings take precedence over corresponding global settings. Global settings
+        apply when their language-specific counterparts are omitted, unless stated otherwise.
 
         :param assist: (experimental) GritQL assist options.
         :param formatter: (experimental) GritQL formatter options.
@@ -1965,11 +2121,11 @@ class GritFormatterConfiguration:
     ) -> None:
         '''(experimental) Options that change how the GritQL formatter behaves.
 
-        :param enabled: (experimental) Controls the formatter for GritQL files.
+        :param enabled: (experimental) Enables or disables the formatter for GritQL.
         :param indent_style: (experimental) The indent style applied to GritQL files. If unset, inherits the global indentation style.
         :param indent_width: (experimental) The indentation width applied to GritQL files. If unset, inherits the global indentation width.
         :param line_ending: (experimental) The line ending applied to GritQL files. If unset, inherits the global line ending.
-        :param line_width: (experimental) The maximum line width for GritQL files. If unset, inherits the global line width.
+        :param line_width: (experimental) The preferred maximum line width for GritQL files. If unset, inherits the global line width.
         :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. If unset, inherits the global trailing newline setting.
 
         :stability: experimental
@@ -1999,7 +2155,7 @@ class GritFormatterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the formatter for GritQL files.
+        '''(experimental) Enables or disables the formatter for GritQL.
 
         :stability: experimental
         :schema: GritFormatterConfiguration#enabled
@@ -2046,7 +2202,7 @@ class GritFormatterConfiguration:
 
     @builtins.property
     def line_width(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The maximum line width for GritQL files.
+        '''(experimental) The preferred maximum line width for GritQL files.
 
         If unset, inherits the global line width.
 
@@ -2090,7 +2246,7 @@ class GritLinterConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Options that change how the GritQL linter behaves.
 
-        :param enabled: (experimental) Controls the linter for GritQL files.
+        :param enabled: (experimental) Enables or disables the linter for GritQL.
 
         :stability: experimental
         :schema: GritLinterConfiguration
@@ -2104,7 +2260,7 @@ class GritLinterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the linter for GritQL files.
+        '''(experimental) Enables or disables the linter for GritQL.
 
         :stability: experimental
         :schema: GritLinterConfiguration#enabled
@@ -2133,7 +2289,7 @@ class HtmlAssistConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Options that change how HTML assist behaves.
 
-        :param enabled: (experimental) Controls assist actions for HTML and languages that extend it.
+        :param enabled: (experimental) Enables or disables assist actions for HTML and languages that extend it.
 
         :stability: experimental
         :schema: HtmlAssistConfiguration
@@ -2147,7 +2303,7 @@ class HtmlAssistConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls assist actions for HTML and languages that extend it.
+        '''(experimental) Enables or disables assist actions for HTML and languages that extend it.
 
         :stability: experimental
         :schema: HtmlAssistConfiguration#enabled
@@ -2188,10 +2344,16 @@ class HtmlConfiguration:
         linter: typing.Optional[typing.Union["HtmlLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         parser: typing.Optional[typing.Union["HtmlParserConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
-        '''(experimental) Options applied to HTML files.
+        '''(experimental) Options applied to HTML and languages that extend it.
+
+        Full HTML support and the HTML formatter are experimental. Biome aims to minimize breaking
+        changes, but bug fixes and new features may change formatting output or diagnostics.
+
+        Language-specific settings take precedence over corresponding global settings. Global settings
+        apply when their language-specific counterparts are omitted, unless stated otherwise.
 
         :param assist: (experimental) HTML assist options.
-        :param experimental_full_support_enabled: (experimental) Enables full support for HTML, Vue, Svelte, and Astro files.
+        :param experimental_full_support_enabled: (experimental) Enables Biome's experimental full support for ``.html``, ``.vue``, ``.svelte``, and ``.astro`` files. In this mode, Biome parses the complete document and can analyze or format its markup and supported embedded languages. When disabled, ``.vue``, ``.svelte``, and ``.astro`` files use legacy handling, which extracts their JavaScript or TypeScript portions and leaves the rest unchanged. This option selects how these files are processed. It does not enable the HTML formatter. Set ``html.formatter.enabled`` to ``true`` to format complete HTML, Vue, Svelte, and Astro files. Defaults to ``false``. Default: false`.
         :param formatter: (experimental) HTML formatter options.
         :param linter: (experimental) HTML linter options.
         :param parser: (experimental) HTML parsing options.
@@ -2238,7 +2400,15 @@ class HtmlConfiguration:
 
     @builtins.property
     def experimental_full_support_enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables full support for HTML, Vue, Svelte, and Astro files.
+        '''(experimental) Enables Biome's experimental full support for ``.html``, ``.vue``, ``.svelte``, and ``.astro`` files. In this mode, Biome parses the complete document and can analyze or format its markup and supported embedded languages.
+
+        When disabled, ``.vue``, ``.svelte``, and ``.astro`` files use legacy handling, which extracts their
+        JavaScript or TypeScript portions and leaves the rest unchanged. This option selects how
+        these files are processed. It does not enable the HTML formatter. Set
+        ``html.formatter.enabled`` to ``true`` to format complete HTML, Vue, Svelte, and Astro files.
+        Defaults to ``false``.
+
+        :default: false`.
 
         :stability: experimental
         :schema: HtmlConfiguration#experimentalFullSupportEnabled
@@ -2324,16 +2494,16 @@ class HtmlFormatterConfiguration:
         '''(experimental) Options that change how the HTML formatter behaves.
 
         :param attribute_position: (experimental) The attribute position style in HTML elements. If unset, inherits the global attribute position setting.
-        :param bracket_same_line: (experimental) Whether to place the closing bracket of a multiline HTML tag at the end of the last line instead of on its own line. If unset, inherits the global ``bracketSameLine`` setting.
-        :param enabled: (experimental) Controls the formatter for HTML and languages that extend it.
-        :param indent_script_and_style: (experimental) Whether to indent ``<script>`` and ``<style>`` tags in HTML and languages that extend it. Defaults to ``false``. Default: false`.
+        :param bracket_same_line: (experimental) Controls the placement of the closing bracket for multiline HTML opening tags. Biome places the bracket at the end of the last attribute line when enabled and on its own line after the last attribute when disabled. This option also affects self-closing HTML elements. If unset, inherits the global ``bracketSameLine`` setting.
+        :param enabled: (experimental) Enables or disables the formatter for HTML and languages that extend it. The formatter is experimental and disabled by default. Formatting complete HTML, Vue, Svelte, and Astro files requires ``html.experimentalFullSupportEnabled`` to be ``true``.
+        :param indent_script_and_style: (experimental) Controls whether the content of ``<script>`` and ``<style>`` tags is indented by one level in HTML, Vue, Svelte, and Astro files. Defaults to ``false``. Default: false`.
         :param indent_style: (experimental) The indent style applied to HTML and languages that extend it. If unset, inherits the global indentation style.
         :param indent_width: (experimental) The indentation width applied to HTML and languages that extend it. If unset, inherits the global indentation width.
         :param line_ending: (experimental) The line ending applied to HTML and languages that extend it. If unset, inherits the global line ending.
-        :param line_width: (experimental) The maximum line width for HTML and languages that extend it. If unset, inherits the global line width.
+        :param line_width: (experimental) The preferred maximum line width for HTML and languages that extend it. If unset, inherits the global line width.
         :param self_close_void_elements: (experimental) Controls whether void elements are self-closed. Defaults to ``never``. Default: never`.
         :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Unlike other language-specific trailing newline settings, this option defaults to ``true`` instead of inheriting the global setting.
-        :param whitespace_sensitivity: (experimental) Whether to account for whitespace sensitivity when formatting HTML and languages that extend it. Defaults to ``css``. Default: css`.
+        :param whitespace_sensitivity: (experimental) Controls how the formatter treats whitespace around text and child elements in HTML, Vue, Svelte, and Astro markup. The ``ignore`` setting should be used only when whitespace cannot affect rendered output. Defaults to ``css``. Default: css`.
 
         :stability: experimental
         :schema: HtmlFormatterConfiguration
@@ -2390,9 +2560,12 @@ class HtmlFormatterConfiguration:
 
     @builtins.property
     def bracket_same_line(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to place the closing bracket of a multiline HTML tag at the end of the last line instead of on its own line.
+        '''(experimental) Controls the placement of the closing bracket for multiline HTML opening tags.
 
-        If unset, inherits the global ``bracketSameLine`` setting.
+        Biome places
+        the bracket at the end of the last attribute line when enabled and on its own line after the
+        last attribute when disabled. This option also affects self-closing HTML elements. If unset,
+        inherits the global ``bracketSameLine`` setting.
 
         :stability: experimental
         :schema: HtmlFormatterConfiguration#bracketSameLine
@@ -2402,7 +2575,11 @@ class HtmlFormatterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the formatter for HTML and languages that extend it.
+        '''(experimental) Enables or disables the formatter for HTML and languages that extend it.
+
+        The formatter is
+        experimental and disabled by default. Formatting complete HTML, Vue, Svelte, and Astro files
+        requires ``html.experimentalFullSupportEnabled`` to be ``true``.
 
         :stability: experimental
         :schema: HtmlFormatterConfiguration#enabled
@@ -2412,7 +2589,7 @@ class HtmlFormatterConfiguration:
 
     @builtins.property
     def indent_script_and_style(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to indent ``<script>`` and ``<style>`` tags in HTML and languages that extend it.
+        '''(experimental) Controls whether the content of ``<script>`` and ``<style>`` tags is indented by one level in HTML, Vue, Svelte, and Astro files.
 
         Defaults to ``false``.
 
@@ -2465,10 +2642,10 @@ class HtmlFormatterConfiguration:
 
     @builtins.property
     def line_width(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The maximum line width for HTML and languages that extend it.
+        '''(experimental) The preferred maximum line width for HTML and languages that extend it.
 
-        If unset, inherits the global
-        line width.
+        If unset, inherits
+        the global line width.
 
         :stability: experimental
         :schema: HtmlFormatterConfiguration#lineWidth
@@ -2506,9 +2683,10 @@ class HtmlFormatterConfiguration:
 
     @builtins.property
     def whitespace_sensitivity(self) -> typing.Optional["WhitespaceSensitivity"]:
-        '''(experimental) Whether to account for whitespace sensitivity when formatting HTML and languages that extend it.
+        '''(experimental) Controls how the formatter treats whitespace around text and child elements in HTML, Vue, Svelte, and Astro markup.
 
-        Defaults to ``css``.
+        The ``ignore`` setting should be used only when whitespace cannot
+        affect rendered output. Defaults to ``css``.
 
         :default: css`.
 
@@ -2539,7 +2717,7 @@ class HtmlLinterConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Options that change how the HTML linter behaves.
 
-        :param enabled: (experimental) Controls the linter for HTML and languages that extend it.
+        :param enabled: (experimental) Enables or disables the linter for HTML and languages that extend it.
 
         :stability: experimental
         :schema: HtmlLinterConfiguration
@@ -2553,7 +2731,7 @@ class HtmlLinterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the linter for HTML and languages that extend it.
+        '''(experimental) Enables or disables the linter for HTML and languages that extend it.
 
         :stability: experimental
         :schema: HtmlLinterConfiguration#enabled
@@ -2587,8 +2765,8 @@ class HtmlParserConfiguration:
     ) -> None:
         '''(experimental) Options that change how the HTML parser behaves.
 
-        :param interpolation: (experimental) Enables parsing double text expressions such as ``{{ expression }}`` inside ``.html`` files.
-        :param vue: (experimental) Enables parsing Vue syntax (``v-if``, ``v-bind``, etc.) in ``.html`` files. Enabling this option also enables ``interpolation`` implicitly. Biome will already automatically enable Vue parsing in ``.vue`` files, so you probably don't need to enable this option. This only affects ``.html`` files, and does not change how ``.vue``, ``.svelte``, or ``.astro`` files are parsed.
+        :param interpolation: (experimental) Enables double-curly interpolation expressions such as ``{{ expression }}`` in ``.html`` files. Defaults to ``false``. Default: false`.
+        :param vue: (experimental) Enables parsing Vue syntax (``v-if``, ``v-bind``, etc.) in ``.html`` files. Enabling this option also enables ``interpolation`` implicitly. Biome will already automatically enable Vue parsing in ``.vue`` files, so you probably don't need to enable this option. This only affects ``.html`` files, and does not change how ``.vue``, ``.svelte``, or ``.astro`` files are parsed. Defaults to ``false``. Default: false`.
 
         :stability: experimental
         :schema: HtmlParserConfiguration
@@ -2605,7 +2783,9 @@ class HtmlParserConfiguration:
 
     @builtins.property
     def interpolation(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables parsing double text expressions such as ``{{ expression }}`` inside ``.html`` files.
+        '''(experimental) Enables double-curly interpolation expressions such as ``{{ expression }}`` in ``.html`` files. Defaults to ``false``.
+
+        :default: false`.
 
         :stability: experimental
         :schema: HtmlParserConfiguration#interpolation
@@ -2619,7 +2799,9 @@ class HtmlParserConfiguration:
 
         Biome will already automatically enable Vue parsing in ``.vue`` files, so you probably don't need
         to enable this option. This only affects ``.html`` files, and does not change how ``.vue``, ``.svelte``,
-        or ``.astro`` files are parsed.
+        or ``.astro`` files are parsed. Defaults to ``false``.
+
+        :default: false`.
 
         :stability: experimental
         :schema: HtmlParserConfiguration#vue
@@ -2647,12 +2829,16 @@ class IndentStyle(enum.Enum):
     '''
 
     TAB = "TAB"
-    '''(experimental) Indent with Tab (tab).
+    '''(experimental) Uses tabs for indentation.
+
+    (tab)
 
     :stability: experimental
     '''
     SPACE = "SPACE"
-    '''(experimental) Indent with Space (space).
+    '''(experimental) Uses spaces for indentation.
+
+    (space)
 
     :stability: experimental
     '''
@@ -2667,7 +2853,7 @@ class JsAssistConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Assist options specific to the JavaScript assist.
 
-        :param enabled: (experimental) Controls assist actions for JavaScript and languages that extend it.
+        :param enabled: (experimental) Enables or disables assist actions for JavaScript and languages that extend it.
 
         :stability: experimental
         :schema: JsAssistConfiguration
@@ -2681,7 +2867,7 @@ class JsAssistConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls assist actions for JavaScript and languages that extend it.
+        '''(experimental) Enables or disables assist actions for JavaScript and languages that extend it.
 
         :stability: experimental
         :schema: JsAssistConfiguration#enabled
@@ -2728,16 +2914,19 @@ class JsConfiguration:
         parser: typing.Optional[typing.Union["JsParserConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         resolver: typing.Optional[typing.Union["JsResolverConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
-        '''(experimental) A set of options applied to the JavaScript files.
+        '''(experimental) Options applied to JavaScript, TypeScript, JSX, TSX, and supported languages that embed JavaScript.
 
-        :param assist: (experimental) Assist options.
-        :param experimental_embedded_snippets_enabled: (experimental) Enables support for embedding snippets.
-        :param formatter: (experimental) Formatting options.
-        :param globals: (experimental) A list of global bindings that should be ignored by the analyzers. If defined here, they should not emit diagnostics.
-        :param jsx_runtime: (experimental) Indicates the type of runtime or transformation used for interpreting JSX.
-        :param linter: (experimental) Linter options.
-        :param parser: (experimental) Parsing options.
-        :param resolver: (experimental) Module/dependency resolver options.
+        Language-specific settings take precedence over corresponding global settings. Global settings
+        apply when their language-specific counterparts are omitted, unless stated otherwise.
+
+        :param assist: (experimental) JavaScript assist options.
+        :param experimental_embedded_snippets_enabled: (experimental) Enables experimental parsing, formatting, linting, diagnostics, and fixes for CSS and GraphQL snippets embedded in JavaScript and TypeScript template literals. Biome recognizes CSS in ``css`` and ``styled`` templates and GraphQL in ``gql`` and ``graphql`` templates or calls. Templates containing interpolations are not currently supported. Defaults to ``false``. Default: false`.
+        :param formatter: (experimental) JavaScript formatter options.
+        :param globals: (experimental) A list of additional names that Biome's JavaScript linter treats as predefined global bindings. Use this for globals supplied by a runtime, framework, or external script that are not declared in the source file.
+        :param jsx_runtime: (experimental) Configures how the analyzer accounts for imports used by JSX. This option does not transform JSX or select a runtime for a build tool. Defaults to ``transparent``. Default: transparent`.
+        :param linter: (experimental) JavaScript linter options.
+        :param parser: (experimental) JavaScript parser options.
+        :param resolver: (experimental) JavaScript module and dependency resolver options.
 
         :stability: experimental
         :schema: JsConfiguration
@@ -2782,7 +2971,7 @@ class JsConfiguration:
 
     @builtins.property
     def assist(self) -> typing.Optional["JsAssistConfiguration"]:
-        '''(experimental) Assist options.
+        '''(experimental) JavaScript assist options.
 
         :stability: experimental
         :schema: JsConfiguration#assist
@@ -2792,7 +2981,13 @@ class JsConfiguration:
 
     @builtins.property
     def experimental_embedded_snippets_enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables support for embedding snippets.
+        '''(experimental) Enables experimental parsing, formatting, linting, diagnostics, and fixes for CSS and GraphQL snippets embedded in JavaScript and TypeScript template literals.
+
+        Biome recognizes CSS in ``css`` and ``styled`` templates and GraphQL in ``gql`` and ``graphql``
+        templates or calls. Templates containing interpolations are not currently supported.
+        Defaults to ``false``.
+
+        :default: false`.
 
         :stability: experimental
         :schema: JsConfiguration#experimentalEmbeddedSnippetsEnabled
@@ -2802,7 +2997,7 @@ class JsConfiguration:
 
     @builtins.property
     def formatter(self) -> typing.Optional["JsFormatterConfiguration"]:
-        '''(experimental) Formatting options.
+        '''(experimental) JavaScript formatter options.
 
         :stability: experimental
         :schema: JsConfiguration#formatter
@@ -2812,9 +3007,10 @@ class JsConfiguration:
 
     @builtins.property
     def globals(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) A list of global bindings that should be ignored by the analyzers.
+        '''(experimental) A list of additional names that Biome's JavaScript linter treats as predefined global bindings.
 
-        If defined here, they should not emit diagnostics.
+        Use this for globals supplied by a runtime, framework, or external script that are not
+        declared in the source file.
 
         :stability: experimental
         :schema: JsConfiguration#globals
@@ -2824,7 +3020,12 @@ class JsConfiguration:
 
     @builtins.property
     def jsx_runtime(self) -> typing.Optional["JsxRuntime"]:
-        '''(experimental) Indicates the type of runtime or transformation used for interpreting JSX.
+        '''(experimental) Configures how the analyzer accounts for imports used by JSX.
+
+        This option does not transform
+        JSX or select a runtime for a build tool. Defaults to ``transparent``.
+
+        :default: transparent`.
 
         :stability: experimental
         :schema: JsConfiguration#jsxRuntime
@@ -2834,7 +3035,7 @@ class JsConfiguration:
 
     @builtins.property
     def linter(self) -> typing.Optional["JsLinterConfiguration"]:
-        '''(experimental) Linter options.
+        '''(experimental) JavaScript linter options.
 
         :stability: experimental
         :schema: JsConfiguration#linter
@@ -2844,7 +3045,7 @@ class JsConfiguration:
 
     @builtins.property
     def parser(self) -> typing.Optional["JsParserConfiguration"]:
-        '''(experimental) Parsing options.
+        '''(experimental) JavaScript parser options.
 
         :stability: experimental
         :schema: JsConfiguration#parser
@@ -2854,7 +3055,7 @@ class JsConfiguration:
 
     @builtins.property
     def resolver(self) -> typing.Optional["JsResolverConfiguration"]:
-        '''(experimental) Module/dependency resolver options.
+        '''(experimental) JavaScript module and dependency resolver options.
 
         :stability: experimental
         :schema: JsConfiguration#resolver
@@ -2921,25 +3122,25 @@ class JsFormatterConfiguration:
         trailing_commas: typing.Optional["JsTrailingCommas"] = None,
         trailing_newline: typing.Optional[builtins.bool] = None,
     ) -> None:
-        '''(experimental) Formatting options specific to the JavaScript files.
+        '''(experimental) Formatting options specific to JavaScript and languages that extend it.
 
-        :param arrow_parentheses: (experimental) Whether to add parentheses around arrow function parameters. Defaults to ``always``. Default: always`.
+        :param arrow_parentheses: (experimental) Controls parentheses around arrow-function parameters. ``always`` always prints parentheses, while ``asNeeded`` omits them when an arrow function has one parameter and the syntax permits it. Defaults to ``always``. Default: always`.
         :param attribute_position: (experimental) The attribute position style in JSX elements. If unset, inherits the global attribute position setting.
-        :param bracket_same_line: (experimental) Whether to hug the closing bracket of multiline HTML/JSX tags to the end of the last line, rather than being alone on the following line. If unset, inherits the global bracket placement setting.
-        :param bracket_spacing: (experimental) Whether to insert spaces inside braces in object literals. If unset, inherits the global bracket spacing setting.
-        :param delimiter_spacing: (experimental) Controls spaces immediately inside supported JavaScript and TypeScript delimiters when their content fits on one line. It doesn't add spaces before opening delimiters or inside empty delimiters. It affects parentheses, square brackets, template interpolations, TypeScript angle brackets, JSX expression braces, and logical NOT. In operator chains, only the final operator receives a following space. If unset, inherits the global delimiter spacing setting.
-        :param enabled: (experimental) Controls the formatter for JavaScript and languages that extend it.
+        :param bracket_same_line: (experimental) Controls the placement of the closing bracket for multiline JSX opening tags. Biome places the bracket at the end of the last attribute line when enabled and on its own line after the last attribute when disabled. Self-closing JSX elements are unaffected. If unset, inherits the global bracket placement setting.
+        :param bracket_spacing: (experimental) Controls spaces inside the braces of single-line object literals. Biome formats ``{value: 1}`` when disabled and ``{ value: 1 }`` when enabled. If unset, inherits the global bracket spacing setting.
+        :param delimiter_spacing: (experimental) Controls spaces immediately inside supported JavaScript and TypeScript delimiters when their content fits on one line. This affects parentheses, square brackets, template interpolations, TypeScript angle brackets, and JSX expression braces. Empty delimiters are unchanged. It also controls spacing after logical NOT operators. In a chain of logical NOT operators, only the final operator receives a following space. Biome doesn't add spaces before opening delimiters. If unset, inherits the global delimiter spacing setting.
+        :param enabled: (experimental) Enables or disables the formatter for JavaScript and languages that extend it.
         :param expand: (experimental) Uses the same ``auto``, ``always``, and ``never`` behavior as the global expansion setting. If unset, inherits the global expansion setting.
         :param indent_style: (experimental) The indent style applied to JavaScript and languages that extend it. If unset, inherits the global indentation style.
         :param indent_width: (experimental) The indentation width applied to JavaScript and languages that extend it. If unset, inherits the global indentation width.
-        :param jsx_quote_style: (experimental) The type of quotes used in JSX. Defaults to ``double``. Default: double`.
+        :param jsx_quote_style: (experimental) Selects the preferred quote style for JSX attribute values. Defaults to ``double``. Default: double`.
         :param line_ending: (experimental) The line ending applied to JavaScript and languages that extend it. If unset, inherits the global line ending.
-        :param line_width: (experimental) The maximum line width applied to JavaScript and languages that extend it. If unset, inherits the global line width.
+        :param line_width: (experimental) The preferred maximum line width applied to JavaScript and languages that extend it. If unset, inherits the global line width.
         :param operator_linebreak: (experimental) When breaking binary expressions into multiple lines, whether to break them before or after the binary operator. Defaults to ``after``. Default: after`.
-        :param quote_properties: (experimental) Controls when object properties are quoted. Defaults to ``asNeeded`` in configuration (``as-needed`` on the CLI). Default: asNeeded` in configuration
-        :param quote_style: (experimental) The type of quotes used in JavaScript code. Defaults to ``double``. Default: double`.
+        :param quote_properties: (experimental) Controls whether quotes around object property names are preserved. ``asNeeded`` removes quotes when the property name is valid without them, while ``preserve`` keeps quotes around property names that were quoted in the input. Defaults to ``asNeeded`` in configuration (``as-needed`` on the CLI). Default: asNeeded` in configuration
+        :param quote_style: (experimental) Selects the preferred quote style for JavaScript and TypeScript string literals. Biome may use the alternate quote when that avoids additional escaping. Defaults to ``double``. Default: double`.
         :param semicolons: (experimental) Prints semicolons after every statement or only where needed to avoid automatic semicolon insertion hazards. Defaults to ``always``. Default: always`.
-        :param trailing_commas: (experimental) Prints trailing commas wherever possible in multiline comma-separated structures. Defaults to ``all``. Default: all`.
+        :param trailing_commas: (experimental) Controls trailing commas in multiline comma-separated structures. ``all`` adds trailing commas wherever syntax permits, including function parameters and calls. ``es5`` adds them only in constructs supported by ES5, such as array and object literals, and excludes function parameters, function calls, and TypeScript type parameters. ``none`` removes trailing commas. Defaults to ``all``. Default: all`.
         :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. If unset, inherits the global trailing newline setting.
 
         :stability: experimental
@@ -3005,9 +3206,11 @@ class JsFormatterConfiguration:
 
     @builtins.property
     def arrow_parentheses(self) -> typing.Optional["ArrowParentheses"]:
-        '''(experimental) Whether to add parentheses around arrow function parameters.
+        '''(experimental) Controls parentheses around arrow-function parameters.
 
-        Defaults to ``always``.
+        ``always`` always prints parentheses,
+        while ``asNeeded`` omits them when an arrow function has one parameter and the syntax permits
+        it. Defaults to ``always``.
 
         :default: always`.
 
@@ -3032,10 +3235,12 @@ class JsFormatterConfiguration:
 
     @builtins.property
     def bracket_same_line(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to hug the closing bracket of multiline HTML/JSX tags to the end of the last line, rather than being alone on the following line.
+        '''(experimental) Controls the placement of the closing bracket for multiline JSX opening tags.
 
-        If unset, inherits the global bracket
-        placement setting.
+        Biome places
+        the bracket at the end of the last attribute line when enabled and on its own line after the
+        last attribute when disabled. Self-closing JSX elements are unaffected. If unset, inherits
+        the global bracket placement setting.
 
         :stability: experimental
         :schema: JsFormatterConfiguration#bracketSameLine
@@ -3045,10 +3250,11 @@ class JsFormatterConfiguration:
 
     @builtins.property
     def bracket_spacing(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to insert spaces inside braces in object literals.
+        '''(experimental) Controls spaces inside the braces of single-line object literals.
 
-        If unset, inherits the global
-        bracket spacing setting.
+        Biome formats ``{value: 1}``
+        when disabled and ``{ value: 1 }`` when enabled. If unset, inherits the global bracket spacing
+        setting.
 
         :stability: experimental
         :schema: JsFormatterConfiguration#bracketSpacing
@@ -3060,12 +3266,13 @@ class JsFormatterConfiguration:
     def delimiter_spacing(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Controls spaces immediately inside supported JavaScript and TypeScript delimiters when their content fits on one line.
 
-        It doesn't add spaces before opening delimiters or inside empty
-        delimiters.
+        This affects parentheses, square brackets, template
+        interpolations, TypeScript angle brackets, and JSX expression braces. Empty delimiters are
+        unchanged.
 
-        It affects parentheses, square brackets, template interpolations, TypeScript angle brackets,
-        JSX expression braces, and logical NOT. In operator chains, only the final operator receives
-        a following space.
+        It also controls spacing after logical NOT operators. In a chain of logical NOT operators,
+        only the final operator receives a following space. Biome doesn't add spaces before opening
+        delimiters.
 
         If unset, inherits the global delimiter spacing setting.
 
@@ -3077,7 +3284,7 @@ class JsFormatterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the formatter for JavaScript and languages that extend it.
+        '''(experimental) Enables or disables the formatter for JavaScript and languages that extend it.
 
         :stability: experimental
         :schema: JsFormatterConfiguration#enabled
@@ -3125,7 +3332,7 @@ class JsFormatterConfiguration:
 
     @builtins.property
     def jsx_quote_style(self) -> typing.Optional["QuoteStyle"]:
-        '''(experimental) The type of quotes used in JSX.
+        '''(experimental) Selects the preferred quote style for JSX attribute values.
 
         Defaults to ``double``.
 
@@ -3152,10 +3359,10 @@ class JsFormatterConfiguration:
 
     @builtins.property
     def line_width(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The maximum line width applied to JavaScript and languages that extend it.
+        '''(experimental) The preferred maximum line width applied to JavaScript and languages that extend it.
 
-        If unset,
-        inherits the global line width.
+        If
+        unset, inherits the global line width.
 
         :stability: experimental
         :schema: JsFormatterConfiguration#lineWidth
@@ -3179,9 +3386,11 @@ class JsFormatterConfiguration:
 
     @builtins.property
     def quote_properties(self) -> typing.Optional["QuoteProperties"]:
-        '''(experimental) Controls when object properties are quoted.
+        '''(experimental) Controls whether quotes around object property names are preserved.
 
-        Defaults to ``asNeeded`` in configuration
+        ``asNeeded`` removes
+        quotes when the property name is valid without them, while ``preserve`` keeps quotes around
+        property names that were quoted in the input. Defaults to ``asNeeded`` in configuration
         (``as-needed`` on the CLI).
 
         :default: asNeeded` in configuration
@@ -3194,9 +3403,10 @@ class JsFormatterConfiguration:
 
     @builtins.property
     def quote_style(self) -> typing.Optional["QuoteStyle"]:
-        '''(experimental) The type of quotes used in JavaScript code.
+        '''(experimental) Selects the preferred quote style for JavaScript and TypeScript string literals.
 
-        Defaults to ``double``.
+        Biome may
+        use the alternate quote when that avoids additional escaping. Defaults to ``double``.
 
         :default: double`.
 
@@ -3222,10 +3432,13 @@ class JsFormatterConfiguration:
 
     @builtins.property
     def trailing_commas(self) -> typing.Optional["JsTrailingCommas"]:
-        '''(experimental) Prints trailing commas wherever possible in multiline comma-separated structures.
+        '''(experimental) Controls trailing commas in multiline comma-separated structures.
 
-        Defaults
-        to ``all``.
+        ``all`` adds trailing commas
+        wherever syntax permits, including function parameters and calls. ``es5`` adds them only in
+        constructs supported by ES5, such as array and object literals, and excludes function
+        parameters, function calls, and TypeScript type parameters. ``none`` removes trailing commas.
+        Defaults to ``all``.
 
         :default: all`.
 
@@ -3269,7 +3482,7 @@ class JsLinterConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Linter options specific to the JavaScript linter.
 
-        :param enabled: (experimental) Controls the linter for JavaScript and languages that extend it.
+        :param enabled: (experimental) Enables or disables the linter for JavaScript and languages that extend it.
 
         :stability: experimental
         :schema: JsLinterConfiguration
@@ -3283,7 +3496,7 @@ class JsLinterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the linter for JavaScript and languages that extend it.
+        '''(experimental) Enables or disables the linter for JavaScript and languages that extend it.
 
         :stability: experimental
         :schema: JsLinterConfiguration#enabled
@@ -3307,7 +3520,6 @@ class JsLinterConfiguration:
     jsii_type="projen.javascript.biome_config.JsParserConfiguration",
     jsii_struct_bases=[],
     name_mapping={
-        "grit_metavariables": "gritMetavariables",
         "jsx_everywhere": "jsxEverywhere",
         "unsafe_parameter_decorators_enabled": "unsafeParameterDecoratorsEnabled",
     },
@@ -3316,49 +3528,30 @@ class JsParserConfiguration:
     def __init__(
         self,
         *,
-        grit_metavariables: typing.Optional[builtins.bool] = None,
         jsx_everywhere: typing.Optional[builtins.bool] = None,
         unsafe_parameter_decorators_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options that change how the JavaScript parser behaves.
 
-        :param grit_metavariables: (experimental) Enables parsing of Grit metavariables. Defaults to ``false``. Default: false`.
-        :param jsx_everywhere: (experimental) When enabled, files such as ``.js``, ``.mjs``, and ``.cjs`` may contain JSX syntax. Defaults to ``true``. Default: true`.
-        :param unsafe_parameter_decorators_enabled: (experimental) It enables the experimental and unsafe parsing of parameter decorators. These decorators belong to an old proposal, and they are subject to change.
+        :param jsx_everywhere: (experimental) Controls whether ``.js``, ``.mjs``, and ``.cjs`` files may contain JSX syntax. Disabling this option causes JSX in those files to raise a diagnostic. Defaults to ``true``. Default: true`.
+        :param unsafe_parameter_decorators_enabled: (experimental) Enables parsing decorators on class parameters. This syntax belongs to an old experimental proposal and may change. Defaults to ``false``. Default: false`.
 
         :stability: experimental
         :schema: JsParserConfiguration
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c08c2e4162829556526f51e35e2cd7194c2c8bab38e0d01775d808ad7d573450)
-            check_type(argname="argument grit_metavariables", value=grit_metavariables, expected_type=type_hints["grit_metavariables"])
             check_type(argname="argument jsx_everywhere", value=jsx_everywhere, expected_type=type_hints["jsx_everywhere"])
             check_type(argname="argument unsafe_parameter_decorators_enabled", value=unsafe_parameter_decorators_enabled, expected_type=type_hints["unsafe_parameter_decorators_enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if grit_metavariables is not None:
-            self._values["grit_metavariables"] = grit_metavariables
         if jsx_everywhere is not None:
             self._values["jsx_everywhere"] = jsx_everywhere
         if unsafe_parameter_decorators_enabled is not None:
             self._values["unsafe_parameter_decorators_enabled"] = unsafe_parameter_decorators_enabled
 
     @builtins.property
-    def grit_metavariables(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables parsing of Grit metavariables.
-
-        Defaults to ``false``.
-
-        :default: false`.
-
-        :stability: experimental
-        :schema: JsParserConfiguration#gritMetavariables
-        '''
-        result = self._values.get("grit_metavariables")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def jsx_everywhere(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) When enabled, files such as ``.js``, ``.mjs``, and ``.cjs`` may contain JSX syntax. Defaults to ``true``.
+        '''(experimental) Controls whether ``.js``, ``.mjs``, and ``.cjs`` files may contain JSX syntax. Disabling this option causes JSX in those files to raise a diagnostic. Defaults to ``true``.
 
         :default: true`.
 
@@ -3370,9 +3563,12 @@ class JsParserConfiguration:
 
     @builtins.property
     def unsafe_parameter_decorators_enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) It enables the experimental and unsafe parsing of parameter decorators.
+        '''(experimental) Enables parsing decorators on class parameters.
 
-        These decorators belong to an old proposal, and they are subject to change.
+        This syntax belongs to an old experimental
+        proposal and may change. Defaults to ``false``.
+
+        :default: false`.
 
         :stability: experimental
         :schema: JsParserConfiguration#unsafeParameterDecoratorsEnabled
@@ -3501,7 +3697,7 @@ class JsonAssistConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Assist options specific to the JSON linter.
 
-        :param enabled: (experimental) Controls assist actions for JSON and languages that extend it.
+        :param enabled: (experimental) Enables or disables assist actions for JSON and languages that extend it.
 
         :stability: experimental
         :schema: JsonAssistConfiguration
@@ -3515,7 +3711,7 @@ class JsonAssistConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls assist actions for JSON and languages that extend it.
+        '''(experimental) Enables or disables assist actions for JSON and languages that extend it.
 
         :stability: experimental
         :schema: JsonAssistConfiguration#enabled
@@ -3554,7 +3750,10 @@ class JsonConfiguration:
         linter: typing.Optional[typing.Union["JsonLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         parser: typing.Optional[typing.Union["JsonParserConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
-        '''(experimental) Options applied to JSON files.
+        '''(experimental) Options applied to JSON, JSONC, and recognized JSON-based configuration files.
+
+        Language-specific settings take precedence over corresponding global settings. Global settings
+        apply when their language-specific counterparts are omitted, unless stated otherwise.
 
         :param assist: (experimental) Assist options.
         :param formatter: (experimental) Formatting options.
@@ -3674,13 +3873,13 @@ class JsonFormatterConfiguration:
         '''
         :param bracket_spacing: (experimental) Whether to insert spaces inside braces in object literals. If unset, inherits the global bracket spacing setting.
         :param delimiter_spacing: (experimental) Controls spaces inside JSON square brackets when their content fits on one line. When enabled, ``[1, 2, 3]`` becomes ``[ 1, 2, 3 ]``. Empty brackets are unchanged. If unset, inherits the global delimiter spacing setting.
-        :param enabled: (experimental) Controls the formatter for JSON and languages that extend it.
+        :param enabled: (experimental) Enables or disables the formatter for JSON and languages that extend it.
         :param expand: (experimental) Uses the same ``auto``, ``always``, and ``never`` behavior as the global expansion setting. If unset, inherits the global expansion setting. When formatting ``package.json``, Biome uses ``always`` unless configured otherwise.
         :param indent_style: (experimental) The indent style applied to JSON and languages that extend it. If unset, inherits the global indentation style.
         :param indent_width: (experimental) The indentation width applied to JSON and languages that extend it. If unset, inherits the global indentation width.
         :param line_ending: (experimental) The line ending applied to JSON and languages that extend it. If unset, inherits the global line ending.
-        :param line_width: (experimental) The maximum line width applied to JSON and languages that extend it. If unset, inherits the global line width.
-        :param trailing_commas: (experimental) Prints trailing commas wherever possible in multiline comma-separated structures. Defaults to ``none``. Default: none`.
+        :param line_width: (experimental) The preferred maximum line width applied to JSON and languages that extend it. If unset, inherits the global line width.
+        :param trailing_commas: (experimental) Controls trailing commas in multiline JSON arrays and objects. ``none`` removes trailing commas, while ``all`` adds them wherever the JSON formatter supports them. Use ``all`` only for JSON variants that allow trailing commas, and ensure ``json.parser.allowTrailingCommas`` is enabled or automatically detected for those files. Defaults to ``none``. Default: none`.
         :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. If unset, inherits the global trailing newline setting.
 
         :stability: experimental
@@ -3750,7 +3949,7 @@ class JsonFormatterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the formatter for JSON and languages that extend it.
+        '''(experimental) Enables or disables the formatter for JSON and languages that extend it.
 
         :stability: experimental
         :schema: JsonFormatterConfiguration#enabled
@@ -3813,10 +4012,10 @@ class JsonFormatterConfiguration:
 
     @builtins.property
     def line_width(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The maximum line width applied to JSON and languages that extend it.
+        '''(experimental) The preferred maximum line width applied to JSON and languages that extend it.
 
-        If unset, inherits the
-        global line width.
+        If unset,
+        inherits the global line width.
 
         :stability: experimental
         :schema: JsonFormatterConfiguration#lineWidth
@@ -3826,10 +4025,12 @@ class JsonFormatterConfiguration:
 
     @builtins.property
     def trailing_commas(self) -> typing.Optional["JsonTrailingCommas"]:
-        '''(experimental) Prints trailing commas wherever possible in multiline comma-separated structures.
+        '''(experimental) Controls trailing commas in multiline JSON arrays and objects.
 
-        Defaults
-        to ``none``.
+        ``none`` removes trailing
+        commas, while ``all`` adds them wherever the JSON formatter supports them. Use ``all`` only for
+        JSON variants that allow trailing commas, and ensure ``json.parser.allowTrailingCommas`` is
+        enabled or automatically detected for those files. Defaults to ``none``.
 
         :default: none`.
 
@@ -3873,7 +4074,7 @@ class JsonLinterConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
         '''(experimental) Linter options specific to the JSON linter.
 
-        :param enabled: (experimental) Controls the linter for JSON and languages that extend it.
+        :param enabled: (experimental) Enables or disables the linter for JSON and languages that extend it.
 
         :stability: experimental
         :schema: JsonLinterConfiguration
@@ -3887,7 +4088,7 @@ class JsonLinterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Controls the linter for JSON and languages that extend it.
+        '''(experimental) Enables or disables the linter for JSON and languages that extend it.
 
         :stability: experimental
         :schema: JsonLinterConfiguration#enabled
@@ -3924,8 +4125,8 @@ class JsonParserConfiguration:
     ) -> None:
         '''(experimental) Options that change how the JSON parser behaves.
 
-        :param allow_comments: (experimental) Allows parsing comments in ``.json`` files.
-        :param allow_trailing_commas: (experimental) Allows parsing trailing commas in ``.json`` files.
+        :param allow_comments: (experimental) Controls whether comments are allowed in files parsed as JSON. When unset, Biome follows the file type's default behavior. An explicit value overrides that behavior, except that ``biome.jsonc`` always allows comments.
+        :param allow_trailing_commas: (experimental) Controls whether trailing commas are allowed in files parsed as JSON. When unset, Biome follows the file type's default behavior. An explicit value overrides that behavior, except that ``biome.jsonc`` always allows trailing commas.
 
         :stability: experimental
         :schema: JsonParserConfiguration
@@ -3942,7 +4143,11 @@ class JsonParserConfiguration:
 
     @builtins.property
     def allow_comments(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Allows parsing comments in ``.json`` files.
+        '''(experimental) Controls whether comments are allowed in files parsed as JSON.
+
+        When unset, Biome follows the
+        file type's default behavior. An explicit value overrides that behavior, except that
+        ``biome.jsonc`` always allows comments.
 
         :stability: experimental
         :schema: JsonParserConfiguration#allowComments
@@ -3952,7 +4157,11 @@ class JsonParserConfiguration:
 
     @builtins.property
     def allow_trailing_commas(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Allows parsing trailing commas in ``.json`` files.
+        '''(experimental) Controls whether trailing commas are allowed in files parsed as JSON.
+
+        When unset, Biome
+        follows the file type's default behavior. An explicit value overrides that behavior, except
+        that ``biome.jsonc`` always allows trailing commas.
 
         :stability: experimental
         :schema: JsonParserConfiguration#allowTrailingCommas
@@ -3974,7 +4183,9 @@ class JsonParserConfiguration:
 
 @jsii.enum(jsii_type="projen.javascript.biome_config.JsonTrailingCommas")
 class JsonTrailingCommas(enum.Enum):
-    '''(experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures for JSON files.
+    '''(experimental) Controls trailing commas in multiline JSON arrays and objects.
+
+    Use ``all`` only for JSON variants that allow trailing commas, and ensure ``json.parser.allowTrailingCommas`` is enabled or automatically detected for those files.
 
     :stability: experimental
     :schema: JsonTrailingCommas
@@ -3994,21 +4205,21 @@ class JsonTrailingCommas(enum.Enum):
 
 @jsii.enum(jsii_type="projen.javascript.biome_config.JsxRuntime")
 class JsxRuntime(enum.Enum):
-    '''(experimental) Indicates the type of runtime or transformation used for interpreting JSX.
+    '''(experimental) How Biome's analyzer accounts for imports used by JSX.
 
     :stability: experimental
     :schema: JsxRuntime
     '''
 
     TRANSPARENT = "TRANSPARENT"
-    '''(experimental) Indicates a modern or native JSX environment, that doesn't require special handling by Biome.
+    '''(experimental) An automatic or native JSX environment that doesn't require an in-scope factory import.
 
     (transparent)
 
     :stability: experimental
     '''
     REACT_CLASSIC = "REACT_CLASSIC"
-    '''(experimental) Indicates a classic React environment that requires the ``React`` import.
+    '''(experimental) A classic React environment that requires the React import, or custom JSX factory imports configured in ``tsconfig.json``.
 
     Corresponds to the ``react`` value for the ``jsx`` option in TypeScript's
     ``tsconfig.json``.
@@ -4071,10 +4282,10 @@ class LinterConfiguration:
         rules: typing.Optional[typing.Union["Rules", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param domains: (experimental) An object where the keys are the names of the domains, and the values are ``all``, ``recommended``, or ``none``.
-        :param enabled: (experimental) if ``false``, it disables the feature and the linter won't be executed. ``true`` by default
-        :param includes: (experimental) A list of glob patterns. The analyzer will handle only those files/folders that will match these patterns.
-        :param rules: (experimental) List of rules.
+        :param domains: (experimental) Configures rules associated with a framework, library, project-wide analysis, or type analysis. Keys are domain names and values are ``all``, ``recommended``, or ``none``. Enabling rules from the ``project`` or ``types`` domains activates project and dependency scanning. The ``types`` domain also enables type-aware resolution.
+        :param enabled: (experimental) Enables or disables the linter. Defaults to ``true``. Default: true`.
+        :param includes: (experimental) A list of glob patterns selecting files to lint. If omitted, all files selected by ``files.includes`` remain eligible for linting. An empty list selects no files. This option can only narrow the files selected by ``files.includes``.
+        :param rules: (experimental) The lint-rule configuration.
 
         :stability: experimental
         :schema: LinterConfiguration
@@ -4101,7 +4312,11 @@ class LinterConfiguration:
 
     @builtins.property
     def domains(self) -> typing.Optional["RuleDomains"]:
-        '''(experimental) An object where the keys are the names of the domains, and the values are ``all``, ``recommended``, or ``none``.
+        '''(experimental) Configures rules associated with a framework, library, project-wide analysis, or type analysis.
+
+        Keys are domain names and values are ``all``, ``recommended``, or ``none``.
+        Enabling rules from the ``project`` or ``types`` domains activates project and dependency
+        scanning. The ``types`` domain also enables type-aware resolution.
 
         :stability: experimental
         :schema: LinterConfiguration#domains
@@ -4111,9 +4326,11 @@ class LinterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) if ``false``, it disables the feature and the linter won't be executed.
+        '''(experimental) Enables or disables the linter.
 
-        ``true`` by default
+        Defaults to ``true``.
+
+        :default: true`.
 
         :stability: experimental
         :schema: LinterConfiguration#enabled
@@ -4123,10 +4340,11 @@ class LinterConfiguration:
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) A list of glob patterns.
+        '''(experimental) A list of glob patterns selecting files to lint.
 
-        The analyzer will handle only those files/folders that will
-        match these patterns.
+        If omitted, all files selected by
+        ``files.includes`` remain eligible for linting. An empty list selects no files. This option can
+        only narrow the files selected by ``files.includes``.
 
         :stability: experimental
         :schema: LinterConfiguration#includes
@@ -4136,7 +4354,7 @@ class LinterConfiguration:
 
     @builtins.property
     def rules(self) -> typing.Optional["Rules"]:
-        '''(experimental) List of rules.
+        '''(experimental) The lint-rule configuration.
 
         :stability: experimental
         :schema: LinterConfiguration#rules
@@ -4152,6 +4370,462 @@ class LinterConfiguration:
 
     def __repr__(self) -> str:
         return "LinterConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.MarkdownConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "analyze_embeds": "analyzeEmbeds",
+        "formatter": "formatter",
+        "linter": "linter",
+        "parser": "parser",
+    },
+)
+class MarkdownConfiguration:
+    def __init__(
+        self,
+        *,
+        analyze_embeds: typing.Optional[builtins.bool] = None,
+        formatter: typing.Optional[typing.Union["MarkdownFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        linter: typing.Optional[typing.Union["MarkdownLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        parser: typing.Optional[typing.Union["MarkdownParserConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''(experimental) Options applied to Markdown files.
+
+        :param analyze_embeds: (experimental) Runs the linter and assist actions on the code inside fenced code blocks, frontmatter, and HTML blocks, with the rules and actions of the code's language. Defaults to ``false``. Default: false`.
+        :param formatter: (experimental) Formatter options.
+        :param linter: (experimental) Linter options.
+        :param parser: (experimental) Parsing options.
+
+        :stability: experimental
+        :schema: MarkdownConfiguration
+        '''
+        if isinstance(formatter, dict):
+            formatter = MarkdownFormatterConfiguration(**formatter)
+        if isinstance(linter, dict):
+            linter = MarkdownLinterConfiguration(**linter)
+        if isinstance(parser, dict):
+            parser = MarkdownParserConfiguration(**parser)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9c0f77fe366fbbfddda5ede857901f0002d502c1e847f7998e0ef60a07b15ee5)
+            check_type(argname="argument analyze_embeds", value=analyze_embeds, expected_type=type_hints["analyze_embeds"])
+            check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
+            check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
+            check_type(argname="argument parser", value=parser, expected_type=type_hints["parser"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if analyze_embeds is not None:
+            self._values["analyze_embeds"] = analyze_embeds
+        if formatter is not None:
+            self._values["formatter"] = formatter
+        if linter is not None:
+            self._values["linter"] = linter
+        if parser is not None:
+            self._values["parser"] = parser
+
+    @builtins.property
+    def analyze_embeds(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Runs the linter and assist actions on the code inside fenced code blocks, frontmatter, and HTML blocks, with the rules and actions of the code's language.
+
+        Defaults to ``false``.
+
+        :default: false`.
+
+        :stability: experimental
+        :schema: MarkdownConfiguration#analyzeEmbeds
+        '''
+        result = self._values.get("analyze_embeds")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def formatter(self) -> typing.Optional["MarkdownFormatterConfiguration"]:
+        '''(experimental) Formatter options.
+
+        :stability: experimental
+        :schema: MarkdownConfiguration#formatter
+        '''
+        result = self._values.get("formatter")
+        return typing.cast(typing.Optional["MarkdownFormatterConfiguration"], result)
+
+    @builtins.property
+    def linter(self) -> typing.Optional["MarkdownLinterConfiguration"]:
+        '''(experimental) Linter options.
+
+        :stability: experimental
+        :schema: MarkdownConfiguration#linter
+        '''
+        result = self._values.get("linter")
+        return typing.cast(typing.Optional["MarkdownLinterConfiguration"], result)
+
+    @builtins.property
+    def parser(self) -> typing.Optional["MarkdownParserConfiguration"]:
+        '''(experimental) Parsing options.
+
+        :stability: experimental
+        :schema: MarkdownConfiguration#parser
+        '''
+        result = self._values.get("parser")
+        return typing.cast(typing.Optional["MarkdownParserConfiguration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MarkdownConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.MarkdownFormatterConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "enabled": "enabled",
+        "format_embeds": "formatEmbeds",
+        "indent_style": "indentStyle",
+        "indent_width": "indentWidth",
+        "line_ending": "lineEnding",
+        "line_width": "lineWidth",
+        "prose_wrap": "proseWrap",
+        "trailing_newline": "trailingNewline",
+    },
+)
+class MarkdownFormatterConfiguration:
+    def __init__(
+        self,
+        *,
+        enabled: typing.Optional[builtins.bool] = None,
+        format_embeds: typing.Optional[builtins.bool] = None,
+        indent_style: typing.Optional["IndentStyle"] = None,
+        indent_width: typing.Optional[jsii.Number] = None,
+        line_ending: typing.Optional["LineEnding"] = None,
+        line_width: typing.Optional[jsii.Number] = None,
+        prose_wrap: typing.Optional["ProseWrap"] = None,
+        trailing_newline: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Options that change how the Markdown formatter behaves.
+
+        :param enabled: (experimental) Control the formatter for Markdown (and its super languages) files.
+        :param format_embeds: (experimental) Formats the code inside fenced code blocks, frontmatter, and HTML blocks with the formatter of the code's language. Defaults to ``true``. A block with a syntax error stays as written, and Biome still formats the rest of the file. When this option is ``false``, Biome keeps every block as written. Default: true`.
+        :param indent_style: (experimental) The indent style applied to Markdown files.
+        :param indent_width: (experimental) The size of the indentation applied to Markdown files. Defaults to 2. Default: 2.
+        :param line_ending: (experimental) The type of line ending applied to Markdown (and its super languages) files. ``auto`` uses CRLF on Windows and LF on other platforms.
+        :param line_width: (experimental) What's the max width of a line applied to Markdown files. Defaults to 80. Default: 80.
+        :param prose_wrap: (experimental) Controls whether Biome keeps, adds, or removes line breaks in Markdown paragraphs. Manual line breaks are always kept. In Markdown, a manual line break is created by ending a line with two spaces or a backslash.
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
+
+        :stability: experimental
+        :schema: MarkdownFormatterConfiguration
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4ee25d4f71c40309136ce3dadf5413566922dcca0df3b908293e084a82af789a)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument format_embeds", value=format_embeds, expected_type=type_hints["format_embeds"])
+            check_type(argname="argument indent_style", value=indent_style, expected_type=type_hints["indent_style"])
+            check_type(argname="argument indent_width", value=indent_width, expected_type=type_hints["indent_width"])
+            check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
+            check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
+            check_type(argname="argument prose_wrap", value=prose_wrap, expected_type=type_hints["prose_wrap"])
+            check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if format_embeds is not None:
+            self._values["format_embeds"] = format_embeds
+        if indent_style is not None:
+            self._values["indent_style"] = indent_style
+        if indent_width is not None:
+            self._values["indent_width"] = indent_width
+        if line_ending is not None:
+            self._values["line_ending"] = line_ending
+        if line_width is not None:
+            self._values["line_width"] = line_width
+        if prose_wrap is not None:
+            self._values["prose_wrap"] = prose_wrap
+        if trailing_newline is not None:
+            self._values["trailing_newline"] = trailing_newline
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Control the formatter for Markdown (and its super languages) files.
+
+        :stability: experimental
+        :schema: MarkdownFormatterConfiguration#enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def format_embeds(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Formats the code inside fenced code blocks, frontmatter, and HTML blocks with the formatter of the code's language.
+
+        Defaults to ``true``.
+
+        A block with a syntax error stays as written, and Biome still formats the rest of the file.
+
+        When this option is ``false``, Biome keeps every block as written.
+
+        :default: true`.
+
+        :stability: experimental
+        :schema: MarkdownFormatterConfiguration#formatEmbeds
+        '''
+        result = self._values.get("format_embeds")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def indent_style(self) -> typing.Optional["IndentStyle"]:
+        '''(experimental) The indent style applied to Markdown files.
+
+        :stability: experimental
+        :schema: MarkdownFormatterConfiguration#indentStyle
+        '''
+        result = self._values.get("indent_style")
+        return typing.cast(typing.Optional["IndentStyle"], result)
+
+    @builtins.property
+    def indent_width(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The size of the indentation applied to Markdown files.
+
+        Defaults to 2.
+
+        :default: 2.
+
+        :stability: experimental
+        :schema: MarkdownFormatterConfiguration#indentWidth
+        '''
+        result = self._values.get("indent_width")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def line_ending(self) -> typing.Optional["LineEnding"]:
+        '''(experimental) The type of line ending applied to Markdown (and its super languages) files.
+
+        ``auto`` uses CRLF on Windows and LF on other platforms.
+
+        :stability: experimental
+        :schema: MarkdownFormatterConfiguration#lineEnding
+        '''
+        result = self._values.get("line_ending")
+        return typing.cast(typing.Optional["LineEnding"], result)
+
+    @builtins.property
+    def line_width(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) What's the max width of a line applied to Markdown files.
+
+        Defaults to 80.
+
+        :default: 80.
+
+        :stability: experimental
+        :schema: MarkdownFormatterConfiguration#lineWidth
+        '''
+        result = self._values.get("line_width")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def prose_wrap(self) -> typing.Optional["ProseWrap"]:
+        '''(experimental) Controls whether Biome keeps, adds, or removes line breaks in Markdown paragraphs.
+
+        Manual line breaks are always kept. In Markdown, a manual line break is created by ending a
+        line with two spaces or a backslash.
+
+        :stability: experimental
+        :schema: MarkdownFormatterConfiguration#proseWrap
+        '''
+        result = self._values.get("prose_wrap")
+        return typing.cast(typing.Optional["ProseWrap"], result)
+
+    @builtins.property
+    def trailing_newline(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to add a trailing newline at the end of the file.
+
+        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
+
+        - https://thoughtbot.com/blog/no-newline-at-end-of-file
+        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
+        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
+
+        Disable the option at your own risk.
+
+        Defaults to true.
+
+        :default: true.
+
+        :stability: experimental
+        :schema: MarkdownFormatterConfiguration#trailingNewline
+        '''
+        result = self._values.get("trailing_newline")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MarkdownFormatterConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.MarkdownLinterConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"enabled": "enabled"},
+)
+class MarkdownLinterConfiguration:
+    def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
+        '''(experimental) Options that change how the Markdown linter behaves.
+
+        :param enabled: (experimental) Control the linter for Markdown files.
+
+        :stability: experimental
+        :schema: MarkdownLinterConfiguration
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0e95f8e46a79bb691a2ac81ce7797be7d5c153005b278d27315908fdc06c7648)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if enabled is not None:
+            self._values["enabled"] = enabled
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Control the linter for Markdown files.
+
+        :stability: experimental
+        :schema: MarkdownLinterConfiguration#enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MarkdownLinterConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.MarkdownParserConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cjk_friendly_emphasis": "cjkFriendlyEmphasis",
+        "frontmatter": "frontmatter",
+        "gfm": "gfm",
+    },
+)
+class MarkdownParserConfiguration:
+    def __init__(
+        self,
+        *,
+        cjk_friendly_emphasis: typing.Optional[builtins.bool] = None,
+        frontmatter: typing.Optional[builtins.bool] = None,
+        gfm: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Options that change how the Markdown parser behaves.
+
+        :param cjk_friendly_emphasis: (experimental) Recognizes bold, italic, and strikethrough markers placed directly next to Chinese, Japanese, or Korean text. Defaults to ``false``. Standard Markdown doesn't treat ``**テスト。**テスト`` as bold text, because the closing ``**`` is between a punctuation mark and a letter with no space around it. Languages that don't put spaces between words run into this often. When enabled, Biome follows the `CommonMark CJK-friendly amendments <https://github.com/tats-u/markdown-cjk-friendly/blob/main/specification.md>`_ and treats such text as bold or italic. The option applies to ``*``, ``_``, and ``~~`` markers. After a variation selector (an invisible character that picks a glyph style for the character before it), Biome classifies a marker by the character before the selector. The option can also change markers that aren't next to Chinese, Japanese, or Korean text, because a marker that can now open or close formatting can take another marker's partner in the same paragraph, heading, or table cell. For example, standard Markdown shows ``**テスト。**テスト a**`` with ``テスト a`` in bold. With the option enabled, ``テスト。`` is bold and the last ``**`` is shown as written. The formatter and the linter both use this reading of the document. Enable the option only when the tool that renders your Markdown also supports these amendments. Otherwise, Biome treats as bold some text that your renderer shows with literal ``**``, and formatting can change what your renderer shows. For example, the option makes ``__`` after a variation selector a bold marker, and the formatter rewrites it as ``**``, which standard Markdown shows as bold even where it showed the original ``__`` as written. Default: false`.
+        :param frontmatter: (experimental) Enables parsing frontmatter at the start of the file. Defaults to ``false``. Default: false`.
+        :param gfm: (experimental) Enables GitHub Flavored Markdown extensions. Defaults to ``true``. Default: true`.
+
+        :stability: experimental
+        :schema: MarkdownParserConfiguration
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__75b32c24508369083846bdfa68209b976e9a847dc2157991a7a479e27f8f4874)
+            check_type(argname="argument cjk_friendly_emphasis", value=cjk_friendly_emphasis, expected_type=type_hints["cjk_friendly_emphasis"])
+            check_type(argname="argument frontmatter", value=frontmatter, expected_type=type_hints["frontmatter"])
+            check_type(argname="argument gfm", value=gfm, expected_type=type_hints["gfm"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cjk_friendly_emphasis is not None:
+            self._values["cjk_friendly_emphasis"] = cjk_friendly_emphasis
+        if frontmatter is not None:
+            self._values["frontmatter"] = frontmatter
+        if gfm is not None:
+            self._values["gfm"] = gfm
+
+    @builtins.property
+    def cjk_friendly_emphasis(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Recognizes bold, italic, and strikethrough markers placed directly next to Chinese, Japanese, or Korean text. Defaults to ``false``.
+
+        Standard Markdown doesn't treat ``**テスト。**テスト`` as bold text, because the closing ``**``
+        is between a punctuation mark and a letter with no space around it. Languages that don't
+        put spaces between words run into this often. When enabled, Biome follows the
+        `CommonMark CJK-friendly amendments <https://github.com/tats-u/markdown-cjk-friendly/blob/main/specification.md>`_
+        and treats such text as bold or italic. The option applies to ``*``, ``_``, and ``~~`` markers.
+        After a variation selector (an invisible character that picks a glyph style for the
+        character before it), Biome classifies a marker by the character before the selector.
+
+        The option can also change markers that aren't next to Chinese, Japanese, or Korean text,
+        because a marker that can now open or close formatting can take another marker's partner
+        in the same paragraph, heading, or table cell. For example, standard Markdown shows
+        ``**テスト。**テスト a**`` with ``テスト a`` in bold. With the option enabled, ``テスト。`` is bold
+        and the last ``**`` is shown as written.
+
+        The formatter and the linter both use this reading of the document. Enable the option only
+        when the tool that renders your Markdown also supports these amendments. Otherwise, Biome
+        treats as bold some text that your renderer shows with literal ``**``, and formatting can
+        change what your renderer shows. For example, the option makes ``__`` after a variation
+        selector a bold marker, and the formatter rewrites it as ``**``, which standard Markdown
+        shows as bold even where it showed the original ``__`` as written.
+
+        :default: false`.
+
+        :stability: experimental
+        :schema: MarkdownParserConfiguration#cjkFriendlyEmphasis
+        '''
+        result = self._values.get("cjk_friendly_emphasis")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def frontmatter(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enables parsing frontmatter at the start of the file.
+
+        Defaults to ``false``.
+
+        :default: false`.
+
+        :stability: experimental
+        :schema: MarkdownParserConfiguration#frontmatter
+        '''
+        result = self._values.get("frontmatter")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def gfm(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enables GitHub Flavored Markdown extensions.
+
+        Defaults to ``true``.
+
+        :default: true`.
+
+        :stability: experimental
+        :schema: MarkdownParserConfiguration#gfm
+        '''
+        result = self._values.get("gfm")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MarkdownParserConfiguration(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4188,8 +4862,8 @@ class OverrideAssistConfiguration:
         enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param actions: (experimental) List of actions.
-        :param enabled: (experimental) if ``false``, it disables the feature and the assist won't be executed. ``true`` by default
+        :param actions: (experimental) The assist-action configuration for matched files.
+        :param enabled: (experimental) Enables or disables assist actions for matched files.
 
         :stability: experimental
         :schema: OverrideAssistConfiguration
@@ -4208,7 +4882,7 @@ class OverrideAssistConfiguration:
 
     @builtins.property
     def actions(self) -> typing.Optional["Actions"]:
-        '''(experimental) List of actions.
+        '''(experimental) The assist-action configuration for matched files.
 
         :stability: experimental
         :schema: OverrideAssistConfiguration#actions
@@ -4218,9 +4892,7 @@ class OverrideAssistConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) if ``false``, it disables the feature and the assist won't be executed.
-
-        ``true`` by default
+        '''(experimental) Enables or disables assist actions for matched files.
 
         :stability: experimental
         :schema: OverrideAssistConfiguration#enabled
@@ -4248,7 +4920,7 @@ class OverrideAssistConfiguration:
 class OverrideFilesConfiguration:
     def __init__(self, *, max_size: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param max_size: (experimental) File size limit in bytes.
+        :param max_size: (experimental) The maximum source-file size in bytes for matched files.
 
         :stability: experimental
         :schema: OverrideFilesConfiguration
@@ -4262,7 +4934,7 @@ class OverrideFilesConfiguration:
 
     @builtins.property
     def max_size(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) File size limit in bytes.
+        '''(experimental) The maximum source-file size in bytes for matched files.
 
         :stability: experimental
         :schema: OverrideFilesConfiguration#maxSize
@@ -4322,20 +4994,20 @@ class OverrideFormatterConfiguration:
         trailing_newline: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param attribute_position: (experimental) The attribute position style.
-        :param bracket_same_line: (experimental) Put the ``>`` of a multi-line HTML or JSX element at the end of the last line instead of being alone on the next line (does not apply to self closing elements).
-        :param bracket_spacing: (experimental) Whether to insert spaces around brackets in object literals. Defaults to true. Default: true.
+        :param attribute_position: (experimental) The attribute position style in HTML-like languages.
+        :param bracket_same_line: (experimental) Controls the placement of the closing bracket for multiline HTML and JSX opening tags. Biome places the bracket at the end of the last attribute line when enabled and on its own line when disabled. This also affects self-closing HTML elements, but self-closing JSX elements are unaffected.
+        :param bracket_spacing: (experimental) Controls spaces inside braces in supported single-line structures. The affected structures vary by language.
         :param delimiter_spacing: (experimental) Controls spaces immediately inside supported delimiters when their content fits on one line. It doesn't add spaces before opening delimiters or inside empty delimiters. The affected delimiters vary by language. If unset, uses the configured formatter setting.
-        :param enabled: 
+        :param enabled: (experimental) Enables or disables the formatter for matched files.
         :param expand: (experimental) Controls whether arrays and objects are formatted on one line or multiple lines. ``auto`` formats objects on multiple lines if the first property has a newline, and arrays on one line if they fit. ``always`` formats arrays and objects on multiple lines. ``never`` formats arrays and objects on one line if they fit. If unset, uses the configured formatter setting. When formatting ``package.json``, Biome uses ``always`` unless configured otherwise.
-        :param format_with_errors: (experimental) Stores whether formatting should be allowed to proceed if a given file has syntax errors.
-        :param indent_size: (experimental) The size of the indentation, 2 by default (deprecated, use ``indent-width``).
-        :param indent_style: (experimental) The indent style.
-        :param indent_width: (experimental) The size of the indentation, 2 by default.
-        :param line_ending: (experimental) The type of line ending.
-        :param line_width: (experimental) What's the max width of a line. Defaults to 80. Default: 80.
-        :param trailing_commas: (experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures.
-        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
+        :param format_with_errors: (experimental) Allows formatting matched files that contain syntax errors.
+        :param indent_size: (experimental) The indentation width. Deprecated, use ``indentWidth`` instead.
+        :param indent_style: (experimental) Uses tabs or spaces for indentation.
+        :param indent_width: (experimental) Sets the indentation width. With space indentation, this is the number of spaces emitted per indentation level. With tab indentation, Biome emits one tab per level and uses this value as the tab's display width when calculating line length. Accepted values are ``0`` through ``24``.
+        :param line_ending: (experimental) The line ending.
+        :param line_width: (experimental) Sets the preferred maximum line width used when deciding where to wrap code. Some content, such as long unbreakable strings, may still exceed this width. Accepted values are ``1`` through ``320``.
+        :param trailing_commas: (experimental) Prints trailing commas wherever possible in multiline comma-separated structures. This is a legacy override option. Prefer ``javascript.formatter.trailingCommas``.
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of matched files. Disabling this option can cause compatibility problems with other tools.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration
@@ -4388,7 +5060,7 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def attribute_position(self) -> typing.Optional["AttributePosition"]:
-        '''(experimental) The attribute position style.
+        '''(experimental) The attribute position style in HTML-like languages.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#attributePosition
@@ -4398,7 +5070,12 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def bracket_same_line(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Put the ``>`` of a multi-line HTML or JSX element at the end of the last line instead of being alone on the next line (does not apply to self closing elements).
+        '''(experimental) Controls the placement of the closing bracket for multiline HTML and JSX opening tags.
+
+        Biome
+        places the bracket at the end of the last attribute line when enabled and on its own line when
+        disabled. This also affects self-closing HTML elements, but self-closing JSX elements are
+        unaffected.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#bracketSameLine
@@ -4408,11 +5085,10 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def bracket_spacing(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to insert spaces around brackets in object literals.
+        '''(experimental) Controls spaces inside braces in supported single-line structures.
 
-        Defaults to true.
-
-        :default: true.
+        The affected structures
+        vary by language.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#bracketSpacing
@@ -4436,7 +5112,8 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''
+        '''(experimental) Enables or disables the formatter for matched files.
+
         :stability: experimental
         :schema: OverrideFormatterConfiguration#enabled
         '''
@@ -4466,7 +5143,7 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def format_with_errors(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Stores whether formatting should be allowed to proceed if a given file has syntax errors.
+        '''(experimental) Allows formatting matched files that contain syntax errors.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#formatWithErrors
@@ -4476,7 +5153,9 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def indent_size(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The size of the indentation, 2 by default (deprecated, use ``indent-width``).
+        '''(experimental) The indentation width.
+
+        Deprecated, use ``indentWidth`` instead.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#indentSize
@@ -4486,7 +5165,7 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def indent_style(self) -> typing.Optional["IndentStyle"]:
-        '''(experimental) The indent style.
+        '''(experimental) Uses tabs or spaces for indentation.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#indentStyle
@@ -4496,7 +5175,11 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def indent_width(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The size of the indentation, 2 by default.
+        '''(experimental) Sets the indentation width.
+
+        With space indentation, this is the number of spaces emitted per
+        indentation level. With tab indentation, Biome emits one tab per level and uses this value as
+        the tab's display width when calculating line length. Accepted values are ``0`` through ``24``.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#indentWidth
@@ -4506,7 +5189,7 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def line_ending(self) -> typing.Optional["LineEnding"]:
-        '''(experimental) The type of line ending.
+        '''(experimental) The line ending.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#lineEnding
@@ -4516,11 +5199,11 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def line_width(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) What's the max width of a line.
+        '''(experimental) Sets the preferred maximum line width used when deciding where to wrap code.
 
-        Defaults to 80.
-
-        :default: 80.
+        Some content,
+        such as long unbreakable strings, may still exceed this width. Accepted values are ``1`` through
+        ``320``.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#lineWidth
@@ -4530,7 +5213,10 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def trailing_commas(self) -> typing.Optional["JsTrailingCommas"]:
-        '''(experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures.
+        '''(experimental) Prints trailing commas wherever possible in multiline comma-separated structures.
+
+        This is a
+        legacy override option. Prefer ``javascript.formatter.trailingCommas``.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#trailingCommas
@@ -4540,19 +5226,10 @@ class OverrideFormatterConfiguration:
 
     @builtins.property
     def trailing_newline(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to add a trailing newline at the end of the file.
+        '''(experimental) Whether to add a trailing newline at the end of matched files.
 
-        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
-
-        - https://thoughtbot.com/blog/no-newline-at-end-of-file
-        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
-        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
-
-        Disable the option at your own risk.
-
-        Defaults to true.
-
-        :default: true.
+        Disabling this option can
+        cause compatibility problems with other tools.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#trailingNewline
@@ -4586,9 +5263,9 @@ class OverrideLinterConfiguration:
         rules: typing.Optional[typing.Union["Rules", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param domains: (experimental) List of rules.
-        :param enabled: (experimental) if ``false``, it disables the feature and the linter won't be executed. ``true`` by default
-        :param rules: (experimental) List of rules.
+        :param domains: (experimental) The lint-domain configuration for matched files.
+        :param enabled: (experimental) Enables or disables the linter for matched files.
+        :param rules: (experimental) The lint-rule configuration for matched files.
 
         :stability: experimental
         :schema: OverrideLinterConfiguration
@@ -4612,7 +5289,7 @@ class OverrideLinterConfiguration:
 
     @builtins.property
     def domains(self) -> typing.Optional["RuleDomains"]:
-        '''(experimental) List of rules.
+        '''(experimental) The lint-domain configuration for matched files.
 
         :stability: experimental
         :schema: OverrideLinterConfiguration#domains
@@ -4622,9 +5299,7 @@ class OverrideLinterConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) if ``false``, it disables the feature and the linter won't be executed.
-
-        ``true`` by default
+        '''(experimental) Enables or disables the linter for matched files.
 
         :stability: experimental
         :schema: OverrideLinterConfiguration#enabled
@@ -4634,7 +5309,7 @@ class OverrideLinterConfiguration:
 
     @builtins.property
     def rules(self) -> typing.Optional["Rules"]:
-        '''(experimental) List of rules.
+        '''(experimental) The lint-rule configuration for matched files.
 
         :stability: experimental
         :schema: OverrideLinterConfiguration#rules
@@ -4669,7 +5344,9 @@ class OverrideLinterConfiguration:
         "javascript": "javascript",
         "json": "json",
         "linter": "linter",
+        "markdown": "markdown",
         "plugins": "plugins",
+        "yaml": "yaml",
     },
 )
 class OverridePattern:
@@ -4687,21 +5364,25 @@ class OverridePattern:
         javascript: typing.Optional[typing.Union["JsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         json: typing.Optional[typing.Union["JsonConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         linter: typing.Optional[typing.Union["OverrideLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        markdown: typing.Optional[typing.Union["MarkdownConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
+        yaml: typing.Optional[typing.Union["YamlConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param assist: (experimental) Specific configuration for the Json language.
-        :param css: (experimental) Specific configuration for the CSS language.
-        :param files: (experimental) Specific configuration for the filesystem.
-        :param formatter: (experimental) Specific configuration for the Json language.
-        :param graphql: (experimental) Specific configuration for the Graphql language.
-        :param grit: (experimental) Specific configuration for the GritQL language.
-        :param html: (experimental) Specific configuration for the GritQL language.
-        :param includes: (experimental) A list of glob patterns. Biome will include files/folders that will match these patterns.
-        :param javascript: (experimental) Specific configuration for the JavaScript language.
-        :param json: (experimental) Specific configuration for the Json language.
-        :param linter: (experimental) Specific configuration for the Json language.
-        :param plugins: (experimental) Specific configuration for additional plugins.
+        :param assist: (experimental) Assist settings for matched files.
+        :param css: (experimental) CSS-specific settings for matched files.
+        :param files: (experimental) File-handling settings for matched files.
+        :param formatter: (experimental) Formatter settings for matched files.
+        :param graphql: (experimental) GraphQL-specific settings for matched files.
+        :param grit: (experimental) GritQL-specific settings for matched files.
+        :param html: (experimental) HTML-specific settings for matched files.
+        :param includes: (experimental) A list of glob patterns selecting the files to which this override applies. If omitted, the override applies to every file. An empty list applies to no files.
+        :param javascript: (experimental) JavaScript-specific settings for matched files.
+        :param json: (experimental) JSON-specific settings for matched files.
+        :param linter: (experimental) Linter settings for matched files.
+        :param markdown: (experimental) Specific configuration for the Markdown language.
+        :param plugins: (experimental) Additional plugins for matched files.
+        :param yaml: (experimental) Specific configuration for the YAML language.
 
         :stability: experimental
         :schema: OverridePattern
@@ -4726,6 +5407,10 @@ class OverridePattern:
             json = JsonConfiguration(**json)
         if isinstance(linter, dict):
             linter = OverrideLinterConfiguration(**linter)
+        if isinstance(markdown, dict):
+            markdown = MarkdownConfiguration(**markdown)
+        if isinstance(yaml, dict):
+            yaml = YamlConfiguration(**yaml)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__15d4ec259e2481f14109da78900e918d2d10bde9b57b737b5c0ac7d4d415d889)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
@@ -4739,7 +5424,9 @@ class OverridePattern:
             check_type(argname="argument javascript", value=javascript, expected_type=type_hints["javascript"])
             check_type(argname="argument json", value=json, expected_type=type_hints["json"])
             check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
+            check_type(argname="argument markdown", value=markdown, expected_type=type_hints["markdown"])
             check_type(argname="argument plugins", value=plugins, expected_type=type_hints["plugins"])
+            check_type(argname="argument yaml", value=yaml, expected_type=type_hints["yaml"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if assist is not None:
             self._values["assist"] = assist
@@ -4763,12 +5450,16 @@ class OverridePattern:
             self._values["json"] = json
         if linter is not None:
             self._values["linter"] = linter
+        if markdown is not None:
+            self._values["markdown"] = markdown
         if plugins is not None:
             self._values["plugins"] = plugins
+        if yaml is not None:
+            self._values["yaml"] = yaml
 
     @builtins.property
     def assist(self) -> typing.Optional["OverrideAssistConfiguration"]:
-        '''(experimental) Specific configuration for the Json language.
+        '''(experimental) Assist settings for matched files.
 
         :stability: experimental
         :schema: OverridePattern#assist
@@ -4778,7 +5469,7 @@ class OverridePattern:
 
     @builtins.property
     def css(self) -> typing.Optional["CssConfiguration"]:
-        '''(experimental) Specific configuration for the CSS language.
+        '''(experimental) CSS-specific settings for matched files.
 
         :stability: experimental
         :schema: OverridePattern#css
@@ -4788,7 +5479,7 @@ class OverridePattern:
 
     @builtins.property
     def files(self) -> typing.Optional["OverrideFilesConfiguration"]:
-        '''(experimental) Specific configuration for the filesystem.
+        '''(experimental) File-handling settings for matched files.
 
         :stability: experimental
         :schema: OverridePattern#files
@@ -4798,7 +5489,7 @@ class OverridePattern:
 
     @builtins.property
     def formatter(self) -> typing.Optional["OverrideFormatterConfiguration"]:
-        '''(experimental) Specific configuration for the Json language.
+        '''(experimental) Formatter settings for matched files.
 
         :stability: experimental
         :schema: OverridePattern#formatter
@@ -4808,7 +5499,7 @@ class OverridePattern:
 
     @builtins.property
     def graphql(self) -> typing.Optional["GraphqlConfiguration"]:
-        '''(experimental) Specific configuration for the Graphql language.
+        '''(experimental) GraphQL-specific settings for matched files.
 
         :stability: experimental
         :schema: OverridePattern#graphql
@@ -4818,7 +5509,7 @@ class OverridePattern:
 
     @builtins.property
     def grit(self) -> typing.Optional["GritConfiguration"]:
-        '''(experimental) Specific configuration for the GritQL language.
+        '''(experimental) GritQL-specific settings for matched files.
 
         :stability: experimental
         :schema: OverridePattern#grit
@@ -4828,7 +5519,7 @@ class OverridePattern:
 
     @builtins.property
     def html(self) -> typing.Optional["HtmlConfiguration"]:
-        '''(experimental) Specific configuration for the GritQL language.
+        '''(experimental) HTML-specific settings for matched files.
 
         :stability: experimental
         :schema: OverridePattern#html
@@ -4838,10 +5529,10 @@ class OverridePattern:
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) A list of glob patterns.
+        '''(experimental) A list of glob patterns selecting the files to which this override applies.
 
-        Biome will include files/folders that will
-        match these patterns.
+        If omitted, the
+        override applies to every file. An empty list applies to no files.
 
         :stability: experimental
         :schema: OverridePattern#includes
@@ -4851,7 +5542,7 @@ class OverridePattern:
 
     @builtins.property
     def javascript(self) -> typing.Optional["JsConfiguration"]:
-        '''(experimental) Specific configuration for the JavaScript language.
+        '''(experimental) JavaScript-specific settings for matched files.
 
         :stability: experimental
         :schema: OverridePattern#javascript
@@ -4861,7 +5552,7 @@ class OverridePattern:
 
     @builtins.property
     def json(self) -> typing.Optional["JsonConfiguration"]:
-        '''(experimental) Specific configuration for the Json language.
+        '''(experimental) JSON-specific settings for matched files.
 
         :stability: experimental
         :schema: OverridePattern#json
@@ -4871,7 +5562,7 @@ class OverridePattern:
 
     @builtins.property
     def linter(self) -> typing.Optional["OverrideLinterConfiguration"]:
-        '''(experimental) Specific configuration for the Json language.
+        '''(experimental) Linter settings for matched files.
 
         :stability: experimental
         :schema: OverridePattern#linter
@@ -4880,14 +5571,34 @@ class OverridePattern:
         return typing.cast(typing.Optional["OverrideLinterConfiguration"], result)
 
     @builtins.property
+    def markdown(self) -> typing.Optional["MarkdownConfiguration"]:
+        '''(experimental) Specific configuration for the Markdown language.
+
+        :stability: experimental
+        :schema: OverridePattern#markdown
+        '''
+        result = self._values.get("markdown")
+        return typing.cast(typing.Optional["MarkdownConfiguration"], result)
+
+    @builtins.property
     def plugins(self) -> typing.Optional[typing.List[typing.Any]]:
-        '''(experimental) Specific configuration for additional plugins.
+        '''(experimental) Additional plugins for matched files.
 
         :stability: experimental
         :schema: OverridePattern#plugins
         '''
         result = self._values.get("plugins")
         return typing.cast(typing.Optional[typing.List[typing.Any]], result)
+
+    @builtins.property
+    def yaml(self) -> typing.Optional["YamlConfiguration"]:
+        '''(experimental) Specific configuration for the YAML language.
+
+        :stability: experimental
+        :schema: OverridePattern#yaml
+        '''
+        result = self._values.get("yaml")
+        return typing.cast(typing.Optional["YamlConfiguration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4926,6 +5637,40 @@ class PresetConfig(enum.Enum):
     '''
 
 
+@jsii.enum(jsii_type="projen.javascript.biome_config.ProseWrap")
+class ProseWrap(enum.Enum):
+    '''(experimental) Controls whether Biome keeps, adds, or removes line breaks in Markdown paragraphs.
+
+    Manual line breaks are always kept. In Markdown, a manual line break is created by ending a
+    line with two spaces or a backslash.
+
+    :stability: experimental
+    :schema: ProseWrap
+    '''
+
+    PRESERVE = "PRESERVE"
+    '''(experimental) Keep line breaks as written in the source file.
+
+    This is the default. (preserve)
+
+    :stability: experimental
+    '''
+    ALWAYS = "ALWAYS"
+    '''(experimental) Wrap paragraphs to fit the configured ``lineWidth``.
+
+    (always)
+
+    :stability: experimental
+    '''
+    NEVER = "NEVER"
+    '''(experimental) Remove line breaks from paragraphs so that each paragraph is on one line.
+
+    (never)
+
+    :stability: experimental
+    '''
+
+
 @jsii.enum(jsii_type="projen.javascript.biome_config.QuoteProperties")
 class QuoteProperties(enum.Enum):
     '''
@@ -4934,12 +5679,16 @@ class QuoteProperties(enum.Enum):
     '''
 
     AS_NEEDED = "AS_NEEDED"
-    '''(experimental) asNeeded.
+    '''(experimental) Removes quotes when the property name is valid without them.
+
+    (asNeeded)
 
     :stability: experimental
     '''
     PRESERVE = "PRESERVE"
-    '''(experimental) preserve.
+    '''(experimental) Preserves quotes around property names that were quoted in the input.
+
+    (preserve)
 
     :stability: experimental
     '''
@@ -4972,17 +5721,23 @@ class RuleDomainValue(enum.Enum):
     '''
 
     ALL = "ALL"
-    '''(experimental) Enables all the rules that belong to this domain (all).
+    '''(experimental) Enables all rules in the domain.
+
+    (all)
 
     :stability: experimental
     '''
     NONE = "NONE"
-    '''(experimental) Disables all the rules that belong to this domain (none).
+    '''(experimental) Disables the domain.
+
+    (none)
 
     :stability: experimental
     '''
     RECOMMENDED = "RECOMMENDED"
-    '''(experimental) Enables only the recommended rules for this domain (recommended).
+    '''(experimental) Enables the domain's recommended non-nursery rules.
+
+    (recommended)
 
     :stability: experimental
     '''
@@ -5282,8 +6037,8 @@ class Rules:
         :param correctness: 
         :param nursery: 
         :param performance: 
-        :param preset: (experimental) The rule presets to use.
-        :param recommended: (experimental) It enables the lint rules recommended by Biome. ``true`` by default.
+        :param preset: (experimental) Selects the baseline set of lint rules. ``recommended`` enables Biome's recommended non-nursery rules, ``all`` enables all non-nursery rules, and ``none`` starts with no rules enabled. Group-level settings and explicit rule settings override this preset. Defaults to ``recommended``. Default: recommended`.
+        :param recommended: (experimental) Enables or disables Biome's recommended non-nursery rules. Defaults to ``true``. **Deprecated:** This option will be removed in the next major version. Use ``linter.rules.preset`` instead, or run ``biome migrate`` to update the configuration. Default: true`.
         :param security: 
         :param style: 
         :param suspicious: 
@@ -5372,7 +6127,14 @@ class Rules:
 
     @builtins.property
     def preset(self) -> typing.Optional["PresetConfig"]:
-        '''(experimental) The rule presets to use.
+        '''(experimental) Selects the baseline set of lint rules.
+
+        ``recommended`` enables Biome's recommended
+        non-nursery rules, ``all`` enables all non-nursery rules, and ``none`` starts with no
+        rules enabled. Group-level settings and explicit rule settings override this
+        preset. Defaults to ``recommended``.
+
+        :default: recommended`.
 
         :stability: experimental
         :schema: Rules#preset
@@ -5382,9 +6144,12 @@ class Rules:
 
     @builtins.property
     def recommended(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) It enables the lint rules recommended by Biome.
+        '''(experimental) Enables or disables Biome's recommended non-nursery rules. Defaults to ``true``.
 
-        ``true`` by default.
+        **Deprecated:** This option will be removed in the next major version. Use
+        ``linter.rules.preset`` instead, or run ``biome migrate`` to update the configuration.
+
+        :default: true`.
 
         :stability: experimental
         :schema: Rules#recommended
@@ -5433,19 +6198,19 @@ class Rules:
 
 @jsii.enum(jsii_type="projen.javascript.biome_config.SelfCloseVoidElements")
 class SelfCloseVoidElements(enum.Enum):
-    '''(experimental) Controls whether void-elements should be self closed.
+    '''(experimental) Controls whether HTML void elements such as ``<img>`` and ``<input>`` include a slash before ``>``.
 
     :stability: experimental
     :schema: SelfCloseVoidElements
     '''
 
     NEVER = "NEVER"
-    '''(experimental) The ``/`` inside void elements is removed by the formatter (never).
+    '''(experimental) Removes the slash, for example ``<img src="image.png">``. (never).
 
     :stability: experimental
     '''
     ALWAYS = "ALWAYS"
-    '''(experimental) The ``/`` inside void elements is always added (always).
+    '''(experimental) Adds the slash, for example ``<img src="image.png" />``. (always).
 
     :stability: experimental
     '''
@@ -5478,6 +6243,9 @@ class Semicolons(enum.Enum):
         "organize_imports": "organizeImports",
         "preset": "preset",
         "recommended": "recommended",
+        "use_graphql_sorted_arguments": "useGraphqlSortedArguments",
+        "use_graphql_sorted_definitions": "useGraphqlSortedDefinitions",
+        "use_graphql_sorted_variables": "useGraphqlSortedVariables",
         "use_sorted_attributes": "useSortedAttributes",
         "use_sorted_enum_members": "useSortedEnumMembers",
         "use_sorted_interface_members": "useSortedInterfaceMembers",
@@ -5496,6 +6264,9 @@ class Source:
         organize_imports: typing.Any = None,
         preset: typing.Optional["PresetConfig"] = None,
         recommended: typing.Optional[builtins.bool] = None,
+        use_graphql_sorted_arguments: typing.Any = None,
+        use_graphql_sorted_definitions: typing.Any = None,
+        use_graphql_sorted_variables: typing.Any = None,
         use_sorted_attributes: typing.Any = None,
         use_sorted_enum_members: typing.Any = None,
         use_sorted_interface_members: typing.Any = None,
@@ -5505,20 +6276,23 @@ class Source:
         use_sorted_selection_set: typing.Any = None,
         use_sorted_type_fields: typing.Any = None,
     ) -> None:
-        '''(experimental) A list of rules that belong to this group.
+        '''(experimental) Configures one group of assist actions.
 
-        :param no_duplicate_classes: (experimental) Remove duplicate CSS classes. See https://biomejs.dev/assist/actions/no-duplicate-classes
-        :param organize_imports: (experimental) Sorts imports and exports in your JavaScript and TypeScript files. See https://biomejs.dev/assist/actions/organize-imports
-        :param preset: (experimental) Enables a particular rule preset.
-        :param recommended: (experimental) Enables the recommended rules for this group.
-        :param use_sorted_attributes: (experimental) Enforce attribute sorting in HTML elements. See https://biomejs.dev/assist/actions/use-sorted-attributes
-        :param use_sorted_enum_members: (experimental) Sort the members of an enum in natural order. See https://biomejs.dev/assist/actions/use-sorted-enum-members
-        :param use_sorted_interface_members: (experimental) Sort interface members by key. See https://biomejs.dev/assist/actions/use-sorted-interface-members
-        :param use_sorted_keys: (experimental) Sort the keys of a JSON object in natural order. See https://biomejs.dev/assist/actions/use-sorted-keys
+        :param no_duplicate_classes: (experimental) Remove repeated CSS class names from HTML class attributes. See https://biomejs.dev/assist/actions/no-duplicate-classes
+        :param organize_imports: (experimental) Organize imports and exports in JavaScript and TypeScript files. See https://biomejs.dev/assist/actions/organize-imports
+        :param preset: (experimental) Selects the baseline set of assist actions for this group. ``recommended`` enables the group's recommended actions, ``all`` enables all actions in the group, and ``none`` starts with no actions enabled in the group. Explicit action settings override this group preset, which overrides ``assist.actions.preset`` for the group.
+        :param recommended: (experimental) Enables or disables the recommended actions in this group. The group's ``preset`` setting takes precedence when both options are set.
+        :param use_graphql_sorted_arguments: (experimental) Sort the arguments of GraphQL fields and directives in natural order. See https://biomejs.dev/assist/actions/use-graphql-sorted-arguments
+        :param use_graphql_sorted_definitions: (experimental) Sort the named definitions in a GraphQL document. See https://biomejs.dev/assist/actions/use-graphql-sorted-definitions
+        :param use_graphql_sorted_variables: (experimental) Sort the variable definitions of GraphQL operations in natural order. See https://biomejs.dev/assist/actions/use-graphql-sorted-variables
+        :param use_sorted_attributes: (experimental) Sort HTML attributes and framework directives into a consistent order. See https://biomejs.dev/assist/actions/use-sorted-attributes
+        :param use_sorted_enum_members: (experimental) Sort GraphQL enum values in natural order. See https://biomejs.dev/assist/actions/use-sorted-enum-members
+        :param use_sorted_interface_members: (experimental) Sort named members of a TypeScript interface. See https://biomejs.dev/assist/actions/use-sorted-interface-members
+        :param use_sorted_keys: (experimental) Sort keys in a JSON object. See https://biomejs.dev/assist/actions/use-sorted-keys
         :param use_sorted_package_json: (experimental) Organize package.json fields according to established conventions. See https://biomejs.dev/assist/actions/use-sorted-package-json.
-        :param use_sorted_properties: (experimental) Enforce ordering of CSS properties and nested rules. See https://biomejs.dev/assist/actions/use-sorted-properties
-        :param use_sorted_selection_set: (experimental) Sort GraphQL selection sets. See https://biomejs.dev/assist/actions/use-sorted-selection-set
-        :param use_sorted_type_fields: (experimental) Sort fields in GraphQL type definitions alphabetically. See https://biomejs.dev/assist/actions/use-sorted-type-fields
+        :param use_sorted_properties: (experimental) Sort CSS properties and nested rules into a consistent order. See https://biomejs.dev/assist/actions/use-sorted-properties
+        :param use_sorted_selection_set: (experimental) Sort selections inside GraphQL operations and fragments. See https://biomejs.dev/assist/actions/use-sorted-selection-set
+        :param use_sorted_type_fields: (experimental) Sort fields in GraphQL type definitions by name. See https://biomejs.dev/assist/actions/use-sorted-type-fields
 
         :stability: experimental
         :schema: Source
@@ -5529,6 +6303,9 @@ class Source:
             check_type(argname="argument organize_imports", value=organize_imports, expected_type=type_hints["organize_imports"])
             check_type(argname="argument preset", value=preset, expected_type=type_hints["preset"])
             check_type(argname="argument recommended", value=recommended, expected_type=type_hints["recommended"])
+            check_type(argname="argument use_graphql_sorted_arguments", value=use_graphql_sorted_arguments, expected_type=type_hints["use_graphql_sorted_arguments"])
+            check_type(argname="argument use_graphql_sorted_definitions", value=use_graphql_sorted_definitions, expected_type=type_hints["use_graphql_sorted_definitions"])
+            check_type(argname="argument use_graphql_sorted_variables", value=use_graphql_sorted_variables, expected_type=type_hints["use_graphql_sorted_variables"])
             check_type(argname="argument use_sorted_attributes", value=use_sorted_attributes, expected_type=type_hints["use_sorted_attributes"])
             check_type(argname="argument use_sorted_enum_members", value=use_sorted_enum_members, expected_type=type_hints["use_sorted_enum_members"])
             check_type(argname="argument use_sorted_interface_members", value=use_sorted_interface_members, expected_type=type_hints["use_sorted_interface_members"])
@@ -5546,6 +6323,12 @@ class Source:
             self._values["preset"] = preset
         if recommended is not None:
             self._values["recommended"] = recommended
+        if use_graphql_sorted_arguments is not None:
+            self._values["use_graphql_sorted_arguments"] = use_graphql_sorted_arguments
+        if use_graphql_sorted_definitions is not None:
+            self._values["use_graphql_sorted_definitions"] = use_graphql_sorted_definitions
+        if use_graphql_sorted_variables is not None:
+            self._values["use_graphql_sorted_variables"] = use_graphql_sorted_variables
         if use_sorted_attributes is not None:
             self._values["use_sorted_attributes"] = use_sorted_attributes
         if use_sorted_enum_members is not None:
@@ -5565,7 +6348,7 @@ class Source:
 
     @builtins.property
     def no_duplicate_classes(self) -> typing.Any:
-        '''(experimental) Remove duplicate CSS classes.
+        '''(experimental) Remove repeated CSS class names from HTML class attributes.
 
         See https://biomejs.dev/assist/actions/no-duplicate-classes
 
@@ -5577,7 +6360,7 @@ class Source:
 
     @builtins.property
     def organize_imports(self) -> typing.Any:
-        '''(experimental) Sorts imports and exports in your JavaScript and TypeScript files.
+        '''(experimental) Organize imports and exports in JavaScript and TypeScript files.
 
         See https://biomejs.dev/assist/actions/organize-imports
 
@@ -5589,7 +6372,12 @@ class Source:
 
     @builtins.property
     def preset(self) -> typing.Optional["PresetConfig"]:
-        '''(experimental) Enables a particular rule preset.
+        '''(experimental) Selects the baseline set of assist actions for this group.
+
+        ``recommended`` enables
+        the group's recommended actions, ``all`` enables all actions in the group, and
+        ``none`` starts with no actions enabled in the group. Explicit action settings
+        override this group preset, which overrides ``assist.actions.preset`` for the group.
 
         :stability: experimental
         :schema: Source#preset
@@ -5599,7 +6387,10 @@ class Source:
 
     @builtins.property
     def recommended(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the recommended rules for this group.
+        '''(experimental) Enables or disables the recommended actions in this group.
+
+        The group's ``preset``
+        setting takes precedence when both options are set.
 
         :stability: experimental
         :schema: Source#recommended
@@ -5608,8 +6399,44 @@ class Source:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def use_graphql_sorted_arguments(self) -> typing.Any:
+        '''(experimental) Sort the arguments of GraphQL fields and directives in natural order.
+
+        See https://biomejs.dev/assist/actions/use-graphql-sorted-arguments
+
+        :stability: experimental
+        :schema: Source#useGraphqlSortedArguments
+        '''
+        result = self._values.get("use_graphql_sorted_arguments")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def use_graphql_sorted_definitions(self) -> typing.Any:
+        '''(experimental) Sort the named definitions in a GraphQL document.
+
+        See https://biomejs.dev/assist/actions/use-graphql-sorted-definitions
+
+        :stability: experimental
+        :schema: Source#useGraphqlSortedDefinitions
+        '''
+        result = self._values.get("use_graphql_sorted_definitions")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def use_graphql_sorted_variables(self) -> typing.Any:
+        '''(experimental) Sort the variable definitions of GraphQL operations in natural order.
+
+        See https://biomejs.dev/assist/actions/use-graphql-sorted-variables
+
+        :stability: experimental
+        :schema: Source#useGraphqlSortedVariables
+        '''
+        result = self._values.get("use_graphql_sorted_variables")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
     def use_sorted_attributes(self) -> typing.Any:
-        '''(experimental) Enforce attribute sorting in HTML elements.
+        '''(experimental) Sort HTML attributes and framework directives into a consistent order.
 
         See https://biomejs.dev/assist/actions/use-sorted-attributes
 
@@ -5621,7 +6448,7 @@ class Source:
 
     @builtins.property
     def use_sorted_enum_members(self) -> typing.Any:
-        '''(experimental) Sort the members of an enum in natural order.
+        '''(experimental) Sort GraphQL enum values in natural order.
 
         See https://biomejs.dev/assist/actions/use-sorted-enum-members
 
@@ -5633,7 +6460,7 @@ class Source:
 
     @builtins.property
     def use_sorted_interface_members(self) -> typing.Any:
-        '''(experimental) Sort interface members by key.
+        '''(experimental) Sort named members of a TypeScript interface.
 
         See https://biomejs.dev/assist/actions/use-sorted-interface-members
 
@@ -5645,7 +6472,7 @@ class Source:
 
     @builtins.property
     def use_sorted_keys(self) -> typing.Any:
-        '''(experimental) Sort the keys of a JSON object in natural order.
+        '''(experimental) Sort keys in a JSON object.
 
         See https://biomejs.dev/assist/actions/use-sorted-keys
 
@@ -5667,7 +6494,7 @@ class Source:
 
     @builtins.property
     def use_sorted_properties(self) -> typing.Any:
-        '''(experimental) Enforce ordering of CSS properties and nested rules.
+        '''(experimental) Sort CSS properties and nested rules into a consistent order.
 
         See https://biomejs.dev/assist/actions/use-sorted-properties
 
@@ -5679,7 +6506,7 @@ class Source:
 
     @builtins.property
     def use_sorted_selection_set(self) -> typing.Any:
-        '''(experimental) Sort GraphQL selection sets.
+        '''(experimental) Sort selections inside GraphQL operations and fragments.
 
         See https://biomejs.dev/assist/actions/use-sorted-selection-set
 
@@ -5691,7 +6518,7 @@ class Source:
 
     @builtins.property
     def use_sorted_type_fields(self) -> typing.Any:
-        '''(experimental) Sort fields in GraphQL type definitions alphabetically.
+        '''(experimental) Sort fields in GraphQL type definitions by name.
 
         See https://biomejs.dev/assist/actions/use-sorted-type-fields
 
@@ -5709,6 +6536,152 @@ class Source:
 
     def __repr__(self) -> str:
         return "Source(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.TailwindConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "attributes": "attributes",
+        "merge_functions": "mergeFunctions",
+        "stylesheet": "stylesheet",
+        "variant_functions": "variantFunctions",
+    },
+)
+class TailwindConfiguration:
+    def __init__(
+        self,
+        *,
+        attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        merge_functions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        stylesheet: typing.Optional[builtins.str] = None,
+        variant_functions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Tells Biome where your code lists Tailwind CSS classes, so the Tailwind lint rules know which strings to check.
+
+        :param attributes: (experimental) Attributes whose values are Tailwind classes, such as ``class`` in ``<div class="px-2 py-2">``. Defaults to ``class`` and ``className``. In HTML, they are case-insensitive. Default: class``and``className`. In HTML, they are case-insensitive.
+        :param merge_functions: (experimental) Functions that combine Tailwind classes, such as ``clsx`` and ``cn``. Biome checks every string passed to these functions, like both strings in ``cn("px-2", "py-2")``. When an object is passed, Biome checks its keys: in ``cn({ "px-2": isActive })``, it checks ``"px-2"``. Properties of these functions are checked too, so listing ``tw`` also covers ``tw.div`px-2``` and ``tw.div("px-2")``. Defaults to ``clsx``, ``tw``, ``twMerge``, ``twJoin``, ``cn``, ``cc``, ``cnb``, and ``ctl``. Default: clsx``, ``tw``, ``twMerge``, ``twJoin``, ``cn``, ``cc``, ``cnb`, and
+        :param stylesheet: (experimental) The CSS file that holds your Tailwind CSS configuration, such as ``"./src/app.css"``. A relative path starts from the folder of the Biome configuration file. Biome reads the ``@theme``, ``@utility``, and ``@custom-variant`` rules in this file and in the files it imports with ``@import``, so that the Tailwind rules know your theme values, utilities, and variants. To read the file, Biome scans your project when a Tailwind rule is enabled. Setting this option also turns on ``css.parser.tailwindDirectives``, unless you set that option yourself.
+        :param variant_functions: (experimental) Functions that describe a component's styles with an object, such as ``cva`` and ``tv``. Biome checks every string passed directly to these functions. In an object passed to them, Biome checks the classes under these properties: - ``base``, ``class``, and ``className``: classes that always apply. - ``variants``: classes for each version of the component, such as each button size. - ``slots``: classes for each part of the component, such as its icon. - ``compoundVariants`` and ``compoundSlots``: only the ``class`` and ``className`` of each entry. Other properties, such as ``defaultVariants``, hold names rather than classes, so Biome skips them. For example, Biome checks ``"rounded"``, ``"px-2"``, and ``"px-4"`` here, but not ``"small"``:: cva("rounded", { variants: { size: { small: "px-2", large: "px-4" }, }, defaultVariants: { size: "small" }, }); Defaults to ``cva`` and ``tv``. Default: cva``and``tv`.
+
+        :stability: experimental
+        :schema: TailwindConfiguration
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f57cbd515131470edf00afa86518e00838398080de4b1b1f003b94db15f43581)
+            check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            check_type(argname="argument merge_functions", value=merge_functions, expected_type=type_hints["merge_functions"])
+            check_type(argname="argument stylesheet", value=stylesheet, expected_type=type_hints["stylesheet"])
+            check_type(argname="argument variant_functions", value=variant_functions, expected_type=type_hints["variant_functions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if attributes is not None:
+            self._values["attributes"] = attributes
+        if merge_functions is not None:
+            self._values["merge_functions"] = merge_functions
+        if stylesheet is not None:
+            self._values["stylesheet"] = stylesheet
+        if variant_functions is not None:
+            self._values["variant_functions"] = variant_functions
+
+    @builtins.property
+    def attributes(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Attributes whose values are Tailwind classes, such as ``class`` in ``<div class="px-2 py-2">``.
+
+        Defaults to ``class`` and ``className``. In HTML, they are case-insensitive.
+
+        :default: class``and``className`. In HTML, they are case-insensitive.
+
+        :stability: experimental
+        :schema: TailwindConfiguration#attributes
+        '''
+        result = self._values.get("attributes")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def merge_functions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Functions that combine Tailwind classes, such as ``clsx`` and ``cn``.
+
+        Biome checks every string passed to these functions, like both strings
+        in ``cn("px-2", "py-2")``. When an object is passed, Biome checks its
+        keys: in ``cn({ "px-2": isActive })``, it checks ``"px-2"``.
+
+        Properties of these functions are checked too, so listing ``tw`` also
+        covers ``tw.div``px-2`` and ``tw.div("px-2")``.
+
+        Defaults to ``clsx``, ``tw``, ``twMerge``, ``twJoin``, ``cn``, ``cc``, ``cnb``, and
+        ``ctl``.
+
+        :default: clsx``, ``tw``, ``twMerge``, ``twJoin``, ``cn``, ``cc``, ``cnb`, and
+
+        :stability: experimental
+        :schema: TailwindConfiguration#mergeFunctions
+        '''
+        result = self._values.get("merge_functions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def stylesheet(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The CSS file that holds your Tailwind CSS configuration, such as ``"./src/app.css"``. A relative path starts from the folder of the Biome configuration file.
+
+        Biome reads the ``@theme``, ``@utility``, and ``@custom-variant`` rules in
+        this file and in the files it imports with ``@import``, so that the
+        Tailwind rules know your theme values, utilities, and variants.
+
+        To read the file, Biome scans your project when a Tailwind rule is
+        enabled. Setting this option also turns on ``css.parser.tailwindDirectives``,
+        unless you set that option yourself.
+
+        :stability: experimental
+        :schema: TailwindConfiguration#stylesheet
+        '''
+        result = self._values.get("stylesheet")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def variant_functions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Functions that describe a component's styles with an object, such as ``cva`` and ``tv``.
+
+        Biome checks every string passed directly to these functions. In an
+        object passed to them, Biome checks the classes under these properties:
+
+        - ``base``, ``class``, and ``className``: classes that always apply.
+        - ``variants``: classes for each version of the component, such as each
+          button size.
+        - ``slots``: classes for each part of the component, such as its icon.
+        - ``compoundVariants`` and ``compoundSlots``: only the ``class`` and
+          ``className`` of each entry.
+
+        Other properties, such as ``defaultVariants``, hold names rather than
+        classes, so Biome skips them. For example, Biome checks ``"rounded"``,
+        ``"px-2"``, and ``"px-4"`` here, but not ``"small"``::
+
+           cva("rounded", {
+           variants: {
+           size: { small: "px-2", large: "px-4" },
+           },
+           defaultVariants: { size: "small" },
+           });
+
+        Defaults to ``cva`` and ``tv``.
+
+        :default: cva``and``tv`.
+
+        :stability: experimental
+        :schema: TailwindConfiguration#variantFunctions
+        '''
+        result = self._values.get("variant_functions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TailwindConfiguration(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -5749,13 +6722,13 @@ class VcsConfiguration:
         root: typing.Optional[builtins.str] = None,
         use_ignore_file: typing.Optional[builtins.bool] = None,
     ) -> None:
-        '''(experimental) Settings for integrating Biome with version control.
+        '''(experimental) Configures how Biome integrates with a version control system.
 
-        :param client_kind: (experimental) The version control client.
-        :param default_branch: (experimental) The project's default branch.
-        :param enabled: (experimental) Whether Biome should integrate with the version control client.
-        :param root: (experimental) Sets the directory where Biome checks for version control files. Defaults to the directory containing ``biome.json`` or ``biome.jsonc``. If no configuration is found, Biome uses the current working directory. If neither directory is available, Biome disables version control integration and emits a diagnostic. Default: the directory containing ``biome.json`` or ``biome.jsonc``. If no configuration is
-        :param use_ignore_file: (experimental) When ``true``, Biome ignores files listed in ``.gitignore``, ``.ignore``, and Git's local exclude file.
+        :param client_kind: (experimental) Selects the version-control client. Currently, only ``git`` is supported.
+        :param default_branch: (experimental) Sets the base branch used by ``--changed`` when ``--since`` is not provided. If neither this option nor ``--since`` is set, commands using ``--changed`` fail because Biome cannot determine the comparison base.
+        :param enabled: (experimental) Enables or disables version-control integration. Defaults to ``false``. Enabling integration requires ``vcs.clientKind`` to be set. Default: false`. Enabling integration
+        :param root: (experimental) Sets the directory where Biome looks for version-control files. A relative value is resolved from the directory containing the current configuration file, while an absolute path is used directly. Defaults to the directory containing ``biome.json`` or ``biome.jsonc``. If no configuration is found, Biome uses the current working directory. If neither directory is available, Biome disables version control integration and emits a diagnostic. Default: the directory containing ``biome.json`` or ``biome.jsonc``. If no configuration is
+        :param use_ignore_file: (experimental) Controls whether Biome applies patterns from ``.gitignore``, Git's local ``.git/info/exclude``, and supported ``.ignore`` files, including nested ignore files. Patterns in the root ignore file are resolved from ``vcs.root``. Patterns in nested ignore files are resolved from the directory containing that file. Defaults to ``false``. Default: false`.
 
         :stability: experimental
         :schema: VcsConfiguration
@@ -5781,7 +6754,9 @@ class VcsConfiguration:
 
     @builtins.property
     def client_kind(self) -> typing.Optional["VcsClientKind"]:
-        '''(experimental) The version control client.
+        '''(experimental) Selects the version-control client.
+
+        Currently, only ``git`` is supported.
 
         :stability: experimental
         :schema: VcsConfiguration#clientKind
@@ -5791,7 +6766,11 @@ class VcsConfiguration:
 
     @builtins.property
     def default_branch(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The project's default branch.
+        '''(experimental) Sets the base branch used by ``--changed`` when ``--since`` is not provided.
+
+        If neither this option
+        nor ``--since`` is set, commands using ``--changed`` fail because Biome cannot determine the
+        comparison base.
 
         :stability: experimental
         :schema: VcsConfiguration#defaultBranch
@@ -5801,7 +6780,12 @@ class VcsConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether Biome should integrate with the version control client.
+        '''(experimental) Enables or disables version-control integration.
+
+        Defaults to ``false``. Enabling integration
+        requires ``vcs.clientKind`` to be set.
+
+        :default: false`. Enabling integration
 
         :stability: experimental
         :schema: VcsConfiguration#enabled
@@ -5811,7 +6795,11 @@ class VcsConfiguration:
 
     @builtins.property
     def root(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Sets the directory where Biome checks for version control files.
+        '''(experimental) Sets the directory where Biome looks for version-control files.
+
+        A relative value is resolved
+        from the directory containing the current configuration file, while an absolute path is used
+        directly.
 
         Defaults to the directory containing ``biome.json`` or ``biome.jsonc``. If no configuration is
         found, Biome uses the current working directory.
@@ -5829,7 +6817,9 @@ class VcsConfiguration:
 
     @builtins.property
     def use_ignore_file(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) When ``true``, Biome ignores files listed in ``.gitignore``, ``.ignore``, and Git's local exclude file.
+        '''(experimental) Controls whether Biome applies patterns from ``.gitignore``, Git's local ``.git/info/exclude``, and supported ``.ignore`` files, including nested ignore files. Patterns in the root ignore file are resolved from ``vcs.root``. Patterns in nested ignore files are resolved from the directory containing that file. Defaults to ``false``.
+
+        :default: false`.
 
         :stability: experimental
         :schema: VcsConfiguration#useIgnoreFile
@@ -5851,7 +6841,7 @@ class VcsConfiguration:
 
 @jsii.enum(jsii_type="projen.javascript.biome_config.WhitespaceSensitivity")
 class WhitespaceSensitivity(enum.Enum):
-    '''(experimental) Whitespace sensitivity for HTML formatting.
+    '''(experimental) Controls how the formatter treats whitespace around text and child elements in HTML, Vue, Svelte, and Astro markup.
 
     The following two cases won't produce the same output:
 
@@ -5879,17 +6869,17 @@ class WhitespaceSensitivity(enum.Enum):
     '''
 
     CSS = "CSS"
-    '''(experimental) The formatter considers whitespace significant for elements that have an "inline" display style by default in browser's user agent style sheets.
+    '''(experimental) Treats whitespace as significant for elements that browsers display inline by default.
 
     (css)
 
     :stability: experimental
     '''
     STRICT = "STRICT"
-    '''(experimental) Leading and trailing whitespace in content is considered significant for all elements.
+    '''(experimental) Treats leading and trailing whitespace as significant for every element.
 
-    The formatter should leave at least one whitespace character if whitespace is present.
-    Otherwise, if there is no whitespace, it should not add any after ``>`` or before ``<``. In other words, if there's no whitespace, the text content should hug the tags.
+    Existing whitespace
+    is preserved as at least one character and absent whitespace is not added.
 
     Example of text hugging the tags::
 
@@ -5901,12 +6891,296 @@ class WhitespaceSensitivity(enum.Enum):
     :stability: experimental
     '''
     IGNORE = "IGNORE"
-    '''(experimental) Whitespace is considered insignificant.
+    '''(experimental) Treats whitespace as insignificant, allowing the formatter to add or remove it.
 
-    The formatter is free to remove or add whitespace as it sees fit. (ignore)
+    Use this only
+    when whitespace cannot affect rendered output. (ignore)
 
     :stability: experimental
     '''
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.YamlConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"formatter": "formatter", "linter": "linter"},
+)
+class YamlConfiguration:
+    def __init__(
+        self,
+        *,
+        formatter: typing.Optional[typing.Union["YamlFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        linter: typing.Optional[typing.Union["YamlLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''(experimental) Options applied to Yaml files.
+
+        :param formatter: (experimental) Formatter options.
+        :param linter: 
+
+        :stability: experimental
+        :schema: YamlConfiguration
+        '''
+        if isinstance(formatter, dict):
+            formatter = YamlFormatterConfiguration(**formatter)
+        if isinstance(linter, dict):
+            linter = YamlLinterConfiguration(**linter)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e4be2e84646b4f1e76ed6203c510bd540d723eaa817a823ec387e839e5770734)
+            check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
+            check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if formatter is not None:
+            self._values["formatter"] = formatter
+        if linter is not None:
+            self._values["linter"] = linter
+
+    @builtins.property
+    def formatter(self) -> typing.Optional["YamlFormatterConfiguration"]:
+        '''(experimental) Formatter options.
+
+        :stability: experimental
+        :schema: YamlConfiguration#formatter
+        '''
+        result = self._values.get("formatter")
+        return typing.cast(typing.Optional["YamlFormatterConfiguration"], result)
+
+    @builtins.property
+    def linter(self) -> typing.Optional["YamlLinterConfiguration"]:
+        '''
+        :stability: experimental
+        :schema: YamlConfiguration#linter
+        '''
+        result = self._values.get("linter")
+        return typing.cast(typing.Optional["YamlLinterConfiguration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "YamlConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.YamlFormatterConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bracket_spacing": "bracketSpacing",
+        "enabled": "enabled",
+        "indent_width": "indentWidth",
+        "line_ending": "lineEnding",
+        "line_width": "lineWidth",
+        "quote_style": "quoteStyle",
+        "trailing_newline": "trailingNewline",
+    },
+)
+class YamlFormatterConfiguration:
+    def __init__(
+        self,
+        *,
+        bracket_spacing: typing.Optional[builtins.bool] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        indent_width: typing.Optional[jsii.Number] = None,
+        line_ending: typing.Optional["LineEnding"] = None,
+        line_width: typing.Optional[jsii.Number] = None,
+        quote_style: typing.Optional["QuoteStyle"] = None,
+        trailing_newline: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Options that change how the Yaml formatter behaves.
+
+        :param bracket_spacing: (experimental) Whether to insert spaces inside non-empty flow mappings (``{ key: value }``) and sequences (``[ item ]``) that fit on one line. If unset, inherits the global bracket spacing setting. When neither is set, mappings have spaces and sequences do not.
+        :param enabled: (experimental) Control the formatter for Yaml (and its super languages) files.
+        :param indent_width: (experimental) The size of the indentation applied to Yaml files. Defaults to 2. Default: 2.
+        :param line_ending: (experimental) The type of line ending applied to Yaml (and its super languages) files. ``auto`` uses CRLF on Windows and LF on other platforms.
+        :param line_width: (experimental) What's the max width of a line applied to Yaml files. Defaults to 80. Default: 80.
+        :param quote_style: (experimental) The type of quotes used in YAML code. Defaults to ``double``. Default: double`.
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
+
+        :stability: experimental
+        :schema: YamlFormatterConfiguration
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__81c4c499f318c8dc484c199cfecf1d58ce9436ca1c3426be083c0dc6eba27680)
+            check_type(argname="argument bracket_spacing", value=bracket_spacing, expected_type=type_hints["bracket_spacing"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument indent_width", value=indent_width, expected_type=type_hints["indent_width"])
+            check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
+            check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
+            check_type(argname="argument quote_style", value=quote_style, expected_type=type_hints["quote_style"])
+            check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if bracket_spacing is not None:
+            self._values["bracket_spacing"] = bracket_spacing
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if indent_width is not None:
+            self._values["indent_width"] = indent_width
+        if line_ending is not None:
+            self._values["line_ending"] = line_ending
+        if line_width is not None:
+            self._values["line_width"] = line_width
+        if quote_style is not None:
+            self._values["quote_style"] = quote_style
+        if trailing_newline is not None:
+            self._values["trailing_newline"] = trailing_newline
+
+    @builtins.property
+    def bracket_spacing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to insert spaces inside non-empty flow mappings (``{ key: value }``) and sequences (``[ item ]``) that fit on one line.
+
+        If unset, inherits the
+        global bracket spacing setting. When neither is set, mappings have spaces
+        and sequences do not.
+
+        :stability: experimental
+        :schema: YamlFormatterConfiguration#bracketSpacing
+        '''
+        result = self._values.get("bracket_spacing")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Control the formatter for Yaml (and its super languages) files.
+
+        :stability: experimental
+        :schema: YamlFormatterConfiguration#enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def indent_width(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The size of the indentation applied to Yaml files.
+
+        Defaults to 2.
+
+        :default: 2.
+
+        :stability: experimental
+        :schema: YamlFormatterConfiguration#indentWidth
+        '''
+        result = self._values.get("indent_width")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def line_ending(self) -> typing.Optional["LineEnding"]:
+        '''(experimental) The type of line ending applied to Yaml (and its super languages) files.
+
+        ``auto`` uses CRLF on Windows and LF on other platforms.
+
+        :stability: experimental
+        :schema: YamlFormatterConfiguration#lineEnding
+        '''
+        result = self._values.get("line_ending")
+        return typing.cast(typing.Optional["LineEnding"], result)
+
+    @builtins.property
+    def line_width(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) What's the max width of a line applied to Yaml files.
+
+        Defaults to 80.
+
+        :default: 80.
+
+        :stability: experimental
+        :schema: YamlFormatterConfiguration#lineWidth
+        '''
+        result = self._values.get("line_width")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def quote_style(self) -> typing.Optional["QuoteStyle"]:
+        '''(experimental) The type of quotes used in YAML code.
+
+        Defaults to ``double``.
+
+        :default: double`.
+
+        :stability: experimental
+        :schema: YamlFormatterConfiguration#quoteStyle
+        '''
+        result = self._values.get("quote_style")
+        return typing.cast(typing.Optional["QuoteStyle"], result)
+
+    @builtins.property
+    def trailing_newline(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to add a trailing newline at the end of the file.
+
+        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
+
+        - https://thoughtbot.com/blog/no-newline-at-end-of-file
+        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
+        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
+
+        Disable the option at your own risk.
+
+        Defaults to true.
+
+        :default: true.
+
+        :stability: experimental
+        :schema: YamlFormatterConfiguration#trailingNewline
+        '''
+        result = self._values.get("trailing_newline")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "YamlFormatterConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.YamlLinterConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"enabled": "enabled"},
+)
+class YamlLinterConfiguration:
+    def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
+        '''(experimental) Options that change how the Yaml linter behaves.
+
+        :param enabled: (experimental) Control the linter for Yaml files.
+
+        :stability: experimental
+        :schema: YamlLinterConfiguration
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c83d03a52addd9222a3003b1f2875dabba0929b35d82eca404422215464f903f)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if enabled is not None:
+            self._values["enabled"] = enabled
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Control the linter for Yaml files.
+
+        :stability: experimental
+        :schema: YamlLinterConfiguration#enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "YamlLinterConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 __all__ = [
@@ -5953,6 +7227,10 @@ __all__ = [
     "JsxRuntime",
     "LineEnding",
     "LinterConfiguration",
+    "MarkdownConfiguration",
+    "MarkdownFormatterConfiguration",
+    "MarkdownLinterConfiguration",
+    "MarkdownParserConfiguration",
     "OperatorLinebreak",
     "OverrideAssistConfiguration",
     "OverrideFilesConfiguration",
@@ -5960,6 +7238,7 @@ __all__ = [
     "OverrideLinterConfiguration",
     "OverridePattern",
     "PresetConfig",
+    "ProseWrap",
     "QuoteProperties",
     "QuoteStyle",
     "RuleDomainValue",
@@ -5968,9 +7247,13 @@ __all__ = [
     "SelfCloseVoidElements",
     "Semicolons",
     "Source",
+    "TailwindConfiguration",
     "VcsClientKind",
     "VcsConfiguration",
     "WhitespaceSensitivity",
+    "YamlConfiguration",
+    "YamlFormatterConfiguration",
+    "YamlLinterConfiguration",
 ]
 
 publication.publish()
@@ -5997,7 +7280,7 @@ def _typecheckingstub__5d80cddd85ec22ae5e9ee130a7150db72ca1333e6e292553494d0e61d
     *,
     assist: typing.Optional[typing.Union[AssistConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     css: typing.Optional[typing.Union[CssConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-    extends: typing.Optional[typing.Sequence[builtins.str]] = None,
+    extends: typing.Any = None,
     files: typing.Optional[typing.Union[FilesConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     formatter: typing.Optional[typing.Union[FormatterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     graphql: typing.Optional[typing.Union[GraphqlConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6006,11 +7289,14 @@ def _typecheckingstub__5d80cddd85ec22ae5e9ee130a7150db72ca1333e6e292553494d0e61d
     javascript: typing.Optional[typing.Union[JsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     json: typing.Optional[typing.Union[JsonConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     linter: typing.Optional[typing.Union[LinterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    markdown: typing.Optional[typing.Union[MarkdownConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     overrides: typing.Optional[typing.Sequence[typing.Union[OverridePattern, typing.Dict[builtins.str, typing.Any]]]] = None,
     plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
     root: typing.Optional[builtins.bool] = None,
     schema: typing.Optional[builtins.str] = None,
+    tailwind: typing.Optional[typing.Union[TailwindConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     vcs: typing.Optional[typing.Union[VcsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    yaml: typing.Optional[typing.Union[YamlConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6269,7 +7555,6 @@ def _typecheckingstub__f73a12c3631a151ee57c8ecf68020468207f1fa3a6b5c91890a93814a
 
 def _typecheckingstub__c08c2e4162829556526f51e35e2cd7194c2c8bab38e0d01775d808ad7d573450(
     *,
-    grit_metavariables: typing.Optional[builtins.bool] = None,
     jsx_everywhere: typing.Optional[builtins.bool] = None,
     unsafe_parameter_decorators_enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
@@ -6341,6 +7626,46 @@ def _typecheckingstub__65dab822a12255f6f845b9299f073f8d1333a90456c41e244f29210e8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9c0f77fe366fbbfddda5ede857901f0002d502c1e847f7998e0ef60a07b15ee5(
+    *,
+    analyze_embeds: typing.Optional[builtins.bool] = None,
+    formatter: typing.Optional[typing.Union[MarkdownFormatterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    linter: typing.Optional[typing.Union[MarkdownLinterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    parser: typing.Optional[typing.Union[MarkdownParserConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ee25d4f71c40309136ce3dadf5413566922dcca0df3b908293e084a82af789a(
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+    format_embeds: typing.Optional[builtins.bool] = None,
+    indent_style: typing.Optional[IndentStyle] = None,
+    indent_width: typing.Optional[jsii.Number] = None,
+    line_ending: typing.Optional[LineEnding] = None,
+    line_width: typing.Optional[jsii.Number] = None,
+    prose_wrap: typing.Optional[ProseWrap] = None,
+    trailing_newline: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e95f8e46a79bb691a2ac81ce7797be7d5c153005b278d27315908fdc06c7648(
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75b32c24508369083846bdfa68209b976e9a847dc2157991a7a479e27f8f4874(
+    *,
+    cjk_friendly_emphasis: typing.Optional[builtins.bool] = None,
+    frontmatter: typing.Optional[builtins.bool] = None,
+    gfm: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__56dc91405fb970d58320a5a0025d8bde646c1421e2210fdd1d1f303623e06ef1(
     *,
     actions: typing.Optional[typing.Union[Actions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6398,7 +7723,9 @@ def _typecheckingstub__15d4ec259e2481f14109da78900e918d2d10bde9b57b737b5c0ac7d4d
     javascript: typing.Optional[typing.Union[JsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     json: typing.Optional[typing.Union[JsonConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     linter: typing.Optional[typing.Union[OverrideLinterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    markdown: typing.Optional[typing.Union[MarkdownConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
+    yaml: typing.Optional[typing.Union[YamlConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6446,6 +7773,9 @@ def _typecheckingstub__f128bc69ea32431a28e9aae09b49905087cb9f2c49176cf906cbd06f3
     organize_imports: typing.Any = None,
     preset: typing.Optional[PresetConfig] = None,
     recommended: typing.Optional[builtins.bool] = None,
+    use_graphql_sorted_arguments: typing.Any = None,
+    use_graphql_sorted_definitions: typing.Any = None,
+    use_graphql_sorted_variables: typing.Any = None,
     use_sorted_attributes: typing.Any = None,
     use_sorted_enum_members: typing.Any = None,
     use_sorted_interface_members: typing.Any = None,
@@ -6458,6 +7788,16 @@ def _typecheckingstub__f128bc69ea32431a28e9aae09b49905087cb9f2c49176cf906cbd06f3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f57cbd515131470edf00afa86518e00838398080de4b1b1f003b94db15f43581(
+    *,
+    attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    merge_functions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    stylesheet: typing.Optional[builtins.str] = None,
+    variant_functions: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d0ca0d2f64e42e40c29e089e5200324b97670a6ebbf0f39b444b15a42a7150b7(
     *,
     client_kind: typing.Optional[VcsClientKind] = None,
@@ -6465,6 +7805,34 @@ def _typecheckingstub__d0ca0d2f64e42e40c29e089e5200324b97670a6ebbf0f39b444b15a42
     enabled: typing.Optional[builtins.bool] = None,
     root: typing.Optional[builtins.str] = None,
     use_ignore_file: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4be2e84646b4f1e76ed6203c510bd540d723eaa817a823ec387e839e5770734(
+    *,
+    formatter: typing.Optional[typing.Union[YamlFormatterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    linter: typing.Optional[typing.Union[YamlLinterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81c4c499f318c8dc484c199cfecf1d58ce9436ca1c3426be083c0dc6eba27680(
+    *,
+    bracket_spacing: typing.Optional[builtins.bool] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    indent_width: typing.Optional[jsii.Number] = None,
+    line_ending: typing.Optional[LineEnding] = None,
+    line_width: typing.Optional[jsii.Number] = None,
+    quote_style: typing.Optional[QuoteStyle] = None,
+    trailing_newline: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c83d03a52addd9222a3003b1f2875dabba0929b35d82eca404422215464f903f(
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

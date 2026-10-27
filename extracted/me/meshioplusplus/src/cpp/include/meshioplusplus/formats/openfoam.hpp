@@ -1,0 +1,392 @@
+//  ██████   ██████ ██████████  █████████  █████   █████ █████    ███████
+// ░░██████ ██████ ░░███░░░░░█ ███░░░░░███░░███   ░░███ ░░███   ███░░░░░███      ███         ███
+//  ░███░█████░███  ░███  █ ░ ░███    ░░░  ░███    ░███  ░███  ███     ░░███    ░███        ░███
+//  ░███░░███ ░███  ░██████   ░░█████████  ░███████████  ░███ ░███      ░███ ███████████ ███████████
+//  ░███ ░░░  ░███  ░███░░█    ░░░░░░░░███ ░███░░░░░███  ░███ ░███      ░███░░░░░███░░░ ░░░░░███░░░
+//  ░███      ░███  ░███ ░   █ ███    ░███ ░███    ░███  ░███ ░░███     ███     ░███        ░███
+//  █████     █████ ██████████░░█████████  █████   █████ █████ ░░░███████░      ░░░         ░░░
+// ░░░░░     ░░░░░ ░░░░░░░░░░  ░░░░░░░░░  ░░░░░   ░░░░░ ░░░░░    ░░░░░░░
+//
+//
+//  License:         MIT License
+//                   meshio++ default license: LICENSE
+//
+//  Main authors:    Vicente Mataix Ferrandiz
+//
+//
+#pragma once
+
+/**
+ * @file openfoam.hpp
+ * @brief OpenFOAM polyMesh (read-only) C++ reader.
+ *
+ * A polyMesh is a directory of sibling "FoamFile"-headered files (`points`,
+ * `faces`, `owner`, `neighbour`, `boundary`), each ASCII or binary
+ * (little-endian only; `label=32/64`, `scalar=32/64` per the file's `arch`
+ * header string). `points` (`vectorField`) and `owner`/`neighbour`
+ * (`labelList`) are flat contiguous buffers read directly; `faces`
+ * (`faceList`) is non-contiguous (each face is its own length-prefixed
+ * `labelList`) and is read via a two-pass CSR gather bounded in peak
+ * memory. `boundary` is a `patch_name -> {type, nFaces, startFace}` table
+ * parsed with a brace-matching regex.
+ *
+ * Cells are reconstructed from the owner/neighbour/face topology: each
+ * face is oriented outward from its owning cell (reversed if the cell is
+ * that face's neighbour), then classified by `(n_faces, n_points)` into
+ * `tetra` (4,4), `pyramid` (5,5), `wedge` (5,6), `hexahedron` (6,8) — each
+ * with a dedicated orientation-fixing builder that flips node order if a
+ * scalar triple product comes out negative — or, for any other signature,
+ * a general `polyhedron<N>` **ragged** cell block (ragged data crosses the
+ * C++/Python boundary as a copied list of face-node arrays, never
+ * zero-copy). Boundary faces become `triangle`/`quad`/`polygon<N>` blocks,
+ * one per patch/size combination.
+ *
+ * `write_openfoam` (v9.20.0) is the inverse, and is the **only writer in
+ * meshio++ that takes a directory path** — it creates
+ * `<case>/constant/polyMesh/` and writes all five files. It goes through
+ * `detail/face_mesh.hpp`'s global face table, which is also what CGNS's
+ * `NFACE_n` writer uses. Since v15.5.0 (roadmap §1.1) an `OpenFoamWriteOptions`
+ * overload writes binary too, little-endian only, at the same `label=32/64`,
+ * `scalar=32/64` widths the reader already accepts; a big-endian host refuses
+ * a binary request by name rather than writing bytes the reader could not
+ * read back on its own machine.
+ *
+ * Only mesh topology is read or written; OpenFOAM field files (`U`, `p`,
+ * `T`, …) under a case's time directories are never touched by this module,
+ * so no `point_data`/`field_data` is ever produced or consumed.
+ */
+
+// System includes
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
+// Project includes
+#include "meshioplusplus/export.hpp"
+#include "meshioplusplus/mesh.hpp"
+#include "meshioplusplus/read_options.hpp"
+
+namespace meshioplusplus {
+
+/**
+ * @brief Side-channel struct carrying OpenFOAM boundary-patch tag data
+ *        that the zero-copy Mesh conversion layer cannot carry (`Python
+ *        mesh.cell_tags` is a custom Mesh attribute, not `cell_data`). The
+ *        binding layer `setattr`s this onto the returned Python `Mesh`.
+ */
+struct OpenFoamInfo {
+    // MED-style negative family id -> {patch name}.
+    /**
+     * `family_id -> [patch_name]`, mirroring Python `mesh.cell_tags`. Each
+     * boundary patch gets a distinct negative "MED-style family id"
+     * `-(patch_index+1)` (assigned once per patch and reused across
+     * whichever face-size cell blocks that patch's faces fall into); the
+     * matching `cell_data["cell_tags"]` array on the returned Mesh holds
+     * `0` for every volume-cell block and the patch's family id for its
+     * boundary-face blocks. This lets a subsequent MED write bridge patch
+     * names through the same family mechanism used for Gmsh physical
+     * groups (see doc/formats/med.md).
+     */
+    std::map<std::int64_t, std::vector<std::string>> mCellTags;
+
+    /**
+     * `family_id -> patch type` — the `type` entry of the on-disk `boundary`
+     * file (`patch`, `wall`, `symmetry`, `symmetryPlane`, `empty`, `wedge`,
+     * `cyclic`, …), keyed by the **same** negative family id as #mCellTags
+     * rather than by patch name: that key is this format's primary key
+     * everywhere else, and two maps keyed differently invite a bad join.
+     *
+     * A patch whose `type` the file omitted simply has no entry, and the
+     * writer then emits `patch` — OpenFOAM's base type, always safe.
+     * Deliberately **not** `wall`: `wall` selects wall functions and
+     * `nut*WallFunction` boundary behaviour, so guessing it would silently
+     * change a solve's physics.
+     *
+     * Types needing companion keys this struct cannot carry (`cyclic`'s
+     * `neighbourPatch`, `processor`'s `myProcNo`, `mappedWall`'s `sample`,
+     * …) are **downgraded to `patch` with a warning** on write: emitting
+     * them bare produces a case OpenFOAM refuses to load, whereas a
+     * downgraded case loads and solves with boundary conditions the user
+     * can see and fix.
+     */
+    std::map<std::int64_t, std::string> mPatchTypes;
+
+    /**
+     * @brief Multi-region case selector (v11.4.0, roadmap §1 tier B2).
+     *
+     * A multi-region case has no single `constant/polyMesh`; each region has
+     * its own `constant/<region>/polyMesh`. Set before calling `read_openfoam`
+     * to select one; the resolver also accepts a path that already *is*
+     * `constant/<region>/polyMesh` (the plain `polyMesh`-directory rule), in
+     * which case this field is unnecessary. Empty (the default) means
+     * "single-region case" -- if the case is multi-region instead,
+     * `read_openfoam` throws naming the regions `constant/regionProperties`
+     * lists, rather than silently trying (and failing to find) a bare
+     * `constant/polyMesh`. Ignored on write; a multi-region *write* is a
+     * documented follow-up.
+     */
+    std::string mRegion;
+};
+
+/**
+ * @brief Write-side format options for `write_openfoam` (v15.5.0, roadmap
+ * §1.1) — a pure addition, kept separate from #OpenFoamInfo so that
+ * struct's ABI pin (128 bytes) is untouched.
+ */
+struct OpenFoamWriteOptions {
+    /// `false` (default) writes ASCII, matching every earlier release.
+    bool mBinary = false;
+    /// Label (integer) width in bits: 32 or 64. Only meaningful when
+    /// #mBinary is `true` — ASCII numbers carry no width of their own.
+    int mLabelBits = 32;
+    /// Scalar (floating-point) width in bits: 32 or 64.
+    int mScalarBits = 64;
+};
+
+// `path` may be a `.foam` marker file, a case directory, or a polyMesh
+// directory (resolved like the Python reader).
+/**
+ * @brief Read an OpenFOAM polyMesh into a Mesh.
+ *
+ * `path` may be a `.foam` marker file (looks for
+ * `<parent>/constant/polyMesh`), a directory literally named `polyMesh`
+ * (used as-is), or any other directory (checked for `constant/polyMesh`
+ * then `polyMesh` as subdirectories) — resolved identically to the Python
+ * reader's `_resolve_polymesh`. Reconstructs volume cells
+ * (tetra/pyramid/wedge/hexahedron/general polyhedron) and boundary faces
+ * (triangle/quad/polygon) from the `points`/`faces`/`owner`/`neighbour`/
+ * `boundary` files, auto-detecting ASCII vs binary and label/scalar width
+ * per file. Degenerate volume cells that match a named type's
+ * `(n_faces, n_points)` signature but whose topology doesn't cleanly
+ * resolve are silently skipped (logged as a warning count) rather than
+ * demoted to a general polyhedron.
+ *
+ * @param rPath a `.foam` file, case directory, or polyMesh directory
+ * @param rInfo output side-channel struct populated with boundary-patch
+ *        family ids and names (see #OpenFoamInfo)
+ * @return the read Mesh: points, volume + boundary cell blocks,
+ *         `cell_data["cell_tags"]` (0 for volume blocks, a per-patch
+ *         negative id for boundary blocks), `mesh.point_tags` always set
+ *         to `{}` (OpenFOAM has no point-tag concept; present only for
+ *         interface symmetry with the MED-derived tag convention) — no
+ *         point_data or field_data
+ * @throws ReadError / std::filesystem-related errors if no polyMesh
+ *         directory can be resolved, or on a malformed/unsupported file;
+ *         callers (the Python shim) catch this and retry with the
+ *         pure-Python reader
+ */
+MESHIOPLUSPLUS_API Mesh read_openfoam(const std::string& rPath, OpenFoamInfo& rInfo);
+
+/**
+ * @brief Read an OpenFOAM polyMesh, optionally attaching one time
+ * directory's fields (v11.4.0, roadmap §1 tier B2).
+ *
+ * Identical to the two-argument overload for the mesh topology itself.
+ * Additionally: `rOptions.mTimeStep` (via `ResolveTimeStep`) selects a time
+ * directory out of `<case_root>/<numeric>/` (case root = the directory
+ * `read_openfoam_metadata` would report `mTimeValues` for), skipped
+ * entirely when no such directory exists (matching the two-argument
+ * overload's historical no-field behaviour exactly). Each of that
+ * directory's field files becomes one `point_data`/`cell_data` array named
+ * after the file, filtered by `rOptions.mDataArrays`
+ * (`ReadOptions::WantsArray`): `volScalarField`/`volVectorField`/
+ * `volSymmTensorField`/`volTensorField` -> cell data (1/3/6/9 components);
+ * `pointScalarField`/`pointVectorField` -> point data (1/3); anything else
+ * (`surfaceScalarField`, …) is skipped with a warning, once per field.
+ * `uniform` expands to one row per cell/point. A cell field's `internalField`
+ * only ever covers volume cells (OpenFOAM's own numbering): the matching
+ * `cell_data` blocks are the volume/polyhedron ones; the boundary-face
+ * blocks get the `value` of each patch's `boundaryField` entry (matched by
+ * exact patch name), and `NaN` where a patch has none. Binary field
+ * files use the same `arch`-driven reader as the polyMesh binary path.
+ *
+ * @param rPath a `.foam` file, case directory, or polyMesh directory
+ * @param rOptions `mTimeStep` selects the time directory; `mDataArrays`
+ *        selects fields; `mRegion` (via @p rInfo, not here) is unrelated
+ * @param rInfo output side-channel struct (see #OpenFoamInfo)
+ * @return the read Mesh, as the two-argument overload, plus the selected
+ *         time directory's fields
+ * @throws ReadError as the two-argument overload; also if `mTimeStep`
+ *         selects an out-of-range step among the case's time directories
+ */
+MESHIOPLUSPLUS_API Mesh read_openfoam(const std::string& rPath, const ReadOptions& rOptions,
+                                      OpenFoamInfo& rInfo);
+
+/**
+ * @brief Cheaply summarize an OpenFOAM case's time directories.
+ *
+ * `mTimeValues` is a real, cheap (directory-listing only) native path: the
+ * numeric-named subdirectories of the case root that hold at least one
+ * regular file, sorted ascending. Everything else in the returned
+ * `MeshMetadata` comes from a full read (`mFellBackToFullRead = true`),
+ * since a cheap point/cell count would otherwise re-derive the whole
+ * cell-reconstruction pipeline redundantly.
+ *
+ * @param rPath a `.foam` file, case directory, or polyMesh directory
+ * @param rOptions forwarded to the full read backing the non-time fields
+ * @return metadata with a native `mTimeValues` and a full-read-derived rest
+ */
+MESHIOPLUSPLUS_API MeshMetadata read_openfoam_metadata(const std::string& rPath,
+                                                       const ReadOptions& rOptions);
+
+/**
+ * @brief Write a Mesh as an OpenFOAM polyMesh case.
+ *
+ * The **only meshio++ writer that creates a directory**: @p rPath is
+ * resolved exactly as `read_openfoam` resolves it (a `.foam` marker file, a
+ * directory literally named `polyMesh`, or any other directory taken as the
+ * case root), and `<case>/constant/polyMesh/` is created if absent. A
+ * `.foam` target additionally gets its empty marker file written, which is
+ * what makes the case openable by ParaView and by this reader.
+ *
+ * Volume cells become the `faces`/`owner`/`neighbour` triple via
+ * `detail::build_global_faces`, which repairs each cell's winding — so an
+ * inverted cell is written correctly oriented rather than rejected by
+ * `checkMesh`. All four ordering rules OpenFOAM requires (internal faces
+ * first, `owner < neighbour`, faces sorted by owner then neighbour, normals
+ * pointing owner→neighbour) are enforced and then re-validated before
+ * anything is written; a violation is a `WriteError` naming the rule,
+ * because it means an internal bug rather than bad input.
+ *
+ * Boundary patches are recovered from `cell_data["cell_tags"]`'s negative
+ * values together with @p rInfo. A mesh carrying none — anything converted
+ * from another format — gets a single `defaultFaces` patch of type `patch`,
+ * which is what `blockMesh` itself produces and yields a loadable case.
+ * Patches are **not** synthesized from geometry.
+ *
+ * ASCII only: a binary polyMesh is a documented follow-up, so an explicit
+ * binary request fails by name rather than silently writing ASCII.
+ *
+ * @param rPath a `.foam` file, case directory, or polyMesh directory
+ * @param rMesh the mesh to write; ragged polyhedron blocks are supported
+ *        and are in fact this format's native cell shape
+ * @param rInfo patch names and types, keyed by the same negative family ids
+ *        `read_openfoam` produces (see #OpenFoamInfo). An empty struct is
+ *        valid and yields the `defaultFaces` case above.
+ * @throws WriteError if the mesh has no volume cells, if a 3D block cannot
+ *         contribute faces (which would silently drop solids), if a face is
+ *         shared by three or more cells, or if the output directory cannot
+ *         be created
+ */
+MESHIOPLUSPLUS_API void write_openfoam(const std::string& rPath, const Mesh& rMesh,
+                                       const OpenFoamInfo& rInfo);
+
+/**
+ * @brief Write an OpenFOAM polyMesh case with explicit format options.
+ *
+ * Identical to the three-argument overload, plus @p rOptions. `rOptions.mBinary`
+ * writes `points`/`owner`/`neighbour`/zone label lists as raw little-endian
+ * bytes (count, `(`, bytes, `)`) and `faces` the same length-prefixed-per-face
+ * way the reader already expects (see "Binary write" in `doc/formats/openfoam.md`) —
+ * not `CompactListList`, which this reader does not read. The header's
+ * `format`/`arch` lines record the encoding and widths, exactly as the reader
+ * requires to parse it back (see `read_openfoam`'s `detect_format`).
+ *
+ * @param rPath a `.foam` file, case directory, or polyMesh directory
+ * @param rMesh the mesh to write
+ * @param rInfo patch names and types, as the three-argument overload
+ * @param rOptions binary flag and label/scalar widths (see #OpenFoamWriteOptions)
+ * @throws WriteError for the same reasons as the three-argument overload,
+ *         plus a binary request on a big-endian host
+ */
+MESHIOPLUSPLUS_API void write_openfoam(const std::string& rPath, const Mesh& rMesh,
+                                       const OpenFoamInfo& rInfo,
+                                       const OpenFoamWriteOptions& rOptions);
+
+/**
+ * @brief Write one region of a multi-region case: `constant/<region>/polyMesh` and the fields
+ *        under `<time>/<region>/`. An empty @p rRegion is `write_openfoam`. `regionProperties`
+ *        is made on request by `write_openfoam_region_properties`; the reader finds the regions
+ *        under `constant/` either way. The path must be a case (a `.foam` file or a directory).
+ * @throws WriteError as `write_openfoam`, and for an invalid region name
+ */
+MESHIOPLUSPLUS_API void write_openfoam_region(const std::string& rPath, const Mesh& rMesh,
+                                              const OpenFoamInfo& rInfo,
+                                              const OpenFoamWriteOptions& rOptions,
+                                              const std::string& rRegion);
+
+/**
+ * @brief Write a decomposed case, `decomposePar`'s layout: `processorN/constant/polyMesh` for every
+ *        processor named in `cell_data["partition:part"]` (`meshioplusplus.partition_labels`), with
+ *        `processor` patches between neighbours, the four `*ProcAddressing` lists the reader
+ *        reassembles the global case from, and each processor's share of the fields in
+ *        `processorN/0/`. Zones (`cellZones`/`faceZones`/`pointZones`) are written per processor
+ *        in processor-local ids and merged back on read. Write into a fresh directory: a serial
+ *        `constant/polyMesh` beside the processors is the one a reader prefers.
+ * @throws WriteError as `write_openfoam`, and without `partition:part` labels
+ */
+MESHIOPLUSPLUS_API void write_openfoam_decomposed(const std::string& rPath, const Mesh& rMesh,
+                                                  const OpenFoamInfo& rInfo,
+                                                  const OpenFoamWriteOptions& rOptions);
+
+/**
+ * @brief One line of a multi-region case's `constant/regionProperties`: a solver family and the
+ *        regions it solves, e.g. `fluid (water air)`.
+ */
+struct OpenFoamRegionGroup {
+    std::string mFamily;
+    std::vector<std::string> mRegions;
+};
+
+/**
+ * @brief Write `constant/regionProperties` of a multi-region case, the `regions` list of
+ *        `chtMultiRegionFoam`-style solvers:
+ *
+ *        regions ( fluid (water air) solid (heater) );
+ *
+ *        meshio++ does not know which family names a solver wants (`fluid`/`solid` for
+ *        `chtMultiRegionFoam`, others for other solvers), so the caller names them and this writes
+ *        them verbatim, in order; no file is made unless this is called. The file is replaced, not
+ *        merged, and the region directories need not exist yet (`write_openfoam_region` makes
+ *        them). @p rPath is a case (a `.foam` file or a directory), as for `write_openfoam_region`.
+ * @throws WriteError for no group, a family with no region, a name that is empty or holds
+ *         whitespace or any of `(){};"'#$/\` (a region name must also not start with a dot), a
+ *         repeated family, or a region listed twice
+ */
+MESHIOPLUSPLUS_API void write_openfoam_region_properties(
+    const std::string& rPath, const std::vector<OpenFoamRegionGroup>& rGroups);
+
+/**
+ * @brief Read the `regions` list of `constant/regionProperties`, in file order.
+ * @throws ReadError when the file is missing or has no well-formed `regions ( family (names) ... )`
+ *         list. Older `<family>RegionNames` keys are not read.
+ */
+MESHIOPLUSPLUS_API std::vector<OpenFoamRegionGroup> read_openfoam_region_properties(
+    const std::string& rPath);
+
+/**
+ * @brief A transient case: the `polyMesh` once and a time directory of fields per mesh, named
+ *        by the time (`0.5`, `1e-05`). Every mesh must have the first one's points and cells.
+ *        The fields are `point_data` and `cell_data` as `write_openfoam` writes them for
+ *        time `0`. The Python entry point is `meshioplusplus.openfoam.SeriesWriter`.
+ */
+class MESHIOPLUSPLUS_API OpenFoamSeriesWriter {
+public:
+    explicit OpenFoamSeriesWriter(const std::string& rPath, const OpenFoamInfo& rInfo = {},
+                                  const OpenFoamWriteOptions& rOptions = {},
+                                  const std::string& rRegion = {});
+    ~OpenFoamSeriesWriter();
+
+    OpenFoamSeriesWriter(const OpenFoamSeriesWriter&) = delete;
+    OpenFoamSeriesWriter& operator=(const OpenFoamSeriesWriter&) = delete;
+    OpenFoamSeriesWriter(OpenFoamSeriesWriter&&) noexcept;
+    OpenFoamSeriesWriter& operator=(OpenFoamSeriesWriter&&) noexcept;
+
+    /// Write one step now. @throws WriteError on a mismatch with the first step, or a repeated
+    /// time.
+    void Write(double Time, const Mesh& rMesh);
+
+    /// The number of steps written so far.
+    std::size_t NumSteps() const noexcept;
+
+    /// Nothing is pending (steps are written as they arrive); @throws WriteError when none was.
+    void Finalize();
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> mpImpl;
+};
+
+}  // namespace meshioplusplus

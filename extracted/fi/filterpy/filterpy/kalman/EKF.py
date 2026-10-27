@@ -55,7 +55,7 @@ class ExtendedKalmanFilter(object):
         This is used to set the default size of P, Q, and u
 
     dim_z : int
-        Number of of measurement inputs. For example, if the sensor
+        Number of measurement inputs. For example, if the sensor
         provides you with position in (x,y), dim_z would be 2.
 
     Attributes
@@ -318,7 +318,8 @@ class ExtendedKalmanFilter(object):
 
         PHT = dot(self.P, H.T)
         self.S = dot(H, PHT) + R
-        self.K = PHT.dot(linalg.inv(self.S))
+        self.SI = linalg.inv(self.S)
+        self.K = PHT.dot(self.SI)
 
         hx = Hx(self.x, *hx_args)
         self.y = residual(z, hx)
@@ -405,7 +406,7 @@ class ExtendedKalmanFilter(object):
         mahalanobis : float
         """
         if self._mahalanobis is None:
-            self._mahalanobis = sqrt(float(dot(dot(self.y.T, self.SI), self.y)))
+            self._mahalanobis = sqrt(dot(dot(self.y.T, self.SI), self.y).item())
         return self._mahalanobis
 
     def __repr__(self):

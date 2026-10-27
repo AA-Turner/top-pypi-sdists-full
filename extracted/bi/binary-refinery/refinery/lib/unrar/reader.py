@@ -22,6 +22,24 @@ class BitInput:
         self.in_addr = 0
         self.in_bit = 0
 
+    def load(self, data: bytes | bytearray | memoryview):
+        """
+        Continue with the given data from its start. A solid archive decodes each file with the
+        same reader, so that whatever reads through it, like the PPM model, reads the new data.
+        """
+        self.buf = data
+        self.init()
+
+    def get_char(self) -> int:
+        """
+        Return the byte at the current byte position and advance past it, or zero at the end.
+        """
+        addr = self.in_addr
+        if addr >= len(self.buf):
+            return 0
+        self.in_addr = addr + 1
+        return self.buf[addr]
+
     def getbits(self) -> int:
         """
         Return 16 bits starting from current position (MSB-first, left-aligned).
@@ -56,6 +74,19 @@ class BitInput:
 
         val = (b0 << 32) | (b1 << 24) | (b2 << 16) | (b3 << 8) | b4
         return (val >> (8 - bit)) & 0xFFFFFFFF
+
+    def getbits64(self) -> int:
+        """
+        Return 64 bits starting from current position (MSB-first).
+        """
+        addr = self.in_addr
+        buf = self.buf
+        blen = len(buf)
+
+        val = 0
+        for k in range(addr, addr + 9):
+            val = (val << 8) | (buf[k] if k < blen else 0)
+        return (val >> (8 - self.in_bit)) & 0xFFFFFFFFFFFFFFFF
 
     def addbits(self, bits: int):
         """

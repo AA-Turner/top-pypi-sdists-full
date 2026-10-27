@@ -198,6 +198,11 @@ EVENT_OUTBOX_DISCARDED = "outbox.discarded"
 #: lifts too and reports nothing itself (its drainer's `outbox.drained` does,
 #: under the person's own switches).
 EVENT_OUTBOX_PAUSE_LIFTED = "outbox.pause_lifted"
+#: Probe staff's one-time capture repair reached this machine (research-os
+#: control/073, `probe.cli.main._capture_repair_notice`): the replacement capture
+#: credentials it fetched were written and their agents' locks lifted (`applied`),
+#: or writing them failed (`write_failed`). Agent slugs and counts only.
+EVENT_CAPTURE_REPAIR_APPLIED = "capture.repair_applied"
 #: A TRAINING process's delivery counts (plan 1.12): every 15 min while it
 #: writes and at each run's close. Deltas since its last report, counts only --
 #: never a key, body, name or path -- so we see loss before a customer does.
@@ -1213,6 +1218,39 @@ def emit_outbox_pause_lifted(status: dict, *, base_url: str | None) -> bool:
             EVENT_OUTBOX_PAUSE_LIFTED,
             pending=status.get("pending") or 0,
             oldest_pending_age_hours=_age_hours(status.get("oldest_pending")),
+        )
+        return True
+    except Exception:
+        return False  # observability must never become observable
+
+
+def emit_capture_repair_applied(
+    *,
+    sources: list[str],
+    outcome: str,
+    locks_lifted: int,
+    base_url: str | None,
+    kept_off: list[str] | None = None,
+    confirmed: bool | None = None,
+    unsupported: list[str] | None = None,
+) -> bool:
+    """Report a staff capture repair this machine applied (`EVENT_CAPTURE_REPAIR_APPLIED`):
+    the agents written, those kept off by a turn-off made after staff asked, and
+    whether the server took the confirmation. Slugs and counts only. Sent beside
+    the command's own context, never as it (`detached_context`). Never raises;
+    True when it was handed to the sender."""
+    try:
+        ctx = detached_context(base_url, via=Via.COMMAND)
+        if not ctx.enabled:
+            return False
+        ctx.emit(
+            EVENT_CAPTURE_REPAIR_APPLIED,
+            sources=sorted(sources),
+            outcome=outcome,
+            locks_lifted=locks_lifted,
+            kept_off=sorted(kept_off or []),
+            unsupported=sorted(unsupported or []),
+            confirmed=confirmed,
         )
         return True
     except Exception:

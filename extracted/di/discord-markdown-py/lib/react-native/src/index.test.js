@@ -4,18 +4,21 @@ import { beforeEach, expect, test, vi } from "vitest";
 // React Native runtime. Stubbing it lets us test the wrapper's own job: what it forwards across
 // the JSI boundary. The parser itself is tested in `cargo test -p discord-markdown-c`.
 const parseToAstString = vi.fn(() => "[]");
+const parseLosslessToAstString = vi.fn(() => "{}");
 const unparseFromAstString = vi.fn(() => "");
 vi.mock("./NativeDiscordMarkdown", () => ({
 	default: {
 		parseToAstString: (...args) => parseToAstString(...args),
+		parseLosslessToAstString: (...args) => parseLosslessToAstString(...args),
 		unparseFromAstString: (...args) => unparseFromAstString(...args),
 	},
 }));
 
-const { Syntax, parse, unparse } = await import("./index.js");
+const { Syntax, parse, parseLossless, unparse } = await import("./index.js");
 
 beforeEach(() => {
 	parseToAstString.mockClear();
+	parseLosslessToAstString.mockClear();
 	unparseFromAstString.mockClear();
 });
 
@@ -81,6 +84,29 @@ test("encodes the AST it hands to the native module", () => {
 	expect(unparseFromAstString).toHaveBeenCalledWith(
 		'[{"type":"mention","value":{"type":"user","value":{"$bigint":"873227248453443624"}}}]',
 	);
+});
+
+test("forwards a lossless parse's arguments as parse does", () => {
+	parseLossless("**foo**", null, 0);
+	expect(parseLosslessToAstString).toHaveBeenCalledWith(
+		"**foo**",
+		undefined,
+		0,
+	);
+});
+
+test("decodes the lossless tree the native module returns", () => {
+	parseLosslessToAstString.mockReturnValueOnce(
+		'{"kind":{"type":"mention","value":{"type":"user","value":{"$bigint":"873227248453443624"}}},"span":{"start":0,"end":21},"children":[]}',
+	);
+	expect(parseLossless("<@873227248453443624>")).toStrictEqual({
+		kind: {
+			type: "mention",
+			value: { type: "user", value: 873227248453443624n },
+		},
+		span: { start: 0, end: 21 },
+		children: [],
+	});
 });
 
 test("returns the markdown the native module produced", () => {

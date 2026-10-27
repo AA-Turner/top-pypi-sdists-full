@@ -1341,6 +1341,7 @@ class CfnScalableTarget(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1388,7 +1389,7 @@ class CfnScalableTarget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aab88caece6d64e8566905de6661b92b1df09b9d335e0e8c0754b34f44d246e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxCapacity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maxCapacity", value)
 
     @builtins.property
     @jsii.member(jsii_name="minCapacity")
@@ -1401,7 +1402,7 @@ class CfnScalableTarget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b73964fa80587244137f97f906081898d6add27e7ac5c4b1110b5960dfbf7f8c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "minCapacity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "minCapacity", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceId")
@@ -1414,7 +1415,7 @@ class CfnScalableTarget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c6222d448bf139000d6495103f3869076bae6b8c46711066c25270c8d2a240f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="scalableDimension")
@@ -1427,7 +1428,7 @@ class CfnScalableTarget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d4fae2c8cfacd2c2f1c7b6ce18c73fe5d382c388861da42afb198ead30adb892)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scalableDimension", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scalableDimension", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceNamespace")
@@ -1440,7 +1441,7 @@ class CfnScalableTarget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5baa82fd6ad58564620316e191b3085f34068537274501c2ae16cef617b55152)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceNamespace", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceNamespace", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -1453,7 +1454,7 @@ class CfnScalableTarget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9252d029d6d32f1b045421b6b1cde1f523488cdc4808bee1892014e6bd4dc0b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="scheduledActions")
@@ -1471,7 +1472,7 @@ class CfnScalableTarget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f1adb9fa5e86479f2f4514b089b4fcee3b8718c5f7874ca0fe66105630e3636f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scheduledActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scheduledActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="suspendedState")
@@ -1489,7 +1490,7 @@ class CfnScalableTarget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0bbb1dcd1d81de0e4c36de9ea045348b3724df3d549254eef9a20300325fc117)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "suspendedState", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "suspendedState", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1504,7 +1505,7 @@ class CfnScalableTarget(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b87d6975a81ad4cd42710120832208525b33424481739f7b2435dda0299f252)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_applicationautoscaling.CfnScalableTarget.ScalableTargetActionProperty",
@@ -2408,6 +2409,7 @@ class CfnScalingPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2450,7 +2452,7 @@ class CfnScalingPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c59722890877d8ddfaeabf8aced7cbcbac1e5b7bdc4bc14db89c2047881a540a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyName", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyType")
@@ -2463,7 +2465,7 @@ class CfnScalingPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__64ceb2a355ff27a664253fe046aa1782da96620b29bc51aeb4cc3d41e3e86c84)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyType", value)
 
     @builtins.property
     @jsii.member(jsii_name="predictiveScalingPolicyConfiguration")
@@ -2481,7 +2483,7 @@ class CfnScalingPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a8ff4907f03a84bc381a0bf64cc7a5454e5ac237c8f91eef6a31a3bb7ccceabb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "predictiveScalingPolicyConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "predictiveScalingPolicyConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceId")
@@ -2494,7 +2496,7 @@ class CfnScalingPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__471855b6df8fda8e34a03d46cd115dff8f7756d99f246dde133740f2be29f4c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="scalableDimension")
@@ -2510,7 +2512,7 @@ class CfnScalingPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e7c7fbf57e3d736c1fe088d47facb97643b88aa8c36fb8faed19ffa53682927f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scalableDimension", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scalableDimension", value)
 
     @builtins.property
     @jsii.member(jsii_name="scalingTargetId")
@@ -2523,7 +2525,7 @@ class CfnScalingPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6f4fbea87ebb062bdc91ff07aec76f048538e421370633ef1c72dbf10223bf67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scalingTargetId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scalingTargetId", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceNamespace")
@@ -2536,7 +2538,7 @@ class CfnScalingPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__56b9fc2d37586eb8d15fe8d758af97dd8d88e8a7505bd07bc33f6daba1dfff42)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceNamespace", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceNamespace", value)
 
     @builtins.property
     @jsii.member(jsii_name="stepScalingPolicyConfiguration")
@@ -2554,7 +2556,7 @@ class CfnScalingPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ccee10df2369c02f2415d65418aa22f9f91b2dd5fab0700a4a452b640ae5db54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stepScalingPolicyConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "stepScalingPolicyConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetTrackingScalingPolicyConfiguration")
@@ -2572,7 +2574,7 @@ class CfnScalingPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d48220f9b4b78b76a3e0525fb18dc4772f5f73ecb26256ee41a09fa710c8be3a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetTrackingScalingPolicyConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetTrackingScalingPolicyConfiguration", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_applicationautoscaling.CfnScalingPolicy.CustomizedMetricSpecificationProperty",
@@ -6263,6 +6265,7 @@ class ScalableTarget(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

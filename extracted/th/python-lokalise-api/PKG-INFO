@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: python-lokalise-api
-Version: 4.3.0
+Version: 5.0.0
 Summary: Official Python interface for the Lokalise API v2
 Project-URL: Homepage, https://python-lokalise-api.readthedocs.io/
 Project-URL: Repository, https://github.com/lokalise/python-lokalise-api
@@ -15,14 +15,12 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
-Requires-Dist: exceptiongroup<2.0,>=1.0; python_version < '3.11'
+Requires-Python: >=3.11
 Requires-Dist: requests<3,>=2.32.5
 Description-Content-Type: text/markdown
 
@@ -38,7 +36,7 @@ Official Python 3 interface for the [Lokalise APIv2](https://developers.lokalise
 
 ## Quick start
 
-This plugin requires Python 3.10 and above. Install it:
+This plugin requires Python 3.11 and above. Install it:
 
 ```
 pip install python-lokalise-api

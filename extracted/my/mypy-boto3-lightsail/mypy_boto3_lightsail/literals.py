@@ -133,6 +133,8 @@ __all__ = (
     "TierNameType",
     "TreatMissingDataType",
     "ViewerMinimumTlsProtocolVersionEnumType",
+    "WafInspectionLevelEnumType",
+    "WafPayloadTypeEnumType",
 )
 
 
@@ -199,6 +201,8 @@ DistributionMetricNameType = Literal[
     "Http5xxErrorRate",
     "Requests",
     "TotalErrorRate",
+    "WafAllowedRequests",
+    "WafBlockedRequests",
 ]
 DnsRecordCreationStateCodeType = Literal["FAILED", "STARTED", "SUCCEEDED"]
 ExportSnapshotRecordSourceTypeType = Literal["DiskSnapshot", "InstanceSnapshot"]
@@ -581,6 +585,8 @@ TreatMissingDataType = Literal["breaching", "ignore", "missing", "notBreaching"]
 ViewerMinimumTlsProtocolVersionEnumType = Literal[
     "TLSv1.1_2016", "TLSv1.2_2018", "TLSv1.2_2019", "TLSv1.2_2021"
 ]
+WafInspectionLevelEnumType = Literal["COMMON", "TARGETED"]
+WafPayloadTypeEnumType = Literal["FORM_ENCODED", "JSON"]
 LightsailServiceName = Literal["lightsail"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -690,6 +696,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",

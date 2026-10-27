@@ -3,10 +3,10 @@ Rename obfuscated variable names to short sequential identifiers.
 """
 from __future__ import annotations
 
-from refinery.lib.scripts import Node, Transformer
+from refinery.lib.scripts import Node, Transformer, set_value
+from refinery.lib.scripts.ps1.ast import assignment_target_variables
 from refinery.lib.scripts.ps1.deobfuscation.constants import (
     _PS1_SKIP_VARIABLES,
-    _assignment_target_variable,
 )
 from refinery.lib.scripts.ps1.model import (
     Ps1AssignmentExpression,
@@ -29,9 +29,8 @@ def _is_user_variable(var: Ps1Variable) -> bool:
 
 class Ps1VariableRenaming(Transformer):
     """
-    Rename obfuscated variable names to short sequential identifiers (var1, var2, ...).
-    Only activates when ALL user-defined variables in the script have obfuscated names,
-    preventing false positives on legitimate scripts.
+    Only activates when all user-defined variables in the script have obfuscated names, which
+    prevents false positives on legitimate scripts.
     """
 
     def visit(self, node: Node):
@@ -46,20 +45,23 @@ class Ps1VariableRenaming(Transformer):
         mapping: dict[str, str] = {}
         counter = 0
         for n in node.walk_in_order():
-            key = None
+            keys: list[str] = []
             if isinstance(n, Ps1AssignmentExpression):
-                var = _assignment_target_variable(n.target)
-                if var is not None and _is_user_variable(var):
-                    key = var.name.lower()
+                keys = [
+                    var.name.lower()
+                    for var in assignment_target_variables(n.target)
+                    if _is_user_variable(var)
+                ]
             elif isinstance(n, Ps1ForEachLoop):
                 if isinstance(n.variable, Ps1Variable) and _is_user_variable(n.variable):
-                    key = n.variable.name.lower()
+                    keys = [n.variable.name.lower()]
             elif isinstance(n, Ps1ParameterDeclaration):
                 if isinstance(n.variable, Ps1Variable) and _is_user_variable(n.variable):
-                    key = n.variable.name.lower()
-            if key is not None and key not in mapping:
-                counter += 1
-                mapping[key] = F'var{counter}'
+                    keys = [n.variable.name.lower()]
+            for key in keys:
+                if key not in mapping:
+                    counter += 1
+                    mapping[key] = F'var{counter}'
         for name in sorted(user_names):
             if name not in mapping:
                 counter += 1
@@ -68,7 +70,7 @@ class Ps1VariableRenaming(Transformer):
             if isinstance(n, Ps1Variable) and _is_user_variable(n):
                 key = n.name.lower()
                 if key in mapping:
-                    n.name = mapping[key]
-                    n.braced = False
+                    set_value(n, 'name', mapping[key])
+                    set_value(n, 'braced', False)
                     self.mark_changed()
         return None

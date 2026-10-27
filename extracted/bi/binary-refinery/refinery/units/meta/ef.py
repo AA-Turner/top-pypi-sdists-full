@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import os
 import os.path
 import re
@@ -7,9 +8,9 @@ import sys
 
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
-from refinery.lib.meta import metavars
+from refinery.lib.meta import MV, metavars
 from refinery.lib.structures import MemoryFile
 from refinery.lib.tools import exception_to_string
 from refinery.lib.types import Param, bounds
@@ -18,6 +19,72 @@ from refinery.units import Arg, Unit
 _ERROR_IGNORES = {
     'nt': {'system volume information'}
 }
+
+
+def _is_link(path: str) -> bool:
+    """
+    Whether the given path is a symbolic link or a junction.
+    """
+    if sys.version_info >= (3, 12):
+        return os.path.islink(path) or os.path.isjunction(path)
+    try:
+        return bool(os.readlink(path))
+    except OSError:
+        return False
+
+
+def _contains(directory: str, path: str) -> bool:
+    """
+    Whether the given path is the given directory or below it; both are real paths.
+    """
+    directory = os.path.normcase(directory)
+    path = os.path.normcase(path)
+    return path == directory or path.startswith(directory.rstrip(os.sep) + os.sep)
+
+
+class _SkipErrors:
+    """
+    A context that suppresses errors while one path is scanned, and logs the first error of each
+    kind for that path.
+    """
+    def __init__(self, unit: ef):
+        self.unit = unit
+        self._history: set[type] = set()
+        self._message: dict[type, str | None] = {
+            ValueError: (
+                None
+            ), PermissionError: (
+                'access error while scanning: {}'
+            ), FileNotFoundError: (
+                'file unexpectedly not found: {}'
+            ), OSError: (
+                'system error while scanning: {}'
+            ), Exception: (
+                'unknown error while reading: {}'
+            ),
+        }
+        self.path = None
+
+    def reset(self, path):
+        self._history.clear()
+        self.path = path
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, et, ev, trace):
+        if et is None:
+            return False
+        for t, msg in self._message.items():
+            if issubclass(et, t):
+                if t not in self._history:
+                    self._history.add(t)
+                    if msg is not None:
+                        self.unit.log_info(msg.format(self.path))
+                return True
+        else:
+            return False
 
 
 class ef(Unit):
@@ -126,59 +193,66 @@ class ef(Unit):
             pattern = F'{last}{pattern}'
             path = path.parent
 
-        scandir = os.scandir
+        parts = tuple(part for part in re.split(R'[\\/]', pattern) if part)
+        yield from self._matches(path, os.path.realpath(path), parts)
 
-        class EmptyIterator:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *_, **__):
-                pass
-
-            def __next__(self):
-                raise StopIteration
-
-            def __iter__(self):
-                return self
-
-        if sys.version_info >= (3, 12):
-            def islink(path):
-                return os.path.islink(path) or os.path.isjunction(path)
-        else:
-            def islink(path):
-                try:
-                    return bool(os.readlink(path))
-                except OSError:
-                    return False
-
-        paths_scanned = set()
-
-        def _patched_scandir(path):
-            if islink(path):
-                if not self.args.symlinks:
-                    return EmptyIterator()
-                try:
-                    rp = os.path.realpath(path, strict=True)
-                except OSError:
-                    return EmptyIterator()
-                if rp in paths_scanned:
-                    self.log_warn(F'file system loop at: {path!s}')
-                    return EmptyIterator()
-                paths_scanned.add(rp)
-                path = rp
-            try:
-                return scandir(path)
-            except Exception as e:
-                ignore = _ERROR_IGNORES.get(os.name, set())
-                if not any(p.lower() in ignore for p in Path(path).parts):
-                    self.log_warn(F'error calling scandir, {exception_to_string(e)}: {path}')
-                return EmptyIterator()
-
+    def _entries(self, directory: Path) -> list[os.DirEntry]:
+        """
+        The entries of the given directory; a directory that cannot be listed has none.
+        """
         try:
-            os.scandir = _patched_scandir
-            yield from path.glob(pattern)
-        finally:
-            os.scandir = scandir
+            with os.scandir(directory) as scan:
+                return list(scan)
+        except Exception as error:
+            ignore = _ERROR_IGNORES.get(os.name, set())
+            if not any(part.lower() in ignore for part in directory.parts):
+                self.log_warn(F'error calling scandir, {exception_to_string(error)}: {directory}')
+            return []
+
+    def _entered(self, entry: os.DirEntry, real: str) -> str | None:
+        """
+        The real path of the directory of the given entry, if the walk enters it; the given real
+        path is that of the directory that lists the entry. A link or junction is entered only
+        when the unit follows them, and not when it leads to a directory that the walk is in.
+        """
+        try:
+            if not entry.is_dir():
+                return None
+        except OSError:
+            return None
+        if not _is_link(entry.path):
+            return os.path.join(real, entry.name)
+        if not self.args.symlinks:
+            return None
+        try:
+            target = os.path.realpath(entry.path, strict=True)
+        except OSError:
+            return None
+        if _contains(target, real):
+            self.log_warn(F'file system loop at: {entry.path}')
+            return None
+        return target
+
+    def _matches(self, directory: Path, real: str, parts: tuple[str, ...]) -> Iterator[Path]:
+        """
+        The paths below the given directory that match the given components of a pattern; the
+        component `**` matches any number of directories. The real path is that of the directory.
+        """
+        head, rest = parts[0], parts[1:]
+        if head == '**':
+            if rest:
+                yield from self._matches(directory, real, rest)
+            for entry in self._entries(directory):
+                if (inner := self._entered(entry, real)) is not None:
+                    yield from self._matches(directory / entry.name, inner, parts)
+            return
+        for entry in self._entries(directory):
+            if not fnmatch.fnmatch(entry.name, head):
+                continue
+            if not rest:
+                yield directory / entry.name
+            elif (inner := self._entered(entry, real)) is not None:
+                yield from self._matches(directory / entry.name, inner, rest)
 
     def process(self, data):
         meta = metavars(data)
@@ -190,52 +264,11 @@ class ef(Unit):
         do_meta = self.args.meta
         do_stat = size or do_meta
 
-        class SkipErrors:
-            unit = self
-
-            def __init__(self):
-                self._history: set[type] = set()
-                self._message: dict[type, str | None] = {
-                    ValueError: (
-                        None
-                    ), PermissionError: (
-                        'access error while scanning: {}'
-                    ), OSError: (
-                        'system error while scanning: {}'
-                    ), FileNotFoundError: (
-                        'file unexpectedly not found: {}'
-                    ), Exception: (
-                        'unknown error while reading: {}'
-                    ),
-                }
-                self.path = None
-
-            def reset(self, path):
-                self._history.clear()
-                self.path = path
-                return self
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, et, ev, trace):
-                if et is None:
-                    return False
-                for t, msg in self._message.items():
-                    if issubclass(et, t):
-                        if t not in self._history:
-                            self._history.add(t)
-                            if msg is not None:
-                                self.unit.log_info(msg.format(self.path))
-                        return True
-                else:
-                    return False
-
         for mask in self.args.filenames:
             mask = meta.format_str(mask, self.codec, [data])
             self.log_debug('scanning for mask:', mask)
             kwargs = dict()
-            skip_errors = SkipErrors()
+            skip_errors = _SkipErrors(self)
             for path in paths(mask):
                 skip_errors.reset(path)
                 filesize = -1
@@ -258,10 +291,16 @@ class ef(Unit):
                                 btime = ctime
                             kwargs.update(
                                 fsize=filesize,
-                                btime=datetime.fromtimestamp(btime).isoformat(' ', 'seconds'),
-                                atime=datetime.fromtimestamp(atime).isoformat(' ', 'seconds'),
-                                ctime=datetime.fromtimestamp(ctime).isoformat(' ', 'seconds'),
-                                mtime=datetime.fromtimestamp(mtime).isoformat(' ', 'seconds')
+                                **{
+                                    MV.BTIME:
+                                        datetime.fromtimestamp(btime).isoformat(' ', 'seconds'),
+                                    MV.ATIME:
+                                        datetime.fromtimestamp(atime).isoformat(' ', 'seconds'),
+                                    MV.CTIME:
+                                        datetime.fromtimestamp(ctime).isoformat(' ', 'seconds'),
+                                    MV.MTIME:
+                                        datetime.fromtimestamp(mtime).isoformat(' ', 'seconds'),
+                                }
                             )
                 if size is not None and filesize not in size:
                     continue
@@ -277,4 +316,8 @@ class ef(Unit):
                         else:
                             contents = stream.read()
                             self.log_info(lambda: F'reading: {path!s} ({len(contents)} bytes)')
-                            yield self.labelled(contents, path=path.as_posix(), **kwargs)
+                            yield self.labelled(
+                                contents,
+                                **{MV.PATH: path.as_posix()},
+                                **kwargs
+                            )

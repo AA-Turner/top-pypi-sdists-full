@@ -1,3 +1,5 @@
+export * from "./parse.js";
+
 export function* iter(nodes) {
 	for (const node of nodes) {
 		yield node;

@@ -351,3 +351,328 @@ def test_the_first_writes_checkout_is_bounded_and_never_retried(server, capsys, 
     assert cli.main(["project", "set", "p", "--name", "P"]) == 0
     assert seen["retries"] == 0 and seen["timeout"] <= summary_cli.FIRST_WRITE_LOAD_S
     assert before < seen["deadline"] <= time_mod.monotonic() + summary_cli.FIRST_WRITE_LOAD_S
+
+
+# ---------------------------------------------------------------------------
+# `probe summary edit|append`: one command, no draft (the dashboard assistant's
+# door, whose commands each run in a temporary HOME). HTML only, pinned to the
+# version read, a person's block refused here rather than silently restored.
+
+KEPT = '<!-- kept: h1 --><p data-owner="human" data-strength="hard">My own words.</p><!-- /kept -->'
+KEPT_PAGE = PAGE.replace("</article>", f"{KEPT}\n</article>")
+
+
+def _one_shot(capsys, *args: str) -> tuple[int, dict, str]:
+    capsys.readouterr()
+    code = cli.main(["summary", *args])
+    out = capsys.readouterr()
+    return code, json.loads(out.out) if out.out.strip() else {}, out.err
+
+
+def _seed(server, html: str = KEPT_PAGE) -> str:
+    """The project's page at version 1; its anchor."""
+    if not server.pages:  # a first read creates the project's page on the fake
+        assert cli.main(["summary", "edit", "--project", "p", "--old", "@@none@@", "--new", "y"]) == 1
+    anchor = server.anchor_of("")
+    server.write(anchor, html, SERIES)
+    server.calls.clear()
+    return anchor
+
+
+def _puts(server) -> list[dict]:
+    return [body for method, _route, body, _ in server.calls if method == "PUT"]
+
+
+def _gets(server) -> int:
+    return sum(1 for method, route, _b, _p in server.calls if method == "GET" and route.endswith("/summary"))
+
+
+def test_edit_replaces_one_exact_piece_and_writes_no_draft(server, capsys, tmp_path):
+    anchor = _seed(server)
+    code, out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "Yes.", "--new", "Yes, by 2.1.")
+    assert code == 0, err
+    [body] = _puts(server)
+    assert body["html"] == summary_cli.compose_draft(KEPT_PAGE.replace("Yes.", "Yes, by 2.1."), SERIES)
+    assert body["expected_version"] == 1 and "markdown" not in body
+    assert out == {"target": "project", "label": "p", "removed": 4, "added": 12, "changed": True, "version": 2}
+    assert "Yes, by 2.1." in server.pages[anchor]["html"] and KEPT in server.pages[anchor]["html"]
+    assert server.pages[anchor]["series"] == SERIES, "the chart declarations ride along unchanged"
+    assert not [p for p in (tmp_path / "state").rglob("*") if p.suffix in (".html", ".md")], "no draft"
+
+
+def test_edit_writes_nothing_when_old_matches_nothing_or_twice(server, capsys):
+    _seed(server, KEPT_PAGE.replace("</article>", "<p>Yes.</p>\n</article>"))
+    code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "**warmup**", "--new", "x")
+    assert code == 1 and "matches nothing" in err and "not its Markdown" in err
+    code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "Yes.", "--new", "x")
+    assert code == 1 and "matches 2 places" in err
+    assert _puts(server) == []
+
+
+def test_edit_refuses_a_persons_block_rather_than_reporting_a_change_the_server_undoes(server, capsys):
+    """The server puts a kept block's stored bytes back on every write, so an
+    edit inside one would land as a new version with nothing changed."""
+    _seed(server)
+    for old in ("My own words.", "<!-- /kept -->"):  # the words, or only a marker
+        code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", old, "--new", "x")
+        assert code == 1 and "only they can change it" in err, old
+    assert _puts(server) == []
+
+
+def test_a_moved_page_is_edited_again_from_the_head_the_409_carries(server, capsys):
+    anchor = _seed(server)
+    real = server.serve
+    moved = []
+
+    def serve(method, *rest):
+        if method == "PUT" and not moved:
+            moved.append(1)  # a teammate's push lands between this read and this write
+            server.write(anchor, KEPT_PAGE.replace("</article>", "<p>Next: seeds.</p>\n</article>"))
+        return real(method, *rest)
+
+    server.serve = serve
+    code, out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "Yes.", "--new", "Yes, by 2.1.")
+    assert code == 0, err
+    assert [b["expected_version"] for b in _puts(server)] == [1, 2]
+    assert _gets(server) == 1, "the 409 carried the head: no second read"
+    html = server.pages[anchor]["html"]
+    assert "Yes, by 2.1." in html and "Next: seeds." in html and out["version"] == 3
+
+
+def test_an_old_the_moved_page_no_longer_has_is_refused(server, capsys):
+    anchor = _seed(server)
+    real = server.serve
+
+    def serve(method, *rest):
+        if method == "PUT" and server.pages[anchor]["version"] == 1:
+            server.write(anchor, KEPT_PAGE.replace("Yes.", "No."))
+        return real(method, *rest)
+
+    server.serve = serve
+    code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "Yes.", "--new", "x")
+    assert code == 1 and "matches nothing" in err
+    assert len(_puts(server)) == 1 and "No." in server.pages[anchor]["html"]
+
+
+def test_an_erasure_mid_edit_stops_with_exit_2_and_never_writes_again(server, capsys):
+    """The new text was written from a read the erasure has since changed:
+    re-applying it could carry erased words back."""
+    _seed(server)
+    real = server.serve
+
+    def serve(method, anchor, what, rest, body, params):
+        if method == "PUT":
+            return httpx.Response(409, json={"detail": {"code": "erased_since_checkout", "version": 3,
+                                                        "html": PAGE, "series": SERIES}})
+        return real(method, anchor, what, rest, body, params)
+
+    server.serve = serve
+    code, _out, err = _one_shot(capsys, "append", "--project", "p", "--html", "<p>Seeds next.</p>")
+    assert code == 2 and "erasure" in err and "nothing was written" in err
+    assert len(_puts(server)) == 1
+
+
+@pytest.mark.parametrize("land", [True, False])
+def test_a_lost_reply_is_settled_by_reading_and_never_sent_again(server, capsys, land):
+    anchor = _seed(server)
+    real = server.serve
+
+    def serve(method, a, what, rest, body, params):
+        if method == "PUT":
+            if land:
+                real(method, a, what, rest, body, params)
+            raise httpx.ReadTimeout("the reply never came")
+        return real(method, a, what, rest, body, params)
+
+    server.serve = serve
+    code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "Yes.", "--new", "Yes, by 2.1.")
+    assert len(_puts(server)) == 1, "never sent twice"
+    if land:
+        assert code == 0 and "landed" in err
+        assert "Yes, by 2.1." in server.pages[anchor]["html"]
+    else:
+        # A timeout can still land after this read: unchanged is NOT "nothing written".
+        assert code == 1 and "may still" in err and "nothing was written" not in err
+
+
+def test_a_server_without_full_pages_is_refused_rather_than_flattened(server, capsys):
+    _seed(server)
+    server.html = False
+    code, _out, err = _one_shot(capsys, "append", "--project", "p", "--html", "<p>x</p>")
+    assert code == 1 and "flattening" in err and _puts(server) == []
+
+
+def test_the_credential_scrubber_never_rewrites_a_page_behind_the_writers_back(server, capsys):
+    _seed(server, KEPT_PAGE.replace("Yes.", "Yes. control run: sk%2Dbaseline"))
+    code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "warmup", "--new", "cooldown")
+    assert code == 1 and "scrubber would rewrite" in err
+    assert _puts(server) == []
+    _seed(server)
+    code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "Yes.", "--new", "sk%2Dbaseline")
+    assert code == 1 and "credential" in err
+    assert _puts(server) == []
+
+
+def test_append_adds_before_the_articles_close(server, capsys):
+    anchor = _seed(server)
+    code, out, err = _one_shot(capsys, "append", "--project", "p", "--html", "<p>Seeds next.</p>\n")
+    assert code == 0, err
+    html = server.pages[anchor]["html"]
+    assert html.endswith(f"{KEPT}\n<p>Seeds next.</p>\n</article>")
+    assert out["added"] == len("<p>Seeds next.</p>") and out["version"] == 2
+
+
+def test_append_refuses_an_empty_page_and_a_page_with_no_article(server, capsys):
+    code, _out, err = _one_shot(capsys, "append", "--project", "p", "--html", "<p>x</p>")
+    assert code == 1 and "no page yet" in err
+    assert _puts(server) == []
+    _seed(server, "<p>An older page.</p>")
+    code, _out, err = _one_shot(capsys, "append", "--project", "p", "--html", "<p>x</p>")
+    assert code == 1 and "summary edit" in err
+    assert _puts(server) == []
+
+
+def test_edit_and_append_are_the_summarys_own_commands_not_a_write_that_loads_it():
+    for args in (["summary", "edit", "--project", "p", "--old", "a", "--new", "b"],
+                 ["summary", "append", "--project", "p", "--html", "<p>b</p>"]):
+        assert summary_cli.landing(args) is None, args
+
+
+def _answer_puts(server, reply):
+    """Every PUT answered by `reply(anchor)` (an httpx.Response), or by the fake."""
+    real = server.serve
+
+    def serve(method, a, what, rest, body, params):
+        if method == "PUT":
+            got = reply(a)
+            if got is not None:
+                return got
+        return real(method, a, what, rest, body, params)
+
+    server.serve = serve
+
+
+def test_the_one_match_outside_a_persons_block_is_the_one_edited(server, capsys):
+    anchor = _seed(server, KEPT_PAGE.replace("</article>", "<p>My own words.</p>\n</article>"))
+    code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "My own words.", "--new", "Theirs.")
+    assert code == 0, err
+    html = server.pages[anchor]["html"]
+    assert KEPT in html and "<p>Theirs.</p>" in html
+
+
+def test_an_old_copied_across_a_persons_block_from_the_overview_read_is_refused_as_theirs(server, capsys):
+    """The overview read shows the page without kept markers: text copied
+    across a block's edge matches only once they are gone."""
+    _seed(server)
+    code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "</script>\n<p data-owner", "--new", "x")
+    assert code == 1 and "only they can change it" in err and "matches nothing" not in err
+    assert _puts(server) == []
+
+
+def test_overlapping_matches_count_as_two(server, capsys):
+    _seed(server, KEPT_PAGE.replace("Yes.", "a a a"))
+    code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "a a", "--new", "b")
+    assert code == 1 and "matches 2 places" in err and _puts(server) == []
+
+
+def test_version_pins_the_first_write_and_a_move_since_is_edited_from_the_head(server, capsys):
+    """`--version` is the page the caller's text came from: the first write is
+    pinned to it (so the server's erasure check runs against it), a move since
+    is applied again from the head the 409 carries."""
+    anchor = _seed(server)
+    server.write(anchor, KEPT_PAGE)  # v2 now
+    code, out, err = _one_shot(capsys, "append", "--project", "p", "--version", "1", "--html", "<p>Seeds.</p>")
+    assert code == 0, err
+    assert [b["expected_version"] for b in _puts(server)] == [1, 2] and out["version"] == 3
+
+
+def test_a_409_without_a_head_reads_again_and_gives_up_after_the_attempts(server, capsys):
+    anchor = _seed(server)
+
+    def moved(_a):
+        server.write(anchor, server.pages[anchor]["html"])  # someone else's write, every time
+        return httpx.Response(409, json={"detail": {"code": "version_moved"}})
+
+    _answer_puts(server, moved)
+    code, _out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "Yes.", "--new", "Yes, by 2.1.")
+    assert code == 1 and "kept changing" in err
+    assert [b["expected_version"] for b in _puts(server)] == list(range(1, summary_cli.EDIT_ATTEMPTS + 1))
+    assert _gets(server) == summary_cli.EDIT_ATTEMPTS
+
+
+@pytest.mark.parametrize(("reply", "exit_code", "says"), [
+    ({"code": "session_erased"}, 2, "erased"),
+    ({"code": "something_else", "message": "refused for its own reason"}, 1, "own reason"),
+])
+def test_other_409s_stop_after_one_write(server, capsys, reply, exit_code, says):
+    _seed(server)
+    _answer_puts(server, lambda _a: httpx.Response(409, json={"detail": reply}))
+    code, _out, err = _one_shot(capsys, "append", "--project", "p", "--html", "<p>x</p>")
+    assert code == exit_code and says in err and len(_puts(server)) == 1
+
+
+def test_a_closed_summary_door_says_so_instead_of_run_it_again(server, capsys):
+    _seed(server)
+    _answer_puts(server, lambda _a: httpx.Response(503, json={"detail": {
+        "code": "summary_writer_off", "message": "this team's summaries are written by the overview lane"}}))
+    code, _out, err = _one_shot(capsys, "append", "--project", "p", "--html", "<p>x</p>")
+    assert code == 1 and summary_cli.LANE_MARK in err and "Run it again" not in err
+    assert len(_puts(server)) == 1
+
+
+def test_a_read_with_no_version_writes_nothing(server, capsys):
+    _seed(server)
+    real = server.serve
+
+    def serve(method, a, what, rest, body, params):
+        got = real(method, a, what, rest, body, params)
+        if method == "GET" and what == "summary":
+            row = json.loads(got.content)
+            row.pop("version")
+            return httpx.Response(200, json=row)
+        return got
+
+    server.serve = serve
+    code, _out, err = _one_shot(capsys, "append", "--project", "p", "--html", "<p>x</p>")
+    assert code == 1 and "which version" in err and _puts(server) == []
+
+
+@pytest.mark.parametrize("reply", [
+    lambda: httpx.Response(200, json={"html": "x"}),  # no version
+    lambda: httpx.Response(200, content=b"<html>an ingress page</html>"),  # not JSON
+])
+def test_a_reply_that_does_not_confirm_the_write_is_settled_by_reading(server, capsys, reply):
+    anchor = _seed(server)
+    real = server.serve
+
+    def serve(method, a, what, rest, body, params):
+        if method == "PUT":
+            real(method, a, what, rest, body, params)  # it landed
+            return reply()
+        return real(method, a, what, rest, body, params)
+
+    server.serve = serve
+    code, _out, err = _one_shot(capsys, "append", "--project", "p", "--html", "<p>Seeds.</p>")
+    assert code == 0 and "landed" in err, err
+    assert len(_puts(server)) == 1 and "<p>Seeds.</p>" in server.pages[anchor]["html"]
+
+
+def test_append_lands_in_the_pages_own_article_whatever_else_says_article(server, capsys):
+    page = (
+        '<style>.ov-page::after{content:"</article>"}</style>\n<article class="ov-page">\n'
+        '<p>Yes.</p>\n<article class="card"><p>A card.</p></article>\n</article>\n'
+        "<script>PROBE.lineChart('c', 'loss', {title: '</article>'})</script>"
+    )
+    anchor = _seed(server, page)
+    code, _out, err = _one_shot(capsys, "append", "--project", "p", "--html", "<p>Seeds.</p>")
+    assert code == 0, err
+    html = server.pages[anchor]["html"]
+    assert "<p>A card.</p></article>\n<p>Seeds.</p>\n</article>\n<script>" in html
+    assert html.startswith('<style>.ov-page::after{content:"</article>"}</style>')
+
+
+def test_a_write_that_changes_nothing_says_so(server, capsys):
+    _seed(server)
+    _answer_puts(server, lambda _a: httpx.Response(200, json={"version": 1, "changed": False, "html": KEPT_PAGE}))
+    code, out, err = _one_shot(capsys, "edit", "--project", "p", "--old", "Yes.", "--new", "Yes.")
+    assert code == 0 and out["changed"] is False and "nothing changed" in err

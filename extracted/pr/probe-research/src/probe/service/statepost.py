@@ -5,6 +5,10 @@ with nobody asking.
     service.state     at start, every STATE_EVERY_S, and when something that
                       matters changes (at most once per CHANGE_MIN_S)
     service.stopped   in `Service.stop`: why, and how long it ran
+    lifeboat.acted    the lifeboat rescued this machine (plan fool-proof-updates
+                      B5): its `acted.json`, looked for at the first tick and
+                      after each update cycle, sent once (`acted_snapshot`)
+                      and then deleted; the lifeboat itself sends nothing
 
 `snapshot` is the ONLY way state reaches an event: an allow-list of counts,
 booleans, versions, ages and members of named enums. `service.status` itself
@@ -69,8 +73,9 @@ OUTBOX_UNPROVEN = "unproven_destination"
 EVENT_STARTED = "service.started"
 EVENT_STATE = "service.state"
 EVENT_STOPPED = "service.stopped"
+EVENT_LIFEBOAT = "lifeboat.acted"
 #: The only events `telemetry.emit_service_event` sends.
-SERVICE_EVENTS = frozenset({EVENT_STARTED, EVENT_STATE, EVENT_STOPPED})
+SERVICE_EVENTS = frozenset({EVENT_STARTED, EVENT_STATE, EVENT_STOPPED, EVENT_LIFEBOAT})
 
 
 def _values(cls: type) -> frozenset:
@@ -93,6 +98,12 @@ LAST_RUN_ENDINGS = frozenset({"crashed", "unclean_exit"})
 BLOCKED_REASONS = frozenset({"auth_blocked", "credential_refused", "held"})
 _ERROR_KIND = re.compile(r"^[A-Z][A-Za-z0-9_]{0,63}$")
 _VERSION = re.compile(r"^[0-9][0-9A-Za-z.+-]{0,31}$")
+#: A lifeboat's `reason` (the hand-off's own word, `behind`, `service_down`, ...):
+#: a lower-case token, never free text.
+_REASON = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+#: What ran it: the wrapper's triggers, or `lifeboat` (the stage-1 trigger
+#: `handoff.py` records in `acted.json` for its own rescues).
+LIFEBOAT_TRIGGERS = frozenset({"keeper", "session", "cli", "lifeboat"})
 
 
 def _enum(value: object, allowed: frozenset) -> str | None:
@@ -274,6 +285,33 @@ def snapshot(status: Mapping, *, outbox: object = None, keys: Mapping | None = N
         **_outbox(outbox, now),
     }
     return props
+
+
+def acted_snapshot(record: Mapping) -> dict:
+    """`lifeboat.acted`'s properties from the lifeboat's `acted.json`: why it
+    acted (a token), the versions it moved between, what ran it (an enum) and
+    when (epoch seconds), nothing else."""
+    reason = record.get("reason")
+    at = record.get("at")
+    return {
+        "reason": reason if isinstance(reason, str) and _REASON.fullmatch(reason) else "other",
+        "from": _version(record.get("from")),
+        "to": _version(record.get("to")),
+        "trigger": _enum(record.get("trigger"), LIFEBOAT_TRIGGERS) or "other",
+        "at": int(at) if isinstance(at, (int, float)) and not isinstance(at, bool) and at >= 0 else None,
+    }
+
+
+def _read_acted() -> dict | None:
+    from . import lifeboat
+
+    return lifeboat.read_acted()
+
+
+def _clear_acted() -> None:
+    from . import lifeboat
+
+    lifeboat.clear_acted()
 
 
 #: What a change is judged by: state that means someone should look, not
@@ -491,6 +529,8 @@ class StatePost:
         clock: Callable[[], float] = time.time,
         monotonic: Callable[[], float] = time.monotonic,
         tick_s: float | None = None,
+        read_acted: Callable[[], Mapping | None] = _read_acted,
+        clear_acted: Callable[[], None] = _clear_acted,
     ) -> None:
         self.log = log
         self.status = status
@@ -523,6 +563,15 @@ class StatePost:
         self._consent_for: tuple | None = None
         self._consent_at = 0.0
         self._closed = False
+        #: The lifeboat's record (`acted.json`): read and deleted here once sent.
+        self.read_acted = read_acted
+        self.clear_acted = clear_acted
+        #: Look for one at the next tick: at the first, and after each update cycle.
+        self._acted_due = True
+
+    def look_for_acted(self) -> None:
+        """An update cycle ended: the next tick looks for the lifeboat's record."""
+        self._acted_due = True
 
     def start(self) -> None:
         if self.enabled and self._task is None and not self._closed:
@@ -603,6 +652,9 @@ class StatePost:
         props = snapshot(self.status(), outbox=self._outbox, keys=keys, now=self.clock())
         if props["discovering"]:
             return  # the sessions are still coming back: neither event yet
+        if self._acted_due:
+            self._acted_due = False
+            await self._acted()
         mono = self.monotonic()
         current = digest(props)
         due = (
@@ -626,6 +678,30 @@ class StatePost:
         if due:
             self._sent_at, self._digest = mono, current
             await self._send(EVENT_STATE, props, base_url)
+
+    async def _acted(self) -> None:
+        """`lifeboat.acted`, once, with the machine's consent asked right
+        before; the record is deleted once it was handed to the sender. Not
+        allowed: it stays, for the next look (the lifeboat's reader drops one
+        older than a week). Never raises."""
+        try:
+            record = await _on_daemon_thread(self.read_acted, SIDE_TIMEOUT_S)
+        except Exception:  # noqa: BLE001 -- unread: looked for after the next cycle
+            return
+        if not isinstance(record, Mapping):
+            return
+        allowed, base_url = await self._allowed(fresh=True)
+        if not allowed:
+            return
+        props = acted_snapshot(record)
+        try:
+            sent = await _on_daemon_thread(lambda: self.emit(EVENT_LIFEBOAT, props, base_url), SIDE_TIMEOUT_S)
+        except Exception as exc:  # noqa: BLE001 -- observability never costs the service
+            self.log(f"statepost: {EVENT_LIFEBOAT} not sent: {exc!r}")
+            return
+        if sent:
+            with contextlib.suppress(Exception):
+                await _on_daemon_thread(self.clear_acted, SIDE_TIMEOUT_S)
 
     async def _send(self, event: str, props: Mapping, base_url: str | None) -> None:
         try:
@@ -695,4 +771,4 @@ def _emit(event: str, props: Mapping, base_url: str | None) -> bool:
     return telemetry.emit_service_event(event, dict(props), base_url=base_url)
 
 
-__all__ = ["PinCache", "StatePost", "digest", "read_outbox", "snapshot"]
+__all__ = ["PinCache", "StatePost", "acted_snapshot", "digest", "read_outbox", "snapshot"]

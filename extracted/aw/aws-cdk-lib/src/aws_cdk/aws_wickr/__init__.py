@@ -178,6 +178,7 @@ class CfnNetwork(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -256,7 +257,7 @@ class CfnNetwork(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a9fa6de10c28ffaeb93ba1a2ffb9c416468dda7fb409d2373750881dd7c37655)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accessLevel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accessLevel", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkName")
@@ -269,7 +270,7 @@ class CfnNetwork(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c2387b6134a0da373f84425bce0f8f21e6c4d8c3560eedcad94770d521aa934c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkName", value)
 
 
 @jsii.data_type(

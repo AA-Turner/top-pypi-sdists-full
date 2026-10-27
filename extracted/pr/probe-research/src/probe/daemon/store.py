@@ -51,7 +51,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator
 
-from probe.daemon.events import PEER_TOOL, READER_SOURCE, REQUEST_SOURCE, Event, Kind
+from probe.daemon.events import READER_SOURCE, REQUEST_SOURCE, Event, Kind
 from probe.tap_core import secrets
 
 FORMAT_VERSION = 1
@@ -921,22 +921,6 @@ class Store:
                                    (first_seq, last_seq))
         return [StoredEvent.from_row(r) for r in rows]
 
-    def gate_rows(self, after_seq: int, *, limit: int = 2000) -> list[sqlite3.Row]:
-        """What the ML gate reads (`gate.py`): every event after `after_seq`,
-        recorded or not, with its tool arguments (the code a call wrote)."""
-        return self.db.execute(
-            "SELECT seq, stream, kind, turn, text, tool, command, tool_input FROM events "
-            "WHERE seq > ? ORDER BY seq LIMIT ?", (after_seq, int(limit))).fetchall()
-
-    def digest_rows(self) -> list[sqlite3.Row]:
-        """The ML gate's digest (`gate.digest`): the researcher's prompts, the
-        messages other agents sent the session (`PEER_TOOL`) and the agent's tool
-        calls, oldest first -- never a tool's output."""
-        return self.db.execute(
-            "SELECT seq, stream, kind, text, tool, command, tool_input FROM events "
-            "WHERE kind IN ('prompt', 'tool_call') OR (kind = 'meta' AND tool = ?) ORDER BY seq",
-            (PEER_TOOL,)).fetchall()
-
     def first_seq_of_turn(self, turn: int) -> int | None:
         row = self.db.execute("SELECT min(seq) AS s FROM events WHERE turn = ?", (turn,)).fetchone()
         return int(row["s"]) if row is not None and row["s"] is not None else None
@@ -1097,6 +1081,16 @@ class Store:
             if len(out) >= limit:
                 break
         return out
+
+    def landed_writes(self, limit: int = 5000) -> list[sqlite3.Row]:
+        """The writes that ran, newest first, each with the events its run
+        covered (`first_event`, `last_event`: event ids, NULL for a run that
+        covered none)."""
+        return list(self.db.execute(
+            "SELECT w.*, e1.event_id AS first_event, e2.event_id AS last_event FROM writes w "
+            "LEFT JOIN bites b ON b.id = w.bite LEFT JOIN events e1 ON e1.seq = b.first_seq "
+            "LEFT JOIN events e2 ON e2.seq = b.last_seq WHERE w.status = 'ran' ORDER BY w.id DESC LIMIT ?",
+            (limit,)))
 
     def writes_count(self) -> int:
         return int(self.db.execute("SELECT count(*) AS n FROM writes WHERE status = 'ran'").fetchone()["n"])
@@ -1405,6 +1399,10 @@ class Store:
             return []
         marks = ", ".join("?" * len(ids))
         return list(self.db.execute(f"SELECT * FROM writes WHERE bite IN ({marks}) ORDER BY id", ids))
+
+    def ran_writes_after(self, row_id: int) -> list[sqlite3.Row]:
+        """The writes that ran with a logbook id past `row_id`, oldest first."""
+        return list(self.db.execute("SELECT * FROM writes WHERE id > ? AND status = 'ran' ORDER BY id", (row_id,)))
 
     def has_pending_request(self) -> bool:
         """Does a request wait in the queue (anywhere in it)? One row."""

@@ -18,6 +18,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Any, Iterator, Optional, List, Union, TYPE_CHECKING
 
+from .record_utils import clean_record
+
 if TYPE_CHECKING:
     from .http_client import ClientContext
     import pandas as pd
@@ -66,6 +68,20 @@ class LoadStatus:
         )
 
 
+def _regression_uncertainty_fields(pred_results: Dict[str, Any]) -> Dict[str, Any]:
+    """Per-row regression uncertainty from a worker result row: the scale
+    sigma and the conformal interval at coverage_level (all None for
+    classification). batch_predict / batch_predict_streaming dropped these,
+    so published regressions came back with no interval even though the
+    worker -- and PredictionResult -- carry them."""
+    return {
+        'sigma': pred_results.get('sigma'),
+        'interval_low': pred_results.get('interval_low'),
+        'interval_high': pred_results.get('interval_high'),
+        'coverage_level': pred_results.get('coverage_level'),
+    }
+
+
 @dataclass
 class PublishedPredictor:
     """
@@ -80,9 +96,9 @@ class PublishedPredictor:
     Usage:
         # Load a published predictor
         predictor = client.published_predictor(
-            org="alph",
+            org="acme",
             name="my-model",
-            api_key="sk_alph_xxx"
+            api_key="fx_your_api_key"
         )
 
         # Make prediction
@@ -261,7 +277,7 @@ class PublishedPredictor:
             )
 
         # Clean the record
-        cleaned_record = self._clean_record(record)
+        cleaned_record = clean_record(record)
 
         if feature_importance:
             # Build N+1 records: original + each feature nulled out
@@ -344,7 +360,7 @@ class PublishedPredictor:
             records = records.to_dict('records')
 
         # Clean records
-        cleaned_records = [self._clean_record(r) for r in records]
+        cleaned_records = [clean_record(r) for r in records]
 
         # Build request
         request_payload = {
@@ -405,6 +421,7 @@ class PublishedPredictor:
                 confidence=pred_results.get('confidence'),
                 probabilities=pred_results.get('probabilities', {}),
                 threshold=pred_results.get('threshold'),
+                **_regression_uncertainty_fields(pred_results),
                 query_record=record,
                 guardrails=pred.get('guardrails'),
                 ignored_query_columns=pred.get('ignored_query_columns'),
@@ -478,7 +495,7 @@ class PublishedPredictor:
             records = records.to_dict('records')
 
         # Clean records
-        cleaned_records = [self._clean_record(r) for r in records]
+        cleaned_records = [clean_record(r) for r in records]
 
         # Build request with NDJSON format
         request_payload = {
@@ -532,6 +549,7 @@ class PublishedPredictor:
                     confidence=pred_results.get('confidence'),
                     probabilities=pred_results.get('probabilities', {}),
                     threshold=pred_results.get('threshold'),
+                    **_regression_uncertainty_fields(pred_results),
                     query_record=record,
                     guardrails=pred.get('guardrails'),
                     ignored_query_columns=pred.get('ignored_query_columns'),
@@ -740,8 +758,9 @@ class PublishedPredictor:
         """
         Get column names for this published model.
 
-        Returns column metadata from Supabase — no compute node or production-ai
-        worker is involved. Available as soon as the model is published.
+        Returns column metadata recorded when the model was published — no
+        model-serving worker is involved. Available as soon as the model is
+        published.
 
         Returns:
             List of column names (excludes internal __featrix columns).
@@ -778,7 +797,8 @@ class PublishedPredictor:
         """
         Get session metadata for this published model.
 
-        Returns session data from production-ai — no compute node is involved.
+        Returns the published model's session data from the model-serving
+        tier — no training node is involved.
 
         Returns:
             Dictionary with session metadata (session_id, status, job_plan, etc.).
@@ -805,22 +825,6 @@ class PublishedPredictor:
             raise RuntimeError(error_msg)
 
         return response.json()
-
-    def _clean_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean a record for API submission."""
-        import math
-
-        cleaned = {}
-        for key, value in record.items():
-            # Handle NaN/Inf
-            if isinstance(value, float):
-                if math.isnan(value) or math.isinf(value):
-                    value = None
-            # Handle numpy types
-            if hasattr(value, 'item'):
-                value = value.item()
-            cleaned[key] = value
-        return cleaned
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation."""

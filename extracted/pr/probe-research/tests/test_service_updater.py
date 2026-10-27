@@ -541,6 +541,53 @@ def test_a_cycle_holds_the_service_alive(service_home, machine, monkeypatch):
     assert "stopping (idle)" in service_home.log()
 
 
+def test_a_cycle_holds_the_service_while_its_update_child_runs_and_then_hold_s_again(monkeypatch):
+    """Plan fool-proof-updates B2 (R4): a cycle the keeper asked for has no
+    session to keep the service up, and its update child may run up to its time
+    limit (30 min), well past HOLD_S (10 min). It is held while that child
+    runs, hard-capped at the child's own limit and stop grace (past which the
+    child is killed), then HOLD_S for the rest of the cycle."""
+    import asyncio
+
+    from probe.service import children
+
+    u = updater.Updater(version="1.0.0", emit=lambda topic, payload: None, changed=lambda: None,
+                        stop=lambda reason: None, action_running=lambda: False, discovering=lambda: False)
+    monkeypatch.setattr(updater, "BARRIER_SETTLE_S", 0)
+    left: dict = {}
+
+    class Child:
+        pid = os.getpid()
+
+        def poll(self):
+            return None
+
+    async def run_events(action, request, *, on_start, **_kw):
+        on_start(Child())
+        left["child"] = u.hold_until - time.monotonic()
+        return 0
+
+    async def quiet():
+        return updater.Busy()
+
+    monkeypatch.setattr(children, "run_events", run_events)
+
+    async def cycle():
+        u._loop = asyncio.get_running_loop()
+        u._look_off_loop = quiet
+        u._hold(updater.HOLD_S)
+        left["start"] = u.hold_until - time.monotonic()
+        await u._apply("c0ffee", "keeper", "token", [], {}, False, False)
+        left["rest"] = u.hold_until - time.monotonic()
+        u.close()
+
+    asyncio.run(cycle())
+    cap = u.update_timeout_s + u.update_stop_grace_s
+    assert updater.HOLD_S - 5 < left["start"] <= updater.HOLD_S
+    assert cap - 5 < left["child"] <= cap and cap > updater.HOLD_S, "held for as long as the child may run"
+    assert updater.HOLD_S - 5 < left["rest"] <= updater.HOLD_S, "then HOLD_S again, not the child's cap"
+
+
 def test_a_new_cli_version_restarts_the_service_after_the_cycle(service_home, machine):
     machine.plan("version", stdout={"cli_version": "9.9.9"})
     first = service_home.start()
@@ -1244,6 +1291,68 @@ def test_the_hook_asks_the_service_and_falls_back_to_the_wizard(tmp_path, monkey
     assert wait_for(lambda: log.exists() and len(log.read_text().splitlines()) == len(calls), 10.0)
     time.sleep(0.3)
     assert [json.loads(line) for line in log.read_text().splitlines()] == calls
+
+
+_MANAGED_BIN = ("uv", "tools", "probe-research", "bin")
+_PROJECT_BIN = ("project", ".venv", "bin")
+
+
+@pytest.mark.parametrize(
+    ("bin_dir", "here", "default_folder", "asks"),
+    [
+        # The machine's managed CLI with no choice on record: on.
+        (_MANAGED_BIN, None, None, True),
+        (_MANAGED_BIN, {"enabled": False}, None, False),
+        # Turned off under the default folder (the service's), this session
+        # running with XDG_STATE_HOME elsewhere: off all the same.
+        (_MANAGED_BIN, None, {"enabled": False}, False),
+        # A `probe` in a researcher's own project env: opt-in (plan D4).
+        (_PROJECT_BIN, None, None, False),
+        (_PROJECT_BIN, {"enabled": True}, None, True),
+    ],
+    ids=["managed-no-choice", "managed-off", "managed-off-in-default-folder", "project-no-choice",
+         "project-opted-in"],
+)
+def test_the_hook_reads_the_setting_for_the_probe_it_would_update(
+    tmp_path, monkeypatch, bin_dir, here, default_folder, asks
+):
+    """The plugin's SessionStart hook applies the same rule as the CLI
+    (`version_policy.autoupdate_state`, plan C2), for the `probe` it runs, and
+    writes nothing: the default is never written down (an older hook or CLI
+    would read it as a person's opt-in)."""
+    for name, sub in (("HOME", "home"), ("XDG_STATE_HOME", "state"), ("XDG_CONFIG_HOME", "config"),
+                      ("CLAUDE_CONFIG_DIR", "claude"), ("CODEX_HOME", "codex"), ("PI_CODING_AGENT_DIR", "pi")):
+        monkeypatch.setenv(name, str(tmp_path / sub))
+    hook = _load_hook()
+    probe_bin = _fake_probe(tmp_path.joinpath(*bin_dir), 0)
+    records = [tmp_path / "state" / "probe" / "autoupdate.json",
+               tmp_path / "home" / ".local" / "state" / "probe" / "autoupdate.json"]
+    for record, state in zip(records, (here, default_folder)):
+        if state is not None:
+            record.parent.mkdir(parents=True)
+            record.write_text(json.dumps(state))
+    before = [record.read_text() if record.exists() else None for record in records]
+    spawned: list = []
+    monkeypatch.setattr(hook.subprocess, "Popen", lambda argv, **_kw: spawned.append(argv))
+    hook._spawn_autoupdate(str(probe_bin))
+    assert bool(spawned) is asks
+    assert [record.read_text() if record.exists() else None for record in records] == before
+
+
+def test_the_service_reads_an_off_saved_in_a_live_session_s_state_folder(tmp_path, monkeypatch):
+    """The service starts with no XDG_STATE_HOME and reads the default state
+    folder. A person who runs with XDG_STATE_HOME may have turned automatic
+    updates off there (before `save` wrote both folders): a live session's
+    folder (D13) is read too, and that off stands."""
+    from probe import version_policy
+
+    monkeypatch.delenv("XDG_STATE_HOME", raising=False)
+    monkeypatch.setattr(version_policy, "managed_cli", lambda path=None: True)
+    session_state = tmp_path / "xdg-state" / "probe"
+    assert updater.auto_update_enabled([session_state]) is True
+    session_state.mkdir(parents=True)
+    (session_state / "autoupdate.json").write_text(json.dumps({"enabled": False}))
+    assert updater.auto_update_enabled([session_state]) is False
 
 
 def test_the_cli_asks_the_service_instead_of_spawning_an_updater(monkeypatch):
@@ -2005,10 +2114,20 @@ def test_new_workers_come_back_later_while_the_running_ones_hand_over(service_ho
     assert _entry._update_barrier(["daemon", "worker", "--session-id", "s"]) is None
 
 
-@pytest.mark.parametrize("held", ["runs/r-1.flock", "daemon/s-old.lock"])
-def test_a_day_of_deferral_ends_in_an_update(service_home, machine, monkeypatch, held):
-    """A run that never ends, or a worker that cannot be asked (no pid: an
-    older worker), defers at most DEFER_LIMIT_S; then the update goes ahead."""
+@pytest.mark.parametrize(
+    ("held", "reason", "told"),
+    [
+        ("runs/r-1.flock", "run_in_flight", "run_in_flight"),
+        ("daemon/s-old.lock", "daemon_recording", None),
+        # A setup whose lock says nothing of since when (a holder from before
+        # the record): this service's own deferral counts it (C1).
+        ("wizard.lock", "setup_running", "setup_running"),
+    ],
+)
+def test_a_day_of_deferral_ends_in_an_update(service_home, machine, monkeypatch, held, reason, told):
+    """A run that never ends, a worker that cannot be asked (no pid: an older
+    worker), or a setup left open, defers at most DEFER_LIMIT_S; then the
+    update goes ahead, and the child is told what it goes past."""
     monkeypatch.setenv("PROBE_SERVICE_DEFER_LIMIT_S", "1")
     lock = _hold(service_home.home / ".local" / "state" / "probe" / held)
     try:
@@ -2017,18 +2136,102 @@ def test_a_day_of_deferral_ends_in_an_update(service_home, machine, monkeypatch,
             conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
             _check_now(conn)
             first = _done(conn)[-1]["deferred"]
-            assert first in ("run_in_flight", "daemon_recording")
+            assert first == reason
             assert conn.call(Method.UPDATE_STATUS)["deferred_since"] is not None
             time.sleep(1.2)
             _check_now(conn)
             last = _done(conn)[-1]
         assert last["deferred"] is None, service_home.log()
         assert last["steps"]["cli_and_plugins"]["forced"] == first
-        assert machine.calls("update")
+        assert machine.calls("update")[-1]["env"]["PROBE_UPDATE_FORCED"] == told
         with service_home.connect() as conn:
             assert conn.call(Method.UPDATE_STATUS)["deferred_since"] is None
     finally:
         lock.close()
+
+
+@pytest.mark.parametrize(
+    ("holder", "held_for", "deferred"),
+    [
+        ("wizard.lock", 25 * 3600, None),
+        ("wizard.lock", 60, "setup_running"),
+        # A menu waiting on a person holds no lock; on this machine the update
+        # would move its files (in place), so its marker holds it off, a day at most.
+        ("wizard.menu", 25 * 3600, None),
+        ("wizard.menu", 60, "setup_running"),
+    ],
+)
+def test_a_setup_that_has_held_the_lock_a_day_is_updated_past_at_once(
+    service_home, machine, holder, held_for, deferred
+):
+    """A `probe wizard` menu left open held every update off for good: a setup
+    was never overridden (C1). Its holder's record (pid, start time, since
+    when) says how long it has held the device, so a day of that is past the
+    limit at this service's first look, however long the service itself has
+    deferred; one that took it a minute ago still defers."""
+    from probe.service import procid
+
+    record = json.dumps({"pid": os.getpid(), "start": procid.start_time(os.getpid()), "at": time.time() - held_for})
+    if holder == "wizard.lock":
+        lock = _hold(_state_dir(service_home) / "wizard.lock")
+        lock.write(record)
+        lock.flush()
+    else:
+        _state_dir(service_home).mkdir(parents=True, exist_ok=True)
+        (_state_dir(service_home) / f"wizard.menu.{os.getpid()}").write_text(record)
+        lock = open(os.devnull)  # noqa: SIM115 -- closed below, as the lock is
+    try:
+        service_home.start()
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _check_now(conn)
+            done = _done(conn)[-1]
+    finally:
+        lock.close()
+    assert done["deferred"] == deferred, service_home.log()
+    calls = machine.calls("update")
+    if deferred is None:
+        assert done["steps"]["cli_and_plugins"]["forced"] == "setup_running"
+        assert calls[-1]["env"]["PROBE_UPDATE_FORCED"] == "setup_running"
+    else:
+        assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("side_by_side", "waited", "updates", "forced"),
+    [
+        (True, 60, True, []),  # a switch leaves the files the menu runs from where they are
+        (False, 60, False, None),  # in place, or the first switch: they would move under it
+        (False, 25 * 3600, True, ["setup_running"]),  # a day of waiting at most
+    ],
+)
+def test_a_waiting_menu_holds_off_only_an_update_that_moves_its_files(monkeypatch, side_by_side, waited, updates, forced):
+    """The menu lets go of wizard.lock while it waits on a person (C1), and
+    marks that it waits instead: the files it runs from must not be moved
+    under it mid-write. Only an update in place or the first switch would; a
+    side-by-side switch goes on beside it."""
+    import asyncio
+
+    monkeypatch.setattr(updater, "look", lambda **_kw: updater.Busy(menu=True, menu_since=time.time() - waited))
+    monkeypatch.setattr(updater, "side_by_side", lambda: side_by_side)
+
+    async def login_env(**_kw):
+        return {}
+
+    monkeypatch.setattr(updater.loginenv, "child_env", login_env)
+    up = updater.Updater(
+        version="0.325.0", emit=lambda *a: None, changed=lambda: None, stop=lambda r: None,
+        action_running=lambda: False, discovering=lambda: False,
+    )
+    applied: list = []
+
+    async def apply(cycle_id, trigger, token, forced, login, skip_cli, held):
+        applied.append(forced)
+        return {"state": "done"}
+
+    up._apply = apply  # noqa: SLF001 -- the barrier and the child are other tests'
+    out = asyncio.run(up._core_step("c-1", "cli"))  # noqa: SLF001
+    assert (applied, out.get("reason")) == (([forced] if updates else []), (None if updates else "setup_running"))
 
 
 def test_a_session_s_own_state_dir_is_looked_in(service_home, machine, tmp_path):

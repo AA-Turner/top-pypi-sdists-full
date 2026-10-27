@@ -6,9 +6,17 @@ DO NOT EDIT - Run `python scripts/generate_mcp_tools.py` to regenerate.
 
 from __future__ import annotations
 
+import base64
 from typing import Any, Literal
 
 from mcp.types import ToolAnnotations
+
+
+def _decode_base64(value: str) -> bytes:
+    """Decode a base64 tool argument, accepting a data: URL."""
+    if value.startswith("data:") and "," in value:
+        value = value.split(",", 1)[1]
+    return base64.b64decode(value, validate=True)
 
 
 def _enum_str(value: Any) -> str:
@@ -722,7 +730,7 @@ def register_generated_tools(mcp, _get_client):
         platform: str | None = None,
         status: Literal["connected", "disconnected"] | None = None,
         search: str | None = None,
-        category: Literal["social", "ads", "communication", "blogs", "crm"]
+        category: Literal["social", "ads", "communication", "blogs", "crm", "analytics"]
         | None = None,
         sort: Literal["account", "platform", "profile", "status", "connected"]
         | None = None,
@@ -749,7 +757,7 @@ def register_generated_tools(mcp, _get_client):
                 platform: Filter accounts by platform (e.g. "instagram", "twitter").
                 status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
                 search: Case-insensitive match on the account username, display name or platform user id, or an exact account id. Combine with page/limit to paginate the matches.
-                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, social = every other platform.
+                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, analytics = Google Analytics, social = every other platform.
                 sort: Sort an offset-paginated listing (page and limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
                 order: Direction for `sort`.
                 include_over_limit: When true, includes accounts from over-limit profiles.
@@ -975,6 +983,7 @@ def register_generated_tools(mcp, _get_client):
             "whopads",
             "hubspot",
             "webflow",
+            "googleanalytics",
         ]
         | None = None,
         status: Literal["healthy", "warning", "error"] | None = None,
@@ -6480,9 +6489,9 @@ def register_generated_tools(mcp, _get_client):
 
         **Live read, then write.** The campaign's switch is read from the platform first. When that
         live read shows it already in the requested state nothing is written (`updated: 0`,
-        `skipped: 1`, with the reason). Otherwise the switch is written (`updated: 1`), read back and
-        stored, and the delivery status of the ads under it (up to 20) is re-read and stored, so an
-        immediate GET returns what the ...
+        `skipped: 1`, with the reason), and when the campaign delivers in that state but some of its
+        ads are stored in the other state (for example ads switched on in the platform's own UI and
+        still stored `paused`), those ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, openai, reddit
 
@@ -7475,8 +7484,8 @@ def register_generated_tools(mcp, _get_client):
 
         Reads the ad set live from Meta, returned verbatim. The default projection includes
         `learning_stage_info` (learning-phase status: LEARNING / SUCCESS / FAIL / WAIVING; Meta
-        omits its `status` key on paused ad sets), delivery settings, budgets, schedule and
-        targeting. `fields` is a raw-passthrough override; unknown fields return Meta's 400
+        omits its `status` key on paused ad sets), delivery settings, budgets, schedule, dayparting
+        (`adset_schedule`, `pacing_type`) and targeting. `fields` is a raw-passthrough override; unknown fields return Meta's 400
         verbatim.
 
         Platforms: meta
@@ -7606,7 +7615,7 @@ def register_generated_tools(mcp, _get_client):
         rule set and must be sent WITHOUT `valueRuleSetId`; the combination returns
         400. `true` is optional when attaching, since attachment is driven by
         `valueRuleSetId`, and requires it to be present.
-                platform_specific_data: Platform-specific post-launch delivery settings. The platform is implied by the `platform` body param. Meta only; other platforms return 400. Unknown keys are rejected. Object with keys: optimizationGoal (string) - Meta ad-set optimization_goal (e.g. OFFSITE_CONVERSIONS, LANDING_PAGE_VIEWS).; billingEvent (string) - Meta ad-set billing_event (e.g. IMPRESSIONS, LINK_CLICKS, THRUPLAY).; startDate (string) - Ad set start_time (ISO 8601). A value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone.; endDate (string) - Ad set end_time (ISO 8601). A value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone.; dailyMinSpendTarget (number) - Meta `daily_min_spend_target`: the least this ad set should spend per day, in whole currency units of the ad account. It reserves a share of a CAMPAIGN budget ...; lifetimeMinSpendTarget (number) - Meta `lifetime_min_spend_target`: the lifetime-budget flavour of `dailyMinSpendTarget`, in whole currency units. Send this one when the campaign budget is a ...; customerLifecycle (object with keys strategy, existingCustomerAudienceIds, engagedAudienceIds); promotedObject (object with keys pixelId, customEventType, customEventStr, pageId, applicationId, objectStoreUrl, customConversionId, productCatalogId, productSetId, offlineConversionDataSetId, whatsappPhoneNumber) - Meta ad-set promoted_object (same shape as /v1/ads/create). Meta makes promoted_object immutable once the ad set exists, so only `pixelId`, `customEventType`, ..."""
+                platform_specific_data: Platform-specific post-launch delivery settings. The platform is implied by the `platform` body param. Meta only; other platforms return 400. Unknown keys are rejected. Object with keys: optimizationGoal (string) - Meta ad-set optimization_goal (e.g. OFFSITE_CONVERSIONS, LANDING_PAGE_VIEWS).; billingEvent (string) - Meta ad-set billing_event (e.g. IMPRESSIONS, LINK_CLICKS, THRUPLAY).; startDate (string) - Ad set start_time (ISO 8601). A value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone.; endDate (string) - Ad set end_time (ISO 8601). A value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone.; dailyMinSpendTarget (number) - Meta `daily_min_spend_target`: the least this ad set should spend per day, in whole currency units of the ad account. It reserves a share of a CAMPAIGN budget ...; lifetimeMinSpendTarget (number) - Meta `lifetime_min_spend_target`: the lifetime-budget flavour of `dailyMinSpendTarget`, in whole currency units. Send this one when the campaign budget is a ...; customerLifecycle (object with keys strategy, existingCustomerAudienceIds, engagedAudienceIds); adSchedule (list of objects with keys dayOfWeek, startHour, endHour, timezoneType) - Replaces the ad set's dayparting (Meta `adset_schedule`, `pacing_type: [\"day_parting\"]`). Meta runs a schedule only on a lifetime budget. Before anything in ...; promotedObject (object with keys pixelId, customEventType, customEventStr, pageId, applicationId, objectStoreUrl, customConversionId, productCatalogId, productSetId, offlineConversionDataSetId, whatsappPhoneNumber) - Meta ad-set promoted_object (same shape as /v1/ads/create). Meta makes promoted_object immutable once the ad set exists, so only `pixelId`, `customEventType`, ..."""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_ad_set(
@@ -8533,9 +8542,7 @@ def register_generated_tools(mcp, _get_client):
 
         Returns the review verdict of every Upgraded Smart+ ad of one TikTok advertiser, with each creative's verdict, in one paginated read. Use it to refresh reviews periodically: one call (plus its pages) per advertiser per refresh, instead of `GET /v1/ads/{adId}/tiktok-smart-plus-review` per ad.
 
-        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`) and reads `/smart_plus/ad/review_info/` for Smart+ ads holding up to 50 creatives in total per call (TikTok refuses more; a Smart+ ad with more than 50 creatives is read alone), across ad groups, one call after another. A full refresh of N Smart+ ads with C creatives in total costs about `ceil(N / 100)` listing calls and `ceil(C / 50)` review calls on TikTok. When TikTok still refuses a call for its creative count, Zernio lowers the creative cap for that advertiser and reads the same ads again in smaller calls, never resending the refused size.
-
-        Stale while refreshing: every review ...
+        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`) and reads `/smart_plus/ad/review_info/` for Smart+ ads holding up to 50 creatives in total per call (TikTok refuses more; a Smart+ ad with more than 50 creatives is read alone), across ad groups, one call after another while TikTok accepts them, for up to 20 seconds per request (the ads not reached are read by the next request, which can come right away). One request per advertiser and connection refreshes at a time: a parallel request sends no review call and answers what is stored with `refreshState: paused` and `retryAfterSeconds: 20`. A full refresh of N Smart+ ads with C ...
 
         Platforms: tiktok
 
@@ -8745,6 +8752,7 @@ def register_generated_tools(mcp, _get_client):
         budget_level: Literal["adset", "campaign"] | None = None,
         attribution_spec: list[dict[str, Any]] | None = None,
         bodies: list[str] | None = None,
+        rehost_on_instagram_video_rejection: bool = True,
         smart_targeting: dict[str, Any] | None = None,
         optimization_goal: str | None = None,
         meta_objective: Literal["OUTCOME_ENGAGEMENT"] | None = None,
@@ -8922,6 +8930,7 @@ def register_generated_tools(mcp, _get_client):
                 budget_level: Meta only, same semantics as POST /v1/ads/create: campaign = Advantage campaign budget (CBO), the budget and bid strategy sit on the campaign and the ad set inherits them. Default adset. Not allowed with adSetId.
                 attribution_spec: Meta only. Ad-set attribution windows, same shape as POST /v1/ads/create. Applied on OUTCOME_SALES, OUTCOME_LEADS and OUTCOME_APP_PROMOTION campaigns (conversions, lead_conversion, lead_generation, app_promotion); other objectives keep Meta's default. Not allowed with adSetId. Each item is an object with keys: eventType (one of: CLICK_THROUGH, VIEW_THROUGH, ENGAGED_VIDEO_VIEW; required); windowDays (one of: 1, 7, 28; required)
                 bodies: Meta only. Extra primary-text options Meta rotates on the boosted post (asset_feed_spec.bodies with DEGREES_OF_FREEDOM); the post keeps its own text as one of the options. Works for Facebook posts and Instagram media. Under a conversions or traffic goal Meta also wants a website URL on the options, taken from `linkUrl` (send it with a `callToAction`); engagement boosts need none.
+                rehost_on_instagram_video_rejection: Meta only (a 400 elsewhere). When Meta refuses an existing Instagram video as the ad (subcode 1815279), Zernio first copies the video into the ad account and retries on the original post, then falls back to a new Facebook video in a new Page post that does not show the original post's likes and comments; the response reports which in `instagramVideoFallback`. Messaging boosts never use the unlinked copy. `false` skips every fallback and returns Meta's error.
                 smart_targeting: TikTok only (a 400 elsewhere). TikTok Smart Targeting on the ad group: `audience` is TikTok's `smart_audience_enabled`, `interestsBehaviors` its `smart_interest_behavior_enabled`. When on, TikTok may deliver beyond the selected audiences or interests. Available on Video views, Traffic, Lead generation, App install, Web conversion and Community interaction. Only the flags you send are written; an unwritten flag reads back null in `nativeSettings`, so send `false` explicitly to be able to verify it is off. Not available with smartPlus or when attaching to an existing ad set (adSetId). Object with keys: audience (boolean) - TikTok smart_audience_enabled.; interestsBehaviors (boolean) - TikTok smart_interest_behavior_enabled.
                 optimization_goal: Meta, or TikTok with `goal: video_views`. TikTok: ENGAGED_VIEW (6-second
         Focused View, the default) or ENGAGED_VIEW_FIFTEEN (15-second views), both
@@ -9003,6 +9012,7 @@ def register_generated_tools(mcp, _get_client):
                 budget_level=budget_level,
                 attribution_spec=attribution_spec,
                 bodies=bodies,
+                rehost_on_instagram_video_rejection=rehost_on_instagram_video_rejection,
                 smart_targeting=smart_targeting,
                 optimization_goal=optimization_goal,
                 meta_objective=meta_objective,
@@ -13507,6 +13517,140 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.analytics.get_post_timeline(
                 post_id=post_id, from_date=from_date, to_date=to_date
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Run a Google Analytics (GA4) report",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def analytics_run_google_analytics_report(
+        account_id: str,
+        metrics: list[str] | None,
+        dimensions: list[str] | None = None,
+        dimension_filter: dict[str, Any] | None = None,
+        metric_filter: dict[str, Any] | None = None,
+        order_bys: list[dict[str, Any]] | None = None,
+        limit: int | None = None,
+        date_ranges: list[dict[str, Any]] | None = None,
+        offset: int | None = None,
+        keep_empty_rows: bool | None = None,
+        currency_code: str | None = None,
+    ) -> str:
+        """Run a Google Analytics (GA4) report
+
+        Runs a report on a connected GA4 property through Google's Data API (`runReport`).
+        Pick any GA4 dimensions and metrics; filters and ordering use Google's own shapes.
+        Identical requests on the same property are cached for 10 minutes. Google meters each
+        property by quota tokens; when it is used up the request returns 429 until Google refills it
+        (hourly quotas within the hour, daily ones at midnight Pacific time).
+
+        Args:
+            account_id: Zernio account ID of the Google Analytics connection (platform `googleanalytics`). (required)
+            dimensions: GA4 dimension API names, e.g. `date`, `sessionSource`, `pagePath`. List them with GET /v1/analytics/googleanalytics/metadata.
+            metrics: GA4 metric API names, e.g. `sessions`, `activeUsers`, `keyEvents`, `totalRevenue`. (required)
+            dimension_filter: A Google FilterExpression on dimensions, in Google's own shape.
+            metric_filter: A Google FilterExpression on metrics, in Google's own shape.
+            order_bys: Google OrderBy objects, e.g. `{ "metric": { "metricName": "sessions" }, "desc": true }`.
+            limit: Rows to return. Defaults to Google's default (10000).
+            date_ranges: Defaults to the last 28 days (`28daysAgo` to `yesterday`). Each item is an object with keys: startDate (string, required) - YYYY-MM-DD, today, yesterday or NdaysAgo.; endDate (string, required) - YYYY-MM-DD, today, yesterday or NdaysAgo.; name (string)
+            offset: Row offset for paging through a report larger than `limit`.
+            keep_empty_rows
+            currency_code: ISO 4217 code for currency metrics. Defaults to the property currency."""
+        client = _get_client()
+        try:
+            response = client.analytics.run_google_analytics_report(
+                account_id=account_id,
+                dimensions=dimensions,
+                metrics=metrics,
+                dimension_filter=dimension_filter,
+                metric_filter=metric_filter,
+                order_bys=order_bys,
+                limit=limit,
+                date_ranges=date_ranges,
+                offset=offset,
+                keep_empty_rows=keep_empty_rows,
+                currency_code=currency_code,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Run a Google Analytics (GA4) realtime report",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def analytics_run_google_analytics_realtime_report(
+        account_id: str,
+        metrics: list[str] | None,
+        dimensions: list[str] | None = None,
+        dimension_filter: dict[str, Any] | None = None,
+        metric_filter: dict[str, Any] | None = None,
+        order_bys: list[dict[str, Any]] | None = None,
+        limit: int | None = None,
+        minute_ranges: list[dict[str, Any]] | None = None,
+    ) -> str:
+        """Run a Google Analytics (GA4) realtime report
+
+        Activity on a connected GA4 property in the last 30 minutes (up to 60 for Analytics 360),
+        through Google's `runRealtimeReport`. Not cached. Only realtime dimensions and metrics are
+        accepted, e.g. `country`, `unifiedScreenName` with `activeUsers`.
+
+        Args:
+            account_id: Zernio account ID of the Google Analytics connection (platform `googleanalytics`). (required)
+            dimensions: GA4 dimension API names, e.g. `date`, `sessionSource`, `pagePath`. List them with GET /v1/analytics/googleanalytics/metadata.
+            metrics: GA4 metric API names, e.g. `sessions`, `activeUsers`, `keyEvents`, `totalRevenue`. (required)
+            dimension_filter: A Google FilterExpression on dimensions, in Google's own shape.
+            metric_filter: A Google FilterExpression on metrics, in Google's own shape.
+            order_bys: Google OrderBy objects, e.g. `{ "metric": { "metricName": "sessions" }, "desc": true }`.
+            limit: Rows to return. Defaults to Google's default (10000).
+            minute_ranges: Each item is an object with keys: startMinutesAgo (integer); endMinutesAgo (integer); name (string)"""
+        client = _get_client()
+        try:
+            response = client.analytics.run_google_analytics_realtime_report(
+                account_id=account_id,
+                dimensions=dimensions,
+                metrics=metrics,
+                dimension_filter=dimension_filter,
+                metric_filter=metric_filter,
+                order_bys=order_bys,
+                limit=limit,
+                minute_ranges=minute_ranges,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Google Analytics (GA4) dimensions and metrics",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_get_google_analytics_metadata(account_id: str) -> str:
+        """List Google Analytics (GA4) dimensions and metrics
+
+        Every dimension and metric the connected GA4 property accepts in a report, including its
+        custom definitions. Cached for one hour.
+
+        Args:
+            account_id: Zernio account ID of the Google Analytics connection. (required)"""
+        client = _get_client()
+        try:
+            response = client.analytics.get_google_analytics_metadata(
+                account_id=account_id
             )
             return _format_response(response)
         except Exception as e:
@@ -21381,6 +21525,109 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get Google Analytics OAuth connect URL",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_google_analytics_connect_url(
+        profile_id: str,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> str:
+        """Get Google Analytics OAuth connect URL
+
+        Starts OAuth for Google Analytics (GA4). Each connected GA4 property becomes its own account
+        with platform `googleanalytics`; it reads reports and does not post.
+        Redirect the user to `authUrl`. When the Google account can read one property, Zernio connects
+        it and redirects to `redirect_url` (or the dashboard) with `connected=googleanalytics`,
+        `profileId`, `accountId` and `username` (the property name). When it can read several, the user
+        first picks one on a Zernio-hosted page, which then redirects the same way. To show your own picker
+        instead, add `headless=true` to `redirect_url`: Zernio then redirects there with `step=select_property`,
+        `profileId`, `platform=googleanalytics` and a `pendingDataToken` for
+        `GET /v1/connect/googleanalytics/properties` and `POST /v1/connect/googleanalytics/select-property`. On failure the
+        redirect carries `error`, `platform=googleanalytics` and `error_message`; errors include
+        `googleanalytics_scope_missing` (the user unticked Analytics access) and ...
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+            reconnect_account_id: Zernio account ID of the Google Analytics account being reconnected. Picking a different property then fails instead of adding a second account."""
+        client = _get_client()
+        try:
+            response = client.connect.get_google_analytics_connect_url(
+                profile_id=profile_id,
+                redirect_url=redirect_url,
+                reconnect_account_id=reconnect_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Google Analytics properties for a pending connect",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_list_google_analytics_properties(pending_data_token: str) -> str:
+        """List Google Analytics properties for a pending connect
+
+        For headless flows. When the connect started with `redirect_url=...?headless=true` and the Google
+        account can read several GA4 properties, Zernio redirects to your `redirect_url` with
+        `step=select_property`, `profileId`, `platform=googleanalytics` and a `pendingDataToken`. Call this
+        to list the properties and show your own picker, then call
+        `POST /v1/connect/googleanalytics/select-property`. Listing does not consume the token. A headless
+        token passes through your own URLs, so it is honored only together with your API key (or connect
+        token) for the same profile. It expires after one hour.
+
+        Args:
+            pending_data_token: Token from the headless redirect. (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.list_google_analytics_properties(
+                pending_data_token=pending_data_token
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect the chosen Google Analytics property",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_select_google_analytics_property(
+        pending_data_token: str, property_id: str
+    ) -> str:
+        """Connect the chosen Google Analytics property
+
+        For headless flows. Connects the property the user picked as a `googleanalytics` account and returns
+        where to send the user next: your `redirect_url` with `connected=googleanalytics`, `profileId`,
+        `accountId` and `username`, or an `error` when the connect was refused (for example a billing block).
+        Consumes the `pendingDataToken`; a refused or failed attempt leaves it usable for a retry. Send your
+        API key (or connect token) for the same profile with a headless token.
+
+        Args:
+            pending_data_token: Token from the headless redirect. (required)
+            property_id: A propertyId from the properties list. (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.select_google_analytics_property(
+                pending_data_token=pending_data_token, property_id=property_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get HubSpot OAuth connect URL",
             readOnlyHint=True,
             destructiveHint=False,
@@ -22041,19 +22288,22 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_list_pinterest_boards_for_selection(
-        profile_id: str, temp_token: str
+        x_connect_token: str, profile_id: str, temp_token: str
     ) -> str:
         """List Pinterest boards
 
         For headless flows. Returns Pinterest boards the user can post to. Use X-Connect-Token from the redirect URL.
 
         Args:
+            x_connect_token: Short-lived connect token from the OAuth redirect (required)
             profile_id: Your Zernio profile ID (required)
             temp_token: Temporary Pinterest access token from the OAuth callback redirect (required)"""
         client = _get_client()
         try:
             response = client.connect.list_pinterest_boards_for_selection(
-                profile_id=profile_id, temp_token=temp_token
+                x_connect_token=x_connect_token,
+                profile_id=profile_id,
+                temp_token=temp_token,
             )
             return _format_response(response)
         except Exception as e:
@@ -22114,18 +22364,23 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def connect_list_snapchat_profiles(profile_id: str, temp_token: str) -> str:
+    def connect_list_snapchat_profiles(
+        x_connect_token: str, profile_id: str, temp_token: str
+    ) -> str:
         """List Snapchat profiles
 
         For headless flows. Returns Snapchat Public Profiles the user can post to. Use X-Connect-Token from the redirect URL.
 
         Args:
+            x_connect_token: Short-lived connect token from the OAuth redirect (required)
             profile_id: Your Zernio profile ID (required)
             temp_token: Temporary Snapchat access token from the OAuth callback redirect (required)"""
         client = _get_client()
         try:
             response = client.connect.list_snapchat_profiles(
-                profile_id=profile_id, temp_token=temp_token
+                x_connect_token=x_connect_token,
+                profile_id=profile_id,
+                temp_token=temp_token,
             )
             return _format_response(response)
         except Exception as e:
@@ -27885,7 +28140,7 @@ def register_generated_tools(mcp, _get_client):
             thank_you_button_type: Deprecated: use platformSpecificData.thankYouButtonType.
             thank_you_website_url: Deprecated: use platformSpecificData.thankYouWebsiteUrl.
             is_optimized_for_quality: Deprecated: use platformSpecificData.isOptimizedForQuality.
-            platform_specific_data: Form content; the shape is selected by the accountId's platform. Unknown fields are a 400 (strict-parsed). Object with keys: questions (list of objects with keys type, key, label, options, inline_context, required); privacyPolicyLinkText (string); followUpActionUrl (string); locale (string); thankYouTitle (string); thankYouBody (string); thankYouButtonText (string); thankYouButtonType (string) - Meta thank_you_page.button_type. Defaults to VIEW_WEBSITE. Meta rejects MESSAGE_BUSINESS on thank-you pages with (#100) This button type is not yet supported ...; thankYouWebsiteUrl (string); thankYouEnableMessenger (boolean) - Sent as Meta thank_you_page.enable_messenger (boolean). Accepted only inside platformSpecificData: a top-level thankYouEnableMessenger is a 400.; isOptimizedForQuality (boolean) - Set true for a higher-intent form (adds a review step before submit).; isPhoneSmsVerifyEnabled (boolean) - Requires the lead to verify their phone number over SMS before the form submits (Meta is_phone_sms_verify_enabled). Only meaningful on a form with a PHONE ...; blockDisplayForNonTargetedViewer (boolean); questionPageCustomHeadline (string); contextCard (object with keys title, content, style, buttonText, coverPhoto); customDisclaimer (object with keys title, body, checkboxes) - Consent section with checkboxes (Meta custom_disclaimer). Each lead's answers come back on the lead, and a lead_received workflow only messages leads that ..."""
+            platform_specific_data: Form content; the shape is selected by the accountId's platform. Unknown fields are a 400 (strict-parsed). Object with keys: questions (list of objects with keys type, key, label, options, inline_context, required); privacyPolicyLinkText (string); followUpActionUrl (string); locale (string); thankYouTitle (string); thankYouBody (string); thankYouButtonText (string); thankYouButtonType (string) - Meta thank_you_page.button_type. Defaults to VIEW_WEBSITE. Case-insensitive, sent to Meta in uppercase. CALL_BUSINESS requires businessPhoneNumber and ...; businessPhoneNumber (string) - International E.164 number the CALL_BUSINESS thank-you button dials (Meta thank_you_page.business_phone_number). It must start with + and the country calling ...; countryCode (string) - ISO 3166-1 alpha-2 country of businessPhoneNumber (Meta thank_you_page.country_code), sent in uppercase. Required when thankYouButtonType is CALL_BUSINESS and ...; thankYouWebsiteUrl (string); thankYouEnableMessenger (boolean) - Sent as Meta thank_you_page.enable_messenger (boolean). Accepted only inside platformSpecificData: a top-level thankYouEnableMessenger is a 400.; isOptimizedForQuality (boolean) - Set true for a higher-intent form (adds a review step before submit).; isPhoneSmsVerifyEnabled (boolean) - Requires the lead to verify their phone number over SMS before the form submits (Meta is_phone_sms_verify_enabled). Only meaningful on a form with a PHONE ...; blockDisplayForNonTargetedViewer (boolean); questionPageCustomHeadline (string); contextCard (object with keys title, content, style, buttonText, coverPhoto); customDisclaimer (object with keys title, body, checkboxes) - Consent section with checkboxes (Meta custom_disclaimer). Each lead's answers come back on the lead, and a lead_received workflow only messages leads that ..."""
         client = _get_client()
         try:
             response = client.lead_gen.create_lead_form(
@@ -31163,7 +31418,9 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def phone_numbers_upload_phone_number_kyc_document() -> str:
+    def phone_numbers_upload_phone_number_kyc_document(
+        x_filename: str, content_base64: str
+    ) -> str:
         """Upload a KYC document
 
         Upload ONE document and get back its provider document id, to reference
@@ -31171,10 +31428,16 @@ def register_generated_tools(mcp, _get_client):
         Send the RAW file bytes as the request body (not base64); put the filename
         in the `X-Filename` header. Uploading documents one-per-request keeps each
         request under the ~4.5MB body limit. The document streams straight to the
-        number provider and is not stored by Zernio."""
+        number provider and is not stored by Zernio.
+
+        Args:
+            x_filename: URL-encoded original filename. (required)
+            content_base64: File contents, base64-encoded (a data: URL prefix is accepted). The tool decodes it and sends the raw bytes as the request body. (required)"""
         client = _get_client()
         try:
-            response = client.phone_numbers.upload_phone_number_kyc_document()
+            response = client.phone_numbers.upload_phone_number_kyc_document(
+                x_filename=x_filename, content=_decode_base64(content_base64)
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -38615,7 +38878,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.webhooks.update_webhook_settings(
                 webhook_id=webhook_id,
-                id=id,
+                _id=id,
                 name=name,
                 url=url,
                 secret=secret,
@@ -42109,7 +42372,9 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def whatsapp_phone_numbers_upload_whats_app_number_kyc_document() -> str:
+    def whatsapp_phone_numbers_upload_whats_app_number_kyc_document(
+        x_filename: str, content_base64: str
+    ) -> str:
         """Upload a KYC document
 
         Deprecated alias of `/v1/phone-numbers/kyc/upload-document`; same contract. New
@@ -42120,11 +42385,17 @@ def register_generated_tools(mcp, _get_client):
         Send the RAW file bytes as the request body (not base64); put the filename
         in the `X-Filename` header. Uploading documents one-per-request keeps each
         request under the ~4.5MB body limit. The document streams straight to the
-        number provider and is not stored by Zernio."""
+        number provider and is not stored by Zernio.
+
+        Args:
+            x_filename: URL-encoded original filename. (required)
+            content_base64: File contents, base64-encoded (a data: URL prefix is accepted). The tool decodes it and sends the raw bytes as the request body. (required)"""
         client = _get_client()
         try:
             response = (
-                client.whatsapp_phone_numbers.upload_whats_app_number_kyc_document()
+                client.whatsapp_phone_numbers.upload_whats_app_number_kyc_document(
+                    x_filename=x_filename, content=_decode_base64(content_base64)
+                )
             )
             return _format_response(response)
         except Exception as e:

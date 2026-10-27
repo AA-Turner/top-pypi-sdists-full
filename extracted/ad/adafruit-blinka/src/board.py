@@ -10,7 +10,7 @@ See `CircuitPython:board` in CircuitPython for more details.
 * Author(s): cefn, Melissa LeBlanc-Williams
 """
 
-__version__ = "9.2.0"
+__version__ = "10.0.0"
 __repo__ = "https://github.com/adafruit/Adafruit_Blinka.git"
 __blinka__ = True
 
@@ -25,6 +25,13 @@ from adafruit_blinka.importing import import_mod, get_import_file
 # pylint: disable=import-outside-toplevel
 
 SCL = SDA = SCLK = MOSI = MISO = None
+
+if sys.implementation.name == "cpython":
+    from adafruit_blinka.platform_dependencies import (
+        install_missing_platform_dependencies,
+    )
+
+    install_missing_platform_dependencies(detector)
 
 # Start with micropython boards as importlib isn't available on those chips:
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tentaclio-s3
-Version: 0.1.0
+Version: 0.1.1
 Summary: A python project containing all the dependencies for schema s3 for tentaclio.
 Author-email: Octopus Energy <nerds@octopus.energy>
 License-Expression: MIT

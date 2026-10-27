@@ -24,7 +24,7 @@ class DescribeImagePipelinesRequest(DaraModel):
     ):
         # The ID of the image template. Valid values of N: 1 to 20.
         self.image_pipeline_id = image_pipeline_id
-        # The number of entries per page in a paging query. Valid values: 1 to 500.
+        # The maximum number of entries to return per page in a paging query. Valid values: 1 to 500.
         # 
         # Default value: 50.
         self.max_results = max_results
@@ -34,17 +34,17 @@ class DescribeImagePipelinesRequest(DaraModel):
         self.next_token = next_token
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The region ID. You can call [DescribeRegions](https://help.aliyun.com/document_detail/25609.html) to query the latest list of Alibaba Cloud regions.
+        # The region ID. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/25609.html) operation to query the most recent region list.
         # 
         # This parameter is required.
         self.region_id = region_id
-        # The ID of the enterprise resource group. When you use this parameter to filter resources, the resource count cannot exceed 1,000.
+        # The ID of the resource group. When you use this parameter to filter resources, the resource count cannot exceed 1,000.
         # 
         # > Filtering by the default resource group is not supported.
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The list of tags.
+        # The tags.
         self.tag = tag
 
     def validate(self):

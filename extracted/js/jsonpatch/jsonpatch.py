@@ -37,7 +37,8 @@ import collections
 import copy
 import functools
 import json
-from collections.abc import Mapping, MutableMapping, MutableSequence, Sequence
+from collections.abc import (Mapping, MutableMapping, MutableSequence,
+                             Sequence)
 from difflib import SequenceMatcher
 from types import MappingProxyType
 
@@ -54,7 +55,7 @@ _EXACT_MATCH_LIMIT = 500 ** 2
 
 # Will be parsed by setup.py to determine package metadata
 __author__ = 'Stefan Kögl <stefan@skoegl.net>'
-__version__ = '1.37'
+__version__ = '1.38'
 __website__ = 'https://github.com/stefankoegl/python-json-patch'
 __license__ = 'BSD-3-Clause'
 
@@ -100,13 +101,13 @@ _jsonloads = functools.partial(json.loads, object_pairs_hook=multidict)
 
 
 def apply_patch(doc, patch, in_place=False, pointer_cls=JsonPointer):
-    """Apply list of patches to specified json document.
+    """Apply patch operations to the specified JSON document.
 
-    :param doc: Document object.
-    :type doc: dict
+    :param doc: JSON document, including arrays and scalar values.
+    :type doc: object
 
-    :param patch: JSON patch as list of dicts or raw JSON-encoded string.
-    :type patch: list or str
+    :param patch: Iterable of operation dicts or a raw JSON-encoded string.
+    :type patch: iterable or str
 
     :param in_place: While ``True`` patch will modify target document.
                      By default patch will be applied to document copy.
@@ -115,8 +116,8 @@ def apply_patch(doc, patch, in_place=False, pointer_cls=JsonPointer):
     :param pointer_cls: JSON pointer class to use.
     :type pointer_cls: Type[JsonPointer]
 
-    :return: Patched document object.
-    :rtype: dict
+    :return: Resulting document, which may have a different type from ``doc``.
+    :rtype: object
 
     >>> doc = {'foo': 'bar'}
     >>> patch = [{'op': 'add', 'path': '/baz', 'value': 'qux'}]
@@ -145,11 +146,11 @@ def make_patch(src, dst, pointer_cls=JsonPointer):
     transforms `src` into `dst`, so it has to be applied to `src` (or to a
     document equal to it).
 
-    :param src: Data source document object.
-    :type src: dict
+    :param src: Source JSON document, including arrays and scalar values.
+    :type src: object
 
-    :param dst: Data target document object.
-    :type dst: dict
+    :param dst: Target JSON document, including arrays and scalar values.
+    :type dst: object
 
     :param pointer_cls: JSON pointer class to use.
     :type pointer_cls: Type[JsonPointer]
@@ -457,7 +458,11 @@ class CopyOperation(PatchOperation):
 
 
 class JsonPatch(object):
-    """A JSON Patch is a list of Patch Operations.
+    """A JSON Patch is an iterable of Patch Operations.
+
+    Accepts sequences, iterators, generators, and other iterables of operation
+    dictionaries. Non-sequence inputs are materialized before validation so
+    the resulting patch can be applied repeatedly.
 
     >>> patch = JsonPatch([
     ...     {'op': 'add', 'path': '/foo', 'value': 'bar'},
@@ -515,13 +520,12 @@ class JsonPatch(object):
     })
 
     def __init__(self, patch, pointer_cls=JsonPointer):
-        self.patch = patch
         self.pointer_cls = pointer_cls
 
         if isinstance(patch, (str, bytes, Mapping)):
             raise InvalidJsonPatch("Document is expected to be sequence of operations")
         try:
-            patch_iter = iter(patch)
+            self.patch = patch if isinstance(patch, Sequence) else list(patch)
         except TypeError:
             raise InvalidJsonPatch("Document is expected to be sequence of operations")
 
@@ -529,7 +533,7 @@ class JsonPatch(object):
         # is correct by retrieving each patch element.
         # Much of the validation is done in the initializer
         # though some is delayed until the patch is applied.
-        for op in patch_iter:
+        for op in self.patch:
             # We're only checking for strings in the following check
             # for two reasons:
             #
@@ -598,11 +602,11 @@ class JsonPatch(object):
         one. The resulting patch transforms `src` into `dst`, so it has to be
         applied to `src` (or to a document equal to it).
 
-        :param src: Data source document object.
-        :type src: dict
+        :param src: Source JSON document, including arrays and scalar values.
+        :type src: object
 
-        :param dst: Data target document object.
-        :type dst: dict
+        :param dst: Target JSON document, including arrays and scalar values.
+        :type dst: object
 
         :param optimization: Generate move operations for matching values.
                              Set to False to use only add, remove and replace.
@@ -643,14 +647,16 @@ class JsonPatch(object):
     def apply(self, obj, in_place=False):
         """Applies the patch to a given object.
 
-        :param obj: Document object.
-        :type obj: dict
+        :param obj: JSON document, including arrays and scalar values.
+        :type obj: object
 
         :param in_place: Tweaks the way how patch would be applied - directly to
                          specified `obj` or to its copy.
         :type in_place: bool
 
-        :return: Modified `obj`.
+        :return: Resulting document. Use this return value even with
+                 ``in_place=True``, because a root replacement returns a new
+                 value rather than modifying the original container.
         """
 
         if not in_place:

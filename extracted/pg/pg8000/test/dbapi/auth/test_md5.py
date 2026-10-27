@@ -2,7 +2,6 @@ import pytest
 
 from pg8000.dbapi import DatabaseError, connect
 
-
 # This requires a line in pg_hba.conf that requires md5 for the database
 # pg8000_md5
 

@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "tensorstore/util/status_testutil.h"
 
 namespace {
@@ -84,6 +85,10 @@ TEST(AppendHeaderData, BadHeaders) {
   EXPECT_EQ(8, ParseAndSetHeaders("foo: bar", set_header));   // no CRLF
   EXPECT_EQ(5, ParseAndSetHeaders("foo\r\n", set_header));    // no :
   EXPECT_EQ(7, ParseAndSetHeaders("fo@: \r\n", set_header));  // invalid token
+  EXPECT_EQ(10, ParseAndSetHeaders(std::string_view("foo: a\0b\r\n", 10),
+                                   set_header));  // invalid value
+  EXPECT_EQ(14, ParseAndSetHeaders("foo bar: baz\r\n",
+                                   set_header));  // invalid header name
 
   EXPECT_TRUE(headers.empty());
 }
@@ -161,6 +166,68 @@ TEST(TryParse, BoolHeader) {
   EXPECT_THAT(headers.TryParseBoolHeader("true-header"), Optional(Eq(true)));
   EXPECT_THAT(headers.TryParseBoolHeader("false-header"), Optional(Eq(false)));
   EXPECT_THAT(headers.TryParseBoolHeader("missing-header"), Eq(std::nullopt));
+}
+
+TEST(HttpHeaderTest, RedactsAuthorizationHeadersInAllBuildModes) {
+  HeaderMap headers{
+      {"authorization", "Bearer secret-oauth-token"},
+      {"x-custom-auth_token", "secret-auth-token"},
+      {"x-amz-security-token", "secret-sts-token"},
+      {"cookie", "session=secret-cookie"},
+      {"set-cookie", "session=secret-set-cookie"},
+      {"proxy-authorization", "Basic secret-proxy-auth"},
+      {"x-goog-encryption-key", "secret-csek-key"},
+      {"content-type", "application/json"},
+  };
+
+  std::string formatted = absl::StrCat(headers);
+  EXPECT_THAT(formatted,
+              ::testing::HasSubstr("content-type: application/json"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("authorization: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("x-custom-auth_token: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("x-amz-security-token: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("cookie: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("set-cookie: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("proxy-authorization: #####"));
+  EXPECT_THAT(formatted, ::testing::HasSubstr("x-goog-encryption-key: #####"));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-oauth-token")));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-auth-token")));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-sts-token")));
+  EXPECT_THAT(formatted, ::testing::Not(::testing::HasSubstr("secret-cookie")));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-set-cookie")));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-proxy-auth")));
+  EXPECT_THAT(formatted,
+              ::testing::Not(::testing::HasSubstr("secret-csek-key")));
+}
+
+TEST(HttpHeaderTest, ValidationAndRedactionHelpers) {
+  using ::tensorstore::internal_http::IsSensitiveHttpHeader;
+  using ::tensorstore::internal_http::IsValidHttpHeaderValue;
+  using ::tensorstore::internal_http::RedactH1HeaderLineForLog;
+  using ::tensorstore::internal_http::RedactHeaderValueForLog;
+
+  EXPECT_THAT(IsValidHttpHeaderValue("normal \t value\xfe"), Eq(true));
+  EXPECT_THAT(IsValidHttpHeaderValue("bad\r\nvalue"), Eq(false));
+  EXPECT_THAT(IsValidHttpHeaderValue(std::string_view("nul\0byte", 8)),
+              Eq(false));
+
+  EXPECT_THAT(IsSensitiveHttpHeader("X-Api-Key"), Eq(true));
+  EXPECT_THAT(IsSensitiveHttpHeader("WWW-Authenticate"), Eq(true));
+  EXPECT_THAT(IsSensitiveHttpHeader("Content-Type"), Eq(false));
+
+  EXPECT_THAT(RedactHeaderValueForLog("Authorization", "Bearer secret"),
+              Eq("[REDACTED]"));
+  EXPECT_THAT(RedactHeaderValueForLog("Accept", "*/*"), Eq("*/*"));
+
+  EXPECT_THAT(RedactH1HeaderLineForLog("Authorization: Bearer secret"),
+              Eq("Authorization: [REDACTED]"));
+  EXPECT_THAT(RedactH1HeaderLineForLog("Content-Type: text/plain"),
+              Eq("Content-Type: text/plain"));
 }
 
 }  // namespace

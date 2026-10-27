@@ -4089,11 +4089,27 @@ async def _emit_structured_output_if_schema(
                 else {}
             )
             contract_kind = contract_meta.get("kind") if isinstance(contract_meta, dict) else None
-            kind_errors = (
-                ([] if extraction.success else [extraction.reason or "schema mismatch"])
-                if contract_kind
-                else []
+            # A kind is stamped only when it is REGISTERED, and "checked" only when
+            # the answer was validated against THAT kind's schema — never a slug
+            # nobody designed, never a check that did not run (content-ir rule 28).
+            from matrx_graph.contract_kinds import check_schema
+            from matrx_graph.kinds import get_kind
+
+            from matrx_ai.kinds import is_bindable_kind
+
+            kind_entry = (
+                await get_kind(contract_kind)
+                if isinstance(contract_kind, str) and is_bindable_kind(contract_kind)
+                else None
             )
+            if kind_entry is None:
+                contract_kind = None
+                kind_checked, kind_errors = False, []
+            elif extraction.success:
+                verdict = check_schema(extraction.data, kind_entry.json_schema)
+                kind_checked, kind_errors = verdict.checked, list(verdict.errors)
+            else:
+                kind_checked, kind_errors = True, [extraction.reason or "schema mismatch"]
             payload = StructuredOutputPayload(
                 schema_name=envelope.get("name") if isinstance(envelope.get("name"), str) else None,
                 json_schema=schema,
@@ -4104,10 +4120,8 @@ async def _emit_structured_output_if_schema(
                 agent_name=getattr(ctx, "agent_id", None),
                 operation_id=getattr(ctx, "operation_id", None) or None,
                 kind=contract_kind,
-                kind_version=(
-                    contract_meta.get("version") if isinstance(contract_meta, dict) else None
-                ),
-                kind_checked=contract_kind is not None,
+                kind_version=kind_entry.version if kind_entry is not None else None,
+                kind_checked=kind_checked,
                 kind_errors=kind_errors,
             )
         await emitter.send_structured_output(payload)

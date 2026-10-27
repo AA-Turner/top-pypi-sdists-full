@@ -425,6 +425,7 @@ class CfnCampaign(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -471,7 +472,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dea841111eb9715b7977d34769972a35f4ff12770a8fd30c5e8756c52e2315dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectInstanceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectInstanceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -484,7 +485,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8a6ee2c8ab1041b75d3fc61f47c640e057770a39c0cd0f8b43528a1df4134a14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="channelSubtypeConfig")
@@ -502,7 +503,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a5b5c43e63bf2a0bf41f238db2ecf2eed8032758072a77ebd8c459798f74fa0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelSubtypeConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelSubtypeConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="communicationLimitsOverride")
@@ -520,7 +521,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e9a4f9850d67cc76e259c5826fc9085afbf3a202dbe3ba9f6af537bfd18c830a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "communicationLimitsOverride", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "communicationLimitsOverride", value)
 
     @builtins.property
     @jsii.member(jsii_name="communicationTimeConfig")
@@ -538,7 +539,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f04ec307144a013ae0d78d8747dea1d25d0ab7e9abc18aaab84c15553a5bb868)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "communicationTimeConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "communicationTimeConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectCampaignFlowArn")
@@ -551,7 +552,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c514dbfca338965ca2462164a214264c8a79ca12e54b81685d99cc57a888b73c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectCampaignFlowArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectCampaignFlowArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="entryLimitsConfig")
@@ -569,7 +570,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf09eedd6794a75f0306f5ecf5272cf93d77e8714bc3e05cbb11bed4cf20e472)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "entryLimitsConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "entryLimitsConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="schedule")
@@ -587,7 +588,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96d94c4ddf36f3ab10421fbfcb861afdc6852b09a0b0783e33f602560dc90a87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schedule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "schedule", value)
 
     @builtins.property
     @jsii.member(jsii_name="source")
@@ -605,7 +606,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1dd88e602a1609757680509707feb43ec965d5628d820f7eb876dc6ac055b404)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "source", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "source", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -621,7 +622,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c7a5de836c29e94a66b86ab16ab9047f892319b5f0f4bb59a47dc977cdb0fb0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -634,7 +635,7 @@ class CfnCampaign(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc91a952f7aebed17a437c26b2bcce43ed0f9a5f2aaaba7301baa654ee8dfce1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_connectcampaignsv2.CfnCampaign.AnswerMachineDetectionConfigProperty",

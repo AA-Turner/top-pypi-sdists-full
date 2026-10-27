@@ -244,6 +244,7 @@ class CfnReportDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -281,7 +282,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2cafa41fab07d965c2b4cd4f220b0815bee4bbbc73aeb0b1701ff27fe2221def)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "compression", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "compression", value)
 
     @builtins.property
     @jsii.member(jsii_name="format")
@@ -294,7 +295,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d7f82d91b0fb169b460470cde1ce29f66d5f2bcfe68c47c86ad3318c4aa6d6c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "format", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "format", value)
 
     @builtins.property
     @jsii.member(jsii_name="refreshClosedReports")
@@ -312,7 +313,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ccec559f362c0e5cc75f65e0abbd93286b4e471ccf2c07bd050c10afc226d26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "refreshClosedReports", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "refreshClosedReports", value)
 
     @builtins.property
     @jsii.member(jsii_name="reportName")
@@ -325,7 +326,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8f2e431f6887ff705738ea0e6e2eb792a7b45801bb7d4cc2ec2210dc8eaf8abc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "reportName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "reportName", value)
 
     @builtins.property
     @jsii.member(jsii_name="reportVersioning")
@@ -338,7 +339,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2c89251c983f93a0e40bd215a47173541010324050a11e2311469e065ab0b17c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "reportVersioning", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "reportVersioning", value)
 
     @builtins.property
     @jsii.member(jsii_name="s3Bucket")
@@ -351,7 +352,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0ef6cce4061a41668bba78905c8f1dc058df59d7f7070debb5af44a0e4296533)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3Bucket", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "s3Bucket", value)
 
     @builtins.property
     @jsii.member(jsii_name="s3Prefix")
@@ -364,7 +365,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b12b36c345387f3327726fae5967e371eb7c12a662df0a9f06d97b9b3f514acb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3Prefix", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "s3Prefix", value)
 
     @builtins.property
     @jsii.member(jsii_name="s3Region")
@@ -377,7 +378,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b68bd9a7c727e9f615699f7f7e4122093cb79d4f703c486f605c986ca0507a35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3Region", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "s3Region", value)
 
     @builtins.property
     @jsii.member(jsii_name="timeUnit")
@@ -390,7 +391,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d98ca474f2a8df98b310362b6786a2669ffd62a5759ae59af1c951a85ff8fd75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeUnit", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "timeUnit", value)
 
     @builtins.property
     @jsii.member(jsii_name="additionalArtifacts")
@@ -406,7 +407,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f8677929221d62b86e6210e7554bfbc901b8ce66550b2d1cad5fe6c465961299)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "additionalArtifacts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "additionalArtifacts", value)
 
     @builtins.property
     @jsii.member(jsii_name="additionalSchemaElements")
@@ -422,7 +423,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d002f185c62fde709bf248b43cc6ed35a66954f07c4dd2bb5c26dd74334dc7e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "additionalSchemaElements", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "additionalSchemaElements", value)
 
     @builtins.property
     @jsii.member(jsii_name="billingViewArn")
@@ -435,7 +436,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ebad8351aece0a3ddcb05b9d4f522316d4c0fa1aeef4e8017b839b424f98ff7d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "billingViewArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "billingViewArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -451,7 +452,7 @@ class CfnReportDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2c3a6bd4b3d8e5bf2caff9ee149924611c25e8417d8ee48a520417fd900c1f71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(

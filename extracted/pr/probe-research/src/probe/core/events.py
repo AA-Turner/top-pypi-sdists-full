@@ -133,6 +133,7 @@ class Step(StrEnum):
     CODEX_MCP_LOGIN = "codex_mcp_login"
     MCP_TOKEN_SYNC = "mcp_token_sync"
     CAPTURE = "capture"
+    CODEX_HOOKS_TRUST = "codex_hooks_trust"
     AUTO_UPDATE = "auto_update"
     AGENT_RULES = "agent_rules"
     STATUSLINE = "statusline"
@@ -143,6 +144,14 @@ class Step(StrEnum):
     UPDATE_CLI = "update_cli"
     UPDATE_INTEGRATIONS = "update_integrations"
     VERIFY_UPDATE = "verify_update"
+    #: `probe repair` (plan clean-uninstall-reinstall R-T6): the CLI's env and
+    #: command, the OS keeper and lifeboat, the service, the credentials held
+    #: to the sign-in, and each agent's integrations.
+    REPAIR_CLI = "repair_cli"
+    KEEPER = "keeper"
+    SERVICE = "service"
+    IDENTITY = "identity"
+    REPAIR_INTEGRATIONS = "repair_integrations"
 
 
 def _usage_error(typer: Any) -> type[BaseException]:

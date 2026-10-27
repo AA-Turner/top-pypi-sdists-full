@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stockdex
-Version: 1.2.7
+Version: 1.3.0
 Summary: A package to get stock data from Yahoo Finance
 Home-page: https://github.com/ahnazary/stockdex
 Author: Amir Nazary
@@ -8,7 +8,7 @@ Author-email: ah.nazary.aghchemazary@gmail.com
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: beautifulsoup4==4.12.3
@@ -20,6 +20,8 @@ Requires-Dist: plotly>=5.24.1
 Requires-Dist: dash>=2.18.0
 Requires-Dist: curl_cffi==0.12.0
 Requires-Dist: lxml>=5.3.0
+Provides-Extra: mcp
+Requires-Dist: mcp<3,>=2.3; extra == "mcp"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -27,6 +29,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
@@ -79,6 +82,22 @@ from stockdex import Ticker
 ticker = Ticker(ticker="NVDA")
 result = ticker.yahoo_api_income_statement(frequency='quarterly')
 ```
+
+## Use with Claude
+
+Stockdex ships a local, read-only MCP server so Claude can fetch prices, financial statements and dividends for you.
+
+- **Claude Desktop**: download `stockdex.mcpb` from the [latest release](https://github.com/ahnazary/stockdex/releases/latest) and double-click it.
+- **Claude Code**: install the plugin, which requires [uv](https://docs.astral.sh/uv/):
+
+  ```text
+  /plugin marketplace add ahnazary/stockdex
+  /plugin install stockdex@stockdex
+  ```
+
+- **Other MCP clients**: run `uvx --from "stockdex[mcp]" stockdex-mcp`.
+
+See [Use with Claude](https://ahnazary.github.io/stockdex/claude.html) for arguments, limits and output format.
 
 ## License
 

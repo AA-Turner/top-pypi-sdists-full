@@ -214,6 +214,7 @@ class CfnCisScanConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -262,7 +263,7 @@ class CfnCisScanConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8f6f074ec34751eb6d66964ee6738d096c1429db3564cba2005e530e659871bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scanName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scanName", value)
 
     @builtins.property
     @jsii.member(jsii_name="schedule")
@@ -280,7 +281,7 @@ class CfnCisScanConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__17c38c82086f8ffe9712e88585d2f980663e72bbb5b6ac70574594200cb759c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schedule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "schedule", value)
 
     @builtins.property
     @jsii.member(jsii_name="securityLevel")
@@ -293,7 +294,7 @@ class CfnCisScanConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__53a976b81d95f07052322a80e8b1ff546ae083bdb3cb3d358b91e5b7e50b0909)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "securityLevel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "securityLevel", value)
 
     @builtins.property
     @jsii.member(jsii_name="targets")
@@ -311,7 +312,7 @@ class CfnCisScanConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8afffccf2a9a470f423d247abd4a6dfe735dc39c53a2abe26c8cdb1844ec12a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targets", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targets", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -327,7 +328,7 @@ class CfnCisScanConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b4e1fac23c27cbc692267473e4cf9258b43062b9aea2a43b116dcfb105adb0d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCisScanConfiguration.CisTargetsProperty",
@@ -1113,6 +1114,7 @@ class CfnCodeSecurityIntegration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1211,7 +1213,7 @@ class CfnCodeSecurityIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__95bada6a0a63eed0487660762db52cf7634424d68b180f5bdde1aa127cbc6ca1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "createIntegrationDetails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "createIntegrationDetails", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1224,7 +1226,7 @@ class CfnCodeSecurityIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__62c672b1420b745cd7e45b7351f3382ced028744668c9771a1148fe207c23267)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1240,7 +1242,7 @@ class CfnCodeSecurityIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__56217870c5b8873ef3b3750235b4baa957fcd999c408c688e231f957b297af0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -1253,7 +1255,7 @@ class CfnCodeSecurityIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e81de92c5a50f951f013bc7d558d9d09c3c119459f7f1a04ca44ba5291a994ee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="updateIntegrationDetails")
@@ -1271,7 +1273,7 @@ class CfnCodeSecurityIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c450107a89d380f98e1bb112fb4f8df187acd5d7b74c42bca8a125923588adc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "updateIntegrationDetails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "updateIntegrationDetails", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegration.CreateDetailsProperty",
@@ -1878,6 +1880,7 @@ class CfnCodeSecurityScanConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1931,7 +1934,7 @@ class CfnCodeSecurityScanConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__45b63b68b5efac81af01f69f6fc536a7e0c56ab5d78f7c4d82199c868ce47b16)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="level")
@@ -1944,7 +1947,7 @@ class CfnCodeSecurityScanConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__80291f0cd7a0cb5b5f295442d46a5d028aa373ed833a3fb0e3b6091879e1a69b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "level", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "level", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1957,7 +1960,7 @@ class CfnCodeSecurityScanConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__10ce312b3f34f6350a3d1ee625199c03f68c9cb605f5e399d8d24b0f3374d219)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="scopeSettings")
@@ -1975,7 +1978,7 @@ class CfnCodeSecurityScanConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2418e2e1becb18ab1d3613df2cc71f18c45d161aa5b3aa4b796643c5c109a1b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scopeSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scopeSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1991,7 +1994,7 @@ class CfnCodeSecurityScanConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9428e2a90cc0578e6f07997b18e25682dcdf69843515552c29dd20aa94e714a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty",
@@ -2574,6 +2577,7 @@ class CfnConnector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2726,7 +2730,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a5d6bc8851778633c3ba9e3a7b43671fb69293d8eab5dc0f2ec68c56ddf255a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="provider")
@@ -2738,7 +2742,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__89d432d78f834b91be087c90ef8449d4c3c74a043b54896894c71b2ef73c14c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provider", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "provider", value)
 
     @builtins.property
     @jsii.member(jsii_name="providerConfiguration")
@@ -2755,7 +2759,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__708763a52f417a5a6c51b5c3e8eb0df6e5dd073187da0d07f75db965210c1227)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "providerConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "providerConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2768,7 +2772,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3428facfe029d0c1157fb590afabaa461ccc9ef64bdb99969a03d19e55c68e73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2784,7 +2788,7 @@ class CfnConnector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3caf571e8ae744015ca8a944742ad772aa3ae79b975c3d4464c9ab98ae3ae2b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_inspectorv2.CfnConnector.AzureProviderConfigurationProperty",
@@ -3552,6 +3556,10 @@ class CfnFilter(
                     comparison="comparison",
                     value="value"
                 )],
+                ecr_image_in_use_count=[inspectorv2.CfnFilter.NumberFilterProperty(
+                    lower_inclusive=123,
+                    upper_inclusive=123
+                )],
                 ecr_image_pushed_at=[inspectorv2.CfnFilter.DateFilterProperty(
                     end_inclusive=123,
                     start_inclusive=123
@@ -3807,6 +3815,7 @@ class CfnFilter(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3853,7 +3862,7 @@ class CfnFilter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a72dbbaedc7eb8a3b6da0867d3f429993d1cdfe3b095a514d2cb82730c01b31d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "filterAction", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "filterAction", value)
 
     @builtins.property
     @jsii.member(jsii_name="filterCriteria")
@@ -3871,7 +3880,7 @@ class CfnFilter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b566081cfe458076187f61e1afab9cbbb5fb2cdd114aad2fa6e38280867325e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "filterCriteria", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "filterCriteria", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3884,7 +3893,7 @@ class CfnFilter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b0548c4926be9ebf2a0675883b51af78c4f6a9c034f4d0fb7a9ebfd7ad038ee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -3897,7 +3906,7 @@ class CfnFilter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__29a0d69128962a2d8d478ff9197ec92d930e2284a9cbff6337d95fb1932925d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3913,7 +3922,7 @@ class CfnFilter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d85ec3c1992f35abc960573e86c94eb9d5f4d6c6fd9f47728ef03d5078212f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_inspectorv2.CfnFilter.DateFilterProperty",
@@ -4003,6 +4012,7 @@ class CfnFilter(
             "ec2_instance_vpc_id": "ec2InstanceVpcId",
             "ecr_image_architecture": "ecrImageArchitecture",
             "ecr_image_hash": "ecrImageHash",
+            "ecr_image_in_use_count": "ecrImageInUseCount",
             "ecr_image_pushed_at": "ecrImagePushedAt",
             "ecr_image_registry": "ecrImageRegistry",
             "ecr_image_repository_name": "ecrImageRepositoryName",
@@ -4051,6 +4061,7 @@ class CfnFilter(
             ec2_instance_vpc_id: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ecr_image_architecture: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ecr_image_hash: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ecr_image_in_use_count: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFilter.NumberFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ecr_image_pushed_at: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFilter.DateFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ecr_image_registry: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             ecr_image_repository_name: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFilter.StringFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -4096,6 +4107,7 @@ class CfnFilter(
             :param ec2_instance_vpc_id: Details of the Amazon EC2 instance VPC IDs used to filter findings.
             :param ecr_image_architecture: Details of the Amazon ECR image architecture types used to filter findings.
             :param ecr_image_hash: Details of the Amazon ECR image hashes used to filter findings.
+            :param ecr_image_in_use_count: 
             :param ecr_image_pushed_at: Details on the Amazon ECR image push date and time used to filter findings.
             :param ecr_image_registry: Details on the Amazon ECR registry used to filter findings.
             :param ecr_image_repository_name: Details on the name of the Amazon ECR repository used to filter findings.
@@ -4181,6 +4193,10 @@ class CfnFilter(
                     ecr_image_hash=[inspectorv2.CfnFilter.StringFilterProperty(
                         comparison="comparison",
                         value="value"
+                    )],
+                    ecr_image_in_use_count=[inspectorv2.CfnFilter.NumberFilterProperty(
+                        lower_inclusive=123,
+                        upper_inclusive=123
                     )],
                     ecr_image_pushed_at=[inspectorv2.CfnFilter.DateFilterProperty(
                         end_inclusive=123,
@@ -4354,6 +4370,7 @@ class CfnFilter(
                 check_type(argname="argument ec2_instance_vpc_id", value=ec2_instance_vpc_id, expected_type=type_hints["ec2_instance_vpc_id"])
                 check_type(argname="argument ecr_image_architecture", value=ecr_image_architecture, expected_type=type_hints["ecr_image_architecture"])
                 check_type(argname="argument ecr_image_hash", value=ecr_image_hash, expected_type=type_hints["ecr_image_hash"])
+                check_type(argname="argument ecr_image_in_use_count", value=ecr_image_in_use_count, expected_type=type_hints["ecr_image_in_use_count"])
                 check_type(argname="argument ecr_image_pushed_at", value=ecr_image_pushed_at, expected_type=type_hints["ecr_image_pushed_at"])
                 check_type(argname="argument ecr_image_registry", value=ecr_image_registry, expected_type=type_hints["ecr_image_registry"])
                 check_type(argname="argument ecr_image_repository_name", value=ecr_image_repository_name, expected_type=type_hints["ecr_image_repository_name"])
@@ -4408,6 +4425,8 @@ class CfnFilter(
                 self._values["ecr_image_architecture"] = ecr_image_architecture
             if ecr_image_hash is not None:
                 self._values["ecr_image_hash"] = ecr_image_hash
+            if ecr_image_in_use_count is not None:
+                self._values["ecr_image_in_use_count"] = ecr_image_in_use_count
             if ecr_image_pushed_at is not None:
                 self._values["ecr_image_pushed_at"] = ecr_image_pushed_at
             if ecr_image_registry is not None:
@@ -4588,6 +4607,16 @@ class CfnFilter(
             '''
             result = self._values.get("ecr_image_hash")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFilter.StringFilterProperty"]]]], result)
+
+        @builtins.property
+        def ecr_image_in_use_count(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFilter.NumberFilterProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-filter-filtercriteria.html#cfn-inspectorv2-filter-filtercriteria-ecrimageinusecount
+            '''
+            result = self._values.get("ecr_image_in_use_count")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFilter.NumberFilterProperty"]]]], result)
 
         @builtins.property
         def ecr_image_pushed_at(
@@ -5526,6 +5555,10 @@ class CfnFilterProps:
                         comparison="comparison",
                         value="value"
                     )],
+                    ecr_image_in_use_count=[inspectorv2.CfnFilter.NumberFilterProperty(
+                        lower_inclusive=123,
+                        upper_inclusive=123
+                    )],
                     ecr_image_pushed_at=[inspectorv2.CfnFilter.DateFilterProperty(
                         end_inclusive=123,
                         start_inclusive=123
@@ -6350,6 +6383,7 @@ def _typecheckingstub__8bf898b4c669bfc838bf91c83d3735a9d69065b37baef35430be61dc5
     ec2_instance_vpc_id: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ecr_image_architecture: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ecr_image_hash: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ecr_image_in_use_count: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFilter.NumberFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ecr_image_pushed_at: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFilter.DateFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ecr_image_registry: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ecr_image_repository_name: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFilter.StringFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,

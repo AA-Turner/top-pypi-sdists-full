@@ -30,10 +30,12 @@ from .paginator import (
     DescribeImageScanFindingsPaginator,
     DescribeImagesPaginator,
     DescribePullThroughCacheRulesPaginator,
+    DescribeReplicationBackfillResultsPaginator,
     DescribeRepositoriesPaginator,
     DescribeRepositoryCreationTemplatesPaginator,
     GetLifecyclePolicyPreviewPaginator,
     ListImagesPaginator,
+    ListReplicationBackfillsPaginator,
 )
 from .type_defs import (
     BatchCheckLayerAvailabilityRequestTypeDef,
@@ -77,6 +79,8 @@ from .type_defs import (
     DescribePullThroughCacheRulesRequestTypeDef,
     DescribePullThroughCacheRulesResponseTypeDef,
     DescribeRegistryResponseTypeDef,
+    DescribeReplicationBackfillResultsRequestTypeDef,
+    DescribeReplicationBackfillResultsResponseTypeDef,
     DescribeRepositoriesRequestTypeDef,
     DescribeRepositoriesResponseTypeDef,
     DescribeRepositoryCreationTemplatesRequestTypeDef,
@@ -104,6 +108,8 @@ from .type_defs import (
     ListImagesResponseTypeDef,
     ListPullTimeUpdateExclusionsRequestTypeDef,
     ListPullTimeUpdateExclusionsResponseTypeDef,
+    ListReplicationBackfillsRequestTypeDef,
+    ListReplicationBackfillsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutAccountSettingRequestTypeDef,
@@ -132,6 +138,10 @@ from .type_defs import (
     StartImageScanResponseTypeDef,
     StartLifecyclePolicyPreviewRequestTypeDef,
     StartLifecyclePolicyPreviewResponseTypeDef,
+    StartReplicationBackfillRequestTypeDef,
+    StartReplicationBackfillResponseTypeDef,
+    StopReplicationBackfillRequestTypeDef,
+    StopReplicationBackfillResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateImageStorageClassRequestTypeDef,
@@ -185,6 +195,9 @@ class Exceptions(BaseClientExceptions):
     PullThroughCacheRuleNotFoundException: type[BotocoreClientError]
     ReferencedImagesNotFoundException: type[BotocoreClientError]
     RegistryPolicyNotFoundException: type[BotocoreClientError]
+    ReplicationBackfillInProgressException: type[BotocoreClientError]
+    ReplicationBackfillInvalidStatusException: type[BotocoreClientError]
+    ReplicationBackfillNotFoundException: type[BotocoreClientError]
     RepositoryAlreadyExistsException: type[BotocoreClientError]
     RepositoryNotEmptyException: type[BotocoreClientError]
     RepositoryNotFoundException: type[BotocoreClientError]
@@ -457,6 +470,16 @@ class ECRClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/client/#describe_registry)
         """
 
+    def describe_replication_backfill_results(
+        self, **kwargs: Unpack[DescribeReplicationBackfillResultsRequestTypeDef]
+    ) -> DescribeReplicationBackfillResultsResponseTypeDef:
+        """
+        Returns the status, progress, and per-image results for a replication backfill.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/describe_replication_backfill_results.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/client/#describe_replication_backfill_results)
+        """
+
     def describe_repositories(
         self, **kwargs: Unpack[DescribeRepositoriesRequestTypeDef]
     ) -> DescribeRepositoriesResponseTypeDef:
@@ -604,6 +627,17 @@ class ECRClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/client/#list_pull_time_update_exclusions)
         """
 
+    def list_replication_backfills(
+        self, **kwargs: Unpack[ListReplicationBackfillsRequestTypeDef]
+    ) -> ListReplicationBackfillsResponseTypeDef:
+        """
+        Lists the replication backfills for a registry, including their status and
+        progress.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/list_replication_backfills.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/client/#list_replication_backfills)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -745,6 +779,26 @@ class ECRClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/client/#start_lifecycle_policy_preview)
         """
 
+    def start_replication_backfill(
+        self, **kwargs: Unpack[StartReplicationBackfillRequestTypeDef]
+    ) -> StartReplicationBackfillResponseTypeDef:
+        """
+        Starts a replication backfill for a registry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/start_replication_backfill.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/client/#start_replication_backfill)
+        """
+
+    def stop_replication_backfill(
+        self, **kwargs: Unpack[StopReplicationBackfillRequestTypeDef]
+    ) -> StopReplicationBackfillResponseTypeDef:
+        """
+        Stops an in progress replication backfill for a registry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/stop_replication_backfill.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/client/#stop_replication_backfill)
+        """
+
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds specified tags to a resource with the specified ARN.
@@ -847,6 +901,17 @@ class ECRClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_replication_backfill_results"]
+    ) -> DescribeReplicationBackfillResultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_repositories"]
     ) -> DescribeRepositoriesPaginator:
         """
@@ -882,6 +947,17 @@ class ECRClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_images"]
     ) -> ListImagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecr/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_replication_backfills"]
+    ) -> ListReplicationBackfillsPaginator:
         """
         Create a paginator for an operation.
 

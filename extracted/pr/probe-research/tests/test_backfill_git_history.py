@@ -92,8 +92,10 @@ def test_fragment_present_for_a_repo_and_absent_otherwise(tmp_path):
     note = _git_note(repo, work)
     assert "THIS FOLDER IS A GIT REPOSITORY" in note
     assert "git-history.md" in note
-    assert "probe project code attach" in note
-    assert "--via wizard" in note
+    # The import attaches reviewed repositories itself; an agent attaching
+    # one would skip the review (and a new project does not exist yet).
+    assert "probe project code attach" not in note
+    assert "owner/repo@shortsha" in note
     assert "never present an old commit's state" in note
 
     plain = tmp_path / "plain"
@@ -101,7 +103,7 @@ def test_fragment_present_for_a_repo_and_absent_otherwise(tmp_path):
     assert _git_note(plain, work) == ""
 
 
-def test_fragment_offers_no_attach_without_a_github_remote():
+def test_fragment_asks_for_no_github_citation_without_a_github_remote():
     text = prompts.git_history(history_path="/x/git-history.md", repo=None, branch="main")
-    assert "probe project code attach" not in text
+    assert "owner/repo@shortsha" not in text
     assert "git-history.md" in text

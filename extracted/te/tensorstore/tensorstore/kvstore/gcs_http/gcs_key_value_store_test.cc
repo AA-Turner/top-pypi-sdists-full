@@ -26,6 +26,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/base/thread_annotations.h"
 #include "absl/log/absl_log.h"
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
@@ -38,10 +39,13 @@
 #include "tensorstore/context.h"
 #include "tensorstore/internal/global_initializer.h"
 #include "tensorstore/internal/http/default_transport.h"
+#include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/http/http_response.h"
 #include "tensorstore/internal/http/http_transport.h"
 #include "tensorstore/internal/http/mock_http_transport.h"
+#include "tensorstore/internal/oauth2/auth_provider.h"
+#include "tensorstore/internal/oauth2/bearer_token.h"
 #include "tensorstore/internal/oauth2/google_auth_provider.h"
 #include "tensorstore/internal/oauth2/google_auth_test_utils.h"
 #include "tensorstore/internal/testing/json_gtest.h"
@@ -78,9 +82,11 @@ using ::tensorstore::Result;
 using ::tensorstore::StatusIs;
 using ::tensorstore::StorageGeneration;
 using ::tensorstore::internal::KeyValueStoreOpsTestParameters;
+using ::tensorstore::internal::MatchesKvsReadResult;
 using ::tensorstore::internal::MatchesListEntry;
 using ::tensorstore::internal::ScheduleAt;
 using ::tensorstore::internal_http::ApplyResponseToHandler;
+using ::tensorstore::internal_http::HeaderMap;
 using ::tensorstore::internal_http::HttpRequest;
 using ::tensorstore::internal_http::HttpResponse;
 using ::tensorstore::internal_http::HttpResponseHandler;
@@ -108,6 +114,10 @@ class MetadataMockHelper {
         "metadata.google.internal/computeMetadata/v1/"
         "instance/service-accounts/user@nowhere.com/token";
     if (absl::StartsWith(parsed.authority_and_path, kOAuthPath)) {
+      if (token_request_errors > 0) {
+        --token_request_errors;
+        return HttpResponse{503, absl::Cord("Service Unavailable")};
+      }
       return HttpResponse{
           200,
           absl::Cord(
@@ -128,27 +138,40 @@ class MetadataMockHelper {
     return HttpResponse{200, absl::Cord()};
   }
 
+  int token_request_errors = 0;
   GoogleAuthTestScope google_auth_test_scope;
 };
 
-class MyMockTransport : public HttpTransport {
+class MyMockTransport
+    : public ::tensorstore::internal_http::DefaultMockHttpTransport {
  public:
+  explicit MyMockTransport(bool queue_requests = false)
+      : DefaultMockHttpTransport(queue_requests) {}
+
   void IssueRequestWithHandler(const HttpRequest& request,
                                IssueRequestOptions options,
                                HttpResponseHandler* response_handler) override {
-    ApplyResponseToHandler(
-        [&]() -> Result<HttpResponse> {
-          auto result = metadata_mock_.GetResponse(request);
-          if (result.ok()) return result;
+    auto result = metadata_mock_.GetResponse(request);
+    if (result.ok()) {
+      ApplyResponseToHandler(std::move(result), response_handler);
+      return;
+    }
 
-          // Next, try each bucket until there is a success.
-          for (auto* bucket : buckets_) {
-            result = bucket->IssueRequest(request, options.payload);
-            if (result.ok()) break;
-          }
-          return result;
-        }(),
-        response_handler);
+    // Next, try each bucket until there is a success.
+    for (auto* bucket : buckets_) {
+      result = bucket->IssueRequest(request, options.payload);
+      if (result.ok()) {
+        ApplyResponseToHandler(std::move(result), response_handler);
+        return;
+      }
+    }
+    if (!buckets_.empty()) {
+      ApplyResponseToHandler(std::move(result), response_handler);
+      return;
+    }
+
+    DefaultMockHttpTransport::IssueRequestWithHandler(
+        request, std::move(options), response_handler);
   }
 
   MetadataMockHelper metadata_mock_;
@@ -293,6 +316,42 @@ TEST(GcsKeyValueStoreTest, Retry) {
                     StatusIs(absl::StatusCode::kAborted));
       } else {
         bucket.TriggerErrors(max_retries - 2);
+        TENSORSTORE_EXPECT_OK(kvstore::Read(store, "x").result());
+      }
+    }
+  }
+}
+
+TEST(GcsKeyValueStoreTest, RetryAuth) {
+  for (int max_retries : {2, 3, 4}) {
+    for (bool fail : {false, true}) {
+      ABSL_LOG(INFO) << max_retries << (fail ? " fail" : " success");
+
+      auto mock_transport = std::make_shared<MyMockTransport>();
+      DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+      GCSMockStorageBucket bucket("my-bucket");
+      mock_transport->buckets_.push_back(&bucket);
+
+      auto context = Context::Default();
+      TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+          auto store, kvstore::Open({{"driver", kDriver},
+                                     {"bucket", "my-bucket"},
+                                     {"context",
+                                      {
+                                          {"gcs_request_retries",
+                                           {{"max_retries", max_retries},
+                                            {"initial_delay", "1ms"},
+                                            {"max_delay", "10ms"}}},
+                                      }}},
+                                    context)
+                          .result());
+      if (fail) {
+        mock_transport->metadata_mock_.token_request_errors = max_retries + 1;
+        EXPECT_THAT(kvstore::Read(store, "x").result(),
+                    StatusIs(absl::StatusCode::kAborted));
+      } else {
+        mock_transport->metadata_mock_.token_request_errors = max_retries - 2;
         TENSORSTORE_EXPECT_OK(kvstore::Read(store, "x").result());
       }
     }
@@ -611,9 +670,11 @@ class MyConcurrentMockTransport : public MyMockTransport {
                });
   }
 
-  size_t cur_concurrent_requests_ = 0;
-  size_t max_concurrent_requests_ = 0;
   absl::Mutex concurrent_request_mutex_;
+  size_t cur_concurrent_requests_ ABSL_GUARDED_BY(concurrent_request_mutex_) =
+      0;
+  size_t max_concurrent_requests_ ABSL_GUARDED_BY(concurrent_request_mutex_) =
+      0;
 };
 
 TEST(GcsKeyValueStoreTest, Concurrency) {
@@ -794,4 +855,133 @@ TEST(GcsKeyValueStoreTest, BatchRead) {
   tensorstore::internal::TestBatchReadGenericCoalescing(store, options);
 }
 
+class RefreshStallingAuthProvider
+    : public tensorstore::internal_oauth2::AuthProvider {
+ public:
+  struct SharedState {
+    std::atomic<int> call_count{0};
+    absl::Notification refresh_started;
+    absl::Notification concurrent_call_entered;
+  };
+
+  explicit RefreshStallingAuthProvider(SharedState* state) : state_(state) {}
+
+  Result<tensorstore::internal_oauth2::BearerTokenWithExpiration> GetToken()
+      override {
+    int call = ++state_->call_count;
+    if (call == 2) {
+      state_->refresh_started.Notify();
+      state_->concurrent_call_entered.WaitForNotificationWithTimeout(
+          absl::Seconds(2));
+    } else if (call >= 3) {
+      state_->concurrent_call_entered.Notify();
+    }
+    return tensorstore::internal_oauth2::BearerTokenWithExpiration{
+        "cached_token", absl::InfiniteFuture()};
+  }
+
+ private:
+  SharedState* state_;
+};
+
+TEST(GcsKeyValueStoreTest,
+     GetAuthHeaderDoesNotHoldStoreMutexAcrossTokenRefresh) {
+  RefreshStallingAuthProvider::SharedState state;
+  struct StateRegistration {
+    static RefreshStallingAuthProvider::SharedState*& slot() {
+      static RefreshStallingAuthProvider::SharedState* s = []() {
+        tensorstore::internal_oauth2::RegisterGoogleAuthProvider(
+            []() -> Result<std::unique_ptr<
+                     tensorstore::internal_oauth2::AuthProvider>> {
+              if (slot()) {
+                return std::make_unique<RefreshStallingAuthProvider>(slot());
+              }
+              return absl::NotFoundError("Inactive test auth provider");
+            },
+            -1000);
+        return nullptr;
+      }();
+      return s;
+    }
+    explicit StateRegistration(RefreshStallingAuthProvider::SharedState* p) {
+      slot() = p;
+    }
+    ~StateRegistration() { slot() = nullptr; }
+  } reg(&state);
+
+  auto mock_transport = std::make_shared<MyMockTransport>();
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+  GCSMockStorageBucket bucket("my-bucket");
+  bucket.SetErrorRate(0.0);
+  mock_transport->buckets_.push_back(&bucket);
+
+  auto context = DefaultTestContext();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store,
+      kvstore::Open({{"driver", kDriver}, {"bucket", "my-bucket"}}, context)
+          .result());
+
+  TENSORSTORE_ASSERT_OK(kvstore::Read(store, "init").result());
+  ASSERT_EQ(state.call_count.load(), 1);
+
+  auto refresh_read_future = kvstore::Read(store, "stalled_refresh");
+  refresh_read_future.Force();
+  ASSERT_TRUE(
+      state.refresh_started.WaitForNotificationWithTimeout(absl::Seconds(5)));
+
+  TENSORSTORE_EXPECT_OK(kvstore::Read(store, "concurrent_cached").result());
+  EXPECT_TRUE(state.concurrent_call_entered.HasBeenNotified());
+  TENSORSTORE_EXPECT_OK(refresh_read_future.result());
+}
+
+TEST(GcsKeyValueStoreTest, RetryOccupiesAdmissionQueueSlot) {
+  // The retry path intentionally holds its admission queue slot across retry
+  // backoff (matching the HTTP and S3 drivers). Otherwise, queued requests
+  // would immediately take the slot while the failing request is backing off,
+  // leading to a request storm against an overloaded server.
+  auto mock_transport =
+      std::make_shared<MyMockTransport>(/*queue_requests=*/true);
+  DefaultHttpTransportSetter mock_transport_setter{mock_transport};
+
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store, kvstore::Open({{"driver", kDriver},
+                                 {"bucket", "my-bucket"},
+                                 {"context",
+                                  {{"gcs_request_concurrency", {{"limit", 1}}},
+                                   {"gcs_request_retries",
+                                    {{"max_retries", 2},
+                                     {"initial_delay", "10ms"},
+                                     {"max_delay", "50ms"}}}}}})
+                      .result());
+
+  auto read_future1 = kvstore::Read(store, "abc");
+  auto req1 = mock_transport->queued_requests().pop();
+  ASSERT_THAT(req1.request.url, HasSubstr("/b/my-bucket/o/abc?"));
+
+  // Issue a second read while req1 is still in-flight; because limit == 1,
+  // read_future2 is queued in the admission queue until read_future1 finishes.
+  auto read_future2 = kvstore::Read(store, "def");
+  EXPECT_TRUE(mock_transport->queued_requests().empty());
+
+  // Respond with 503 to req1; read_future1 enters ScheduleAt retry backoff
+  // while continuing to occupy the single admission queue slot, so
+  // read_future1's retry is issued before read_future2 is admitted.
+  req1.set_result(HttpResponse{503, absl::Cord()});
+
+  auto req1_retry = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req1_retry.request.url, HasSubstr("/b/my-bucket/o/abc?"));
+  req1_retry.set_result(HttpResponse{200, absl::Cord("value_abc"),
+                                     HeaderMap{{"x-goog-generation", "1"}}});
+  EXPECT_THAT(read_future1.result(),
+              MatchesKvsReadResult(absl::Cord("value_abc"),
+                                   StorageGeneration::FromUint64(1)));
+
+  auto req2 = mock_transport->queued_requests().pop();
+  EXPECT_THAT(req2.request.url, HasSubstr("/b/my-bucket/o/def?"));
+  req2.set_result(HttpResponse{200, absl::Cord("value_def"),
+                               HeaderMap{{"x-goog-generation", "2"}}});
+  EXPECT_THAT(read_future2.result(),
+              MatchesKvsReadResult(absl::Cord("value_def"),
+                                   StorageGeneration::FromUint64(2)));
+}
 }  // namespace

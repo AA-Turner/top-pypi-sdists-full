@@ -11,8 +11,8 @@ crate-type = [
 ]
 
 [dependencies]
-fastwarc = "1.0.9"
-pyo3 = "0.28"
+fastwarc = "1.1.0"
+pyo3 = "0.30"
 
 [dependencies.time]
 version = "0.3"
@@ -23,6 +23,6 @@ features = [
 ]
 
 [build-dependencies]
-pyo3-build-config = "0.28"
+pyo3-build-config = "0.30"
 
 [workspace]

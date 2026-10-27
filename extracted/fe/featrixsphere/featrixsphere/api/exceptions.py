@@ -22,7 +22,7 @@ class FeatrixAuthenticationError(Exception):
         if message is None:
             message = (
                 "Authentication required. "
-                "Set your API key in ~/.featrix (as api_key=sk_live_...) "
+                "Set your API key in ~/.featrix (as api_key=fx_...) "
                 "or the FEATRIX_API_KEY environment variable."
             )
         self.status_code = status_code

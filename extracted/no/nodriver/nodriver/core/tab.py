@@ -23,7 +23,6 @@ from .. import cdp
 from . import element, util
 from .config import PathLike
 from .connection import Connection, ProtocolException
-
 logger = logging.getLogger(__name__)
 
 
@@ -490,7 +489,12 @@ class Tab(Connection):
         """
         items: List[Optional[nodriver.Element]] = []
         try:
-            await self.send(cdp.dom.enable(), True)
+            try:
+                await self.send(cdp.dom.enable(), True)
+            except:
+                logger.debug(
+                    "call to dom.enable() failed. but is not critical", exc_info=True
+                )
             items = await self.find_all(xpath, timeout=0)
             if not items:
                 loop = asyncio.get_running_loop()

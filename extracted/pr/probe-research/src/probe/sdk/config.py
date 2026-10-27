@@ -125,6 +125,37 @@ WORKSPACE_HANDOVER = "workspace_handover"
 #: a `probe` started from that shell has no key (`probe.daemon.shell.minimal_env`).
 DAEMON_SHELL_CONFIG = "/nonexistent/probe-daemon-shell/config.json"
 
+#: A per-run token (the server's app/auth/run_tokens.py): records ONE run. The
+#: prefix only says which kind it is; the server verifies the signature.
+RUN_TOKEN_PREFIX = "probe_run_"
+
+
+def run_token_run_id(token: str | None) -> str | None:
+    """The run a per-run token records (its `rid` claim), or None for any other
+    credential. Read WITHOUT verifying -- this only routes the attach; the server
+    checks the signature, the run and the expiry on every request."""
+    if not token or not token.startswith(RUN_TOKEN_PREFIX):
+        return None
+    import base64
+
+    try:
+        payload = token[len(RUN_TOKEN_PREFIX):].split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    except (IndexError, ValueError, UnicodeDecodeError):
+        return None
+    rid = claims.get("rid") if isinstance(claims, dict) else None
+    return rid if isinstance(rid, str) and rid else None
+
+
+def env_run_id() -> str:
+    """The run this process is told to join: PROBE_RUN_ID, else the run a
+    per-run PROBE_TOKEN records ("" for neither). Every "did a launcher choose
+    the run?" question asks this, so a job given only the token answers yes."""
+    return os.environ.get("PROBE_RUN_ID", "").strip() or (
+        run_token_run_id(os.environ.get("PROBE_TOKEN")) or ""
+    )
+
+
 def mcp_url(base_url: str) -> str | None:
     """The Probe MCP for a credential that belongs to `base_url`: `PROBE_MCP_URL`
     when set, the stock MCP beside the stock API, else none -- a key must never be

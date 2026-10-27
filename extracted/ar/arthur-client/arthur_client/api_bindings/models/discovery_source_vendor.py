@@ -37,6 +37,7 @@ class DiscoverySourceVendor(str, Enum):
     AWS_NETWORK = 'aws_network'
     GCP_NETWORK = 'gcp_network'
     GCP_CONTAINERS = 'gcp_containers'
+    AWS_CONTAINERS = 'aws_containers'
     AZURE_AI_FOUNDRY = 'azure_ai_foundry'
     VERCEL_AI = 'vercel_ai'
     GCP_SECURITY_OPERATIONS = 'gcp_security_operations'

@@ -3,7 +3,7 @@ name = "nidaqmx"
 description = "Official NI-DAQmx Python API"
 license = "MIT"
 keywords = ["nidaqmx", "nidaq", "daqmx", "daq"]
-version = "1.6.0"
+version = "1.7.0"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
@@ -43,7 +43,7 @@ documentation = "https://nidaqmx-python.readthedocs.io"
 nidaqmx = 'nidaqmx.__main__:main'
 
 [project.optional-dependencies]
-grpc = ['grpcio (>=1.49.0,<2.0)', 'protobuf (>=4.21)', 'ni-grpcdevice-v1-proto (>=1.0.0)', 'ni-protobuf-types (>=1.0.0)']
+grpc = ['grpcio (>=1.49.0,<2.0)', 'protobuf (>=4.21)', 'ni-grpcdevice-v1-proto (>=1.0.0)', 'ni-protobuf-types (>=1.0.0)', 'nitlsconfig[grpc] (>=1.0.0a4)']
 
 [tool.poetry]
 
@@ -159,6 +159,7 @@ markers = [
   "grpc_only(reason=...): run the test with only the gRPC interpreter implementation.",
   "grpc_skip(reason=...): skip the given test function with the gRPC interpreter implementation.",
   "grpc_xfail(condition, ..., *, reason=..., run=True, raises=None, strict=xfail_strict): mark the test function as an expected failure with the gRPC interpreter implementation.",
+  "grpc_tls(reason=...): additionally run the test against an ni-tls-config-configured gRPC server, once with TLS enabled and once with TLS disabled.",
   "new_task_name: name of the new task to be created.",
   "device_name: name of the device used for testing.",
   "task_name: the existing task name to be used for testing.",

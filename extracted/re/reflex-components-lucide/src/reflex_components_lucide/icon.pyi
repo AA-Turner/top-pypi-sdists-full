@@ -9,6 +9,7 @@ from typing import Any
 
 from reflex_base.components.component import Component
 from reflex_base.event import EventType, PointerEventInfo
+from reflex_base.utils.imports import ImportVar
 from reflex_base.vars.base import Var
 from reflex_components_core.core.breakpoints import Breakpoints
 
@@ -153,7 +154,12 @@ class Icon(LucideIconComponent):
             TypeError: If the icon name is not a string.
         """
 
+    @property
+    def import_var(self) -> ImportVar: ...
+
 class DynamicIcon(LucideIconComponent):
+    @property
+    def import_var(self) -> ImportVar: ...
     @classmethod
     def create(
         cls,

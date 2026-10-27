@@ -17,7 +17,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <cassert>
 #include <initializer_list>
 #include <optional>
 #include <string>
@@ -30,10 +29,9 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
-#include "re2/re2.h"
+#include "absl/types/source_location.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
-#include "tensorstore/internal/source_location.h"
 #include "tensorstore/kvstore/generation.h"
 #include "tensorstore/util/result.h"
 #include "tensorstore/util/status_builder.h"
@@ -47,69 +45,6 @@ namespace internal_kvstore_s3 {
 
 namespace {
 static constexpr char kEtag[] = "etag";
-/// The 5 XML Special Character sequences
-/// https://en.wikipedia.org/wiki/List_of_XML_and_HTML_character_entity_references#Standard_public_entity_sets_for_characters
-static constexpr char kLt[] = "&lt;";
-static constexpr char kGt[] = "&gt;";
-static constexpr char kQuot[] = "&quot;";
-static constexpr char kApos[] = "&apos;";
-static constexpr char kAmp[] = "&amp;";
-
-/// Unescape the 5 special XML character sequences
-/// https://en.wikipedia.org/wiki/List_of_XML_and_HTML_character_entity_references#Standard_public_entity_sets_for_characters
-std::string UnescapeXml(std::string_view data) {
-  static LazyRE2 kSpecialXmlSymbols = {"(&gt;|&lt;|&quot;|&apos;|&amp;)"};
-
-  std::string_view search = data;
-  std::string_view symbol;
-  size_t result_len = data.length();
-
-  // Scan for xml sequences that need converting
-  while (RE2::FindAndConsume(&search, *kSpecialXmlSymbols, &symbol)) {
-    result_len -= symbol.length() - 1;
-  }
-
-  if (result_len == data.length()) {
-    return std::string(data);
-  }
-
-  search = data;
-  size_t pos = 0;
-  size_t res_pos = 0;
-  auto result = std::string(result_len, '0');
-
-  while (RE2::FindAndConsume(&search, *kSpecialXmlSymbols, &symbol)) {
-    size_t next = data.length() - search.length();
-    // Copy any characters prior to sequence start
-    for (size_t i = pos; i < next - symbol.length(); ++i, ++res_pos) {
-      result[res_pos] = data[i];
-    }
-
-    // Substitute characters for sequences
-    if (symbol == kGt) {
-      result[res_pos++] = '>';
-    } else if (symbol == kLt) {
-      result[res_pos++] = '<';
-    } else if (symbol == kQuot) {
-      result[res_pos++] = '"';
-    } else if (symbol == kApos) {
-      result[res_pos++] = '`';
-    } else if (symbol == kAmp) {
-      result[res_pos++] = '&';
-    } else {
-      assert(false);
-    }
-
-    pos = next;
-  }
-
-  // Copy any remaining chars
-  for (size_t i = pos; i < data.length(); ++i, ++res_pos) {
-    result[res_pos] = data[i];
-  }
-
-  return result;
-}
 
 bool IsRetryableAwsStatusCode(int32_t status_code) {
   switch (status_code) {
@@ -157,6 +92,20 @@ bool IsRetryableAwsMessageCode(std::string_view code) {
   return kRetryableMessages->contains(code);
 }
 
+// Extracts the disambiguated error type from an AWS error header/code value.
+// Follows the smithy.io syntax rules, allowing for either ':' or '#' as a
+// separator.
+// https://smithy.io/2.0/aws/protocols/aws-json-1_1-protocol.html#operation-error-serialization
+std::string_view ExtractAwsErrorType(std::string_view error_type) {
+  if (auto pos = error_type.find(':'); pos != std::string_view::npos) {
+    error_type = error_type.substr(0, pos);
+  }
+  if (auto pos = error_type.find('#'); pos != std::string_view::npos) {
+    error_type = error_type.substr(pos + 1);
+  }
+  return error_type;
+}
+
 }  // namespace
 
 std::optional<int64_t> GetNodeInt(tinyxml2::XMLNode* node) {
@@ -164,14 +113,8 @@ std::optional<int64_t> GetNodeInt(tinyxml2::XMLNode* node) {
     return std::nullopt;
   }
 
-  tinyxml2::XMLPrinter printer;
-  for (auto* child = node->FirstChild(); child != nullptr;
-       child = child->NextSibling()) {
-    child->Accept(&printer);
-  }
-
   int64_t result;
-  if (absl::SimpleAtoi(printer.CStr(), &result)) {
+  if (absl::SimpleAtoi(GetNodeText(node), &result)) {
     return result;
   }
   return std::nullopt;
@@ -182,14 +125,9 @@ std::optional<absl::Time> GetNodeTimestamp(tinyxml2::XMLNode* node) {
     return std::nullopt;
   }
 
-  tinyxml2::XMLPrinter printer;
-  for (auto* child = node->FirstChild(); child != nullptr;
-       child = child->NextSibling()) {
-    child->Accept(&printer);
-  }
   absl::Time result;
-  if (absl::ParseTime(absl::RFC3339_full, printer.CStr(), absl::UTCTimeZone(),
-                      &result, nullptr)) {
+  if (absl::ParseTime(absl::RFC3339_full, GetNodeText(node),
+                      absl::UTCTimeZone(), &result, nullptr)) {
     return result;
   }
   return std::nullopt;
@@ -200,12 +138,14 @@ std::string GetNodeText(tinyxml2::XMLNode* node) {
     return "";
   }
 
-  tinyxml2::XMLPrinter printer;
+  std::string result;
   for (auto* child = node->FirstChild(); child != nullptr;
        child = child->NextSibling()) {
-    child->Accept(&printer);
+    if (auto* text = child->ToText()) {
+      result.append(text->Value());
+    }
   }
-  return UnescapeXml(printer.CStr());
+  return result;
 }
 
 Result<StorageGeneration> StorageGenerationFromHeaders(
@@ -217,7 +157,8 @@ Result<StorageGeneration> StorageGenerationFromHeaders(
 }
 
 absl::Status AwsHttpResponseToStatus(const HttpResponse& response,
-                                     bool& retryable, SourceLocation loc) {
+                                     bool& retryable,
+                                     absl::SourceLocation loc) {
   auto absl_status_code = internal_http::HttpResponseCodeToStatusCode(response);
   if (absl_status_code == absl::StatusCode::kOk) {
     return absl::OkStatus();
@@ -226,7 +167,7 @@ absl::Status AwsHttpResponseToStatus(const HttpResponse& response,
   std::string error_type;
   if (auto error_header = response.headers.find("x-amzn-errortype");
       error_header != response.headers.end()) {
-    error_type = error_header->second;
+    error_type = ExtractAwsErrorType(error_header->second);
   }
 
   absl::Cord request_id;
@@ -254,7 +195,8 @@ absl::Status AwsHttpResponseToStatus(const HttpResponse& response,
     if (root_node == nullptr) return;
 
     if (error_type.empty()) {
-      error_type = GetNodeText(root_node->FirstChildElement("Code"));
+      error_type = ExtractAwsErrorType(
+          GetNodeText(root_node->FirstChildElement("Code")));
     }
     if (request_id.empty()) {
       request_id = GetNodeText(root_node->FirstChildElement("RequestId"));
@@ -262,9 +204,8 @@ absl::Status AwsHttpResponseToStatus(const HttpResponse& response,
     message = GetNodeText(root_node->FirstChildElement("Message"));
   }();
 
-  retryable = error_type.empty()
-                  ? IsRetryableAwsStatusCode(response.status_code)
-                  : IsRetryableAwsMessageCode(error_type);
+  retryable = IsRetryableAwsStatusCode(response.status_code) ||
+              (!error_type.empty() && IsRetryableAwsMessageCode(error_type));
 
   if (error_type.empty()) {
     error_type = "Unknown";

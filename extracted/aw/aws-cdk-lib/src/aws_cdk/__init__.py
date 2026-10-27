@@ -1731,6 +1731,13 @@ An explicitly registered `CloudFormationValidatePlugin` still runs the CDK
 default rules in addition to your custom rules; pass
 `includeDefaultRules: false` to opt out of the default rules entirely.
 
+If you want to disable the automatic plugin registration without registering
+your own, you can do one of the following things:
+
+* Run `cdk synth --no-validation`.
+* Set `CDK_VALIDATION=false` in your environment.
+* Do `new App({ builtinCloudFormationValidation: false })`
+
 ### Additional plugins
 
 You can also add custom plugins like [cdk-nag](https://github.com/cdklabs/cdk-nag) and
@@ -2833,6 +2840,8 @@ class Annotations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Annotations"):
     name_mapping={
         "analytics_reporting": "analyticsReporting",
         "auto_synth": "autoSynth",
+        "builtin_cloud_formation_validation": "builtinCloudFormationValidation",
+        "confirm_validation_plugins_do_not_mutate": "confirmValidationPluginsDoNotMutate",
         "context": "context",
         "default_stack_synthesizer": "defaultStackSynthesizer",
         "outdir": "outdir",
@@ -2850,6 +2859,8 @@ class AppProps:
         *,
         analytics_reporting: typing.Optional[builtins.bool] = None,
         auto_synth: typing.Optional[builtins.bool] = None,
+        builtin_cloud_formation_validation: typing.Optional[builtins.bool] = None,
+        confirm_validation_plugins_do_not_mutate: typing.Optional[builtins.bool] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         default_stack_synthesizer: typing.Optional["IReusableStackSynthesizer"] = None,
         outdir: typing.Optional[builtins.str] = None,
@@ -2864,6 +2875,8 @@ class AppProps:
 
         :param analytics_reporting: Include runtime versioning information in the Stacks of this app. Default: Value of 'aws:cdk:version-reporting' context key
         :param auto_synth: Automatically call ``synth()`` before the program exits. If you set this, you don't have to call ``synth()`` explicitly. Note that this feature is only available for certain programming languages, and calling ``synth()`` is still recommended. Default: true if running via CDK CLI (``CDK_OUTDIR`` is set), ``false`` otherwise
+        :param builtin_cloud_formation_validation: Whether to enable built-in CloudFormation template validation. CDK ships with a CloudFormation template validation plugin that is enabled by default (see ``CloudFormationValidationPlugin``). To disable the built-in validation, you can do one of these things: - Set this property to ``false``. - Run ``cdk synth --no-validation``. - Set ``CDK_VALIDATION=false`` in your environment. - Register a custom configured instance of ``CloudFormationValidationPlugin`` on the ``app`` object. Default: true
+        :param confirm_validation_plugins_do_not_mutate: Confirm that validation plugins treat the assembly directory as read-only. Validation plugins should only read files in the ``cdk.out`` directory, and not modify or delete any. If this is set to ``true``, the CDK will calculate a hash of all files in the assembly directory before running validation plugins and verify that the hashes match afterwards, to ensure no files got deleted or modified. You only need to set this if you do not trust your validation plugins to have been implemented correctly. Default: false
         :param context: Additional context values for the application. Context set by the CLI or the ``context`` key in ``cdk.json`` has precedence. Context can be read from any construct using ``node.getContext(key)``. Default: - no additional context
         :param default_stack_synthesizer: The stack synthesizer to use by default for all Stacks in the App. The Stack Synthesizer controls aspects of synthesis and deployment, like how assets are referenced and what IAM roles to use. For more information, see the README of the main CDK package. Default: - A ``DefaultStackSynthesizer`` with default settings
         :param outdir: The output directory into which to emit synthesized artifacts. You should never need to set this value. By default, the value you pass to the CLI's ``--output`` flag will be used, and if you change it to a different directory the CLI will fail to pick up the generated Cloud Assembly. This property is intended for internal and testing use. Default: - If this value is *not* set, considers the environment variable ``CDK_OUTDIR``. If ``CDK_OUTDIR`` is not defined, uses a temp directory.
@@ -2897,6 +2910,8 @@ class AppProps:
             type_hints = cached_type_hints(_typecheckingstub__ef2fee5e91b22ed9e2b91aa309be73835ddfb834f19eb3d41540c7e38e232930)
             check_type(argname="argument analytics_reporting", value=analytics_reporting, expected_type=type_hints["analytics_reporting"])
             check_type(argname="argument auto_synth", value=auto_synth, expected_type=type_hints["auto_synth"])
+            check_type(argname="argument builtin_cloud_formation_validation", value=builtin_cloud_formation_validation, expected_type=type_hints["builtin_cloud_formation_validation"])
+            check_type(argname="argument confirm_validation_plugins_do_not_mutate", value=confirm_validation_plugins_do_not_mutate, expected_type=type_hints["confirm_validation_plugins_do_not_mutate"])
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument default_stack_synthesizer", value=default_stack_synthesizer, expected_type=type_hints["default_stack_synthesizer"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
@@ -2911,6 +2926,10 @@ class AppProps:
             self._values["analytics_reporting"] = analytics_reporting
         if auto_synth is not None:
             self._values["auto_synth"] = auto_synth
+        if builtin_cloud_formation_validation is not None:
+            self._values["builtin_cloud_formation_validation"] = builtin_cloud_formation_validation
+        if confirm_validation_plugins_do_not_mutate is not None:
+            self._values["confirm_validation_plugins_do_not_mutate"] = confirm_validation_plugins_do_not_mutate
         if context is not None:
             self._values["context"] = context
         if default_stack_synthesizer is not None:
@@ -2953,6 +2972,46 @@ class AppProps:
         otherwise
         '''
         result = self._values.get("auto_synth")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def builtin_cloud_formation_validation(self) -> typing.Optional[builtins.bool]:
+        '''Whether to enable built-in CloudFormation template validation.
+
+        CDK ships with a CloudFormation template validation plugin that
+        is enabled by default (see ``CloudFormationValidationPlugin``).
+
+        To disable the built-in validation, you can do one of these things:
+
+        - Set this property to ``false``.
+        - Run ``cdk synth --no-validation``.
+        - Set ``CDK_VALIDATION=false`` in your environment.
+        - Register a custom configured instance of ``CloudFormationValidationPlugin``
+          on the ``app`` object.
+
+        :default: true
+        '''
+        result = self._values.get("builtin_cloud_formation_validation")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def confirm_validation_plugins_do_not_mutate(
+        self,
+    ) -> typing.Optional[builtins.bool]:
+        '''Confirm that validation plugins treat the assembly directory as read-only.
+
+        Validation plugins should only read files in the ``cdk.out`` directory, and not modify or
+        delete any.
+
+        If this is set to ``true``, the CDK will calculate a hash of all files in the
+        assembly directory before running validation plugins and verify that the
+        hashes match afterwards, to ensure no files got deleted or modified. You
+        only need to set this if you do not trust your validation plugins to have
+        been implemented correctly.
+
+        :default: false
+        '''
+        result = self._values.get("confirm_validation_plugins_do_not_mutate")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -3562,7 +3621,7 @@ class AspectApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5caf783430302b32bfab31d65627bb13dae6c0e9f42b0a5443818db8b0503d54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "priority", value)
 
 
 @jsii.data_type(
@@ -3645,18 +3704,21 @@ class AspectPriority(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.AspectPrior
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT")
+    @builtins.classmethod
     def DEFAULT(cls) -> jsii.Number:
         '''Default priority for Aspects that are applied without a priority.'''
         return typing.cast(jsii.Number, jsii.sget(cls, "DEFAULT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MUTATING")
+    @builtins.classmethod
     def MUTATING(cls) -> jsii.Number:
         '''Suggested priority for Aspects that mutate the construct tree.'''
         return typing.cast(jsii.Number, jsii.sget(cls, "MUTATING"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="READONLY")
+    @builtins.classmethod
     def READONLY(cls) -> jsii.Number:
         '''Suggested priority for Aspects that only read the construct tree.'''
         return typing.cast(jsii.Number, jsii.sget(cls, "READONLY"))
@@ -4433,12 +4495,14 @@ class AssetStaging(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BUNDLING_INPUT_DIR")
+    @builtins.classmethod
     def BUNDLING_INPUT_DIR(cls) -> builtins.str:
         '''The directory inside the bundling container into which the asset sources will be mounted.'''
         return typing.cast(builtins.str, jsii.sget(cls, "BUNDLING_INPUT_DIR"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BUNDLING_OUTPUT_DIR")
+    @builtins.classmethod
     def BUNDLING_OUTPUT_DIR(cls) -> builtins.str:
         '''The directory inside the bundling container into which the bundled output should be written.'''
         return typing.cast(builtins.str, jsii.sget(cls, "BUNDLING_OUTPUT_DIR"))
@@ -4493,41 +4557,49 @@ class Aws(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Aws"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACCOUNT_ID")
+    @builtins.classmethod
     def ACCOUNT_ID(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "ACCOUNT_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NO_VALUE")
+    @builtins.classmethod
     def NO_VALUE(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "NO_VALUE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NOTIFICATION_ARNS")
+    @builtins.classmethod
     def NOTIFICATION_ARNS(cls) -> typing.List[builtins.str]:
         return typing.cast(typing.List[builtins.str], jsii.sget(cls, "NOTIFICATION_ARNS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PARTITION")
+    @builtins.classmethod
     def PARTITION(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "PARTITION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="REGION")
+    @builtins.classmethod
     def REGION(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "REGION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STACK_ID")
+    @builtins.classmethod
     def STACK_ID(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "STACK_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STACK_NAME")
+    @builtins.classmethod
     def STACK_NAME(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "STACK_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="URL_SUFFIX")
+    @builtins.classmethod
     def URL_SUFFIX(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "URL_SUFFIX"))
 
@@ -8912,7 +8984,7 @@ class CfnOutput(CfnElement, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnO
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ae04907c14401d9f8daddd7f2ed7732084e0b1937706e17d55614ea6380a3816)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "value", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "value", value)
 
     @builtins.property
     @jsii.member(jsii_name="condition")
@@ -8931,7 +9003,7 @@ class CfnOutput(CfnElement, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnO
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8704d4bb35aeed5dde58d118c74dd1b1dc0b548e02f85e734228b0c76dd257d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "condition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "condition", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -8949,7 +9021,7 @@ class CfnOutput(CfnElement, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnO
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fee62e15bb63daed4d2af15024b68eda73936d1f22f424c9162a603bbf238303)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="exportName")
@@ -8968,7 +9040,7 @@ class CfnOutput(CfnElement, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnO
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6f99116a425880b0b5f808fc659a8fe40a778123bb6026c47ec6d6324bbbd47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "exportName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "exportName", value)
 
 
 @jsii.data_type(
@@ -9242,7 +9314,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__890e37ff3466d7066d047df24be9cc48dec6995687b94045bf1a867a84bfcb00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "default", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "default", value)
 
     @builtins.property
     @jsii.member(jsii_name="noEcho")
@@ -9255,7 +9327,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b9bc125d000f64952fca0539cfebab47b021d967867b6fe369026609c704ce51)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "noEcho", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "noEcho", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -9271,7 +9343,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a7e2790a72711c495dfbc2fbf18f125f5cafa092b80a53f60e4a83ca213fbacc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="allowedPattern")
@@ -9287,7 +9359,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bccc804e9bde09df07b9c43eca0d49a9a986e8d6463373c956d71c78852b10ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowedPattern", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allowedPattern", value)
 
     @builtins.property
     @jsii.member(jsii_name="allowedValues")
@@ -9303,7 +9375,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__244e39c60d4038554921b86623b26479586dc80a8377d492f3e3687126aff5c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowedValues", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allowedValues", value)
 
     @builtins.property
     @jsii.member(jsii_name="constraintDescription")
@@ -9323,7 +9395,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc159a89368624d20193ad929b2b370445b7ebd9f1ea6879030e1454ca997298)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "constraintDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "constraintDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -9339,7 +9411,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f02c11a5a6084ab7285739b645ff4db52fa4ab9d537140e0040eb928df488a0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="maxLength")
@@ -9355,7 +9427,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b8c7f7988f60b65db86ed4c303c4c30645856005b14ba31e44cbb0370593ba38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxLength", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maxLength", value)
 
     @builtins.property
     @jsii.member(jsii_name="maxValue")
@@ -9371,7 +9443,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f637122dfdd53cfdf3313b8dc0055a13240a2701e688fdd73b3b873bf5585c19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxValue", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maxValue", value)
 
     @builtins.property
     @jsii.member(jsii_name="minLength")
@@ -9387,7 +9459,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ece8fbd2ab6623d4345ceb33f2bc952eae9ceea3fd07df99365a2e77df0255cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "minLength", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "minLength", value)
 
     @builtins.property
     @jsii.member(jsii_name="minValue")
@@ -9403,7 +9475,7 @@ class CfnParameter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__520687c32986ebe96570a7b651014e5422b522582468d929a83c9bdcbbd914c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "minValue", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "minValue", value)
 
 
 @jsii.data_type(
@@ -17111,6 +17183,7 @@ class FileSystem(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.FileSystem"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="tmpdir")
+    @builtins.classmethod
     def tmpdir(cls) -> builtins.str:
         '''The real path of the system temp directory.'''
         return typing.cast(builtins.str, jsii.sget(cls, "tmpdir"))
@@ -18572,7 +18645,7 @@ class _ICfnResourceOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c340bd017ade3179e8e3171e1ad6f8f3ba29242e8489eb7e3c6980ea7628eaa0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "condition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "condition", value)
 
     @builtins.property
     @jsii.member(jsii_name="creationPolicy")
@@ -18590,7 +18663,7 @@ class _ICfnResourceOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__810d44b93f0de1f70deab96318824fa079fd4fad9830b45ed196a06bd2a32899)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "creationPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "creationPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletionPolicy")
@@ -18608,7 +18681,7 @@ class _ICfnResourceOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d217244047834b21b19a7d6d13f0a9ee80513ca9adeed4eecb61cc60f4cbc083)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -18626,7 +18699,7 @@ class _ICfnResourceOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__85c1cdbe10f838e2728d0e14dd5d307715d9a727821b133204eb5fe64108ae86)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="metadata")
@@ -18646,7 +18719,7 @@ class _ICfnResourceOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__36fe2b1cb86bc896248b9d242a84d7203ff331fa096782c69ed2ad15b923ac75)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="updatePolicy")
@@ -18663,7 +18736,7 @@ class _ICfnResourceOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c725970b5b7c9a0b3b4f52905cab1308f1db7c3e61f492c49e4c25040aca4bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "updatePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "updatePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="updateReplacePolicy")
@@ -18679,7 +18752,7 @@ class _ICfnResourceOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f38be0d686c18d026164a59d72c296e1e4f3624847d244ce628f7b90984abd80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "updateReplacePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "updateReplacePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="version")
@@ -18697,7 +18770,7 @@ class _ICfnResourceOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__42237fa93d35be34f4782c5d322036259e005ed0e4f435315b820b187245110b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "version", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ICfnResourceOptions).__jsii_proxy_class__ = lambda : _ICfnResourceOptionsProxy
@@ -20354,7 +20427,7 @@ class _ISynthesisSessionProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46911aaa2f35f64b5c8d1cad71cbd1206b72081a1063b06d7ea031c371fdd641)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "assembly", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "assembly", value)
 
     @builtins.property
     @jsii.member(jsii_name="outdir")
@@ -20367,7 +20440,7 @@ class _ISynthesisSessionProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__22d70f5ea7ea04eb8f4a37057f361ddffad9030cd0ae9f9ca1b37feeb53bddf5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outdir", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "outdir", value)
 
     @builtins.property
     @jsii.member(jsii_name="validateOnSynth")
@@ -20383,7 +20456,7 @@ class _ISynthesisSessionProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__430bfb7b63050c3533b372b1ee6579b19303be2daa47188ff3e88d2926b3156c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "validateOnSynth", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "validateOnSynth", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ISynthesisSession).__jsii_proxy_class__ = lambda : _ISynthesisSessionProxy
@@ -20527,7 +20600,7 @@ class _ITemplateOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f0d6e5bd1a069c4761813858df94c7552e68e02237fa641508f5ed8ebe319b67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="metadata")
@@ -20543,7 +20616,7 @@ class _ITemplateOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6bcc681ac84509a3a0616141f17d6581bd269eca64bc60741b547a56ed1e85a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateFormatVersion")
@@ -20556,7 +20629,7 @@ class _ITemplateOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ac3a835d9d8a0cf07a444f7b9a14b82dfdd549d911dcb27d0164d87229852292)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateFormatVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateFormatVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="transforms")
@@ -20569,7 +20642,7 @@ class _ITemplateOptionsProxy:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6177de085e2d8887b29294dfdd9d70a505769acece57f422e90bd9865e27266d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transforms", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "transforms", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ITemplateOptions).__jsii_proxy_class__ = lambda : _ITemplateOptionsProxy
@@ -21220,6 +21293,7 @@ class JsonNull(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.JsonNull"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="INSTANCE")
+    @builtins.classmethod
     def INSTANCE(cls) -> "JsonNull":
         '''The canonical instance of ``JsonNull``.'''
         return typing.cast("JsonNull", jsii.sget(cls, "INSTANCE"))
@@ -22628,6 +22702,7 @@ class PhysicalName(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.PhysicalName"
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GENERATE_IF_NEEDED")
+    @builtins.classmethod
     def GENERATE_IF_NEEDED(cls) -> builtins.str:
         '''Use this to automatically generate a physical name for an AWS resource only if the resource is referenced across environments (account/region).
 
@@ -26680,7 +26755,7 @@ class Stack(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__11d4f0b6ee8029a38fd83d0a25ca35c29bbca4dddd12b58e84f2a35b7224c2eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "terminationProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "terminationProtection", value)
 
 
 @jsii.data_type(
@@ -29120,6 +29195,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_ABIDJAN")
+    @builtins.classmethod
     def AFRICA_ABIDJAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Abidjan.
 
@@ -29129,6 +29205,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_ALGIERS")
+    @builtins.classmethod
     def AFRICA_ALGIERS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Algiers.
 
@@ -29138,6 +29215,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_BISSAU")
+    @builtins.classmethod
     def AFRICA_BISSAU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Bissau.
 
@@ -29147,6 +29225,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_CAIRO")
+    @builtins.classmethod
     def AFRICA_CAIRO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Cairo.
 
@@ -29156,6 +29235,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_CASABLANCA")
+    @builtins.classmethod
     def AFRICA_CASABLANCA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Casablanca.
 
@@ -29165,6 +29245,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_CEUTA")
+    @builtins.classmethod
     def AFRICA_CEUTA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Ceuta.
 
@@ -29174,6 +29255,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_EL_AAIUN")
+    @builtins.classmethod
     def AFRICA_EL_AAIUN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/El_Aaiun.
 
@@ -29183,6 +29265,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_JOHANNESBURG")
+    @builtins.classmethod
     def AFRICA_JOHANNESBURG(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Johannesburg.
 
@@ -29192,6 +29275,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_JUBA")
+    @builtins.classmethod
     def AFRICA_JUBA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Juba.
 
@@ -29201,6 +29285,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_KHARTOUM")
+    @builtins.classmethod
     def AFRICA_KHARTOUM(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Khartoum.
 
@@ -29210,6 +29295,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_LAGOS")
+    @builtins.classmethod
     def AFRICA_LAGOS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Lagos.
 
@@ -29219,6 +29305,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_MAPUTO")
+    @builtins.classmethod
     def AFRICA_MAPUTO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Maputo.
 
@@ -29228,6 +29315,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_MONROVIA")
+    @builtins.classmethod
     def AFRICA_MONROVIA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Monrovia.
 
@@ -29237,6 +29325,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_NAIROBI")
+    @builtins.classmethod
     def AFRICA_NAIROBI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Nairobi.
 
@@ -29246,6 +29335,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_NDJAMENA")
+    @builtins.classmethod
     def AFRICA_NDJAMENA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Ndjamena.
 
@@ -29255,6 +29345,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_SAO_TOME")
+    @builtins.classmethod
     def AFRICA_SAO_TOME(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Sao_Tome.
 
@@ -29264,6 +29355,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_TRIPOLI")
+    @builtins.classmethod
     def AFRICA_TRIPOLI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Tripoli.
 
@@ -29273,6 +29365,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_TUNIS")
+    @builtins.classmethod
     def AFRICA_TUNIS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Tunis.
 
@@ -29282,6 +29375,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AFRICA_WINDHOEK")
+    @builtins.classmethod
     def AFRICA_WINDHOEK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Africa/Windhoek.
 
@@ -29291,6 +29385,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ADAK")
+    @builtins.classmethod
     def AMERICA_ADAK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Adak.
 
@@ -29300,6 +29395,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ANCHORAGE")
+    @builtins.classmethod
     def AMERICA_ANCHORAGE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Anchorage.
 
@@ -29309,6 +29405,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARAGUAINA")
+    @builtins.classmethod
     def AMERICA_ARAGUAINA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Araguaina.
 
@@ -29318,6 +29415,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_BUENOS_AIRES")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_BUENOS_AIRES(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/Buenos_Aires.
 
@@ -29327,6 +29425,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_CATAMARCA")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_CATAMARCA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/Catamarca.
 
@@ -29336,6 +29435,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_CORDOBA")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_CORDOBA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/Cordoba.
 
@@ -29345,6 +29445,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_JUJUY")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_JUJUY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/Jujuy.
 
@@ -29354,6 +29455,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_LA_RIOJA")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_LA_RIOJA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/La_Rioja.
 
@@ -29363,6 +29465,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_MENDOZA")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_MENDOZA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/Mendoza.
 
@@ -29372,6 +29475,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_RIO_GALLEGOS")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_RIO_GALLEGOS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/Rio_Gallegos.
 
@@ -29381,6 +29485,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_SALTA")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_SALTA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/Salta.
 
@@ -29390,6 +29495,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_SAN_JUAN")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_SAN_JUAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/San_Juan.
 
@@ -29399,6 +29505,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_SAN_LUIS")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_SAN_LUIS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/San_Luis.
 
@@ -29408,6 +29515,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_TUCUMAN")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_TUCUMAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/Tucuman.
 
@@ -29417,6 +29525,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ARGENTINA_USHUAIA")
+    @builtins.classmethod
     def AMERICA_ARGENTINA_USHUAIA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Argentina/Ushuaia.
 
@@ -29426,6 +29535,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ASUNCION")
+    @builtins.classmethod
     def AMERICA_ASUNCION(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Asuncion.
 
@@ -29435,6 +29545,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_BAHIA")
+    @builtins.classmethod
     def AMERICA_BAHIA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Bahia.
 
@@ -29444,6 +29555,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_BAHIA_BANDERAS")
+    @builtins.classmethod
     def AMERICA_BAHIA_BANDERAS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Bahia_Banderas.
 
@@ -29453,6 +29565,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_BARBADOS")
+    @builtins.classmethod
     def AMERICA_BARBADOS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Barbados.
 
@@ -29462,6 +29575,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_BELEM")
+    @builtins.classmethod
     def AMERICA_BELEM(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Belem.
 
@@ -29471,6 +29585,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_BELIZE")
+    @builtins.classmethod
     def AMERICA_BELIZE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Belize.
 
@@ -29480,6 +29595,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_BOA_VISTA")
+    @builtins.classmethod
     def AMERICA_BOA_VISTA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Boa_Vista.
 
@@ -29489,6 +29605,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_BOGOTA")
+    @builtins.classmethod
     def AMERICA_BOGOTA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Bogota.
 
@@ -29498,6 +29615,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_BOISE")
+    @builtins.classmethod
     def AMERICA_BOISE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Boise.
 
@@ -29507,6 +29625,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_CAMBRIDGE_BAY")
+    @builtins.classmethod
     def AMERICA_CAMBRIDGE_BAY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Cambridge_Bay.
 
@@ -29516,6 +29635,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_CAMPO_GRANDE")
+    @builtins.classmethod
     def AMERICA_CAMPO_GRANDE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Campo_Grande.
 
@@ -29525,6 +29645,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_CANCUN")
+    @builtins.classmethod
     def AMERICA_CANCUN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Cancun.
 
@@ -29534,6 +29655,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_CARACAS")
+    @builtins.classmethod
     def AMERICA_CARACAS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Caracas.
 
@@ -29543,6 +29665,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_CAYENNE")
+    @builtins.classmethod
     def AMERICA_CAYENNE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Cayenne.
 
@@ -29552,6 +29675,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_CHICAGO")
+    @builtins.classmethod
     def AMERICA_CHICAGO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Chicago.
 
@@ -29561,6 +29685,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_CHIHUAHUA")
+    @builtins.classmethod
     def AMERICA_CHIHUAHUA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Chihuahua.
 
@@ -29570,6 +29695,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_CIUDAD_JUAREZ")
+    @builtins.classmethod
     def AMERICA_CIUDAD_JUAREZ(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Ciudad_Juarez.
 
@@ -29579,6 +29705,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_COSTA_RICA")
+    @builtins.classmethod
     def AMERICA_COSTA_RICA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Costa_Rica.
 
@@ -29588,6 +29715,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_CUIABA")
+    @builtins.classmethod
     def AMERICA_CUIABA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Cuiaba.
 
@@ -29597,6 +29725,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_DANMARKSHAVN")
+    @builtins.classmethod
     def AMERICA_DANMARKSHAVN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Danmarkshavn.
 
@@ -29606,6 +29735,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_DAWSON")
+    @builtins.classmethod
     def AMERICA_DAWSON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Dawson.
 
@@ -29615,6 +29745,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_DAWSON_CREEK")
+    @builtins.classmethod
     def AMERICA_DAWSON_CREEK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Dawson_Creek.
 
@@ -29624,6 +29755,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_DENVER")
+    @builtins.classmethod
     def AMERICA_DENVER(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Denver.
 
@@ -29633,6 +29765,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_DETROIT")
+    @builtins.classmethod
     def AMERICA_DETROIT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Detroit.
 
@@ -29642,6 +29775,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_EDMONTON")
+    @builtins.classmethod
     def AMERICA_EDMONTON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Edmonton.
 
@@ -29651,6 +29785,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_EIRUNEPE")
+    @builtins.classmethod
     def AMERICA_EIRUNEPE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Eirunepe.
 
@@ -29660,6 +29795,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_EL_SALVADOR")
+    @builtins.classmethod
     def AMERICA_EL_SALVADOR(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/El_Salvador.
 
@@ -29669,6 +29805,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_FORT_NELSON")
+    @builtins.classmethod
     def AMERICA_FORT_NELSON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Fort_Nelson.
 
@@ -29678,6 +29815,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_FORTALEZA")
+    @builtins.classmethod
     def AMERICA_FORTALEZA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Fortaleza.
 
@@ -29687,6 +29825,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_GLACE_BAY")
+    @builtins.classmethod
     def AMERICA_GLACE_BAY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Glace_Bay.
 
@@ -29696,6 +29835,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_GOOSE_BAY")
+    @builtins.classmethod
     def AMERICA_GOOSE_BAY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Goose_Bay.
 
@@ -29705,6 +29845,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_GRAND_TURK")
+    @builtins.classmethod
     def AMERICA_GRAND_TURK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Grand_Turk.
 
@@ -29714,6 +29855,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_GUATEMALA")
+    @builtins.classmethod
     def AMERICA_GUATEMALA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Guatemala.
 
@@ -29723,6 +29865,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_GUAYAQUIL")
+    @builtins.classmethod
     def AMERICA_GUAYAQUIL(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Guayaquil.
 
@@ -29732,6 +29875,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_GUYANA")
+    @builtins.classmethod
     def AMERICA_GUYANA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Guyana.
 
@@ -29741,6 +29885,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_HALIFAX")
+    @builtins.classmethod
     def AMERICA_HALIFAX(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Halifax.
 
@@ -29750,6 +29895,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_HAVANA")
+    @builtins.classmethod
     def AMERICA_HAVANA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Havana.
 
@@ -29759,6 +29905,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_HERMOSILLO")
+    @builtins.classmethod
     def AMERICA_HERMOSILLO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Hermosillo.
 
@@ -29768,6 +29915,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_INDIANA_INDIANAPOLIS")
+    @builtins.classmethod
     def AMERICA_INDIANA_INDIANAPOLIS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Indiana/Indianapolis.
 
@@ -29777,6 +29925,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_INDIANA_KNOX")
+    @builtins.classmethod
     def AMERICA_INDIANA_KNOX(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Indiana/Knox.
 
@@ -29786,6 +29935,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_INDIANA_MARENGO")
+    @builtins.classmethod
     def AMERICA_INDIANA_MARENGO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Indiana/Marengo.
 
@@ -29795,6 +29945,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_INDIANA_PETERSBURG")
+    @builtins.classmethod
     def AMERICA_INDIANA_PETERSBURG(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Indiana/Petersburg.
 
@@ -29804,6 +29955,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_INDIANA_TELL_CITY")
+    @builtins.classmethod
     def AMERICA_INDIANA_TELL_CITY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Indiana/Tell_City.
 
@@ -29813,6 +29965,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_INDIANA_VEVAY")
+    @builtins.classmethod
     def AMERICA_INDIANA_VEVAY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Indiana/Vevay.
 
@@ -29822,6 +29975,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_INDIANA_VINCENNES")
+    @builtins.classmethod
     def AMERICA_INDIANA_VINCENNES(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Indiana/Vincennes.
 
@@ -29831,6 +29985,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_INDIANA_WINAMAC")
+    @builtins.classmethod
     def AMERICA_INDIANA_WINAMAC(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Indiana/Winamac.
 
@@ -29840,6 +29995,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_INUVIK")
+    @builtins.classmethod
     def AMERICA_INUVIK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Inuvik.
 
@@ -29849,6 +30005,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_IQALUIT")
+    @builtins.classmethod
     def AMERICA_IQALUIT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Iqaluit.
 
@@ -29858,6 +30015,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_JAMAICA")
+    @builtins.classmethod
     def AMERICA_JAMAICA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Jamaica.
 
@@ -29867,6 +30025,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_JUNEAU")
+    @builtins.classmethod
     def AMERICA_JUNEAU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Juneau.
 
@@ -29876,6 +30035,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_KENTUCKY_LOUISVILLE")
+    @builtins.classmethod
     def AMERICA_KENTUCKY_LOUISVILLE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Kentucky/Louisville.
 
@@ -29885,6 +30045,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_KENTUCKY_MONTICELLO")
+    @builtins.classmethod
     def AMERICA_KENTUCKY_MONTICELLO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Kentucky/Monticello.
 
@@ -29894,6 +30055,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_LA_PAZ")
+    @builtins.classmethod
     def AMERICA_LA_PAZ(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/La_Paz.
 
@@ -29903,6 +30065,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_LIMA")
+    @builtins.classmethod
     def AMERICA_LIMA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Lima.
 
@@ -29912,6 +30075,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_LOS_ANGELES")
+    @builtins.classmethod
     def AMERICA_LOS_ANGELES(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Los_Angeles.
 
@@ -29921,6 +30085,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MACEIO")
+    @builtins.classmethod
     def AMERICA_MACEIO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Maceio.
 
@@ -29930,6 +30095,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MANAGUA")
+    @builtins.classmethod
     def AMERICA_MANAGUA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Managua.
 
@@ -29939,6 +30105,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MANAUS")
+    @builtins.classmethod
     def AMERICA_MANAUS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Manaus.
 
@@ -29948,6 +30115,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MARTINIQUE")
+    @builtins.classmethod
     def AMERICA_MARTINIQUE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Martinique.
 
@@ -29957,6 +30125,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MATAMOROS")
+    @builtins.classmethod
     def AMERICA_MATAMOROS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Matamoros.
 
@@ -29966,6 +30135,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MAZATLAN")
+    @builtins.classmethod
     def AMERICA_MAZATLAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Mazatlan.
 
@@ -29975,6 +30145,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MENOMINEE")
+    @builtins.classmethod
     def AMERICA_MENOMINEE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Menominee.
 
@@ -29984,6 +30155,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MERIDA")
+    @builtins.classmethod
     def AMERICA_MERIDA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Merida.
 
@@ -29993,6 +30165,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_METLAKATLA")
+    @builtins.classmethod
     def AMERICA_METLAKATLA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Metlakatla.
 
@@ -30002,6 +30175,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MEXICO_CITY")
+    @builtins.classmethod
     def AMERICA_MEXICO_CITY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Mexico_City.
 
@@ -30011,6 +30185,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MIQUELON")
+    @builtins.classmethod
     def AMERICA_MIQUELON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Miquelon.
 
@@ -30020,6 +30195,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MONCTON")
+    @builtins.classmethod
     def AMERICA_MONCTON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Moncton.
 
@@ -30029,6 +30205,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MONTERREY")
+    @builtins.classmethod
     def AMERICA_MONTERREY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Monterrey.
 
@@ -30038,6 +30215,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_MONTEVIDEO")
+    @builtins.classmethod
     def AMERICA_MONTEVIDEO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Montevideo.
 
@@ -30047,6 +30225,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_NEW_YORK")
+    @builtins.classmethod
     def AMERICA_NEW_YORK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/New_York.
 
@@ -30056,6 +30235,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_NOME")
+    @builtins.classmethod
     def AMERICA_NOME(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Nome.
 
@@ -30065,6 +30245,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_NORONHA")
+    @builtins.classmethod
     def AMERICA_NORONHA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Noronha.
 
@@ -30074,6 +30255,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_NORTH_DAKOTA_BEULAH")
+    @builtins.classmethod
     def AMERICA_NORTH_DAKOTA_BEULAH(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/North_Dakota/Beulah.
 
@@ -30083,6 +30265,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_NORTH_DAKOTA_CENTER")
+    @builtins.classmethod
     def AMERICA_NORTH_DAKOTA_CENTER(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/North_Dakota/Center.
 
@@ -30092,6 +30275,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_NORTH_DAKOTA_NEW_SALEM")
+    @builtins.classmethod
     def AMERICA_NORTH_DAKOTA_NEW_SALEM(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/North_Dakota/New_Salem.
 
@@ -30101,6 +30285,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_NUUK")
+    @builtins.classmethod
     def AMERICA_NUUK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Nuuk.
 
@@ -30110,6 +30295,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_OJINAGA")
+    @builtins.classmethod
     def AMERICA_OJINAGA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Ojinaga.
 
@@ -30119,6 +30305,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_PANAMA")
+    @builtins.classmethod
     def AMERICA_PANAMA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Panama.
 
@@ -30128,6 +30315,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_PARAMARIBO")
+    @builtins.classmethod
     def AMERICA_PARAMARIBO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Paramaribo.
 
@@ -30137,6 +30325,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_PHOENIX")
+    @builtins.classmethod
     def AMERICA_PHOENIX(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Phoenix.
 
@@ -30146,6 +30335,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_PORT_MINUS_AU_MINUS_PRINCE")
+    @builtins.classmethod
     def AMERICA_PORT_MINUS_AU_MINUS_PRINCE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Port-au-Prince.
 
@@ -30155,6 +30345,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_PORTO_VELHO")
+    @builtins.classmethod
     def AMERICA_PORTO_VELHO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Porto_Velho.
 
@@ -30164,6 +30355,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_PUERTO_RICO")
+    @builtins.classmethod
     def AMERICA_PUERTO_RICO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Puerto_Rico.
 
@@ -30173,6 +30365,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_PUNTA_ARENAS")
+    @builtins.classmethod
     def AMERICA_PUNTA_ARENAS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Punta_Arenas.
 
@@ -30182,6 +30375,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_RANKIN_INLET")
+    @builtins.classmethod
     def AMERICA_RANKIN_INLET(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Rankin_Inlet.
 
@@ -30191,6 +30385,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_RECIFE")
+    @builtins.classmethod
     def AMERICA_RECIFE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Recife.
 
@@ -30200,6 +30395,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_REGINA")
+    @builtins.classmethod
     def AMERICA_REGINA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Regina.
 
@@ -30209,6 +30405,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_RESOLUTE")
+    @builtins.classmethod
     def AMERICA_RESOLUTE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Resolute.
 
@@ -30218,6 +30415,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_RIO_BRANCO")
+    @builtins.classmethod
     def AMERICA_RIO_BRANCO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Rio_Branco.
 
@@ -30227,6 +30425,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_SANTAREM")
+    @builtins.classmethod
     def AMERICA_SANTAREM(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Santarem.
 
@@ -30236,6 +30435,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_SANTIAGO")
+    @builtins.classmethod
     def AMERICA_SANTIAGO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Santiago.
 
@@ -30245,6 +30445,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_SANTO_DOMINGO")
+    @builtins.classmethod
     def AMERICA_SANTO_DOMINGO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Santo_Domingo.
 
@@ -30254,6 +30455,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_SAO_PAULO")
+    @builtins.classmethod
     def AMERICA_SAO_PAULO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Sao_Paulo.
 
@@ -30263,6 +30465,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_SCORESBYSUND")
+    @builtins.classmethod
     def AMERICA_SCORESBYSUND(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Scoresbysund.
 
@@ -30272,6 +30475,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_SITKA")
+    @builtins.classmethod
     def AMERICA_SITKA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Sitka.
 
@@ -30281,6 +30485,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_ST_JOHNS")
+    @builtins.classmethod
     def AMERICA_ST_JOHNS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/St_Johns.
 
@@ -30290,6 +30495,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_SWIFT_CURRENT")
+    @builtins.classmethod
     def AMERICA_SWIFT_CURRENT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Swift_Current.
 
@@ -30299,6 +30505,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_TEGUCIGALPA")
+    @builtins.classmethod
     def AMERICA_TEGUCIGALPA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Tegucigalpa.
 
@@ -30308,6 +30515,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_THULE")
+    @builtins.classmethod
     def AMERICA_THULE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Thule.
 
@@ -30317,6 +30525,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_TIJUANA")
+    @builtins.classmethod
     def AMERICA_TIJUANA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Tijuana.
 
@@ -30326,6 +30535,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_TORONTO")
+    @builtins.classmethod
     def AMERICA_TORONTO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Toronto.
 
@@ -30335,6 +30545,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_VANCOUVER")
+    @builtins.classmethod
     def AMERICA_VANCOUVER(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Vancouver.
 
@@ -30344,6 +30555,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_WHITEHORSE")
+    @builtins.classmethod
     def AMERICA_WHITEHORSE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Whitehorse.
 
@@ -30353,6 +30565,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_WINNIPEG")
+    @builtins.classmethod
     def AMERICA_WINNIPEG(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Winnipeg.
 
@@ -30362,6 +30575,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_YAKUTAT")
+    @builtins.classmethod
     def AMERICA_YAKUTAT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Yakutat.
 
@@ -30371,6 +30585,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMERICA_YELLOWKNIFE")
+    @builtins.classmethod
     def AMERICA_YELLOWKNIFE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for America/Yellowknife.
 
@@ -30380,6 +30595,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTARCTICA_CASEY")
+    @builtins.classmethod
     def ANTARCTICA_CASEY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Antarctica/Casey.
 
@@ -30389,6 +30605,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTARCTICA_DAVIS")
+    @builtins.classmethod
     def ANTARCTICA_DAVIS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Antarctica/Davis.
 
@@ -30398,6 +30615,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTARCTICA_MACQUARIE")
+    @builtins.classmethod
     def ANTARCTICA_MACQUARIE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Antarctica/Macquarie.
 
@@ -30407,6 +30625,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTARCTICA_MAWSON")
+    @builtins.classmethod
     def ANTARCTICA_MAWSON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Antarctica/Mawson.
 
@@ -30416,6 +30635,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTARCTICA_PALMER")
+    @builtins.classmethod
     def ANTARCTICA_PALMER(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Antarctica/Palmer.
 
@@ -30425,6 +30645,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTARCTICA_ROTHERA")
+    @builtins.classmethod
     def ANTARCTICA_ROTHERA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Antarctica/Rothera.
 
@@ -30434,6 +30655,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTARCTICA_TROLL")
+    @builtins.classmethod
     def ANTARCTICA_TROLL(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Antarctica/Troll.
 
@@ -30443,6 +30665,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_ALMATY")
+    @builtins.classmethod
     def ASIA_ALMATY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Almaty.
 
@@ -30452,6 +30675,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_AMMAN")
+    @builtins.classmethod
     def ASIA_AMMAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Amman.
 
@@ -30461,6 +30685,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_ANADYR")
+    @builtins.classmethod
     def ASIA_ANADYR(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Anadyr.
 
@@ -30470,6 +30695,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_AQTAU")
+    @builtins.classmethod
     def ASIA_AQTAU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Aqtau.
 
@@ -30479,6 +30705,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_AQTOBE")
+    @builtins.classmethod
     def ASIA_AQTOBE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Aqtobe.
 
@@ -30488,6 +30715,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_ASHGABAT")
+    @builtins.classmethod
     def ASIA_ASHGABAT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Ashgabat.
 
@@ -30497,6 +30725,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_ATYRAU")
+    @builtins.classmethod
     def ASIA_ATYRAU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Atyrau.
 
@@ -30506,6 +30735,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_BAGHDAD")
+    @builtins.classmethod
     def ASIA_BAGHDAD(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Baghdad.
 
@@ -30515,6 +30745,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_BAKU")
+    @builtins.classmethod
     def ASIA_BAKU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Baku.
 
@@ -30524,6 +30755,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_BANGKOK")
+    @builtins.classmethod
     def ASIA_BANGKOK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Bangkok.
 
@@ -30533,6 +30765,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_BARNAUL")
+    @builtins.classmethod
     def ASIA_BARNAUL(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Barnaul.
 
@@ -30542,6 +30775,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_BEIRUT")
+    @builtins.classmethod
     def ASIA_BEIRUT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Beirut.
 
@@ -30551,6 +30785,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_BISHKEK")
+    @builtins.classmethod
     def ASIA_BISHKEK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Bishkek.
 
@@ -30560,6 +30795,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_CHITA")
+    @builtins.classmethod
     def ASIA_CHITA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Chita.
 
@@ -30569,6 +30805,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_CHOIBALSAN")
+    @builtins.classmethod
     def ASIA_CHOIBALSAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Choibalsan.
 
@@ -30578,6 +30815,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_COLOMBO")
+    @builtins.classmethod
     def ASIA_COLOMBO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Colombo.
 
@@ -30587,6 +30825,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_DAMASCUS")
+    @builtins.classmethod
     def ASIA_DAMASCUS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Damascus.
 
@@ -30596,6 +30835,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_DHAKA")
+    @builtins.classmethod
     def ASIA_DHAKA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Dhaka.
 
@@ -30605,6 +30845,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_DILI")
+    @builtins.classmethod
     def ASIA_DILI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Dili.
 
@@ -30614,6 +30855,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_DUBAI")
+    @builtins.classmethod
     def ASIA_DUBAI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Dubai.
 
@@ -30623,6 +30865,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_DUSHANBE")
+    @builtins.classmethod
     def ASIA_DUSHANBE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Dushanbe.
 
@@ -30632,6 +30875,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_FAMAGUSTA")
+    @builtins.classmethod
     def ASIA_FAMAGUSTA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Famagusta.
 
@@ -30641,6 +30885,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_GAZA")
+    @builtins.classmethod
     def ASIA_GAZA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Gaza.
 
@@ -30650,6 +30895,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_HEBRON")
+    @builtins.classmethod
     def ASIA_HEBRON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Hebron.
 
@@ -30659,6 +30905,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_HO_CHI_MINH")
+    @builtins.classmethod
     def ASIA_HO_CHI_MINH(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Ho_Chi_Minh.
 
@@ -30668,6 +30915,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_HONG_KONG")
+    @builtins.classmethod
     def ASIA_HONG_KONG(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Hong_Kong.
 
@@ -30677,6 +30925,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_HOVD")
+    @builtins.classmethod
     def ASIA_HOVD(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Hovd.
 
@@ -30686,6 +30935,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_IRKUTSK")
+    @builtins.classmethod
     def ASIA_IRKUTSK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Irkutsk.
 
@@ -30695,6 +30945,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_JAKARTA")
+    @builtins.classmethod
     def ASIA_JAKARTA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Jakarta.
 
@@ -30704,6 +30955,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_JAYAPURA")
+    @builtins.classmethod
     def ASIA_JAYAPURA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Jayapura.
 
@@ -30713,6 +30965,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_JERUSALEM")
+    @builtins.classmethod
     def ASIA_JERUSALEM(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Jerusalem.
 
@@ -30722,6 +30975,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_KABUL")
+    @builtins.classmethod
     def ASIA_KABUL(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Kabul.
 
@@ -30731,6 +30985,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_KAMCHATKA")
+    @builtins.classmethod
     def ASIA_KAMCHATKA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Kamchatka.
 
@@ -30740,6 +30995,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_KARACHI")
+    @builtins.classmethod
     def ASIA_KARACHI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Karachi.
 
@@ -30749,6 +31005,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_KATHMANDU")
+    @builtins.classmethod
     def ASIA_KATHMANDU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Kathmandu.
 
@@ -30758,6 +31015,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_KHANDYGA")
+    @builtins.classmethod
     def ASIA_KHANDYGA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Khandyga.
 
@@ -30767,6 +31025,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_KOLKATA")
+    @builtins.classmethod
     def ASIA_KOLKATA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Kolkata.
 
@@ -30776,6 +31035,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_KRASNOYARSK")
+    @builtins.classmethod
     def ASIA_KRASNOYARSK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Krasnoyarsk.
 
@@ -30785,6 +31045,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_KUCHING")
+    @builtins.classmethod
     def ASIA_KUCHING(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Kuching.
 
@@ -30794,6 +31055,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_MACAU")
+    @builtins.classmethod
     def ASIA_MACAU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Macau.
 
@@ -30803,6 +31065,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_MAGADAN")
+    @builtins.classmethod
     def ASIA_MAGADAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Magadan.
 
@@ -30812,6 +31075,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_MAKASSAR")
+    @builtins.classmethod
     def ASIA_MAKASSAR(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Makassar.
 
@@ -30821,6 +31085,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_MANILA")
+    @builtins.classmethod
     def ASIA_MANILA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Manila.
 
@@ -30830,6 +31095,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_NICOSIA")
+    @builtins.classmethod
     def ASIA_NICOSIA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Nicosia.
 
@@ -30839,6 +31105,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_NOVOKUZNETSK")
+    @builtins.classmethod
     def ASIA_NOVOKUZNETSK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Novokuznetsk.
 
@@ -30848,6 +31115,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_NOVOSIBIRSK")
+    @builtins.classmethod
     def ASIA_NOVOSIBIRSK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Novosibirsk.
 
@@ -30857,6 +31125,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_OMSK")
+    @builtins.classmethod
     def ASIA_OMSK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Omsk.
 
@@ -30866,6 +31135,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_ORAL")
+    @builtins.classmethod
     def ASIA_ORAL(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Oral.
 
@@ -30875,6 +31145,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_PONTIANAK")
+    @builtins.classmethod
     def ASIA_PONTIANAK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Pontianak.
 
@@ -30884,6 +31155,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_PYONGYANG")
+    @builtins.classmethod
     def ASIA_PYONGYANG(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Pyongyang.
 
@@ -30893,6 +31165,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_QATAR")
+    @builtins.classmethod
     def ASIA_QATAR(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Qatar.
 
@@ -30902,6 +31175,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_QOSTANAY")
+    @builtins.classmethod
     def ASIA_QOSTANAY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Qostanay.
 
@@ -30911,6 +31185,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_QYZYLORDA")
+    @builtins.classmethod
     def ASIA_QYZYLORDA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Qyzylorda.
 
@@ -30920,6 +31195,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_RIYADH")
+    @builtins.classmethod
     def ASIA_RIYADH(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Riyadh.
 
@@ -30929,6 +31205,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_SAKHALIN")
+    @builtins.classmethod
     def ASIA_SAKHALIN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Sakhalin.
 
@@ -30938,6 +31215,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_SAMARKAND")
+    @builtins.classmethod
     def ASIA_SAMARKAND(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Samarkand.
 
@@ -30947,6 +31225,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_SEOUL")
+    @builtins.classmethod
     def ASIA_SEOUL(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Seoul.
 
@@ -30956,6 +31235,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_SHANGHAI")
+    @builtins.classmethod
     def ASIA_SHANGHAI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Shanghai.
 
@@ -30965,6 +31245,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_SINGAPORE")
+    @builtins.classmethod
     def ASIA_SINGAPORE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Singapore.
 
@@ -30974,6 +31255,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_SREDNEKOLYMSK")
+    @builtins.classmethod
     def ASIA_SREDNEKOLYMSK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Srednekolymsk.
 
@@ -30983,6 +31265,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_TAIPEI")
+    @builtins.classmethod
     def ASIA_TAIPEI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Taipei.
 
@@ -30992,6 +31275,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_TASHKENT")
+    @builtins.classmethod
     def ASIA_TASHKENT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Tashkent.
 
@@ -31001,6 +31285,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_TBILISI")
+    @builtins.classmethod
     def ASIA_TBILISI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Tbilisi.
 
@@ -31010,6 +31295,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_TEHRAN")
+    @builtins.classmethod
     def ASIA_TEHRAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Tehran.
 
@@ -31019,6 +31305,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_THIMPHU")
+    @builtins.classmethod
     def ASIA_THIMPHU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Thimphu.
 
@@ -31028,6 +31315,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_TOKYO")
+    @builtins.classmethod
     def ASIA_TOKYO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Tokyo.
 
@@ -31037,6 +31325,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_TOMSK")
+    @builtins.classmethod
     def ASIA_TOMSK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Tomsk.
 
@@ -31046,6 +31335,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_ULAANBAATAR")
+    @builtins.classmethod
     def ASIA_ULAANBAATAR(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Ulaanbaatar.
 
@@ -31055,6 +31345,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_URUMQI")
+    @builtins.classmethod
     def ASIA_URUMQI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Urumqi.
 
@@ -31064,6 +31355,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_UST_MINUS_NERA")
+    @builtins.classmethod
     def ASIA_UST_MINUS_NERA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Ust-Nera.
 
@@ -31073,6 +31365,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_VLADIVOSTOK")
+    @builtins.classmethod
     def ASIA_VLADIVOSTOK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Vladivostok.
 
@@ -31082,6 +31375,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_YAKUTSK")
+    @builtins.classmethod
     def ASIA_YAKUTSK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Yakutsk.
 
@@ -31091,6 +31385,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_YANGON")
+    @builtins.classmethod
     def ASIA_YANGON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Yangon.
 
@@ -31100,6 +31395,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_YEKATERINBURG")
+    @builtins.classmethod
     def ASIA_YEKATERINBURG(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Yekaterinburg.
 
@@ -31109,6 +31405,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ASIA_YEREVAN")
+    @builtins.classmethod
     def ASIA_YEREVAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Asia/Yerevan.
 
@@ -31118,6 +31415,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ATLANTIC_AZORES")
+    @builtins.classmethod
     def ATLANTIC_AZORES(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Atlantic/Azores.
 
@@ -31127,6 +31425,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ATLANTIC_BERMUDA")
+    @builtins.classmethod
     def ATLANTIC_BERMUDA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Atlantic/Bermuda.
 
@@ -31136,6 +31435,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ATLANTIC_CANARY")
+    @builtins.classmethod
     def ATLANTIC_CANARY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Atlantic/Canary.
 
@@ -31145,6 +31445,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ATLANTIC_CAPE_VERDE")
+    @builtins.classmethod
     def ATLANTIC_CAPE_VERDE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Atlantic/Cape_Verde.
 
@@ -31154,6 +31455,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ATLANTIC_FAROE")
+    @builtins.classmethod
     def ATLANTIC_FAROE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Atlantic/Faroe.
 
@@ -31163,6 +31465,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ATLANTIC_MADEIRA")
+    @builtins.classmethod
     def ATLANTIC_MADEIRA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Atlantic/Madeira.
 
@@ -31172,6 +31475,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ATLANTIC_SOUTH_GEORGIA")
+    @builtins.classmethod
     def ATLANTIC_SOUTH_GEORGIA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Atlantic/South_Georgia.
 
@@ -31181,6 +31485,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ATLANTIC_STANLEY")
+    @builtins.classmethod
     def ATLANTIC_STANLEY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Atlantic/Stanley.
 
@@ -31190,6 +31495,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_ADELAIDE")
+    @builtins.classmethod
     def AUSTRALIA_ADELAIDE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Adelaide.
 
@@ -31199,6 +31505,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_BRISBANE")
+    @builtins.classmethod
     def AUSTRALIA_BRISBANE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Brisbane.
 
@@ -31208,6 +31515,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_BROKEN_HILL")
+    @builtins.classmethod
     def AUSTRALIA_BROKEN_HILL(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Broken_Hill.
 
@@ -31217,6 +31525,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_DARWIN")
+    @builtins.classmethod
     def AUSTRALIA_DARWIN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Darwin.
 
@@ -31226,6 +31535,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_EUCLA")
+    @builtins.classmethod
     def AUSTRALIA_EUCLA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Eucla.
 
@@ -31235,6 +31545,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_HOBART")
+    @builtins.classmethod
     def AUSTRALIA_HOBART(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Hobart.
 
@@ -31244,6 +31555,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_LINDEMAN")
+    @builtins.classmethod
     def AUSTRALIA_LINDEMAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Lindeman.
 
@@ -31253,6 +31565,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_LORD_HOWE")
+    @builtins.classmethod
     def AUSTRALIA_LORD_HOWE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Lord_Howe.
 
@@ -31262,6 +31575,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_MELBOURNE")
+    @builtins.classmethod
     def AUSTRALIA_MELBOURNE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Melbourne.
 
@@ -31271,6 +31585,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_PERTH")
+    @builtins.classmethod
     def AUSTRALIA_PERTH(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Perth.
 
@@ -31280,6 +31595,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AUSTRALIA_SYDNEY")
+    @builtins.classmethod
     def AUSTRALIA_SYDNEY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Australia/Sydney.
 
@@ -31289,6 +31605,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CET")
+    @builtins.classmethod
     def CET(cls) -> "TimeZone":
         '''IANA Time Zone database entry for CET.
 
@@ -31298,6 +31615,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CST6CDT")
+    @builtins.classmethod
     def CST6_CDT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for CST6CDT.
 
@@ -31307,6 +31625,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EET")
+    @builtins.classmethod
     def EET(cls) -> "TimeZone":
         '''IANA Time Zone database entry for EET.
 
@@ -31316,6 +31635,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EST")
+    @builtins.classmethod
     def EST(cls) -> "TimeZone":
         '''IANA Time Zone database entry for EST.
 
@@ -31325,6 +31645,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EST5EDT")
+    @builtins.classmethod
     def EST5_EDT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for EST5EDT.
 
@@ -31334,6 +31655,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT")
+    @builtins.classmethod
     def ETC_GMT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT.
 
@@ -31343,6 +31665,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_1")
+    @builtins.classmethod
     def ETC_GMT_MINUS_1(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-1.
 
@@ -31352,6 +31675,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_10")
+    @builtins.classmethod
     def ETC_GMT_MINUS_10(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-10.
 
@@ -31361,6 +31685,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_11")
+    @builtins.classmethod
     def ETC_GMT_MINUS_11(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-11.
 
@@ -31370,6 +31695,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_12")
+    @builtins.classmethod
     def ETC_GMT_MINUS_12(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-12.
 
@@ -31379,6 +31705,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_13")
+    @builtins.classmethod
     def ETC_GMT_MINUS_13(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-13.
 
@@ -31388,6 +31715,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_14")
+    @builtins.classmethod
     def ETC_GMT_MINUS_14(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-14.
 
@@ -31397,6 +31725,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_2")
+    @builtins.classmethod
     def ETC_GMT_MINUS_2(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-2.
 
@@ -31406,6 +31735,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_3")
+    @builtins.classmethod
     def ETC_GMT_MINUS_3(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-3.
 
@@ -31415,6 +31745,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_4")
+    @builtins.classmethod
     def ETC_GMT_MINUS_4(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-4.
 
@@ -31424,6 +31755,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_5")
+    @builtins.classmethod
     def ETC_GMT_MINUS_5(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-5.
 
@@ -31433,6 +31765,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_6")
+    @builtins.classmethod
     def ETC_GMT_MINUS_6(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-6.
 
@@ -31442,6 +31775,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_7")
+    @builtins.classmethod
     def ETC_GMT_MINUS_7(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-7.
 
@@ -31451,6 +31785,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_8")
+    @builtins.classmethod
     def ETC_GMT_MINUS_8(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-8.
 
@@ -31460,6 +31795,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_MINUS_9")
+    @builtins.classmethod
     def ETC_GMT_MINUS_9(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT-9.
 
@@ -31469,6 +31805,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_1")
+    @builtins.classmethod
     def ETC_GMT_PLUS_1(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+1.
 
@@ -31478,6 +31815,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_10")
+    @builtins.classmethod
     def ETC_GMT_PLUS_10(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+10.
 
@@ -31487,6 +31825,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_11")
+    @builtins.classmethod
     def ETC_GMT_PLUS_11(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+11.
 
@@ -31496,6 +31835,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_12")
+    @builtins.classmethod
     def ETC_GMT_PLUS_12(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+12.
 
@@ -31505,6 +31845,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_2")
+    @builtins.classmethod
     def ETC_GMT_PLUS_2(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+2.
 
@@ -31514,6 +31855,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_3")
+    @builtins.classmethod
     def ETC_GMT_PLUS_3(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+3.
 
@@ -31523,6 +31865,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_4")
+    @builtins.classmethod
     def ETC_GMT_PLUS_4(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+4.
 
@@ -31532,6 +31875,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_5")
+    @builtins.classmethod
     def ETC_GMT_PLUS_5(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+5.
 
@@ -31541,6 +31885,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_6")
+    @builtins.classmethod
     def ETC_GMT_PLUS_6(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+6.
 
@@ -31550,6 +31895,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_7")
+    @builtins.classmethod
     def ETC_GMT_PLUS_7(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+7.
 
@@ -31559,6 +31905,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_8")
+    @builtins.classmethod
     def ETC_GMT_PLUS_8(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+8.
 
@@ -31568,6 +31915,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_GMT_PLUS_9")
+    @builtins.classmethod
     def ETC_GMT_PLUS_9(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/GMT+9.
 
@@ -31577,6 +31925,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ETC_UTC")
+    @builtins.classmethod
     def ETC_UTC(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Etc/UTC.
 
@@ -31586,6 +31935,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_ANDORRA")
+    @builtins.classmethod
     def EUROPE_ANDORRA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Andorra.
 
@@ -31595,6 +31945,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_ASTRAKHAN")
+    @builtins.classmethod
     def EUROPE_ASTRAKHAN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Astrakhan.
 
@@ -31604,6 +31955,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_ATHENS")
+    @builtins.classmethod
     def EUROPE_ATHENS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Athens.
 
@@ -31613,6 +31965,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_BELGRADE")
+    @builtins.classmethod
     def EUROPE_BELGRADE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Belgrade.
 
@@ -31622,6 +31975,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_BERLIN")
+    @builtins.classmethod
     def EUROPE_BERLIN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Berlin.
 
@@ -31631,6 +31985,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_BRUSSELS")
+    @builtins.classmethod
     def EUROPE_BRUSSELS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Brussels.
 
@@ -31640,6 +31995,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_BUCHAREST")
+    @builtins.classmethod
     def EUROPE_BUCHAREST(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Bucharest.
 
@@ -31649,6 +32005,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_BUDAPEST")
+    @builtins.classmethod
     def EUROPE_BUDAPEST(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Budapest.
 
@@ -31658,6 +32015,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_CHISINAU")
+    @builtins.classmethod
     def EUROPE_CHISINAU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Chisinau.
 
@@ -31667,6 +32025,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_DUBLIN")
+    @builtins.classmethod
     def EUROPE_DUBLIN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Dublin.
 
@@ -31676,6 +32035,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_GIBRALTAR")
+    @builtins.classmethod
     def EUROPE_GIBRALTAR(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Gibraltar.
 
@@ -31685,6 +32045,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_HELSINKI")
+    @builtins.classmethod
     def EUROPE_HELSINKI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Helsinki.
 
@@ -31694,6 +32055,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_ISTANBUL")
+    @builtins.classmethod
     def EUROPE_ISTANBUL(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Istanbul.
 
@@ -31703,6 +32065,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_KALININGRAD")
+    @builtins.classmethod
     def EUROPE_KALININGRAD(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Kaliningrad.
 
@@ -31712,6 +32075,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_KIROV")
+    @builtins.classmethod
     def EUROPE_KIROV(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Kirov.
 
@@ -31721,6 +32085,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_KYIV")
+    @builtins.classmethod
     def EUROPE_KYIV(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Kyiv.
 
@@ -31730,6 +32095,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_LISBON")
+    @builtins.classmethod
     def EUROPE_LISBON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Lisbon.
 
@@ -31739,6 +32105,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_LONDON")
+    @builtins.classmethod
     def EUROPE_LONDON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/London.
 
@@ -31748,6 +32115,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_MADRID")
+    @builtins.classmethod
     def EUROPE_MADRID(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Madrid.
 
@@ -31757,6 +32125,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_MALTA")
+    @builtins.classmethod
     def EUROPE_MALTA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Malta.
 
@@ -31766,6 +32135,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_MINSK")
+    @builtins.classmethod
     def EUROPE_MINSK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Minsk.
 
@@ -31775,6 +32145,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_MOSCOW")
+    @builtins.classmethod
     def EUROPE_MOSCOW(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Moscow.
 
@@ -31784,6 +32155,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_PARIS")
+    @builtins.classmethod
     def EUROPE_PARIS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Paris.
 
@@ -31793,6 +32165,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_PRAGUE")
+    @builtins.classmethod
     def EUROPE_PRAGUE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Prague.
 
@@ -31802,6 +32175,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_RIGA")
+    @builtins.classmethod
     def EUROPE_RIGA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Riga.
 
@@ -31811,6 +32185,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_ROME")
+    @builtins.classmethod
     def EUROPE_ROME(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Rome.
 
@@ -31820,6 +32195,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_SAMARA")
+    @builtins.classmethod
     def EUROPE_SAMARA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Samara.
 
@@ -31829,6 +32205,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_SARATOV")
+    @builtins.classmethod
     def EUROPE_SARATOV(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Saratov.
 
@@ -31838,6 +32215,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_SIMFEROPOL")
+    @builtins.classmethod
     def EUROPE_SIMFEROPOL(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Simferopol.
 
@@ -31847,6 +32225,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_SOFIA")
+    @builtins.classmethod
     def EUROPE_SOFIA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Sofia.
 
@@ -31856,6 +32235,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_TALLINN")
+    @builtins.classmethod
     def EUROPE_TALLINN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Tallinn.
 
@@ -31865,6 +32245,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_TIRANE")
+    @builtins.classmethod
     def EUROPE_TIRANE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Tirane.
 
@@ -31874,6 +32255,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_ULYANOVSK")
+    @builtins.classmethod
     def EUROPE_ULYANOVSK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Ulyanovsk.
 
@@ -31883,6 +32265,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_VIENNA")
+    @builtins.classmethod
     def EUROPE_VIENNA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Vienna.
 
@@ -31892,6 +32275,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_VILNIUS")
+    @builtins.classmethod
     def EUROPE_VILNIUS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Vilnius.
 
@@ -31901,6 +32285,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_VOLGOGRAD")
+    @builtins.classmethod
     def EUROPE_VOLGOGRAD(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Volgograd.
 
@@ -31910,6 +32295,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_WARSAW")
+    @builtins.classmethod
     def EUROPE_WARSAW(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Warsaw.
 
@@ -31919,6 +32305,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EUROPE_ZURICH")
+    @builtins.classmethod
     def EUROPE_ZURICH(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Europe/Zurich.
 
@@ -31928,6 +32315,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACTORY")
+    @builtins.classmethod
     def FACTORY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Factory.
 
@@ -31937,6 +32325,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HST")
+    @builtins.classmethod
     def HST(cls) -> "TimeZone":
         '''IANA Time Zone database entry for HST.
 
@@ -31946,6 +32335,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="INDIAN_CHAGOS")
+    @builtins.classmethod
     def INDIAN_CHAGOS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Indian/Chagos.
 
@@ -31955,6 +32345,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="INDIAN_MALDIVES")
+    @builtins.classmethod
     def INDIAN_MALDIVES(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Indian/Maldives.
 
@@ -31964,6 +32355,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="INDIAN_MAURITIUS")
+    @builtins.classmethod
     def INDIAN_MAURITIUS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Indian/Mauritius.
 
@@ -31973,6 +32365,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MET")
+    @builtins.classmethod
     def MET(cls) -> "TimeZone":
         '''IANA Time Zone database entry for MET.
 
@@ -31982,6 +32375,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MST")
+    @builtins.classmethod
     def MST(cls) -> "TimeZone":
         '''IANA Time Zone database entry for MST.
 
@@ -31991,6 +32385,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MST7MDT")
+    @builtins.classmethod
     def MST7_MDT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for MST7MDT.
 
@@ -32000,6 +32395,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_APIA")
+    @builtins.classmethod
     def PACIFIC_APIA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Apia.
 
@@ -32009,6 +32405,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_AUCKLAND")
+    @builtins.classmethod
     def PACIFIC_AUCKLAND(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Auckland.
 
@@ -32018,6 +32415,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_BOUGAINVILLE")
+    @builtins.classmethod
     def PACIFIC_BOUGAINVILLE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Bougainville.
 
@@ -32027,6 +32425,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_CHATHAM")
+    @builtins.classmethod
     def PACIFIC_CHATHAM(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Chatham.
 
@@ -32036,6 +32435,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_EASTER")
+    @builtins.classmethod
     def PACIFIC_EASTER(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Easter.
 
@@ -32045,6 +32445,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_EFATE")
+    @builtins.classmethod
     def PACIFIC_EFATE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Efate.
 
@@ -32054,6 +32455,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_FAKAOFO")
+    @builtins.classmethod
     def PACIFIC_FAKAOFO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Fakaofo.
 
@@ -32063,6 +32465,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_FIJI")
+    @builtins.classmethod
     def PACIFIC_FIJI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Fiji.
 
@@ -32072,6 +32475,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_GALAPAGOS")
+    @builtins.classmethod
     def PACIFIC_GALAPAGOS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Galapagos.
 
@@ -32081,6 +32485,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_GAMBIER")
+    @builtins.classmethod
     def PACIFIC_GAMBIER(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Gambier.
 
@@ -32090,6 +32495,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_GUADALCANAL")
+    @builtins.classmethod
     def PACIFIC_GUADALCANAL(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Guadalcanal.
 
@@ -32099,6 +32505,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_GUAM")
+    @builtins.classmethod
     def PACIFIC_GUAM(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Guam.
 
@@ -32108,6 +32515,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_HONOLULU")
+    @builtins.classmethod
     def PACIFIC_HONOLULU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Honolulu.
 
@@ -32117,6 +32525,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_KANTON")
+    @builtins.classmethod
     def PACIFIC_KANTON(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Kanton.
 
@@ -32126,6 +32535,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_KIRITIMATI")
+    @builtins.classmethod
     def PACIFIC_KIRITIMATI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Kiritimati.
 
@@ -32135,6 +32545,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_KOSRAE")
+    @builtins.classmethod
     def PACIFIC_KOSRAE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Kosrae.
 
@@ -32144,6 +32555,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_KWAJALEIN")
+    @builtins.classmethod
     def PACIFIC_KWAJALEIN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Kwajalein.
 
@@ -32153,6 +32565,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_MARQUESAS")
+    @builtins.classmethod
     def PACIFIC_MARQUESAS(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Marquesas.
 
@@ -32162,6 +32575,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_NAURU")
+    @builtins.classmethod
     def PACIFIC_NAURU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Nauru.
 
@@ -32171,6 +32585,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_NIUE")
+    @builtins.classmethod
     def PACIFIC_NIUE(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Niue.
 
@@ -32180,6 +32595,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_NORFOLK")
+    @builtins.classmethod
     def PACIFIC_NORFOLK(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Norfolk.
 
@@ -32189,6 +32605,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_NOUMEA")
+    @builtins.classmethod
     def PACIFIC_NOUMEA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Noumea.
 
@@ -32198,6 +32615,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_PAGO_PAGO")
+    @builtins.classmethod
     def PACIFIC_PAGO_PAGO(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Pago_Pago.
 
@@ -32207,6 +32625,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_PALAU")
+    @builtins.classmethod
     def PACIFIC_PALAU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Palau.
 
@@ -32216,6 +32635,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_PITCAIRN")
+    @builtins.classmethod
     def PACIFIC_PITCAIRN(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Pitcairn.
 
@@ -32225,6 +32645,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_PORT_MORESBY")
+    @builtins.classmethod
     def PACIFIC_PORT_MORESBY(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Port_Moresby.
 
@@ -32234,6 +32655,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_RAROTONGA")
+    @builtins.classmethod
     def PACIFIC_RAROTONGA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Rarotonga.
 
@@ -32243,6 +32665,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_TAHITI")
+    @builtins.classmethod
     def PACIFIC_TAHITI(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Tahiti.
 
@@ -32252,6 +32675,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_TARAWA")
+    @builtins.classmethod
     def PACIFIC_TARAWA(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Tarawa.
 
@@ -32261,6 +32685,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PACIFIC_TONGATAPU")
+    @builtins.classmethod
     def PACIFIC_TONGATAPU(cls) -> "TimeZone":
         '''IANA Time Zone database entry for Pacific/Tongatapu.
 
@@ -32270,6 +32695,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PST8PDT")
+    @builtins.classmethod
     def PST8_PDT(cls) -> "TimeZone":
         '''IANA Time Zone database entry for PST8PDT.
 
@@ -32279,6 +32705,7 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WET")
+    @builtins.classmethod
     def WET(cls) -> "TimeZone":
         '''IANA Time Zone database entry for WET.
 
@@ -32446,24 +32873,28 @@ class TokenComparison(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TokenCompa
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BOTH_UNRESOLVED")
+    @builtins.classmethod
     def BOTH_UNRESOLVED(cls) -> "TokenComparison":
         '''This means both components are Tokens.'''
         return typing.cast("TokenComparison", jsii.sget(cls, "BOTH_UNRESOLVED"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DIFFERENT")
+    @builtins.classmethod
     def DIFFERENT(cls) -> "TokenComparison":
         '''This means we're certain the two components are NOT Tokens, and different.'''
         return typing.cast("TokenComparison", jsii.sget(cls, "DIFFERENT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ONE_UNRESOLVED")
+    @builtins.classmethod
     def ONE_UNRESOLVED(cls) -> "TokenComparison":
         '''This means exactly one of the components is a Token.'''
         return typing.cast("TokenComparison", jsii.sget(cls, "ONE_UNRESOLVED"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAME")
+    @builtins.classmethod
     def SAME(cls) -> "TokenComparison":
         '''This means we're certain the two components are NOT Tokens, and identical.'''
         return typing.cast("TokenComparison", jsii.sget(cls, "SAME"))
@@ -32984,7 +33415,7 @@ class ValidationResults(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9effc33e84903ea022b71088eb4acbafab3c5e135ab84d1b08231a7b3bb0dae9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "results", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "results", value)
 
 
 @jsii.data_type(
@@ -33145,6 +33576,7 @@ class Validations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Validations"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ACKNOWLEDGED_RULES_METADATA_KEY")
+    @builtins.classmethod
     def ACKNOWLEDGED_RULES_METADATA_KEY(cls) -> builtins.str:
         '''Metadata key used to store acknowledged rules on construct nodes.
 
@@ -33202,6 +33634,8 @@ class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
         *,
         analytics_reporting: typing.Optional[builtins.bool] = None,
         auto_synth: typing.Optional[builtins.bool] = None,
+        builtin_cloud_formation_validation: typing.Optional[builtins.bool] = None,
+        confirm_validation_plugins_do_not_mutate: typing.Optional[builtins.bool] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         default_stack_synthesizer: typing.Optional["IReusableStackSynthesizer"] = None,
         outdir: typing.Optional[builtins.str] = None,
@@ -33216,6 +33650,8 @@ class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
 
         :param analytics_reporting: Include runtime versioning information in the Stacks of this app. Default: Value of 'aws:cdk:version-reporting' context key
         :param auto_synth: Automatically call ``synth()`` before the program exits. If you set this, you don't have to call ``synth()`` explicitly. Note that this feature is only available for certain programming languages, and calling ``synth()`` is still recommended. Default: true if running via CDK CLI (``CDK_OUTDIR`` is set), ``false`` otherwise
+        :param builtin_cloud_formation_validation: Whether to enable built-in CloudFormation template validation. CDK ships with a CloudFormation template validation plugin that is enabled by default (see ``CloudFormationValidationPlugin``). To disable the built-in validation, you can do one of these things: - Set this property to ``false``. - Run ``cdk synth --no-validation``. - Set ``CDK_VALIDATION=false`` in your environment. - Register a custom configured instance of ``CloudFormationValidationPlugin`` on the ``app`` object. Default: true
+        :param confirm_validation_plugins_do_not_mutate: Confirm that validation plugins treat the assembly directory as read-only. Validation plugins should only read files in the ``cdk.out`` directory, and not modify or delete any. If this is set to ``true``, the CDK will calculate a hash of all files in the assembly directory before running validation plugins and verify that the hashes match afterwards, to ensure no files got deleted or modified. You only need to set this if you do not trust your validation plugins to have been implemented correctly. Default: false
         :param context: Additional context values for the application. Context set by the CLI or the ``context`` key in ``cdk.json`` has precedence. Context can be read from any construct using ``node.getContext(key)``. Default: - no additional context
         :param default_stack_synthesizer: The stack synthesizer to use by default for all Stacks in the App. The Stack Synthesizer controls aspects of synthesis and deployment, like how assets are referenced and what IAM roles to use. For more information, see the README of the main CDK package. Default: - A ``DefaultStackSynthesizer`` with default settings
         :param outdir: The output directory into which to emit synthesized artifacts. You should never need to set this value. By default, the value you pass to the CLI's ``--output`` flag will be used, and if you change it to a different directory the CLI will fail to pick up the generated Cloud Assembly. This property is intended for internal and testing use. Default: - If this value is *not* set, considers the environment variable ``CDK_OUTDIR``. If ``CDK_OUTDIR`` is not defined, uses a temp directory.
@@ -33229,6 +33665,8 @@ class App(Stage, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.App"):
         props = AppProps(
             analytics_reporting=analytics_reporting,
             auto_synth=auto_synth,
+            builtin_cloud_formation_validation=builtin_cloud_formation_validation,
+            confirm_validation_plugins_do_not_mutate=confirm_validation_plugins_do_not_mutate,
             context=context,
             default_stack_synthesizer=default_stack_synthesizer,
             outdir=outdir,
@@ -33675,6 +34113,7 @@ class CfnChangeSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -33739,7 +34178,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b6aca3220d03674f851ac97b518520bcd3a86e425b884aae04c9075f91a4dd84)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "changeSetName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "changeSetName", value)
 
     @builtins.property
     @jsii.member(jsii_name="stackName")
@@ -33752,7 +34191,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ded6971f7141b1ad74b32c2c102acc42c8649a86ee6ccd3116ab94d521fbc6b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stackName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "stackName", value)
 
     @builtins.property
     @jsii.member(jsii_name="capabilities")
@@ -33765,7 +34204,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__81a214b484fa59066e26e9ec2209cc2fde5edfc20a38e91428cb3c83612c652b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "capabilities", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "capabilities", value)
 
     @builtins.property
     @jsii.member(jsii_name="changeSetType")
@@ -33778,7 +34217,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f62241a0265f7d789b9ada886dbc1c95f035ec73105428dd6ccf02f180908adb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "changeSetType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "changeSetType", value)
 
     @builtins.property
     @jsii.member(jsii_name="deploymentMode")
@@ -33791,7 +34230,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9dc846353a5f0e26cdd0f6122e906a652baff2a5361e7cbfdf7ff7dbe1661294)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deploymentMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deploymentMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -33804,7 +34243,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d8fb2f341b53e11af6cbcae05a9a005e38c6fd3b04fd622683c75f7efe4f5cf3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="importExistingResources")
@@ -33822,7 +34261,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8564a3fbf9626d1ee108ee2dcffd9b0a1d37054541f2a9b5839201611031e815)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "importExistingResources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "importExistingResources", value)
 
     @builtins.property
     @jsii.member(jsii_name="includeNestedStacks")
@@ -33840,7 +34279,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__474e3c1408762ada24c9d4a1166b59872e7e48ad04e3b9f2420ce6ec1dd6e5aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "includeNestedStacks", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "includeNestedStacks", value)
 
     @builtins.property
     @jsii.member(jsii_name="notificationArns")
@@ -33856,7 +34295,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__65cef834eae1e46a3aac66118fe44e3244841b8c61e624af590b62423e2db31a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notificationArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notificationArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="onStackFailure")
@@ -33869,7 +34308,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e9b743c176c3d86b0338134837243470e1b10e818afff74415f76270330ae4ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "onStackFailure", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "onStackFailure", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -33882,7 +34321,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c8a1bc33a3a4df4905ec793b1c67d30b283eca7128d353e3d18d620c3de8085)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -33898,7 +34337,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__930263a8f6fc51529666c760eedf8af135cccc7a452ef6a79b73f0dd2e62443c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateBody")
@@ -33911,7 +34350,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__782e09bc3fee323760d6d2107db1721468363fa9888c044a25c7ab218cf7fc2e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateBody", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateBody", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateUrl")
@@ -33924,7 +34363,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__36219a40ead5399cbd68caf43a9a7fb76de482680d2b7468a069bea5d7229c6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateUrl", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateUrl", value)
 
     @builtins.property
     @jsii.member(jsii_name="usePreviousTemplate")
@@ -33942,7 +34381,7 @@ class CfnChangeSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a59d0261f2df4c38d4a2a98a68cfded747d2c4a4088bd85e54e182b4d9cc03c0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "usePreviousTemplate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "usePreviousTemplate", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.CfnChangeSet.TagsItemsProperty",
@@ -34092,7 +34531,7 @@ class CfnCodeDeployBlueGreenHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__301622392d5f5e3371a565308249226a6bcffd963009eb56723f533552550e66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applications", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "applications", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceRole")
@@ -34105,7 +34544,7 @@ class CfnCodeDeployBlueGreenHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05f6c16a47e613d5931476bd3aab8f0e2def7085825c847cf2a7ab381974c90f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="additionalOptions")
@@ -34126,7 +34565,7 @@ class CfnCodeDeployBlueGreenHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__063fca93608346f764089509004a16657f58484d0a0d3f6252ea50e6455bcf5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "additionalOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "additionalOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="lifecycleEventHooks")
@@ -34152,7 +34591,7 @@ class CfnCodeDeployBlueGreenHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5de2abc350cd318250210cd72574a10ab7615e6e5eaea18c45bd7e82dfc56590)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lifecycleEventHooks", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lifecycleEventHooks", value)
 
     @builtins.property
     @jsii.member(jsii_name="trafficRoutingConfig")
@@ -34171,7 +34610,7 @@ class CfnCodeDeployBlueGreenHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c78641539d02a4305c5aded1d4cfdeae4440529ff8644bacc5d0fbf0868457fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "trafficRoutingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "trafficRoutingConfig", value)
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.ICustomResourceRef)
@@ -34270,6 +34709,7 @@ class CfnCustomResource(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -34311,7 +34751,7 @@ class CfnCustomResource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3be70abbbdb8420844283a98dccbfef7ea4227506b14273ee3a1591ad5361837)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceToken", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceToken", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceTimeout")
@@ -34324,7 +34764,7 @@ class CfnCustomResource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ef8d85097c83e56b7252e81e816994d1a6952dd056336dfe16d4feffa1e1e091)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceTimeout", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceTimeout", value)
 
 
 class CfnDynamicReference(
@@ -34468,6 +34908,7 @@ class CfnGeneratedTemplate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -34555,7 +34996,7 @@ class CfnGeneratedTemplate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__838ea95b782aef96eae5e68cce0db470f2ba0630edc82b6968769e1e3e3c0e6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "generatedTemplateName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "generatedTemplateName", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateConfiguration")
@@ -34573,7 +35014,7 @@ class CfnGeneratedTemplate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8a5cea298bbdcc5fea3ee90283516b63244b816d5c9259f4a0b6d4863825e76e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateConfiguration", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.CfnGeneratedTemplate.TemplateConfigurationProperty",
@@ -34915,6 +35356,7 @@ class CfnGuardHook(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -34958,7 +35400,7 @@ class CfnGuardHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c86700c4cc01e9b6d8c22183ca1671764efc0893ee95b26e60c972ba41d5ec05)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alias", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alias", value)
 
     @builtins.property
     @jsii.member(jsii_name="executionRole")
@@ -34971,7 +35413,7 @@ class CfnGuardHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__16e4c31569981a20fffaba6ccc27bde9cbd7d22580c9219969464ca59e19a1a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="failureMode")
@@ -34984,7 +35426,7 @@ class CfnGuardHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1f665c44360caf11302f9ffada152698d2130760a2321555cff06a7e979924f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "failureMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "failureMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="hookStatus")
@@ -34997,7 +35439,7 @@ class CfnGuardHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a0503d05f0013b3ec54c828f41393c0bbe48ce0160b435e3137fc4130736158a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hookStatus", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hookStatus", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleLocation")
@@ -35015,7 +35457,7 @@ class CfnGuardHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2dd7a94264b39d1c6984dcd5da3b88f9e4b4a6698c14a1ceb364dde28ed5079d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleLocation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleLocation", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetOperations")
@@ -35028,7 +35470,7 @@ class CfnGuardHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6631385ac5bc7330a3cc6f35216f47598799e09e65c2fa0df1c6eb7b2afe68d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetOperations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetOperations", value)
 
     @builtins.property
     @jsii.member(jsii_name="logBucket")
@@ -35041,7 +35483,7 @@ class CfnGuardHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f1653dcc5a8f1aa9f759e9eb03c0fee924d8a51e1170b933a810e1b628c2083e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logBucket", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logBucket", value)
 
     @builtins.property
     @jsii.member(jsii_name="options")
@@ -35059,7 +35501,7 @@ class CfnGuardHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72a34d4a2e31683bbacfca52f8500480feb773f1d0bb8dfd891f0c07eba975ef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "options", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "options", value)
 
     @builtins.property
     @jsii.member(jsii_name="stackFilters")
@@ -35077,7 +35519,7 @@ class CfnGuardHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0102df7c7e94c66e6c55290d9509c5cbc77b7f58c865dab580e07f5729f7daaa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stackFilters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "stackFilters", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetFilters")
@@ -35095,7 +35537,7 @@ class CfnGuardHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2c07d8e25f948404b7d403a52c44adfd2f8e72c8f2562df3d53c28d2455a5043)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetFilters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetFilters", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.CfnGuardHook.HookTargetProperty",
@@ -35822,6 +36264,7 @@ class CfnHookDefaultVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -35864,7 +36307,7 @@ class CfnHookDefaultVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3a56a38c1484cf5e8fe3cef2bfa70e8bfafcfa6ff2bcf49e546d2f16f731ff33)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="typeVersionArn")
@@ -35877,7 +36320,7 @@ class CfnHookDefaultVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c6804a2aee50a79c10c85ac559f3e0980332802034895c481271bd971333f014)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeVersionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeVersionArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="versionId")
@@ -35890,7 +36333,7 @@ class CfnHookDefaultVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aba54a8e3c2e20e2f92c0569a4f8fc56fdc0d62c7dd9bca9b361afd191b5f9e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "versionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "versionId", value)
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IHookTypeConfigRef)
@@ -35993,6 +36436,7 @@ class CfnHookTypeConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -36035,7 +36479,7 @@ class CfnHookTypeConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4cdfb662d76ece788d246690f202d722f9322e11635ec80e130684957899847e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="configurationAlias")
@@ -36048,7 +36492,7 @@ class CfnHookTypeConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb213f7d84679cc4f261c0a2c63708291ab85662ea54df27d721651c2f3d6c35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configurationAlias", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configurationAlias", value)
 
     @builtins.property
     @jsii.member(jsii_name="typeArn")
@@ -36061,7 +36505,7 @@ class CfnHookTypeConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f97489316007ae71ab50aac9f783e25395c4e3f2e17c4efb878ee36a31d00225)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="typeName")
@@ -36074,7 +36518,7 @@ class CfnHookTypeConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ae25c5975a4cc4135c1badf2c65d807ffa478ac85dadc05cdf08890585df75a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeName", value)
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IHookVersionRef)
@@ -36196,6 +36640,7 @@ class CfnHookVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -36275,7 +36720,7 @@ class CfnHookVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1a18863d8358bf751f4653e089e7d5f3804fc875d8da8c8aaa157ad381e63bb3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schemaHandlerPackage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "schemaHandlerPackage", value)
 
     @builtins.property
     @jsii.member(jsii_name="typeName")
@@ -36288,7 +36733,7 @@ class CfnHookVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f95d956f55038f27410e8284fb9718455df0f9df1fcccff7e7f26a6dc1df15e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="executionRoleArn")
@@ -36301,7 +36746,7 @@ class CfnHookVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d5403222bfd0884b8acb5d4119733e58e50d23b347d9f5866e11160c7dc7723d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfig")
@@ -36319,7 +36764,7 @@ class CfnHookVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3db339eaaa37dfe72ee5f61fbe419e70e49b5d4471ce4c5733792ddeb0c097dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggingConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.CfnHookVersion.LoggingConfigProperty",
@@ -36638,6 +37083,7 @@ class CfnLambdaHook(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -36681,7 +37127,7 @@ class CfnLambdaHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13d985d240e1d24568a521a270594d10f9c47fb185f18a6a96cc0a4a53c9dfcd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alias", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alias", value)
 
     @builtins.property
     @jsii.member(jsii_name="executionRole")
@@ -36694,7 +37140,7 @@ class CfnLambdaHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__03e9eaa4d246f347df8cebec3fd25e919ef3ca443e79051947ca3b5880cbcd8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="failureMode")
@@ -36707,7 +37153,7 @@ class CfnLambdaHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__de3665b99f75d6b664f5fb9b1915eaf24acdcef5e00904dfd26ac7f16f3bdf2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "failureMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "failureMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="hookStatus")
@@ -36720,7 +37166,7 @@ class CfnLambdaHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0245fa0b078734d4d35c0bf03366bc0dceba1effd144187a17735c63cadf8921)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hookStatus", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hookStatus", value)
 
     @builtins.property
     @jsii.member(jsii_name="lambdaFunction")
@@ -36736,7 +37182,7 @@ class CfnLambdaHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__90cb7d0afb8201647de69515e1faa1457a9064081e8ba452f3e2518f267aebb7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lambdaFunction", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lambdaFunction", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetOperations")
@@ -36749,7 +37195,7 @@ class CfnLambdaHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c939eb89d0bbf1e467d3cada5ca3624fb0c5c0e583c9063149c81f8259b3e2dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetOperations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetOperations", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoUpdate")
@@ -36767,7 +37213,7 @@ class CfnLambdaHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__53a8fc968b06c25349ace7ccbffd32e448d214adb51415f103df40f2574c1fb5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoUpdate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoUpdate", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfig")
@@ -36785,7 +37231,7 @@ class CfnLambdaHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f5336ce2ed282bf7c5ee1ecc88b6762e307a0c7d7faccd68d92ecaadc89fb264)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggingConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="stackFilters")
@@ -36803,7 +37249,7 @@ class CfnLambdaHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3b265cde01add2f07458da4c365ab2135a7f387383ca39d0b26bfac5dbed2f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stackFilters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "stackFilters", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetFilters")
@@ -36821,7 +37267,7 @@ class CfnLambdaHook(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3f0452e1487a1c5085ea420b80ea51e64c7defd79084c39a9f38bc17b122184)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetFilters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetFilters", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.CfnLambdaHook.HookTargetProperty",
@@ -37466,6 +37912,7 @@ class CfnMacro(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnM
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -37506,7 +37953,7 @@ class CfnMacro(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnM
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e13b78889dc186011f4f1342aeddd970195b0b40a6d440ac2cc29bb99361630)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "functionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "functionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -37519,7 +37966,7 @@ class CfnMacro(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnM
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a26a130604dd4d34bf4d0e1e0a76b0ed6968c290606857c9c44c7f640a2d6e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -37532,7 +37979,7 @@ class CfnMacro(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnM
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__77d1a351fea8d26f191cdf519053d2255b3187837cad5e2f2485126f89da17bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="logGroupName")
@@ -37545,7 +37992,7 @@ class CfnMacro(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnM
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8712606866c8412fa88f6332f42cb09fc4405f811ea0ede547c88780df5d4272)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="logRoleArn")
@@ -37558,7 +38005,7 @@ class CfnMacro(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnM
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e900294bfb9cf485e8dfe2e41e9f75225f77d3b3e01692026748d73d0303f9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logRoleArn", value)
 
 
 class CfnMapping(
@@ -37749,6 +38196,7 @@ class CfnModuleDefaultVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -37782,7 +38230,7 @@ class CfnModuleDefaultVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1cb2954494c700aff405049c8e7034ddc6a7e14442b802bbdd125cd0e75c0bde)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "arn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "arn", value)
 
     @builtins.property
     @jsii.member(jsii_name="moduleName")
@@ -37795,7 +38243,7 @@ class CfnModuleDefaultVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__12a48c4edfa3ce0f46291ad9f0b4f77b86b1de6f746d1ca7970d8635d90240ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "moduleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "moduleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="versionId")
@@ -37808,7 +38256,7 @@ class CfnModuleDefaultVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eeecbb6b3bf1da20bb28e43562922dd4c5b93a9b2ab218e2a02b605d91858846)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "versionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "versionId", value)
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IModuleVersionRef)
@@ -37918,6 +38366,7 @@ class CfnModuleVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -38028,7 +38477,7 @@ class CfnModuleVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc417dfa6c4495f0db9eb848b03a17f6c0d7337a06ba9dbd3bccca32ce597f47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "moduleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "moduleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="modulePackage")
@@ -38041,7 +38490,7 @@ class CfnModuleVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c0e482f7d20fd4d2a32dc3260583d1fdbab31951d2ff7f1c1ffbc7eebfe9f716)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modulePackage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "modulePackage", value)
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IPublicTypeVersionRef)
@@ -38157,6 +38606,7 @@ class CfnPublicTypeVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -38219,7 +38669,7 @@ class CfnPublicTypeVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__89d65aee55ca06cf86a8f492a0e1cbe094622863a87f4e2977c1fb80d701f0f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "arn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "arn", value)
 
     @builtins.property
     @jsii.member(jsii_name="logDeliveryBucket")
@@ -38232,7 +38682,7 @@ class CfnPublicTypeVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8aa9c938b19720538622a9ec624fc6c8320941bd5502960818ebb231f8d949d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logDeliveryBucket", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logDeliveryBucket", value)
 
     @builtins.property
     @jsii.member(jsii_name="publicVersionNumber")
@@ -38245,7 +38695,7 @@ class CfnPublicTypeVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__95ecc63cfe6df5e9a3f2d304425c9a24b0320523982a32048b1b1a82b38be45a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publicVersionNumber", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "publicVersionNumber", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -38258,7 +38708,7 @@ class CfnPublicTypeVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5fde44f61a1d063a29cdd0f2056cd4361a6c98b287cc8e080a0004edeba6cd83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="typeName")
@@ -38271,7 +38721,7 @@ class CfnPublicTypeVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13c8c23305bf1042108eb47020d3ca0a3ef39801d1f7d393ca71d1d42c8ad57c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeName", value)
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IPublisherRef)
@@ -38368,6 +38818,7 @@ class CfnPublisher(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -38440,7 +38891,7 @@ class CfnPublisher(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7088dca6cd0921f0733368bd21bbdadae5a33c23ec8020691bc9faea3f1624c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "acceptTermsAndConditions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "acceptTermsAndConditions", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectionArn")
@@ -38453,7 +38904,7 @@ class CfnPublisher(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__58e46a0e668a652eaa01130b3a0c220e102d2faea9e3c1a608034f11c9f7cabf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionArn", value)
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IResourceDefaultVersionRef)
@@ -38566,6 +39017,7 @@ class CfnResourceDefaultVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -38608,7 +39060,7 @@ class CfnResourceDefaultVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b516d3677587457e61b3fddd1a07ed6b3a6be667d3581d57efa344d33fb41f99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="typeVersionArn")
@@ -38621,7 +39073,7 @@ class CfnResourceDefaultVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__24b6d4eafd157ff7a5f438d4853f5dc78c9773081309212c101dae01924800fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeVersionArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeVersionArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="versionId")
@@ -38634,7 +39086,7 @@ class CfnResourceDefaultVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dd41a20885eade487854b9a6ac2e6748158d9a5e9f3b4b25e79e4f0501f4bcc9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "versionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "versionId", value)
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IResourceVersionRef)
@@ -38762,6 +39214,7 @@ class CfnResourceVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -38867,7 +39320,7 @@ class CfnResourceVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e5de705f1515ecb109475ff87faa4f823848e56d9685f33040b829da3f9389f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schemaHandlerPackage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "schemaHandlerPackage", value)
 
     @builtins.property
     @jsii.member(jsii_name="typeName")
@@ -38880,7 +39333,7 @@ class CfnResourceVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__309268ea30711bf3d71e678bbb0008a267946596dcf4a3ddf29eae3346c4bd2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="executionRoleArn")
@@ -38893,7 +39346,7 @@ class CfnResourceVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b411b10388d66bdeecf4fc2285b1d70b7851f0a9a93dfc2885fdd005f6efd6f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfig")
@@ -38911,7 +39364,7 @@ class CfnResourceVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0023472172aa2dc5cedd209d8df08ad231cc90ecdfd1ce431ed9d5d0165034df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggingConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.CfnResourceVersion.LoggingConfigProperty",
@@ -39130,6 +39583,7 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -39246,7 +39700,7 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c9c77d10e222f51987b4f16f428d98153c077789a4dc99f5943c9a4b1c2da262)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notificationArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notificationArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
@@ -39264,7 +39718,7 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f3fb0b9b7598b79bde64721506e8cfa836e6901da44b747530857a860a1cc111)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "parameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -39277,7 +39731,7 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__01a1e89136d78f617e17761b0d0ff550a27df4b2af18d366390e087562377641)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateUrl")
@@ -39290,7 +39744,7 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fca2333050ec1bc7ded0826e01e92f6e2eeb3665b01935ccce638b9997563a9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateUrl", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateUrl", value)
 
     @builtins.property
     @jsii.member(jsii_name="timeoutInMinutes")
@@ -39303,7 +39757,7 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__014f1ef9e7a515362b7a296620ed8a84c70f46604a2c87b2ec9c0925b167ddd3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeoutInMinutes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "timeoutInMinutes", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.CfnStack.OutputProperty",
@@ -39592,6 +40046,7 @@ class CfnStackSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -39638,7 +40093,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedExecution", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "managedExecution", value)
 
     @builtins.property
     @jsii.member(jsii_name="permissionModel")
@@ -39651,7 +40106,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb21580072a82cabb449c57b07732ff0c209ae85a5b9cdc23fd652093bc2278b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "permissionModel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "permissionModel", value)
 
     @builtins.property
     @jsii.member(jsii_name="stackSetName")
@@ -39664,7 +40119,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__32cf51df16e338fe3492791235b136e79d4005c2f8fd346571fbd180b648348a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stackSetName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "stackSetName", value)
 
     @builtins.property
     @jsii.member(jsii_name="administrationRoleArn")
@@ -39677,7 +40132,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1afa6f5b2ddfce1c00329978432389c241e56e66ed95e108061eec867e71c97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "administrationRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "administrationRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoDeployment")
@@ -39695,7 +40150,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d8b70cf0a59aaa8cfdb268b6617eb15a49e9b73ccfbbc6e55c6337feada2b437)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoDeployment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoDeployment", value)
 
     @builtins.property
     @jsii.member(jsii_name="callAs")
@@ -39708,7 +40163,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96739899a1450d3f11e1da50c14a1ef20362034971989e3e843cc5cb543ffb4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "callAs", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "callAs", value)
 
     @builtins.property
     @jsii.member(jsii_name="capabilities")
@@ -39721,7 +40176,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d37d6bce85657a5b628de94c9e882e0d8322075c38355c5d1a399084d5efa06d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "capabilities", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "capabilities", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -39734,7 +40189,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2e922a74f7a0e62a3b43f5ffc866664dabe0e0f9e9b9fb9bd5591af73955eb20)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="executionRoleName")
@@ -39747,7 +40202,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__69b51712ff6404ccdc84f33ee3ab1d6f9badd506eff63172a852cf116891ff6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRoleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRoleName", value)
 
     @builtins.property
     @jsii.member(jsii_name="operationPreferences")
@@ -39765,7 +40220,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8e37d30562640aa75e0ac76db39c35de57213394a2ce91bdf51e549a80b2f018)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "operationPreferences", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "operationPreferences", value)
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
@@ -39783,7 +40238,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__09dcba4507180e686f621170a91e1dfc965d008d03485dd491ba2d1cc410e35a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "parameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="stackInstancesGroup")
@@ -39801,7 +40256,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8190897c9db2be7522404cc59a903c2a29fb676e3e499e673b2a3d41196fb27c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "stackInstancesGroup", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "stackInstancesGroup", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -39814,7 +40269,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6b08cfb2362e301b6d719febc0b9056b8148548584ea3562f39eeb1a313a5812)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateBody")
@@ -39827,7 +40282,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb421fb45b2646fde70eebd9a4eef54e26e3f476b73f8d709bb5b08e5987a505)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateBody", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateBody", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateUrl")
@@ -39840,7 +40295,7 @@ class CfnStackSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b399e4d1c79d187fa3878cff5a39cacae8d986c447bd9f405dcd4d1f491d0aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateUrl", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateUrl", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.CfnStackSet.AutoDeploymentProperty",
@@ -40640,6 +41095,7 @@ class CfnTypeActivation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -40687,7 +41143,7 @@ class CfnTypeActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05c503620ac691702b279d7b84e9b83f3ff36c3f686220ac1622e4a4fa101c74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoUpdate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoUpdate", value)
 
     @builtins.property
     @jsii.member(jsii_name="executionRoleArn")
@@ -40700,7 +41156,7 @@ class CfnTypeActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb05a6bbb1b69a349ef62f54aa558d35fb999b6840e9e91e441d929597c93393)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfig")
@@ -40718,7 +41174,7 @@ class CfnTypeActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__980f164c67ee3423187ae7c96a8caae825eb72c714cb6b6d07a224f79fdebc60)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggingConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="majorVersion")
@@ -40731,7 +41187,7 @@ class CfnTypeActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72ee90d6a51d8910922b98a692b62b66f8ecf7d2e8f1a457dab45bfd3922c211)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "majorVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "majorVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="publicTypeArn")
@@ -40744,7 +41200,7 @@ class CfnTypeActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2a684112f94199dc211c227a1dc433aa583ed1c907c77df7c1f03c8945e67f10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publicTypeArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "publicTypeArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="publisherId")
@@ -40757,7 +41213,7 @@ class CfnTypeActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e069507a69e544bb6965d86ff2af421a9a378e59c4f138a332c7a829951e221)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publisherId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "publisherId", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -40770,7 +41226,7 @@ class CfnTypeActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b24ad5805095b047c118004765517eb6ea84d85986d6b0b725606141e309d55f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="typeName")
@@ -40783,7 +41239,7 @@ class CfnTypeActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46119575e6b6ae6912e18605779f0dcd0bd3355455b9404d5017b38d78a9ecb9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="typeNameAlias")
@@ -40796,7 +41252,7 @@ class CfnTypeActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3ec0e71693216493a9f1103e3db54feaf7d3aef6ffcada37b91480002f06b41)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "typeNameAlias", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "typeNameAlias", value)
 
     @builtins.property
     @jsii.member(jsii_name="versionBump")
@@ -40809,7 +41265,7 @@ class CfnTypeActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__054ef92a537b4748d1b3b3eb88091d3db779ef5f44d84f072f317c1ecd7eddd0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "versionBump", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "versionBump", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.CfnTypeActivation.LoggingConfigProperty",
@@ -40975,6 +41431,7 @@ class CfnWaitCondition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -41025,7 +41482,7 @@ class CfnWaitCondition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d46c8689857e67bd1d46517d63c1b536392b0daec3b60efb2655238812a4f6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "count", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "count", value)
 
     @builtins.property
     @jsii.member(jsii_name="handle")
@@ -41038,7 +41495,7 @@ class CfnWaitCondition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ae0b9f0d1f1c2fc4740a8d6291fcd99ac730c9d5a865b60cace23ccee1f87a78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "handle", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "handle", value)
 
     @builtins.property
     @jsii.member(jsii_name="timeout")
@@ -41051,7 +41508,7 @@ class CfnWaitCondition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6add94bce6a16bfe22076120156dea61347d9ce4af1226fc973ca1596b6101ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeout", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "timeout", value)
 
 
 @jsii.implements(IInspectable, _aws_cloudformation_68a282c8.IWaitConditionHandleRef)
@@ -41139,6 +41596,7 @@ class CfnWaitConditionHandle(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -41236,6 +41694,7 @@ class CloudFormationValidatePlugin(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PLUGIN_NAME")
+    @builtins.classmethod
     def PLUGIN_NAME(cls) -> builtins.str:
         '''The default name of this plugin.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PLUGIN_NAME"))
@@ -41378,6 +41837,7 @@ class CustomResource(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -42919,7 +43379,7 @@ class CfnCondition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__520eaac3c160a5dbd339868eadb4b6e1430b0196bd533ef619b6b3352bca706c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "expression", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "expression", value)
 
 
 @jsii.implements(IReusableStackSynthesizer, IBoundStackSynthesizer)
@@ -43428,72 +43888,84 @@ class DefaultStackSynthesizer(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_BOOTSTRAP_STACK_VERSION_SSM_PARAMETER")
+    @builtins.classmethod
     def DEFAULT_BOOTSTRAP_STACK_VERSION_SSM_PARAMETER(cls) -> builtins.str:
         '''Default bootstrap stack version SSM parameter.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_BOOTSTRAP_STACK_VERSION_SSM_PARAMETER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_CLOUDFORMATION_ROLE_ARN")
+    @builtins.classmethod
     def DEFAULT_CLOUDFORMATION_ROLE_ARN(cls) -> builtins.str:
         '''Default CloudFormation role ARN.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_CLOUDFORMATION_ROLE_ARN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_DEPLOY_ROLE_ARN")
+    @builtins.classmethod
     def DEFAULT_DEPLOY_ROLE_ARN(cls) -> builtins.str:
         '''Default deploy role ARN.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_DEPLOY_ROLE_ARN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_DOCKER_ASSET_PREFIX")
+    @builtins.classmethod
     def DEFAULT_DOCKER_ASSET_PREFIX(cls) -> builtins.str:
         '''Default Docker asset prefix.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_DOCKER_ASSET_PREFIX"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_FILE_ASSET_KEY_ARN_EXPORT_NAME")
+    @builtins.classmethod
     def DEFAULT_FILE_ASSET_KEY_ARN_EXPORT_NAME(cls) -> builtins.str:
         '''Name of the CloudFormation Export with the asset key name.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_FILE_ASSET_KEY_ARN_EXPORT_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_FILE_ASSET_PREFIX")
+    @builtins.classmethod
     def DEFAULT_FILE_ASSET_PREFIX(cls) -> builtins.str:
         '''Default file asset prefix.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_FILE_ASSET_PREFIX"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_FILE_ASSET_PUBLISHING_ROLE_ARN")
+    @builtins.classmethod
     def DEFAULT_FILE_ASSET_PUBLISHING_ROLE_ARN(cls) -> builtins.str:
         '''Default asset publishing role ARN for file (S3) assets.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_FILE_ASSET_PUBLISHING_ROLE_ARN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_FILE_ASSETS_BUCKET_NAME")
+    @builtins.classmethod
     def DEFAULT_FILE_ASSETS_BUCKET_NAME(cls) -> builtins.str:
         '''Default file assets bucket name.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_FILE_ASSETS_BUCKET_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_IMAGE_ASSET_PUBLISHING_ROLE_ARN")
+    @builtins.classmethod
     def DEFAULT_IMAGE_ASSET_PUBLISHING_ROLE_ARN(cls) -> builtins.str:
         '''Default asset publishing role ARN for image (ECR) assets.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_IMAGE_ASSET_PUBLISHING_ROLE_ARN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_IMAGE_ASSETS_REPOSITORY_NAME")
+    @builtins.classmethod
     def DEFAULT_IMAGE_ASSETS_REPOSITORY_NAME(cls) -> builtins.str:
         '''Default image assets repository name.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_IMAGE_ASSETS_REPOSITORY_NAME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_LOOKUP_ROLE_ARN")
+    @builtins.classmethod
     def DEFAULT_LOOKUP_ROLE_ARN(cls) -> builtins.str:
         '''Default lookup role ARN for missing values.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_LOOKUP_ROLE_ARN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_QUALIFIER")
+    @builtins.classmethod
     def DEFAULT_QUALIFIER(cls) -> builtins.str:
         '''Default ARN qualifier.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DEFAULT_QUALIFIER"))
@@ -44202,6 +44674,7 @@ __all__ = [
     "aws_lex",
     "aws_licensemanager",
     "aws_licensemanagerlinuxsubscriptions",
+    "aws_licensemanagerusersubscriptions",
     "aws_lightsail",
     "aws_location",
     "aws_logs",
@@ -44257,6 +44730,7 @@ __all__ = [
     "aws_pinpoint",
     "aws_pinpointemail",
     "aws_pipes",
+    "aws_polly",
     "aws_pricingplanmanager",
     "aws_proton",
     "aws_qbusiness",
@@ -44558,6 +45032,7 @@ if typing.TYPE_CHECKING:
     from . import aws_lex as aws_lex
     from . import aws_licensemanager as aws_licensemanager
     from . import aws_licensemanagerlinuxsubscriptions as aws_licensemanagerlinuxsubscriptions
+    from . import aws_licensemanagerusersubscriptions as aws_licensemanagerusersubscriptions
     from . import aws_lightsail as aws_lightsail
     from . import aws_location as aws_location
     from . import aws_logs as aws_logs
@@ -44613,6 +45088,7 @@ if typing.TYPE_CHECKING:
     from . import aws_pinpoint as aws_pinpoint
     from . import aws_pinpointemail as aws_pinpointemail
     from . import aws_pipes as aws_pipes
+    from . import aws_polly as aws_polly
     from . import aws_pricingplanmanager as aws_pricingplanmanager
     from . import aws_proton as aws_proton
     from . import aws_qbusiness as aws_qbusiness
@@ -44912,6 +45388,7 @@ _SUBMODULES = {
     "aws_lex",
     "aws_licensemanager",
     "aws_licensemanagerlinuxsubscriptions",
+    "aws_licensemanagerusersubscriptions",
     "aws_lightsail",
     "aws_location",
     "aws_logs",
@@ -44967,6 +45444,7 @@ _SUBMODULES = {
     "aws_pinpoint",
     "aws_pinpointemail",
     "aws_pipes",
+    "aws_polly",
     "aws_pricingplanmanager",
     "aws_proton",
     "aws_qbusiness",
@@ -45181,6 +45659,8 @@ def _typecheckingstub__ef2fee5e91b22ed9e2b91aa309be73835ddfb834f19eb3d41540c7e38
     *,
     analytics_reporting: typing.Optional[builtins.bool] = None,
     auto_synth: typing.Optional[builtins.bool] = None,
+    builtin_cloud_formation_validation: typing.Optional[builtins.bool] = None,
+    confirm_validation_plugins_do_not_mutate: typing.Optional[builtins.bool] = None,
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     default_stack_synthesizer: typing.Optional[IReusableStackSynthesizer] = None,
     outdir: typing.Optional[builtins.str] = None,

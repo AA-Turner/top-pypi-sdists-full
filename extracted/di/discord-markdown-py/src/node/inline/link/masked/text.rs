@@ -1,18 +1,19 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use nom::{Parser, character::complete::char, combinator::verify, sequence::delimited};
+use nom::{Parser, character::complete::char, combinator::verify};
 use tracing::Level;
 
 use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
+	lossless::TokenKind,
 	node::{
 		Elements, Ids,
 		inline::{self, link::is_suspicious_whitespace},
 	},
 	range,
-	span::{Span, TraceOk, TraceParse},
+	span::{Span, Syntax, TraceOk, TraceParse, WithToken},
 };
 
 use super::{Scope, has_no_link};
@@ -68,7 +69,7 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = Elements<'data, S>;
+	type Output = (Elements<'data, S>, S::Syntax);
 	type Error = E;
 
 	#[tracing::instrument(name = "segment_parser", level = Level::TRACE, fields(ok, output))]
@@ -76,8 +77,8 @@ where
 		&mut self,
 		input: Input<'data>,
 	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		delimited(
-			char('['),
+		(
+			char('[').token::<S>(TokenKind::LinkOpen),
 			verify(
 				inline::inline(self.context.clone().with_scope(Scope::MaskedLinkText)),
 				|nodes| {
@@ -85,18 +86,19 @@ where
 						&& segment_is_not_whitespace(nodes)
 				},
 			),
-			char(']'),
+			char(']').token::<S>(TokenKind::LinkClose),
 		)
-		.trace_parse()
-		.process::<OM>(input)
-		.trace_ok()
+			.map(|(open, text, close)| (text, open.join(close)))
+			.trace_parse()
+			.process::<OM>(input)
+			.trace_ok()
 	}
 }
 
 /// Parse the text segment of a masked link.
 pub fn segment<'ctx, 'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = Elements<'data, S>, Error = E>
+) -> impl Parser<Input<'data>, Output = (Elements<'data, S>, S::Syntax), Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -124,7 +126,7 @@ mod test {
 	#[test]
 	fn basic_text() {
 		let s = "[foo]";
-		let (rem, res) = segment::<(), _>(Context::default())
+		let (rem, (res, ())) = segment::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -137,7 +139,7 @@ mod test {
 	#[test]
 	fn skips_matching_brackets() {
 		let s = "[foo [bar]]";
-		let (rem, res) = segment::<(), _>(Context::default())
+		let (rem, (res, ())) = segment::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))

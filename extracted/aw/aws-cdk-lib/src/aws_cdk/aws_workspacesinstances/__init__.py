@@ -202,6 +202,7 @@ class CfnVolume(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -242,7 +243,7 @@ class CfnVolume(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e9f5f1fdafc059b4dc0f72801057c79e690b2878e7ac2fdf540ab305cb1db5b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZone", value)
 
     @builtins.property
     @jsii.member(jsii_name="encrypted")
@@ -260,7 +261,7 @@ class CfnVolume(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2545bcf2397b591eeb5bc2020672daea19e4969515b96c2982ba337dfe90a159)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encrypted", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encrypted", value)
 
     @builtins.property
     @jsii.member(jsii_name="iops")
@@ -273,7 +274,7 @@ class CfnVolume(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ed1876d81e0f42a3b54883c4648bf7cf155fa880a498cacc96a0945d5032084c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "iops", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "iops", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -286,7 +287,7 @@ class CfnVolume(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__395b2ede7d0057a6fa453fc8de076050bcc1806edcbaeecc76c37f56b5befabc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="sizeInGb")
@@ -299,7 +300,7 @@ class CfnVolume(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ac8bac9f32006bab210d99c61fa194ffe0daa28445242538135f5024937fed35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sizeInGb", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sizeInGb", value)
 
     @builtins.property
     @jsii.member(jsii_name="snapshotId")
@@ -312,7 +313,7 @@ class CfnVolume(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d59cb75f780fcc1524e9d8f2469747f8c6f2bbfc350d8662efddf91bcec54be4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snapshotId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagSpecifications")
@@ -330,7 +331,7 @@ class CfnVolume(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7afbacaf7f3ea12aff8077fba424159c4a78dabec81d0e15c2cf21552d0eca48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagSpecifications", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagSpecifications", value)
 
     @builtins.property
     @jsii.member(jsii_name="throughput")
@@ -343,7 +344,7 @@ class CfnVolume(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd4dae6ee80b4f1583ff940c92723ae5abc6127d8abd48ca72184266298e68d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "throughput", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "throughput", value)
 
     @builtins.property
     @jsii.member(jsii_name="volumeType")
@@ -356,7 +357,7 @@ class CfnVolume(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5ce69be7eab4b12a5677916d7b89ed00c676fbd7d9858d3c8fd894ed8a963d70)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "volumeType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "volumeType", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnVolume.TagSpecificationProperty",
@@ -529,6 +530,7 @@ class CfnVolumeAssociation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -562,7 +564,7 @@ class CfnVolumeAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a2c067e418598328cb19e2ca662460d196bbf4f0edd016a89d56ca6b09b96ae9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "device", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "device", value)
 
     @builtins.property
     @jsii.member(jsii_name="volumeId")
@@ -575,7 +577,7 @@ class CfnVolumeAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6c66f015cf8f3049bd728d95ffef2a32c21bd81393c29537303adaf4e86d6829)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "volumeId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "volumeId", value)
 
     @builtins.property
     @jsii.member(jsii_name="workspaceInstanceId")
@@ -588,7 +590,7 @@ class CfnVolumeAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb0e90de13632397d9f05ecf786f58d468973d0cf21a6f5c435c070b2c03b819)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "workspaceInstanceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "workspaceInstanceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="disassociateMode")
@@ -601,7 +603,7 @@ class CfnVolumeAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d1139240ee9e52471c21751caa541f36622002b63b2edb0a487ae73612ae098a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "disassociateMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "disassociateMode", value)
 
 
 @jsii.data_type(
@@ -1130,6 +1132,7 @@ class CfnWorkspaceInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1207,7 +1210,7 @@ class CfnWorkspaceInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f6fb81328f4cb605751ce72d14049d2c7dbe8255e2141c4d01d4204ed9b4adf0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedInstance", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "managedInstance", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1222,7 +1225,7 @@ class CfnWorkspaceInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__58b2c86c1c3f77e59470dc4f588d2e8033f028f5127ba91d829c8c6add4de38a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_workspacesinstances.CfnWorkspaceInstance.BlockDeviceMappingProperty",

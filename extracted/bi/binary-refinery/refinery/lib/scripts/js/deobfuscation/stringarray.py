@@ -12,24 +12,28 @@ from __future__ import annotations
 import base64
 import enum
 import functools
+import math
 
-from typing import NamedTuple, Sequence
+from typing import Callable, NamedTuple, Sequence
 
 from refinery.lib.scripts import (
     Node,
     _remove_from_parent,
     _replace_in_parent,
 )
+from refinery.lib.scripts.js.analysis.cache import model_cache
+from refinery.lib.scripts.js.analysis.model import SemanticModel
 from refinery.lib.scripts.js.deobfuscation.helpers import (
     BINARY_OPS,
     ScopeProcessingTransformer,
-    js_parse_int,
     make_string_literal,
+    nothing_still_names,
     property_key,
     remove_declarator,
     string_value,
 )
 from refinery.lib.scripts.js.model import (
+    FUNCTION_NODES,
     JsArrayExpression,
     JsAssignmentExpression,
     JsBinaryExpression,
@@ -46,6 +50,7 @@ from refinery.lib.scripts.js.model import (
     JsParenthesizedExpression,
     JsProperty,
     JsReturnStatement,
+    JsScript,
     JsSequenceExpression,
     JsStringLiteral,
     JsUnaryExpression,
@@ -53,7 +58,11 @@ from refinery.lib.scripts.js.model import (
     JsVariableDeclarator,
     JsWhileStatement,
     Statement,
+    is_generator_function,
+    strip_parens,
+    wraps_return,
 )
+from refinery.lib.scripts.js.numbers import exact_integer, js_parse_int
 
 
 class Encoding(enum.Enum):
@@ -63,27 +72,18 @@ class Encoding(enum.Enum):
 
 
 class ArrayFunction(NamedTuple):
-    """
-    Result of detecting the array-holder function pattern.
-    """
     node: JsFunctionDeclaration
     name: str
     strings: list[str]
 
 
 class AccessorFunction(NamedTuple):
-    """
-    Result of detecting the accessor function pattern.
-    """
     node: JsFunctionDeclaration
     name: str
     base_offset: int
 
 
 class RotationIIFE(NamedTuple):
-    """
-    Result of detecting the rotation IIFE pattern.
-    """
     node: Node
     target: int
     body: Sequence[Node]
@@ -91,14 +91,23 @@ class RotationIIFE(NamedTuple):
 
 
 class ChecksumInfo(NamedTuple):
-    """
-    Result of extracting the checksum expression from the rotation IIFE.
-    """
     node: Node
     local_accessors: frozenset[str]
     alias_map: dict[str, str]
     wrappers: dict[str, 'AccessorWrapperInfo']
     prop_maps: dict[str, dict[str, int | str]]
+
+
+def _answers_a_wrapper(node: Node | None) -> bool:
+    """
+    Whether *node* denotes a function a call to which answers a promise or a generator object.
+
+    A recognizer here reads the function it can see, but what the program calls is often the one a
+    self-replacing shape installs in its place. The replacement is read through this, so that the
+    keyword is asked of the function whose answer the pass goes on to substitute for.
+    """
+    node = strip_parens(node)
+    return isinstance(node, FUNCTION_NODES) and wraps_return(node)
 
 
 def _find_array_function(body: Sequence[Node]) -> ArrayFunction | None:
@@ -115,6 +124,8 @@ def _find_array_function(body: Sequence[Node]) -> ArrayFunction | None:
     """
     for statement in body:
         if not isinstance(statement, JsFunctionDeclaration):
+            continue
+        if wraps_return(statement):
             continue
         if statement.id is None or statement.body is None:
             continue
@@ -145,7 +156,7 @@ def _find_array_function(body: Sequence[Node]) -> ArrayFunction | None:
                 and isinstance(assign.left, JsIdentifier)
                 and assign.left.name == name
             ):
-                has_self_reassignment = True
+                has_self_reassignment = not _answers_a_wrapper(assign.right)
         if array_literal is not None and has_self_reassignment:
             return ArrayFunction(statement, name, array_literal)
     return None
@@ -156,7 +167,7 @@ def _find_all_accessor_functions(
     array_fn_name: str,
 ) -> list[AccessorFunction]:
     """
-    Detect all accessor functions for a given array. Obfuscator.io can produce multiple accessors
+    Detect all accessor functions for a given array. An obfuscator can produce multiple accessors
     sharing the same array (e.g. one base64 and one RC4). Two structural variants are recognized:
 
     Simple pattern::
@@ -183,6 +194,8 @@ def _find_all_accessor_functions(
     for stmt in body:
         if not isinstance(stmt, JsFunctionDeclaration):
             continue
+        if wraps_return(stmt):
+            continue
         if stmt.id is None or stmt.body is None:
             continue
         if len(stmt.params) != 2:
@@ -207,7 +220,7 @@ def _find_all_accessor_functions(
                     and assign.right.right is not None
                 ):
                     try:
-                        base_offset = int(_eval_arithmetic(assign.right.right))
+                        base_offset = _as_position(_eval_arithmetic(assign.right.right))
                     except _EvalError:
                         pass
             elif isinstance(s, JsVariableDeclaration):
@@ -244,6 +257,8 @@ def _extract_self_overwriting_offset(
             continue
         if not isinstance(assign.right, JsFunctionExpression):
             continue
+        if wraps_return(assign.right):
+            continue
         inner_fn = assign.right
         if inner_fn.body is None or len(inner_fn.params) < 2:
             continue
@@ -267,7 +282,7 @@ def _extract_self_overwriting_offset(
                 and inner_assign.right.right is not None
             ):
                 try:
-                    return int(_eval_arithmetic(inner_assign.right.right))
+                    return _as_position(_eval_arithmetic(inner_assign.right.right))
                 except _EvalError:
                     pass
     return None
@@ -284,6 +299,11 @@ def _find_rotation_iife(
           var arr = getArray();
           while (true) { try { ... parseInt ... push(shift) } catch { push(shift) } }
         })(ARRAY_FN, TARGET_NUMBER);
+
+    A generator is refused and an `async` function is not, which is where the two kinds a call wraps
+    the answer of part company: this IIFE is read for its effect on the array and never for what the
+    call answered, and calling a generator runs no body at all, where an `async` body with no
+    `await` in it runs to completion before the call returns.
 
     Returns (statement_node, target_checksum, iife_body_statements) or None. Also handles the case
     where the rotation call is an element of a comma-separated sequence expression.
@@ -307,6 +327,8 @@ def _find_rotation_iife(
                 fn = fn.expression
             if not isinstance(fn, JsFunctionExpression):
                 continue
+            if is_generator_function(fn):
+                continue
             if len(call.arguments) != 2:
                 continue
             first_arg = call.arguments[0]
@@ -314,7 +336,7 @@ def _find_rotation_iife(
             if not (isinstance(first_arg, JsIdentifier) and first_arg.name == array_fn_name):
                 continue
             try:
-                target = int(_eval_arithmetic(second_arg))
+                target = _as_position(_eval_arithmetic(second_arg))
             except _EvalError:
                 continue
             fn_body = fn.body
@@ -331,6 +353,50 @@ def _find_rotation_iife(
 
 class _EvalError(Exception):
     pass
+
+
+def _array_order_is_literal(
+    model: SemanticModel,
+    array: ArrayFunction,
+    accessors: Sequence[AccessorFunction],
+) -> bool:
+    """
+    Whether the strings are in the order the array literal spells them. The model names every way
+    the program reaches the array function — a reference, a write through an alias, a `with`-body
+    name, an export, a global handed to a call — and the literal order is the order the accessors
+    read only when each of those ways belongs to the array function itself or to an accessor. A
+    rotation has to reach the array function before it can reorder the array, so a reference
+    anywhere else is a hand this resolver cannot see the moves of.
+    """
+    binding = model.binding_of(array.node.id)
+    if binding is None:
+        return False
+    if binding.exported or binding.reachable_through_a_handed_object:
+        return False
+    inside = {
+        id(node)
+        for root in (array.node, *(accessor.node for accessor in accessors))
+        for node in root.walk()
+    }
+    references = [
+        *model.references(binding),
+        *model.dynamic_references(binding),
+        *binding.indefinite_writes,
+    ]
+    return all(id(reference) in inside for reference in references)
+
+
+def _as_position(value: float) -> int:
+    """
+    Read an evaluated Number as the whole number a pattern can use — an index, an offset, a rotation
+    target, a checksum — truncated toward zero. `NaN` and the infinities name no position, and `int`
+    raises on them rather than answering, so they are refused the way every other unusable
+    expression in this module is refused: an uncaught `OverflowError` would abort the whole run
+    instead.
+    """
+    if not math.isfinite(value):
+        raise _EvalError
+    return int(value)
 
 
 class AccessorWrapperInfo(NamedTuple):
@@ -360,7 +426,7 @@ def _resolve_member_access(
     prop = node.property
     if isinstance(prop, JsIdentifier):
         key = prop.name
-    elif isinstance(prop, JsStringLiteral):
+    elif isinstance(prop, JsStringLiteral) and prop.value is not None:
         key = prop.value
     else:
         return None
@@ -376,7 +442,7 @@ def _resolve_constant(
     property maps, unary negation, and parenthesized expressions. Returns None on failure.
     """
     if isinstance(node, JsNumericLiteral):
-        return int(node.value)
+        return exact_integer(node.value)
     if isinstance(node, JsParenthesizedExpression) and node.expression:
         return _resolve_constant(node.expression, prop_maps)
     if isinstance(node, JsMemberExpression):
@@ -386,7 +452,7 @@ def _resolve_constant(
         inner = _resolve_constant(node.operand, prop_maps)
         return -inner if inner is not None else None
     try:
-        return int(_eval_arithmetic(node))
+        return _as_position(_eval_arithmetic(node))
     except _EvalError:
         return None
 
@@ -443,7 +509,7 @@ def _parse_object_props(
                 props[key] = sv
                 continue
         try:
-            props[key] = int(_eval_arithmetic(prop.value))
+            props[key] = _as_position(_eval_arithmetic(prop.value))
         except _EvalError:
             pass
     return props
@@ -500,6 +566,8 @@ def _match_wrapper(
     Check whether a function declaration is a wrapper that forwards to *accessor_name* with
     reordered arguments and a constant offset. Returns a `AccessorWrapperInfo` on match, else None.
     """
+    if wraps_return(fn):
+        return None
     if fn.id is None or fn.body is None:
         return None
     if len(fn.body.body) < 1 or len(fn.params) < 2:
@@ -769,12 +837,15 @@ def _eval_checksum(
             return fn(lhs, rhs)
     if isinstance(node, JsCallExpression) and isinstance(node.callee, JsIdentifier):
         if node.callee.name == 'parseInt' and len(node.arguments) >= 1:
+            radix = _checksum_radix(node.arguments[1:], recurse)
             inner = node.arguments[0]
             if isinstance(inner, JsStringLiteral):
-                result = js_parse_int(inner.value)
+                if inner.value is None:
+                    raise _EvalError
+                result = js_parse_int(inner.value, radix)
                 if result is None:
                     raise _EvalError
-                return float(result)
+                return result
             if isinstance(inner, JsCallExpression) and isinstance(inner.callee, JsIdentifier):
                 idx, key = _resolve_accessor_call(
                     inner, local_accessors, wrappers, prop_maps,
@@ -783,11 +854,30 @@ def _eval_checksum(
                     raw = strings[i]
                     encoding = encoding_map.get(inner.callee.name, Encoding.NONE)
                     decoded = _decode_string(raw, encoding, key)
-                    if (result := js_parse_int(decoded)) is None:
+                    if (result := js_parse_int(decoded, radix)) is None:
                         raise _EvalError
-                    return float(result)
+                    return result
             raise _EvalError
     raise _EvalError
+
+
+def _checksum_radix(
+    rest: Sequence[Node],
+    recurse: Callable[[Node], float],
+) -> int:
+    """
+    The radix a `parseInt` call in a checksum expression names, or `0` for the language's "not
+    supplied". Reading it is what keeps the simulated checksum equal to the one the engine computes:
+    an unsupplied radix takes a `0x` prefix as base 16, so ignoring a written `10` would read
+    `'0x1F'` as `31` where the engine reads `0`. A radix that does not evaluate to an integer is not
+    a checksum this module can simulate.
+    """
+    if not rest:
+        return 0
+    radix = exact_integer(recurse(rest[0]))
+    if radix is None:
+        raise _EvalError
+    return radix
 
 
 def _resolve_accessor_call(
@@ -863,7 +953,7 @@ def _simulate_rotation(
     n = len(array)
     for _ in range(n):
         try:
-            if int(_eval_checksum(
+            if _as_position(_eval_checksum(
                 checksum_node, local_accessors, array, base_offset, encoding_map, wrappers, prop_maps,
             )) == target:
                 return array
@@ -876,7 +966,7 @@ def _simulate_rotation(
 def _collect_accessor_aliases(body: Sequence[Node], accessor_name: str) -> set[str]:
     """
     Collect all variable names that are transitively assigned the accessor function identifier,
-    walking the entire AST. Obfuscator.io creates multi-level alias chains:
+    walking the entire AST. An obfuscator creates multi-level alias chains:
 
         const a0x = a0d;
         const z = a0x, A = a0x;
@@ -1034,71 +1124,56 @@ def _replace_accessor_calls(
     return count
 
 
-def _find_remaining_calls(
-    root: Node,
-    aliases: set[str],
-    wrapper_names: set[str],
-    wrappers: dict[str, AccessorWrapperInfo] | None = None,
-    prop_maps: dict[str, dict[str, int | str]] | None = None,
-) -> tuple[bool, set[int]]:
-    """
-    Determine whether unresolved accessor or wrapper calls remain in the AST, excluding calls that
-    are inside dead wrapper function bodies (which will be removed) and calls that cannot possibly
-    be accessor calls (wrong argument structure). Returns a `(bool, set)` pair: whether any
-    outstanding calls exist, and the set of dead-node ids for reuse during cleanup.
-    """
-    dead_nodes: set[int] = set()
-    local_accessors = frozenset(aliases)
-    for n in root.walk():
-        if isinstance(n, JsFunctionDeclaration) and n.id is not None and n.id.name in wrapper_names:
-            dead_nodes.add(id(n))
-        elif (
-            isinstance(n, JsCallExpression)
-            and isinstance(n.callee, JsIdentifier)
-            and (n.callee.name in aliases or n.callee.name in wrapper_names)
-        ):
-            try:
-                _resolve_accessor_call(n, local_accessors, wrappers, prop_maps)
-            except _EvalError:
-                continue
-            p = n.parent
-            while p is not None:
-                if id(p) in dead_nodes:
-                    break
-                p = p.parent
-            else:
-                return True, dead_nodes
-    return False, dead_nodes
-
-
-def _cleanup_infrastructure(
+def _infrastructure_nodes(
     root: Node,
     array: ArrayFunction,
     accessors: list[AccessorFunction],
     rotation: RotationIIFE | None,
-    dead_nodes: set[int],
+    wrapper_names: set[str],
     aliases: set[str],
-) -> None:
+) -> list[Node]:
     """
-    Remove the string-array infrastructure (array function, accessor functions, rotation IIFE, dead
-    wrapper declarations, and accessor alias declarators) once all calls have been resolved.
+    Every node the string-array infrastructure occupies: the array function, the accessor functions,
+    the rotation IIFE that puts the strings in order, the wrapper declarations that forward to an
+    accessor, and the declarators that alias one. They are collected before anything is removed, so
+    that the names they declare can be asked about together — a reference from one of them into
+    another goes with the removal, and only a reference from outside all of them keeps the
+    infrastructure alive.
     """
-    _remove_from_parent(array.node)
-    for accessor in accessors:
-        _remove_from_parent(accessor.node)
+    nodes: list[Node] = [array.node]
+    nodes.extend(accessor.node for accessor in accessors)
     if rotation is not None:
-        _remove_from_parent(rotation.node)
-    for n in list(root.walk()):
-        if id(n) in dead_nodes:
-            _remove_from_parent(n)
-        elif (
-            isinstance(n, JsVariableDeclarator)
-            and isinstance(n.id, JsIdentifier)
-            and n.id.name in aliases
-            and isinstance(n.init, JsIdentifier)
-            and n.init.name in aliases
+        nodes.append(rotation.node)
+    for node in root.walk():
+        if (
+            isinstance(node, JsFunctionDeclaration)
+            and node.id is not None
+            and node.id.name in wrapper_names
         ):
-            remove_declarator(n)
+            nodes.append(node)
+        elif (
+            isinstance(node, JsVariableDeclarator)
+            and isinstance(node.id, JsIdentifier)
+            and node.id.name in aliases
+            and isinstance(node.init, JsIdentifier)
+            and node.init.name in aliases
+        ):
+            nodes.append(node)
+    return nodes
+
+
+def _remove_infrastructure(nodes: Sequence[Node]) -> None:
+    """
+    Delete the nodes `_infrastructure_nodes` collected, each the way its kind is deleted: a
+    declarator through `refinery.lib.scripts.js.deobfuscation.helpers.remove_declarator`, so that the
+    declaration holding it goes too once it holds nothing else, and every other node out of the
+    statement list it sits in.
+    """
+    for node in nodes:
+        if isinstance(node, JsVariableDeclarator):
+            remove_declarator(node)
+        else:
+            _remove_from_parent(node)
 
 
 class _CachedResolution(NamedTuple):
@@ -1117,6 +1192,67 @@ _CACHE_ATTR = '_stringarray_cache'
 
 class JsStringArrayResolver(ScopeProcessingTransformer):
 
+    def __init__(self):
+        super().__init__()
+        self._root: JsScript | None = None
+
+    def visit_JsScript(self, node: JsScript):
+        self._root = node
+        return super().visit_JsScript(node)
+
+    def _strings_in_read_order(
+        self,
+        scope: Node,
+        array: ArrayFunction,
+        accessors: Sequence[AccessorFunction],
+        encoding_map: dict[str, Encoding],
+        rotation: RotationIIFE | None,
+    ) -> list[str] | None:
+        """
+        The string table in the order the accessors read it, or `None` when that order cannot be
+        established. A rotation reorders the table until a checksum matches, so a found one is
+        simulated and its result cached on the scope — a later pass may simplify the checksum
+        expression into something this resolver can no longer read. Where no rotation is found,
+        the literal already spells the order the accessors read, unless the model can name a hand
+        that reaches the array besides them.
+        """
+        primary = accessors[0]
+        if rotation is None:
+            assert self._root is not None
+            if not _array_order_is_literal(model_cache(self, self._root).model, array, accessors):
+                return None
+            return array.strings
+        cache: _CachedResolution | None = getattr(scope, _CACHE_ATTR, None)
+        if (
+            cache is not None
+            and cache.base_offset == primary.base_offset
+            and cache.encoding_map == encoding_map
+        ):
+            return cache.resolved
+        checksum = _extract_checksum_expression(
+            rotation.body, set(encoding_map), rotation.target_param,
+        )
+        if checksum is None:
+            return None
+        checksum_encoding_map = {
+            name: encoding_map.get(checksum.alias_map.get(name, name), Encoding.NONE)
+            for name in checksum.local_accessors
+        }
+        resolved = _simulate_rotation(
+            array.strings,
+            primary.base_offset,
+            checksum.node,
+            checksum.local_accessors,
+            rotation.target,
+            checksum_encoding_map,
+            checksum.wrappers,
+            checksum.prop_maps,
+        )
+        if resolved is None:
+            return None
+        setattr(scope, _CACHE_ATTR, _CachedResolution(resolved, primary.base_offset, encoding_map))
+        return resolved
+
     def _process_scope_body(self, scope: Node, body: list[Statement]) -> None:
         array = _find_array_function(body)
         if array is None:
@@ -1130,38 +1266,9 @@ class JsStringArrayResolver(ScopeProcessingTransformer):
             encoding_map[acc.name] = _detect_encoding(acc.node)
         accessor_names = set(encoding_map)
         rotation = _find_rotation_iife(body, array.name)
-        if rotation is None:
+        resolved = self._strings_in_read_order(scope, array, accessors, encoding_map, rotation)
+        if resolved is None:
             return
-        cache: _CachedResolution | None = getattr(scope, _CACHE_ATTR, None)
-        if (
-            cache is not None
-            and cache.base_offset == primary.base_offset
-            and cache.encoding_map == encoding_map
-        ):
-            resolved = cache.resolved
-        else:
-            checksum = _extract_checksum_expression(
-                rotation.body, accessor_names, rotation.target_param,
-            )
-            if checksum is None:
-                return
-            checksum_encoding_map = {
-                name: encoding_map.get(checksum.alias_map.get(name, name), Encoding.NONE)
-                for name in checksum.local_accessors
-            }
-            resolved = _simulate_rotation(
-                array.strings,
-                primary.base_offset,
-                checksum.node,
-                checksum.local_accessors,
-                rotation.target,
-                checksum_encoding_map,
-                checksum.wrappers,
-                checksum.prop_maps,
-            )
-            if resolved is None:
-                return
-            setattr(scope, _CACHE_ATTR, _CachedResolution(resolved, primary.base_offset, encoding_map))
         aliases: set[str] = set()
         for acc in accessors:
             aliases.add(acc.name)
@@ -1177,12 +1284,12 @@ class JsStringArrayResolver(ScopeProcessingTransformer):
         replaced = _replace_accessor_calls(
             scope, aliases, raw_lookup, encoding_map, all_wrappers, all_prop_maps,
         )
-        wrapper_names = set(all_wrappers)
-        has_remaining, dead_nodes = _find_remaining_calls(
-            scope, aliases, wrapper_names, all_wrappers, all_prop_maps,
+        assert self._root is not None
+        infrastructure = _infrastructure_nodes(
+            scope, array, accessors, rotation, set(all_wrappers), aliases,
         )
-        if not has_remaining:
-            _cleanup_infrastructure(scope, array, accessors, rotation, dead_nodes, aliases)
+        if nothing_still_names(model_cache(self, self._root).model, infrastructure):
+            _remove_infrastructure(infrastructure)
             self.mark_changed()
         elif replaced > 0:
             self.mark_changed()

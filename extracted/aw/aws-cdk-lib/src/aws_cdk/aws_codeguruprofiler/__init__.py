@@ -251,6 +251,7 @@ class CfnProfilingGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -299,7 +300,7 @@ class CfnProfilingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__17d718bda323291cfa3fcddd8a1a5bb1086c9c8fc294cbc26895b278f35c89d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentPermissions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "agentPermissions", value)
 
     @builtins.property
     @jsii.member(jsii_name="profilingGroupName")
@@ -312,7 +313,7 @@ class CfnProfilingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c5573a5208adffdf4734f691eb4ff7539202b1db0e5b1ca78bff1b5df9d85c73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "profilingGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "profilingGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="anomalyDetectionNotificationConfiguration")
@@ -330,7 +331,7 @@ class CfnProfilingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__316c247cfa3a39c676bf4ce8b50310a7688cf6084a673ebde8f3462cb4464ee6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "anomalyDetectionNotificationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "anomalyDetectionNotificationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="computePlatform")
@@ -343,7 +344,7 @@ class CfnProfilingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb128be2e7cd15970dee2ea394d635c967fffc05335b5468f285d71eb7972df8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computePlatform", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "computePlatform", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -359,7 +360,7 @@ class CfnProfilingGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cda9ac694cf4a0730ba8c58dcc623c74646a296072486d91f42a1051fefcfef7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_codeguruprofiler.CfnProfilingGroup.AgentPermissionsProperty",
@@ -919,6 +920,7 @@ class ProfilingGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

@@ -3,9 +3,8 @@
 The lane is run in-process with fake clocks and a stand-in for `/v1/hints`
 (a transport that records each request and answers from a script), against
 real files: Claude Code transcripts the daemon's adapter parses, the reads
-mailbox the hint is posted to, the plugin's reads hook that hands it over,
-and a daemon worker's store for the ML gate's facts. One test runs the lane's
-own threads end to end.
+mailbox the hint is posted to and the plugin's reads hook that hands it over.
+One test runs the lane's own threads end to end.
 """
 
 from __future__ import annotations
@@ -15,7 +14,6 @@ import dataclasses
 import json
 import os
 import re
-import sqlite3
 import subprocess
 import sys
 import threading
@@ -39,6 +37,7 @@ AGENT_ROOT = Path(__file__).resolve().parents[1]
 READS_HOOK = AGENT_ROOT / "plugins" / "probe-research" / "hooks" / "reads_hook.py"
 SID = "11111111-2222-3333-4444-555555555555"
 OTHER = "99999999-8888-7777-6666-555555555555"
+THIRD = "77777777-8888-7777-6666-555555555555"
 PEER = "abcdefab-0000-1111-2222-333333333333"
 OLD_PEER = "fedcba98-0000-1111-2222-333333333333"
 SOCKET = "/run/user/1000/cc-socks/1068870.sock"
@@ -169,8 +168,10 @@ def test_a_researcher_prompt_asks_with_trigger_prompt(tmp_path, state):
     assert lane.run_due() == 1
     assert api.bodies == [{
         "text": "benchmark NVIDIA RFD4-Proteina on our set", "trigger": "prompt", "session_id": SID,
-        "exclude_session_ids": [], "exclude_doc_ids": [], "ml": None,
+        "exclude_session_ids": [], "exclude_doc_ids": [],
         "client": {"harness": "claude_code", "mode": "inline", "cli": VERSION},
+        "delivery": {"state": "unproven", "deliverer": None, "posted": 0, "claimed": 0, "shown": 0, "missed": 0,
+                     "withdrawn": 0, "unshown_since_shown": 0, "last_shown_age_s": None, "heartbeat_age_s": None},
     }]
     assert api.keys == ["pk_read"]
     line = [m for m in logs if m.startswith(f"hints: session {SID} prompt")]
@@ -529,6 +530,13 @@ def _live(session: hints.Followed) -> Path:
         return mailbox.hints_live_path(session.sid)
 
 
+def _deliverer(session: hints.Followed, by: str = "PostToolUse") -> None:
+    """A current deliverer ran for the session (its heartbeat, as the reads hook
+    and pi's poller write it): the lane may then touch its hint markers."""
+    with mailbox.rooted(session.state):
+        mailbox.touch_alive(session.sid, by=by)
+
+
 def test_a_served_sessions_hint_marker_is_touched_at_most_every_beat(tmp_path, state):
     """The session's daemon skips its reader's turn at a prompt only while this
     marker is fresh (`model.hints_live`): touched while the lane can hint the
@@ -537,6 +545,7 @@ def test_a_served_sessions_hint_marker_is_touched_at_most_every_beat(tmp_path, s
     clock = Clock()
     sessions = [session]
     lane, _ = _lane(tmp_path, sessions, Api(), clock)
+    _deliverer(session)
     _seen(lane, session)
     path = _live(session)
     assert path.is_file()
@@ -579,6 +588,7 @@ def test_a_busy_server_still_counts_as_hinting(tmp_path, state):
     marker stays fresh and the reader does not take prompt turns meanwhile."""
     session = _session(tmp_path, state)
     lane, _ = _lane(tmp_path, [session], Api(default=(429, {"detail": "slow down"})), Clock())
+    _deliverer(session)
     lane.trigger(session, "prompt", "one")
     lane.run_due()
     lane.read_once()
@@ -920,6 +930,22 @@ def test_a_turn_that_ends_withdraws_its_hint_still_waiting(tmp_path, state):
     assert _waiting(session) == [] and lane.stats["withdrawn"] == 1
 
 
+def test_only_a_prompt_that_starts_a_turn_frees_its_hint_slot(tmp_path, state):
+    """Review of #3467: a message typed into a running turn (pi's steer or
+    follow-up, a queued prompt) reaches no deliverer's turn start, so its
+    turn's one hint slot stays taken; counting it as a turn made a hint that
+    waited behind the slot a miss."""
+    session = _session(tmp_path, state)
+    lane, _ = _lane(tmp_path, [session], Api(default=(200, _on())))
+    _seen(lane, session)
+    _append(session, _user("first prompt", session.cwd), _user("a steer mid-turn", session.cwd))
+    lane.read_once()
+    assert len(lane._state(session.sid).prompts) == 1
+    _append(session, _turn_end(session.cwd), _user("the next turn", session.cwd))
+    lane.read_once()
+    assert len(lane._state(session.sid).prompts) == 2
+
+
 def test_a_turn_that_ends_makes_its_lookups_stale(tmp_path, state):
     """A lookup in flight when the turn ends is never posted, and one still
     waiting out the session's gap is never sent."""
@@ -992,60 +1018,6 @@ def test_a_hint_looked_up_before_a_newer_prompt_is_never_posted(tmp_path, state)
     lane.trigger(session, "prompt", "a newer prompt")  # arrives while the lookup is in flight
     lane.lookup(job)
     assert _waiting(session) == [] and lane.stats["stale"] == 1
-
-
-# ---------------------------------------------------------------------------
-# The ML state (R1).
-# ---------------------------------------------------------------------------
-
-
-def _store(state: Path, sid: str, facts: dict) -> Path:
-    path = state / "daemon" / f"{sid}.sqlite"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(path)
-    db.execute("PRAGMA journal_mode=WAL")
-    db.execute("CREATE TABLE IF NOT EXISTS facts (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-    for key, value in facts.items():
-        db.execute("INSERT OR REPLACE INTO facts (key, value) VALUES (?, ?)", (key, json.dumps(value)))
-    db.commit()
-    db.close()
-    return path
-
-
-def test_the_ml_state_is_read_from_the_daemon_workers_store(tmp_path, state):
-    assert hints.ml_state(str(state), SID) is None, "no store"
-    _store(state, SID, {"gate_seq": 4})
-    assert hints.ml_state(str(state), SID) is None, "the gate never answered"
-    _store(state, SID, {"gate_answers": [0.1, 0.83, None]})
-    assert hints.ml_state(str(state), SID) == {"signal": False, "p_ml": 0.83}
-    _store(state, SID, {"gate_signal": "ran `probe exec`"})
-    assert hints.ml_state(str(state), SID) == {"signal": True, "p_ml": 0.83}
-    (state / "daemon" / f"{OTHER}.sqlite").write_text("not a database")
-    assert hints.ml_state(str(state), OTHER) is None
-
-
-def test_a_daemon_session_sends_its_ml_state_and_an_inline_one_sends_null(tmp_path, state):
-    _store(state, SID, {"gate_answers": [0.9]})
-    _store(state, OTHER, {"gate_answers": [0.9]})
-    daemon, inline = _session(tmp_path, state, mode=Mode.DAEMON), _session(tmp_path, state, sid=OTHER)
-    api = Api()
-    lane, _ = _lane(tmp_path, [daemon, inline], api)
-    lane.trigger(daemon, "prompt", "one")
-    lane.trigger(inline, "prompt", "two")
-    lane.run_due()
-    assert {b["session_id"]: (b["ml"], b["client"]["mode"]) for b in api.bodies} == {
-        SID: ({"signal": False, "p_ml": 0.9}, "daemon"), OTHER: (None, "inline")}
-
-
-def test_a_store_locked_by_its_worker_still_reads_or_reads_as_unknown(tmp_path, state):
-    path = _store(state, SID, {"gate_answers": [0.7]})
-    holder = sqlite3.connect(path, isolation_level=None)
-    holder.execute("BEGIN EXCLUSIVE")
-    try:
-        assert hints.ml_state(str(state), SID) in (None, {"signal": False, "p_ml": 0.7})
-    finally:
-        holder.execute("ROLLBACK")
-        holder.close()
 
 
 # ---------------------------------------------------------------------------
@@ -1528,6 +1500,7 @@ def test_the_window_marker_is_touched_only_while_window_lookups_work(tmp_path, s
     api = Api(default=(200, WINDOW_SHADOW))
     clock = Clock()
     lane, _ = _lane(tmp_path, [session], api, clock)
+    _deliverer(session)
     _seen(lane, session)
     api.script = [TimeoutError("no answer") if a is None else a for a in answers]
     for _answer in answers:
@@ -1545,6 +1518,7 @@ def test_a_transcript_not_read_lately_stops_the_window_marker(tmp_path, state):
     session = _session(tmp_path, state)
     clock = Clock()
     lane, _ = _lane(tmp_path, [session], Api(default=(200, WINDOW_SHADOW)), clock)
+    _deliverer(session)
     _seen(lane, session)
     _look(lane, session, clock)
     clock.now += hints.HINTS_LIVE_BEAT_S
@@ -1841,6 +1815,8 @@ def test_a_harness_that_shows_hints_only_at_a_prompt_gets_no_window(tmp_path, st
     api = Api(default=(200, WINDOW_SHADOW))
     clock = Clock()
     lane, _ = _lane(tmp_path, [session, other], api, clock)
+    _deliverer(session)
+    _deliverer(other)
     _seen(lane, other)
     _look(lane, other, clock)  # the key's window lookups work
     _seen(lane, session)
@@ -2270,3 +2246,184 @@ def test_an_unfinished_last_line_is_not_read_again_until_the_file_grows(tmp_path
     _append(session, _user("benchmark RFD4-Proteina", session.cwd))
     lane.read_once()
     assert len(reads) == 2
+
+
+# ---------------------------------------------------------------------------
+# Delivery: do the hints posted to a session reach its agent (plan hints-relevance T1-T2).
+# ---------------------------------------------------------------------------
+
+NOW = 100_000.0
+
+
+def _facts(posted=(), claims=(), shown=(), withdrawn=(), waiting=(), alive=None) -> dict:
+    """`claims` as (id, at, by) from a deliverer that writes `shown` lines, or
+    (id, at, by, False) from one before them (its claim line has no `shows`)."""
+    return {"posted": dict(posted), "claims": {c[0]: (c[1], c[2], c[3] if len(c) > 3 else True) for c in claims},
+            "shown": {mid: (at, by, False) for mid, at, by in shown}, "withdrawn": dict(withdrawn),
+            "waiting": set(waiting), "alive": alive}
+
+
+def _receipt(facts: dict, calls=(), prompts=(), mid_turn: bool = True, now: float = NOW) -> dict:
+    return hints.delivery_receipt(facts, tool_calls=list(calls), prompts=list(prompts), mid_turn=mid_turn, now=now)
+
+
+def test_an_idle_agent_never_makes_its_session_undeliverable():
+    """Two hints waiting, the agent making no tool call: no chance was missed."""
+    got = _receipt(_facts(posted=[("h1", NOW - 900), ("h2", NOW - 800)], waiting=["h2"]))
+    assert (got["state"], got["missed"], got["unshown_since_shown"]) == (hints.DeliveryState.UNPROVEN, 0, 2)
+
+
+def test_hints_that_wait_through_tool_calls_unshown_make_the_session_undeliverable():
+    """Each hint waited through two tool calls with the turn's hint slot free and
+    was never shown: two misses since the last shown one."""
+    facts = _facts(posted=[("h1", NOW - 900), ("h2", NOW - 800)], waiting=["h2"])
+    calls = [NOW - 895, NOW - 890, NOW - 795, NOW - 790]
+    got = _receipt(facts, calls)
+    assert (got["state"], got["missed"]) == (hints.DeliveryState.UNDELIVERABLE, 2)
+    assert _receipt(facts, calls, mid_turn=False)["state"] == hints.DeliveryState.UNPROVEN, \
+        "a harness that shows hints only at a prompt (Kimi) has no mid-turn chance to miss"
+    assert _receipt(facts, [NOW - 899.5, NOW - 899, NOW - 799.5, NOW - 799])["missed"] == 0, \
+        "a tool call within MISSED_AFTER_S of the post gives no deliverer time"
+
+
+def test_a_tool_call_in_a_turn_whose_hint_slot_is_spent_is_no_chance():
+    """One hint a turn: after this turn's hint was shown, the next one waits for
+    the next prompt however many tool calls come."""
+    facts = _facts(posted=[("h0", NOW - 1000), ("h1", NOW - 900), ("h2", NOW - 850)],
+                   shown=[("h0", NOW - 950, "PostToolUse")], waiting=["h2"])
+    got = _receipt(facts, calls=[NOW - 895, NOW - 890, NOW - 845, NOW - 840], prompts=[NOW - 1100])
+    assert (got["missed"], got["state"]) == (0, hints.DeliveryState.OK)
+    got = _receipt(facts, calls=[NOW - 895, NOW - 890, NOW - 845, NOW - 840], prompts=[NOW - 1100, NOW - 899])
+    assert got["missed"] == 2, "a new turn frees the slot again"
+
+
+def test_a_hint_shown_since_ends_the_run_of_misses():
+    facts = _facts(posted=[("h1", NOW - 900), ("h2", NOW - 800), ("h3", NOW - 100)],
+                   shown=[("h3", NOW - 90, "pi poller")])
+    got = _receipt(facts, calls=[NOW - 895, NOW - 890, NOW - 795, NOW - 790])
+    assert (got["missed"], got["unshown_since_shown"], got["state"]) == (2, 0, hints.DeliveryState.OK)
+    assert (got["shown"], got["last_shown_age_s"], got["deliverer"]) == (1, 90.0, hints.Deliverer.PI)
+
+
+def test_a_withdrawn_hint_counts_as_missed_only_after_a_chance():
+    """The turn's end or a newer prompt takes a waiting hint back: a miss when the
+    agent made tool calls while it waited, neutral when it had no chance."""
+    facts = _facts(posted=[("h1", NOW - 900), ("h2", NOW - 300)],
+                   withdrawn=[("h1", NOW - 850), ("h2", NOW - 299)])
+    got = _receipt(facts, calls=[NOW - 895, NOW - 890])
+    assert (got["missed"], got["withdrawn"]) == (1, 1)
+
+
+def test_a_claimed_hint_never_handed_over_is_missed():
+    """pi claims a message before it sends it: from a deliverer that writes
+    `shown` lines, a claim with none SHOWN_AFTER_CLAIM_S on never reached the agent."""
+    alive = {"by": "pi poller", "at": NOW - 10}
+    late = _facts(posted=[("h1", NOW - 900)], claims=[("h1", NOW - 899, "pi poller")], alive=alive)
+    assert (_receipt(late)["missed"], _receipt(late)["claimed"], _receipt(late)["shown"]) == (1, 1, 0)
+    fresh = _facts(posted=[("h1", NOW - 30)], claims=[("h1", NOW - 29, "pi poller")], alive=alive)
+    assert _receipt(fresh)["missed"] == 0, "its shown line may still be on its way"
+
+
+def test_a_deliverer_from_before_shown_lines_is_judged_by_its_claims():
+    """No `shown` line and no heartbeat for the session: an older hook or pi
+    extension. Its claims are the proof (Strand's 01a146a5 kept getting hints so)."""
+    got = _receipt(_facts(posted=[("h1", NOW - 600)], claims=[("h1", NOW - 590, "pi poller", False)]))
+    assert (got["state"], got["claimed"], got["shown"], got["deliverer"]) == (hints.DeliveryState.OK, 1, 0, "pi")
+    stale = _receipt(_facts(posted=[("h1", NOW - 9000)], claims=[("h1", NOW - 8990, "UserPromptSubmit", False)]))
+    assert stale["state"] == hints.DeliveryState.UNPROVEN, "nothing shown lately and no heartbeat"
+
+
+def test_an_upgrade_or_a_rollback_judges_each_claim_by_the_deliverer_that_made_it():
+    """Review of #3467: the new hook's first heartbeat once made every claim of
+    the week by the old one (no `shown` line, ever) a miss, and a healthy
+    session undeliverable. A claim line without `shows` is its own proof."""
+    alive = {"by": "PostToolUse", "at": NOW - 5}
+    old = [(f"h{i}", NOW - 3000 + i) for i in range(3)]
+    upgraded = _facts(posted=old, claims=[(mid, at + 1, "PostToolUse", False) for mid, at in old], alive=alive)
+    got = _receipt(upgraded)
+    assert (got["state"], got["missed"]) == (hints.DeliveryState.OK, 0)
+    # A new deliverer's claim with no shown line after it still misses.
+    mixed = _facts(posted=[*old, ("h9", NOW - 200)],
+                   claims=[*((mid, at + 1, "PostToolUse", False) for mid, at in old), ("h9", NOW - 199, "PostToolUse")],
+                   alive=alive)
+    assert _receipt(mixed)["missed"] == 1
+
+
+@pytest.mark.parametrize("by, age, state", [
+    ("pi poller", 100, hints.DeliveryState.OK),
+    ("pi poller", 700, hints.DeliveryState.UNPROVEN),  # pi's poller beats every 30 s while it runs
+    ("UserPromptSubmit", 7200, hints.DeliveryState.OK),  # a hook beats only when it runs Python
+    ("UserPromptSubmit", 13 * 3600, hints.DeliveryState.UNPROVEN),
+])
+def test_a_deliverer_heartbeat_proves_one_is_there_for_as_long_as_it_beats(by, age, state):
+    got = _receipt(_facts(alive={"by": by, "at": NOW - age}))
+    assert (got["state"], got["heartbeat_age_s"]) == (state, float(age))
+
+
+def test_no_hint_marker_until_a_deliverer_is_seen(tmp_path, state):
+    """The reader yields its prompt turns only where a hint reaches the agent: no
+    marker for a session no deliverer has run for, one once its heartbeat is there."""
+    session = _session(tmp_path, state)
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], Api(), clock)
+    _seen(lane, session)
+    assert not _live(session).exists()
+    _deliverer(session)
+    clock.now += hints.HINTS_LIVE_BEAT_S
+    lane.read_once()
+    assert _live(session).is_file()
+
+
+def test_an_undeliverable_session_is_asked_about_only_at_a_prompt_now_and_then(tmp_path, state):
+    session = _session(tmp_path, state)
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], Api(), clock)
+    state_ = lane._state(SID)
+    state_.delivery, state_.delivery_at = {"state": hints.DeliveryState.UNDELIVERABLE}, clock.now
+    assert lane.trigger(session, "search", "RFD4-Proteina benchmark") is False
+    assert lane.stats["undeliverable_skipped"] == 1
+    assert lane.trigger(session, "prompt", "benchmark RFD4-Proteina") is True, "the probe"
+    assert lane.trigger(session, "prompt", "and again") is False
+    clock.now += hints.UNDELIVERABLE_PROBE_S
+    assert lane.trigger(session, "prompt", "much later") is True
+
+
+def test_every_request_carries_what_became_of_the_sessions_hints(tmp_path, state):
+    """Receipts (T1): the second lookup's request says the first one's hint was
+    posted and not yet shown; a newer prompt takes it back, and the ledger says so."""
+    session = _session(tmp_path, state)
+    api = Api(default=(200, _on()))
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    lane.trigger(session, "prompt", "benchmark RFD4-Proteina")
+    lane.run_due()
+    assert api.bodies[0]["delivery"]["posted"] == 0
+    assert [m.origin for m in _waiting(session)] == [mailbox.ORIGIN_HINT]
+    clock.now += hints.SESSION_GAP_S
+    lane.trigger(session, "prompt", "a newer question about digits")
+    lane.run_due()
+    second = api.bodies[1]["delivery"]
+    assert (second["posted"], second["shown"], second["withdrawn"]) == (1, 0, 1)
+    lines = [json.loads(line) for line in lane._ledger_path(SID).read_text().splitlines()]
+    assert [e.get("event") for e in lines][:2] == [None, hints.LEDGER_WITHDRAWN]
+
+
+def test_doctor_and_status_name_a_session_its_hints_do_not_reach(tmp_path, state):
+    from probe.cli import doctor, service_calls
+
+    now = time.time()
+    with mailbox.rooted(str(state)):
+        mailbox.write_hints_delivery(SID, {"state": hints.DeliveryState.UNDELIVERABLE, "deliverer": "pi",
+                                           "missed": 3, "at": now - 30, "harness": "pi"})
+        mailbox.write_hints_delivery(OTHER, {"state": hints.DeliveryState.OK, "at": now})
+        # A lane that stopped following a session left its last word: not current.
+        mailbox.write_hints_delivery(THIRD, {"state": hints.DeliveryState.UNDELIVERABLE, "missed": 2,
+                                             "at": now - service_calls.HINTS_RECEIPT_FRESH_S - 1})
+        unreached = service_calls.hints_unreached(now)
+    assert unreached == [{"sid": SID, "harness": "pi", "deliverer": "pi", "missed": 3}]
+    view = {"reach": service_calls.Reach.ANSWERED.value, "hints_unreached": unreached}
+    text = "\n".join(doctor.service_rows(view))
+    assert "Hints not reaching" in text and "3 missed, quit pi and resume the session" in text
+    unknown = {**view, "hints_unreached": [{"sid": SID, "harness": None, "missed": 2}]}
+    assert "2 missed, quit the agent and resume the session" in "\n".join(doctor.service_rows(unknown))
+    assert "1 session its hints do not reach" in service_calls.summary(view)

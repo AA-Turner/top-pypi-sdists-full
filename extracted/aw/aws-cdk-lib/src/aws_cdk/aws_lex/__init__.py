@@ -206,6 +206,7 @@ class CfnBot(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -261,7 +262,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4668d6cdd4af2b7befaa16f723e10618c13be75aa15d81ef3fc5b0a2938929db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataPrivacy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataPrivacy", value)
 
     @builtins.property
     @jsii.member(jsii_name="idleSessionTtlInSeconds")
@@ -274,7 +275,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05337531f67ab566e1a76fe38a76cf27ac63ce8fc8e6e724aed15fa7b8d31908)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "idleSessionTtlInSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "idleSessionTtlInSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -287,7 +288,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a1ea37ce191acf8a9698c1b06f93041142aa612fff3e59774240d1192fecc1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -300,7 +301,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d1de1b03449680ed86d6f014b455506f65035803afa60f89e339dd978cc28af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoBuildBotLocales")
@@ -318,7 +319,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d59168298bb6c73c8a29b497da006fc40603973cb71aba43e2f0ea0bc3c1c61a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoBuildBotLocales", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoBuildBotLocales", value)
 
     @builtins.property
     @jsii.member(jsii_name="botFileS3Location")
@@ -336,7 +337,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__49ad642c7a6232d4347e9dde2e04bc042cd7d8744c9896121505bc4969f28056)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botFileS3Location", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botFileS3Location", value)
 
     @builtins.property
     @jsii.member(jsii_name="botLocales")
@@ -354,7 +355,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__99af8c5daefa40203f5f0fbdfe98fccbc452c26d2c2bf3b4b00da732bcbfcb5e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botLocales", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botLocales", value)
 
     @builtins.property
     @jsii.member(jsii_name="botMembers")
@@ -372,7 +373,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1592bcb13d81818fc08c8c3bdf507dcd3f7f7fbeb706b3ef907a53e73ed01b32)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botMembers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botMembers", value)
 
     @builtins.property
     @jsii.member(jsii_name="botTags")
@@ -388,7 +389,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ebd0622909df38949fb95f9e4bfc9d82f922d11b6e1fee1b78ed955a197015d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="botType")
@@ -401,7 +402,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__67c4442edf2f0db28e6470eb096c38d7292fd970b676a34e21ef719bea2a9a3d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botType", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -414,7 +415,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72103623fa216232524c89f3e94b6a4e2056c1e8ad43603db83275506363e42f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="errorLogSettings")
@@ -431,7 +432,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__606ffbe82078c04fc48db5544bb87403e15eecb94ab4de4dfef298d8b2e5cbca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "errorLogSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "errorLogSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="replication")
@@ -448,7 +449,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__216cef1fd41900705f9b354338869c1eb4c662dac7d796bbff78b6110634e068)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replication", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replication", value)
 
     @builtins.property
     @jsii.member(jsii_name="testBotAliasSettings")
@@ -466,7 +467,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8af2b15d1ec9a6dfbd927bbbf7b4b9c006697a2b575338beae8d16e49680244f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "testBotAliasSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "testBotAliasSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="testBotAliasTags")
@@ -484,7 +485,7 @@ class CfnBot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6da956c0f46d2bfe7dd17bc9ad27b754c6943b2b1d68f58963bb394ff73cf731)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "testBotAliasTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "testBotAliasTags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBot.AdvancedRecognitionSettingProperty",
@@ -13767,6 +13768,7 @@ class CfnBotAlias(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -13833,7 +13835,7 @@ class CfnBotAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f7c080b499a50788ae164c44975b98220147f762edd4ec214c0e6f9124445093)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botAliasName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botAliasName", value)
 
     @builtins.property
     @jsii.member(jsii_name="botId")
@@ -13846,7 +13848,7 @@ class CfnBotAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__43cce0d64f81ea520d08b83a4aa6aece3a2341b6dde0b7fcd65a8f847f5de3f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botId", value)
 
     @builtins.property
     @jsii.member(jsii_name="sentimentAnalysisSettings")
@@ -13859,7 +13861,7 @@ class CfnBotAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e8cbd98c4bdfe82bcb165ec91638c6ad68086348b28345eeda6f375cb1a7fcd1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sentimentAnalysisSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sentimentAnalysisSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="botAliasLocaleSettings")
@@ -13877,7 +13879,7 @@ class CfnBotAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__917790158810f6fc38fb5d4372a10a9584fb6d4764bb1d87be8244cc727936e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botAliasLocaleSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botAliasLocaleSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="botAliasTags")
@@ -13895,7 +13897,7 @@ class CfnBotAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__71d610b69d60b87626f698f0118b5837b8126b661b02cb75b4961dfeaead9834)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botAliasTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botAliasTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="botVersion")
@@ -13908,7 +13910,7 @@ class CfnBotAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__607e7a3cdff2bc65c8c76ca1d05837350e81ade44a258da16439fc17f283acda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="conversationLogSettings")
@@ -13926,7 +13928,7 @@ class CfnBotAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__26855f93261461e56c873baf08145fa32c74a011917251399c4d61392913f877)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "conversationLogSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "conversationLogSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -13939,7 +13941,7 @@ class CfnBotAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf77d628ea97246a31f89b41559277e6cfb829aa4bde51a21dce2c884995deb9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBotAlias.AudioLogDestinationProperty",
@@ -15492,6 +15494,7 @@ class CfnBotVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -15532,7 +15535,7 @@ class CfnBotVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a3695fdd3e0dc7398529cc6a7cac33b2ce01960db4218cbd75288c1c43ba138a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botId", value)
 
     @builtins.property
     @jsii.member(jsii_name="botVersionLocaleSpecification")
@@ -15550,7 +15553,7 @@ class CfnBotVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__59417360b74b60eeb0ab210b6bdfe82a4a6edef5d905cb893286714abdbbfa99)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "botVersionLocaleSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "botVersionLocaleSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -15563,7 +15566,7 @@ class CfnBotVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__15e61488889e270b05ad7dfb944cf4d12160347f937d69379819be904fe1a59e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBotVersion.BotVersionLocaleDetailsProperty",
@@ -15891,6 +15894,7 @@ class CfnResourcePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -15940,7 +15944,7 @@ class CfnResourcePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9bedb04f3a7639ce6dd847afa27b9015e9c5a45e10d0185b1e422d001d936196)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policy", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceArn")
@@ -15953,7 +15957,7 @@ class CfnResourcePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c2269eb87c059c5d27aab85364fde6b4ccb6e21ca5bc766b939d038b5294665a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceArn", value)
 
 
 @jsii.data_type(

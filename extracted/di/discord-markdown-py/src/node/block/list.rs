@@ -1,11 +1,11 @@
 use std::num::NonZero;
 
 use nom::branch::alt;
-use nom::character::complete::{one_of, satisfy, space1};
+use nom::character::complete::{one_of, satisfy};
 use nom::combinator::{fail, peek, value};
 use nom::error::context as with_context;
 use nom::multi::{fold, fold_many0};
-use nom::sequence::{pair, preceded, terminated};
+use nom::sequence::terminated;
 use nom::{
 	IResult, Parser,
 	character::complete::char,
@@ -19,8 +19,9 @@ use item::Item;
 use crate::Input;
 use crate::context::Context;
 use crate::error::ParseError;
+use crate::lossless::TokenKind;
 use crate::node::Element;
-use crate::span::{Span, Spanned, WithSpan};
+use crate::span::{Span, Spanned, Syntax, WithSpan, WithToken, attach};
 use crate::unparse::Unparse;
 
 /// List item parsing.
@@ -140,7 +141,8 @@ where
 	peek(many0_count(char(INDENT_CHAR))).parse_complete(data)
 }
 
-/// Parse either [`unordered_type`] or [`ordered_type`] for the first item of the list.
+/// Parse either [`unordered_type`] or [`ordered_type`] for the first item of the list. Like
+/// them, it leaves the space after the marker to [`item::item`].
 ///
 /// # Errors
 /// If the content does not begin with either type.
@@ -172,7 +174,7 @@ where
 					.saturating_add(u32::from(ch as u8 - b'0'))
 			},
 		),
-		pair(char('.'), space1),
+		char('.'),
 	)
 	.map(|value| {
 		NonZero::new(value)
@@ -191,11 +193,7 @@ pub fn unordered_type<'data, E>(data: Input<'data>) -> IResult<Input<'data>, Typ
 where
 	E: ParseError<'data>,
 {
-	value(
-		Type::Unordered,
-		terminated(one_of(UNORDERED_CONTROL_CHARS), space1),
-	)
-	.parse_complete(data)
+	value(Type::Unordered, one_of(UNORDERED_CONTROL_CHARS)).parse_complete(data)
 }
 
 /// Parse an amount of indentation in the range `min_indent..=min_indent + `[`MAX_INDENT`].
@@ -250,17 +248,21 @@ where
 
 		map(
 			fold_many0(
-				preceded(
-					context.clone().line_prefix(),
+				(
+					context
+						.clone()
+						.line_prefix()
+						.token::<S>(TokenKind::QuotePrefix),
 					item::item(context, amount, parse_type),
 				),
-				move || vec![first_item.clone()],
-				|mut acc, (_, item)| {
-					acc.push(item);
-					acc
+				move || (vec![first_item.clone()], S::Syntax::default()),
+				|(mut items, syntax), (prefix, (_, item))| {
+					items.push(item);
+					(items, syntax.join(prefix))
 				},
 			)
-			.span(),
+			.span()
+			.map(attach),
 			move |items| List { kind, items },
 		)
 		.parse_complete(data)

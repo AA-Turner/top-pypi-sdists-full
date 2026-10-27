@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qcodes
-Version: 0.61.1
+Version: 0.62.0
 Summary: Python-based data acquisition framework developed by the Copenhagen / Delft / Sydney / Microsoft quantum computing consortium
 Maintainer-email: QCoDeS Core Developers <qcodes-support@microsoft.com>
 License-Expression: MIT
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
@@ -34,7 +35,7 @@ Requires-Dist: pyarrow>=14.0.0
 Requires-Dist: pyvisa<1.17.0,>=1.12.0
 Requires-Dist: ruamel.yaml!=0.16.6,>=0.16.0
 Requires-Dist: tabulate>=0.9.0
-Requires-Dist: typing_extensions>=4.6.0
+Requires-Dist: typing_extensions>=4.12.0
 Requires-Dist: tqdm>=4.59.0
 Requires-Dist: uncertainties>=3.2.0
 Requires-Dist: versioningit>=2.2.1
@@ -75,7 +76,7 @@ Requires-Dist: types-tabulate>=0.1.0; extra == "test"
 Requires-Dist: types-tqdm>=4.64.6; extra == "test"
 Requires-Dist: types_pywin32>=305.0.0.7; extra == "test"
 Requires-Dist: qcodes_loop>=0.1.1; extra == "test"
-Requires-Dist: zhinst.qcodes>=0.5; extra == "test"
+Requires-Dist: zhinst.qcodes>=0.5; python_version < "3.15" and extra == "test"
 Requires-Dist: libcst>=1.2.0; extra == "test"
 Provides-Extra: docs
 Requires-Dist: autodocsumm>=0.2.9; extra == "docs"

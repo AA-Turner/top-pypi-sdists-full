@@ -29,7 +29,6 @@ from pg8000 import (
     timedelta_in,
 )
 
-
 # Type conversion tests
 
 

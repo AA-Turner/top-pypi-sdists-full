@@ -21,18 +21,24 @@ class SandboxStatus(str, Enum):
     TIMEOUT = "TIMEOUT"
 
 
-MAX_EGRESS_POLICY_ENTRIES = 256
+MAX_EGRESS_POLICY_ENTRIES = 1024
+
+# Domain entries are matched by HTTP Host or TLS SNI, read only on these ports.
+DOMAIN_RULE_PORTS = (80, 443)
 
 
 def _validate_egress_entry(entry: str) -> None:
     """Client-side mirror of the API's egress entry contract.
 
     Accepts an exact hostname, a leftmost-label ``*.`` wildcard, an IPv4
-    address, or an IPv4 CIDR. Schemes, credentials, ports, paths, query
-    strings, bare ``*``, IPv6, and wildcards in other positions are rejected.
-    The server canonicalizes entries further (lowercase, IDNA, /32).
+    address, or an IPv4 CIDR, optionally followed by ``:port`` or
+    ``:low-high``; domains accept only ports 80 and 443. Schemes, credentials,
+    paths, query strings, bare ``*``, IPv6, and wildcards in other positions
+    are rejected. The server canonicalizes entries further (lowercase, IDNA,
+    /32) and rejects ports until the platform enables them.
     """
     import ipaddress
+    import re
 
     value = entry.strip()
     if not value:
@@ -47,6 +53,22 @@ def _validate_egress_entry(entry: str) -> None:
             raise ValueError(f"'{entry}': IPv6 is not supported")
         return
 
+    host, separator, ports = value.rpartition(":")
+    if separator and "://" not in value and not _is_ip_network(value):
+        match = re.fullmatch(r"([0-9]{1,5})(?:-([0-9]{1,5}))?", ports)
+        low, high = (int(match[1]), int(match[2] or match[1])) if match else (0, 0)
+        if not 1 <= low <= high <= 65535:
+            raise ValueError(
+                f"'{entry}': port must be a number from 1 to 65535 or a low-high range"
+            )
+        _validate_egress_entry(host)
+        if not _is_ip_network(host) and (low != high or low not in DOMAIN_RULE_PORTS):
+            raise ValueError(
+                f"'{entry}': domain entries support only ports 80 and 443; "
+                "use an IP or CIDR entry for other ports"
+            )
+        return
+
     if "/" in value:
         try:
             network = ipaddress.ip_network(value, strict=False)
@@ -59,7 +81,6 @@ def _validate_egress_entry(entry: str) -> None:
     for forbidden, reason in (
         ("://", "schemes are not supported"),
         ("@", "credentials are not supported"),
-        (":", "ports are not supported"),
         ("?", "query strings are not supported"),
     ):
         if forbidden in value:
@@ -74,6 +95,16 @@ def _validate_egress_entry(entry: str) -> None:
     for label in domain.split("."):
         if not label:
             raise ValueError(f"'{entry}' contains an empty label")
+
+
+def _is_ip_network(value: str) -> bool:
+    import ipaddress
+
+    try:
+        ipaddress.ip_network(value, strict=False)
+    except ValueError:
+        return False
+    return True
 
 
 def validate_egress_lists(allowlist: Optional[List[str]], denylist: Optional[List[str]]) -> None:
@@ -249,6 +280,10 @@ class SandboxCheckpoint(BaseModel):
     docker_image: str
     disk_size_bytes: Optional[int] = None
     stored_bytes: Optional[int] = None
+    # Quota-size measure: non-hole uncompressed bytes of the packed version.
+    # stored_bytes stays the compressed billing metric; do not conflate the two.
+    # 0 for grandfathered pre-measurement records; older responses omit it.
+    occupied_bytes: int = 0
     error: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -329,6 +364,17 @@ class Volume(BaseModel):
     # Older responses may omit the field entirely.
     head_checkpoint_id: Optional[str] = None
     created_at: datetime
+    # Occupied bytes of the latest published version (its checkpoint's
+    # occupied_bytes); 0 until the first publish and for grandfathered
+    # pre-measurement versions. Older responses omit the field.
+    occupied_bytes: int = 0
+    # Account-wide storage usage across all owner volumes (sum of the latest
+    # published versions) and the whole-GiB limit from the wallet's
+    # sandboxVolumeStorageLimitGB.
+    # Populated on single-volume GET; always null on list items. Older
+    # responses omit both.
+    account_storage_used_bytes: Optional[int] = None
+    account_storage_limit_gb: Optional[int] = None
 
 
 class VolumeListResponse(BaseModel):
@@ -339,6 +385,10 @@ class VolumeListResponse(BaseModel):
     page: int
     per_page: int
     has_next: bool
+    # Account-wide storage usage and whole-GiB limit, response-level and
+    # present even when ``volumes`` is empty. Older responses omit them.
+    storage_used_bytes: Optional[int] = None
+    storage_limit_gb: Optional[int] = None
 
 
 class CreateSandboxRequest(BaseModel):

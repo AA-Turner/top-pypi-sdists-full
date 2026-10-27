@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openmed
-Version: 3.0.0
+Version: 3.1.0
 Summary: Local-first SDK for clinical extraction and de-identification workflows on hardware you control.
 Author: Maziyar Panahi
 License: Apache-2.0
@@ -18,40 +18,52 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Requires-Dist: faker>=22.0
 Requires-Dist: jieba<0.43,>=0.42.1
+Requires-Dist: jsonschema<5,>=4.18
 Requires-Dist: pysbd<0.4,>=0.3.4
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: tomli>=2.0; python_version < '3.11'
 Provides-Extra: agents
-Requires-Dist: banks>=2.4.5; extra == 'agents'
+Requires-Dist: aiohttp>=3.14.4; extra == 'agents'
+Requires-Dist: banks>=2.5.1; extra == 'agents'
 Requires-Dist: fsspec>=2026.6.0; extra == 'agents'
 Requires-Dist: jinja2>=3.1.6; extra == 'agents'
 Requires-Dist: langchain-core<2,>=0.2; extra == 'agents'
 Requires-Dist: langgraph-sdk>=0.4.4; extra == 'agents'
 Requires-Dist: langgraph<2,>=0.2; extra == 'agents'
 Requires-Dist: llama-index-core<1,>=0.10; extra == 'agents'
+Requires-Dist: multidict>=6.9.1; extra == 'agents'
+Requires-Dist: pillow>=13.0.0; extra == 'agents'
+Requires-Dist: tinytag>=2.3.0; extra == 'agents'
 Provides-Extra: airflow
 Requires-Dist: apache-airflow<4,>=3.2.2; extra == 'airflow'
 Requires-Dist: fsspec>=2026.6.0; extra == 'airflow'
 Requires-Dist: jinja2>=3.1.6; extra == 'airflow'
+Requires-Dist: mako>=1.4.2; extra == 'airflow'
 Provides-Extra: awq
+Requires-Dist: aiohttp>=3.14.4; (sys_platform == 'linux') and extra == 'awq'
 Requires-Dist: autoawq==0.2.9; (sys_platform == 'linux') and extra == 'awq'
 Requires-Dist: datasets>=5.0.1; (sys_platform == 'linux') and extra == 'awq'
 Requires-Dist: fsspec>=2026.6.0; (sys_platform == 'linux') and extra == 'awq'
 Requires-Dist: jinja2>=3.1.6; (sys_platform == 'linux') and extra == 'awq'
+Requires-Dist: multidict>=6.9.1; (sys_platform == 'linux') and extra == 'awq'
 Requires-Dist: torch>=2.13.0; (sys_platform == 'linux') and extra == 'awq'
 Requires-Dist: transformers==5.12.1; (sys_platform == 'linux') and extra == 'awq'
 Provides-Extra: beam
 Requires-Dist: apache-beam<3,>=2.73; extra == 'beam'
 Requires-Dist: h2>=4.4.1; extra == 'beam'
+Requires-Dist: multidict>=6.9.1; extra == 'beam'
+Requires-Dist: pillow>=13.0.0; extra == 'beam'
 Requires-Dist: pymongo>=4.18.2; extra == 'beam'
 Provides-Extra: cli
 Requires-Dist: rich>=13.0; extra == 'cli'
 Requires-Dist: typer>=0.12; extra == 'cli'
 Provides-Extra: cloud
 Requires-Dist: adlfs>=2025.8.0; extra == 'cloud'
+Requires-Dist: aiohttp>=3.14.4; extra == 'cloud'
 Requires-Dist: fsspec>=2026.6.0; extra == 'cloud'
 Requires-Dist: gcsfs>=2025.9.0; extra == 'cloud'
 Requires-Dist: jinja2>=3.1.6; extra == 'cloud'
+Requires-Dist: multidict>=6.9.1; extra == 'cloud'
 Requires-Dist: oauthlib>=4.0.0; extra == 'cloud'
 Requires-Dist: s3fs>=2025.9.0; extra == 'cloud'
 Provides-Extra: columnar
@@ -67,6 +79,7 @@ Provides-Extra: dagster
 Requires-Dist: dagster<2,>=1.8; extra == 'dagster'
 Requires-Dist: fsspec>=2026.6.0; extra == 'dagster'
 Requires-Dist: jinja2>=3.1.6; extra == 'dagster'
+Requires-Dist: mako>=1.4.2; extra == 'dagster'
 Provides-Extra: dask
 Requires-Dist: dask[dataframe]>=2024.8; extra == 'dask'
 Requires-Dist: fsspec>=2026.6.0; extra == 'dask'
@@ -85,19 +98,18 @@ Requires-Dist: huggingface-hub>=0.30; extra == 'dev'
 Requires-Dist: hypothesis>=6.100; extra == 'dev'
 Requires-Dist: ipykernel>=6.0; extra == 'dev'
 Requires-Dist: jinja2>=3.1.6; extra == 'dev'
-Requires-Dist: jsonschema>=4.0; extra == 'dev'
-Requires-Dist: mcp<2,>=1.27; extra == 'dev'
+Requires-Dist: mcp<2,>=1.30; extra == 'dev'
 Requires-Dist: mypy==2.3.0; extra == 'dev'
 Requires-Dist: nbclient>=0.8.0; extra == 'dev'
 Requires-Dist: nbformat>=5.9.0; extra == 'dev'
 Requires-Dist: numpy>=1.26; extra == 'dev'
 Requires-Dist: opencc<2,>=1.4.1; extra == 'dev'
 Requires-Dist: openpyxl<4,>=3.1; extra == 'dev'
-Requires-Dist: opentelemetry-api<2,>=1.26; extra == 'dev'
+Requires-Dist: opentelemetry-api<2,>=1.45.1; extra == 'dev'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.26; extra == 'dev'
 Requires-Dist: opentelemetry-sdk<2,>=1.26; extra == 'dev'
 Requires-Dist: pandas>=2.0; extra == 'dev'
-Requires-Dist: pillow==12.3.0; extra == 'dev'
+Requires-Dist: pillow==13.0.0; (python_version >= '3.11') and extra == 'dev'
 Requires-Dist: polars>=0.20; extra == 'dev'
 Requires-Dist: pre-commit>=4.0; extra == 'dev'
 Requires-Dist: protobuf<7,>=5.26; extra == 'dev'
@@ -108,11 +120,11 @@ Requires-Dist: python-dateutil>=2.8; extra == 'dev'
 Requires-Dist: rich>=13.0; extra == 'dev'
 Requires-Dist: ruff==0.15.22; extra == 'dev'
 Requires-Dist: sqlalchemy<3,>=2.0; extra == 'dev'
-Requires-Dist: strawberry-graphql[fastapi]<1,>=0.316; extra == 'dev'
+Requires-Dist: strawberry-graphql[fastapi]<1,>=0.327.2; extra == 'dev'
 Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'dev'
 Requires-Dist: typer>=0.12; extra == 'dev'
 Provides-Extra: docs
-Requires-Dist: gitpython<4,>=3.1.60; extra == 'docs'
+Requires-Dist: gitpython<4,>=3.2.1; extra == 'docs'
 Requires-Dist: griffe; extra == 'docs'
 Requires-Dist: mkdocs-git-revision-date-localized-plugin>=1.2.6; extra == 'docs'
 Requires-Dist: mkdocs-llmstxt<1,>=0.5.0; extra == 'docs'
@@ -141,10 +153,12 @@ Requires-Dist: gliner[tokenizers]>=0.2.0; extra == 'gliner'
 Requires-Dist: jinja2>=3.1.6; extra == 'gliner'
 Requires-Dist: torch>=2.13.0; extra == 'gliner'
 Provides-Extra: gptq
+Requires-Dist: aiohttp>=3.14.4; extra == 'gptq'
 Requires-Dist: auto-gptq>=0.7.1; extra == 'gptq'
 Requires-Dist: datasets>=5.0.1; extra == 'gptq'
 Requires-Dist: fsspec>=2026.6.0; extra == 'gptq'
 Requires-Dist: jinja2>=3.1.6; extra == 'gptq'
+Requires-Dist: multidict>=6.9.1; extra == 'gptq'
 Requires-Dist: torch>=2.13.0; extra == 'gptq'
 Provides-Extra: grounding
 Requires-Dist: hnswlib<1,>=0.8; extra == 'grounding'
@@ -180,12 +194,16 @@ Requires-Dist: langgraph<2,>=0.2; extra == 'langgraph'
 Provides-Extra: lid
 Requires-Dist: pycld2<1,>=0.41; extra == 'lid'
 Provides-Extra: llamaindex
-Requires-Dist: banks>=2.4.5; extra == 'llamaindex'
+Requires-Dist: aiohttp>=3.14.4; extra == 'llamaindex'
+Requires-Dist: banks>=2.5.1; extra == 'llamaindex'
 Requires-Dist: fsspec>=2026.6.0; extra == 'llamaindex'
 Requires-Dist: jinja2>=3.1.6; extra == 'llamaindex'
 Requires-Dist: llama-index-core<1,>=0.10; extra == 'llamaindex'
+Requires-Dist: multidict>=6.9.1; extra == 'llamaindex'
+Requires-Dist: pillow>=13.0.0; extra == 'llamaindex'
+Requires-Dist: tinytag>=2.3.0; extra == 'llamaindex'
 Provides-Extra: mcp
-Requires-Dist: mcp<2,>=1.27; extra == 'mcp'
+Requires-Dist: mcp<2,>=1.30; extra == 'mcp'
 Provides-Extra: medspacy
 Requires-Dist: medspacy<2,>=1.3.1; (python_version >= '3.12') and extra == 'medspacy'
 Provides-Extra: mlx
@@ -194,7 +212,7 @@ Requires-Dist: huggingface-hub>=0.30; extra == 'mlx'
 Requires-Dist: jinja2>=3.1.6; extra == 'mlx'
 Requires-Dist: mlx-lm>=0.31; extra == 'mlx'
 Requires-Dist: mlx>=0.22; extra == 'mlx'
-Requires-Dist: pillow>=10.0; extra == 'mlx'
+Requires-Dist: pillow>=13.0.0; extra == 'mlx'
 Requires-Dist: safetensors>=0.4; extra == 'mlx'
 Requires-Dist: tiktoken>=0.7; extra == 'mlx'
 Requires-Dist: tokenizers>=0.15; extra == 'mlx'
@@ -210,7 +228,7 @@ Requires-Dist: openpyxl<4,>=3.1; extra == 'multimodal'
 Requires-Dist: pdfplumber>=0.11; extra == 'multimodal'
 Requires-Dist: piexif>=1.1; extra == 'multimodal'
 Requires-Dist: pikepdf>=9.0; extra == 'multimodal'
-Requires-Dist: pillow>=10.0; extra == 'multimodal'
+Requires-Dist: pillow>=13.0.0; extra == 'multimodal'
 Requires-Dist: pydicom>=3.0; extra == 'multimodal'
 Requires-Dist: pytesseract>=0.3.10; extra == 'multimodal'
 Requires-Dist: python-doctr>=1.0; extra == 'multimodal'
@@ -221,6 +239,7 @@ Provides-Extra: notebook
 Requires-Dist: nbformat>=5.9.0; extra == 'notebook'
 Provides-Extra: ocr-paddle
 Requires-Dist: paddleocr>=2.7; extra == 'ocr-paddle'
+Requires-Dist: pillow>=13.0.0; extra == 'ocr-paddle'
 Provides-Extra: onnx
 Requires-Dist: fsspec>=2026.6.0; extra == 'onnx'
 Requires-Dist: jinja2>=3.1.6; extra == 'onnx'
@@ -246,9 +265,11 @@ Requires-Dist: onnxruntime>=1.16; extra == 'openvino'
 Requires-Dist: openvino>=2024.0; extra == 'openvino'
 Requires-Dist: transformers>=4.50; extra == 'openvino'
 Provides-Extra: operator
+Requires-Dist: aiohttp>=3.14.4; extra == 'operator'
 Requires-Dist: kopf<2,>=1.44.6; extra == 'operator'
+Requires-Dist: multidict>=6.9.1; extra == 'operator'
 Provides-Extra: otel
-Requires-Dist: opentelemetry-api<2,>=1.26; extra == 'otel'
+Requires-Dist: opentelemetry-api<2,>=1.45.1; extra == 'otel'
 Requires-Dist: opentelemetry-sdk<2,>=1.26; extra == 'otel'
 Provides-Extra: pandas
 Requires-Dist: pandas>=2.0; extra == 'pandas'
@@ -260,6 +281,7 @@ Provides-Extra: prefect
 Requires-Dist: fsspec>=2026.6.0; extra == 'prefect'
 Requires-Dist: h2>=4.4.1; extra == 'prefect'
 Requires-Dist: jinja2>=3.1.6; extra == 'prefect'
+Requires-Dist: mako>=1.4.2; extra == 'prefect'
 Requires-Dist: oauthlib>=4.0.0; extra == 'prefect'
 Requires-Dist: prefect<4,>=3.7; extra == 'prefect'
 Provides-Extra: presidio
@@ -281,11 +303,11 @@ Requires-Dist: cryptography<51,>=50; extra == 'service'
 Requires-Dist: fastapi>=0.110; extra == 'service'
 Requires-Dist: grpcio>=1.64; extra == 'service'
 Requires-Dist: httpx>=0.27; extra == 'service'
-Requires-Dist: opentelemetry-api<2,>=1.26; extra == 'service'
+Requires-Dist: opentelemetry-api<2,>=1.45.1; extra == 'service'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.26; extra == 'service'
 Requires-Dist: opentelemetry-sdk<2,>=1.26; extra == 'service'
 Requires-Dist: protobuf<7,>=5.26; extra == 'service'
-Requires-Dist: strawberry-graphql[fastapi]<1,>=0.316; extra == 'service'
+Requires-Dist: strawberry-graphql[fastapi]<1,>=0.327.2; extra == 'service'
 Requires-Dist: uvicorn[standard]>=0.29; extra == 'service'
 Provides-Extra: snowflake
 Requires-Dist: snowflake-snowpark-python<2,>=1.0; extra == 'snowflake'
@@ -465,7 +487,7 @@ On supported Apple hardware, OpenMed can use **MLX** and **[OpenMedKit](swift/Op
 ```swift
 // Add OpenMedKit to your app
 dependencies: [
-    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "3.0.0"),
+    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "3.1.0"),
 ]
 ```
 
@@ -509,11 +531,11 @@ dependencyResolutionManagement {
 }
 ```
 
-Then use the immutable OpenMed `v3.0.0` release:
+Then use the immutable OpenMed `v3.1.0` release:
 
 ```kotlin
 dependencies {
-    implementation("com.github.maziyarpanahi:openmed:v3.0.0")
+    implementation("com.github.maziyarpanahi:openmed:v3.1.0")
 }
 ```
 
@@ -649,7 +671,7 @@ Example output:
 **REST service**
 
 ```bash
-uvicorn openmed.service.app:app \
+python -m openmed.service.logging \
   --host 0.0.0.0 --port 8080
 ```
 
@@ -925,7 +947,7 @@ A Docker-friendly FastAPI service with request validation, shared pipeline prelo
 
 ```bash
 pip install --upgrade "openmed[hf,service]"
-uvicorn openmed.service.app:app --host 0.0.0.0 --port 8080
+python -m openmed.service.logging --host 0.0.0.0 --port 8080
 
 # or with Docker
 docker build -t openmed:local .
@@ -964,7 +986,7 @@ async jobs, webhooks, warm pools, dynamic batching, request coalescing, rate
 and concurrency limits, `/livez`, `/readyz`, and opt-in metrics:
 
 ```bash
-OPENMED_SERVICE_KEEP_ALIVE=10m uvicorn openmed.service.app:app --host 0.0.0.0 --port 8080
+OPENMED_SERVICE_KEEP_ALIVE=10m python -m openmed.service.logging --host 0.0.0.0 --port 8080
 curl -X POST http://127.0.0.1:8080/models/unload -H "Content-Type: application/json" -d '{"all":true}'
 ```
 
@@ -997,7 +1019,7 @@ MkDocs build.
 | [FAQ](docs/faq.md) | [Anonymization](docs/anonymization.md) | [Batch Processing](https://openmed.life/docs/batch-processing) |
 | [Configuration Profiles](https://openmed.life/docs/profiles) | [REST Service](docs/rest-service.md) | [MLX Backend](docs/mlx-backend.md) |
 | [Transformers.js Export](docs/export-transformersjs.md) | [FHIR Interop](docs/fhir-interop.md) | [HL7 v2 De-identification](docs/hl7v2-deidentification.md) |
-| [OpenMed 3.0.0 Migration Guide](docs/migration/2.5-to-3.0.md) | [OpenMed 2.2.0 Release Notes](docs/release/v2.2.0.md) | [Examples](docs/examples.md) |
+| [OpenMed 3.1.0 Migration Guide](docs/migration/3.0-to-3.1.md) | [OpenMed 2.2.0 Release Notes](docs/release/v2.2.0.md) | [Examples](docs/examples.md) |
 | [Release Streams](docs/release/semver-and-channels.md) | [Generative Model Policy](docs/generative-model-policy.md) | [Contributing](docs/contributing.md) |
 | [Security Policy](SECURITY.md) | [Compliance Posture](docs/compliance.md) | [Extension Plugin SDK](docs/plugin-sdk.md) |
 | [v1 to v2 Migration](docs/migration.md) | [MCP Client Connections](docs/mcp-clients.md) | [African Developer Onboarding](docs/africa-onboarding.md) |
@@ -1068,7 +1090,7 @@ papers, posters, and derived documentation.
 
 If OpenMed is useful to you, a star helps others discover it.
 
-[5,400+ GitHub stars · 3 Oct 2026 snapshot](https://github.com/maziyarpanahi/openmed/stargazers)
+[5,400+ GitHub stars · 9 Oct 2026 snapshot](https://github.com/maziyarpanahi/openmed/stargazers)
 
 ---
 

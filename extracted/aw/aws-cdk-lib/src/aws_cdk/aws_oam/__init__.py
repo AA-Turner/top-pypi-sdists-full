@@ -197,6 +197,7 @@ class CfnLink(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -256,7 +257,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f0132bd2ba8eaa5be7ac98303f37a6cd4af3e395ff83ff41a4b1d603604e6616)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceTypes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceTypes", value)
 
     @builtins.property
     @jsii.member(jsii_name="sinkIdentifier")
@@ -269,7 +270,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__333f53159fc6c2c5a53817b12e42df1c0c36eb1c4ce8b2f5ac882088416ddefb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sinkIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sinkIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="labelTemplate")
@@ -282,7 +283,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__997e0a25bd896cf32312772dad16f8a1714d949b05e540d8b70c8452ec128d2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "labelTemplate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "labelTemplate", value)
 
     @builtins.property
     @jsii.member(jsii_name="linkConfiguration")
@@ -300,7 +301,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__27fdc6d36999b24ee51a7ee604dfe60c82600027c0449d54ba66cc13499ab90c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "linkConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "linkConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -316,7 +317,7 @@ class CfnLink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db8d2dd2bb0af63f05d76d96179bc7f7bcb803b9dedeabd14ee88e08a8734269)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_oam.CfnLink.LinkConfigurationProperty",
@@ -742,6 +743,7 @@ class CfnSink(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -790,7 +792,7 @@ class CfnSink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e6c4525dee6f8a7375f1f7a92c71b0244885baf54d86723e2e625b150bee5f2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="policy")
@@ -803,7 +805,7 @@ class CfnSink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__17b105d896dac211275e0427a07a7c1ef0096d9d405b1f2c26c9622c36b574a5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policy", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -819,7 +821,7 @@ class CfnSink(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce98d825cec971a8da063461fb01433d96941b6c426c46a2e2fb6fbe9a48d059)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(

@@ -1,7 +1,8 @@
 //! Test that multiple syntax errors are collected and reported
 
 use indoc::indoc;
-use rtest::collection_integration::{collect_tests_rust, display_collection_results};
+use rtest::collection_integration::collect_tests_rust;
+use rtest::python_discovery::DuplicateIds;
 use rtest::CollectionError;
 use std::fs;
 use tempfile::TempDir;
@@ -33,22 +34,8 @@ fn test_collection_multiple_syntax_errors() {
     "#};
     fs::write(project_path.join("test_valid.py"), valid_content).expect("Failed to write file");
 
-    println!("Files in project directory:");
-    for entry in std::fs::read_dir(&project_path).unwrap() {
-        let entry = entry.unwrap();
-        println!("  - {:?}", entry.path());
-    }
-
-    let result = collect_tests_rust(project_path, &[]);
-    assert!(
-        result.is_ok(),
-        "Should not fail immediately on syntax errors"
-    );
-
-    let (test_nodes, errors) = result.unwrap();
-
-    println!("Test nodes found: {test_nodes:?}");
-    println!("Errors found: {errors:?}");
+    let (test_nodes, errors) = collect_tests_rust(project_path, &[], DuplicateIds::default())
+        .expect("syntax errors are collected without discarding valid tests");
 
     assert_eq!(test_nodes.len(), 2, "Should find tests from valid file");
     assert!(test_nodes
@@ -76,12 +63,4 @@ fn test_collection_multiple_syntax_errors() {
             "All errors should be parse errors"
         );
     }
-
-    println!("\n--- Test output ---");
-    display_collection_results(
-        &test_nodes,
-        &errors,
-        &rtest::cli::CannotExpandReport::Stdout,
-    );
-    println!("--- End test output ---\n");
 }

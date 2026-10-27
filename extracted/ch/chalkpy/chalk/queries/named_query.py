@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import dataclasses
 import inspect
 import traceback
 from typing import TYPE_CHECKING, Mapping, Sequence
 
 from chalk._lsp.error_builder import LSPErrorBuilder
-from chalk.features import feature_to_query_str, unwrap_feature
+from chalk.features import Underscore, feature_to_query_str, unwrap_feature
+from chalk.features.feature_wrapper import AliasedFeature, validate_output_column_name
 from chalk.utils.object_inspect import get_source_object_starting
 from chalk.utils.source_parsing import should_skip_source_code_parsing
 
@@ -61,6 +63,13 @@ class NamedQuery:
             of the query. For example, if you pass as input `{"user.id": 1234}`, then the query
             is defined on the `User` namespace, and all features on the `User` namespace
             (excluding has-one and has-many relationships) will be used as outputs.
+
+            An output can also be an expression returned as its own column, named with
+            `.alias`: an aliased feature, e.g. `User.transaction_count["1d"].alias("tc_1d")`,
+            or an aliased underscore expression on the query's namespace, e.g.
+            `(_.age / 100).alias("age_pct")`. Expression columns are returned after the
+            features, and features they reference are still computed, persisted, and
+            logged under their own names.
         tags
             Allows selecting resolvers with these tags.
         description
@@ -130,6 +139,7 @@ class NamedQuery:
 
         self._input = None
         self._output = None
+        self._output_expressions: list[NamedQueryOutputExpression] = []
         self._additional_logged_features = None
         self._input_raw = input
         self._output_raw = output
@@ -178,7 +188,14 @@ class NamedQuery:
                 # e.g. `user.transactions[transaction.id]`.
                 self._input = [feature_to_query_str(f) for f in self._input_raw]
             elif self._output_raw is not None:
-                self._input = [str(unwrap_feature(o).primary_feature) for o in self._output_raw]
+                # Underscore expressions name no feature class, so they cannot imply an input.
+                self._input = [
+                    str(unwrap_feature(o.resolve() if isinstance(o, AliasedFeature) else o).primary_feature)
+                    for o in self._output_raw
+                    if not isinstance(o, Underscore)
+                ]
+                if not self._input:
+                    raise ValueError("A named query whose outputs are all underscore expressions must declare `input`")
         except Exception as e:
             self._input = None
             if not LSPErrorBuilder.promote_exception(e):
@@ -194,7 +211,36 @@ class NamedQuery:
             return self._output
         try:
             if self._output_raw is not None:
-                self._output = [feature_to_query_str(o) for o in self._output_raw]
+                # Imported here: the output encoders import the client and graph serializer, which import this module.
+                from chalk.features._encoding.outputs import parse_underscore_aliased_column
+
+                output: list[str] = []
+                output_expressions: list[NamedQueryOutputExpression] = []
+                for o in self._output_raw:
+                    if isinstance(o, AliasedFeature):
+                        output_expressions.append(
+                            NamedQueryOutputExpression(
+                                name=o.name, expr=o.to_underscore(), namespace=o.resolve().root_namespace
+                            )
+                        )
+                    elif isinstance(o, Underscore):
+                        name, expr = parse_underscore_aliased_column(o)
+                        validate_output_column_name(name)
+                        output_expressions.append(NamedQueryOutputExpression(name=name, expr=expr, namespace=None))
+                    else:
+                        output.append(feature_to_query_str(o))
+                # Features are returned under their fqns, which contain a '.', and expression columns under
+                # names that do not, so only expression names can collide.
+                names = [e.name for e in output_expressions]
+                duplicates = sorted({n for n in names if names.count(n) > 1})
+                if duplicates:
+                    raise ValueError(f"Output column names must be unique, but found duplicates {duplicates}")
+                # Only unrooted expressions need the input namespaces. Reading `input` re-raises, and records again,
+                # an input error that `input` has already recorded, so it is read only when needed.
+                unrooted = any(e.namespace is None for e in output_expressions)
+                _validate_expression_names_against_features(output_expressions, (self.input or ()) if unrooted else ())
+                self._output = output
+                self._output_expressions = output_expressions
         except Exception as e:
             self._output = None
             if not LSPErrorBuilder.promote_exception(e):
@@ -203,6 +249,12 @@ class NamedQuery:
                 )
 
         return self._output
+
+    @property
+    def output_expressions(self) -> list[NamedQueryOutputExpression]:
+        """Expressions the query returns as additional columns, after the features in `output`."""
+        _ = self.output
+        return self._output_expressions
 
     @property
     def additional_logged_features(self):
@@ -219,6 +271,34 @@ class NamedQuery:
                 )
 
         return self._additional_logged_features
+
+
+def _validate_expression_names_against_features(
+    expressions: Sequence[NamedQueryOutputExpression], input: Sequence[str]
+) -> None:
+    # The engine rejects a column named like a feature of the namespace its expression is rooted at; an expression
+    # without one is rooted at the query's, so it is checked against every input namespace.
+    from chalk.features.feature_set import FeatureSetBase
+
+    input_namespaces = sorted({fqn.split(".", 1)[0] for fqn in input})
+    for e in expressions:
+        for namespace in [e.namespace] if e.namespace is not None else input_namespaces:
+            features_cls = FeatureSetBase.registry.get(namespace)
+            if features_cls is not None and e.name in {f.name for f in features_cls.features}:
+                raise ValueError(
+                    f"Output column name '{e.name}' is a feature of '{namespace}'; choose a name that is not a "
+                    + "feature name"
+                )
+
+
+@dataclasses.dataclass(frozen=True)
+class NamedQueryOutputExpression:
+    """An underscore expression a named query returns as a column named `name`."""
+
+    name: str
+    expr: Underscore
+    namespace: str | None
+    """The feature class `expr`'s `_` is, such as an aliased feature's root namespace; `None` for the query's."""
 
 
 NAMED_QUERY_REGISTRY: dict[tuple[str, str | None], NamedQuery] = {}

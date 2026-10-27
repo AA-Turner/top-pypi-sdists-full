@@ -47,6 +47,8 @@ TrainingOptionKey: TypeAlias = Literal[
   "min_lr_ratio",
   "num_steps",
   "train_batch_size",
+  "min_samples_per_group",
+  "group_size",
   "samples_per_instance",
   "max_active_rollouts",
   "max_steps_off_policy",

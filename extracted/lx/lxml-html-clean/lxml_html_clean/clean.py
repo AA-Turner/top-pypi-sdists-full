@@ -43,7 +43,7 @@ __all__ = ['clean_html', 'clean', 'Cleaner', 'autolink', 'autolink_html',
 # This is an IE-specific construct you can have in a stylesheet to
 # run some Javascript:
 _replace_css_javascript = re.compile(
-    r'expression\s*\(.*?\)', re.S|re.I).sub
+    r'expression\s*\(.{0,1024}?\)', re.S|re.I).sub
 
 # Do I have to worry about @\nimport?
 _replace_css_import = re.compile(
@@ -56,7 +56,7 @@ _looks_like_tag_content = re.compile(
 # All kinds of schemes besides just javascript: that can cause
 # execution:
 _find_image_dataurls = re.compile(
-    r'data:image/(.+?);base64,', re.I).findall
+    r'data:image/(.{1,255}?);base64,', re.I).findall
 _possibly_malicious_schemes = re.compile(
     r'(javascript|jscript|livescript|vbscript|data|about|mocha):',
     re.I).findall
@@ -74,8 +74,50 @@ def _has_javascript_scheme(s):
 _substitute_whitespace = re.compile(r'[\s\x00-\x08\x0B\x0C\x0E-\x19]+').sub
 
 # FIXME: check against: http://msdn2.microsoft.com/en-us/library/ms537512.aspx
-_conditional_comment_re = re.compile(
-    r'\[if[\s\n\r]+.*?][\s\n\r]*>', re.I|re.S)
+# Single pattern r'\[if\s+.*?]\s*>' is quadratic: every '[if' in
+# the text starts a lazy scan to the end looking for ']>'. Only the boolean
+# result is used, so two cheap linear searches decide it instead.
+_conditional_comment_open_re = re.compile(r'\[if\s', re.I)
+_conditional_comment_close_re = re.compile(r'](?=\s*>)')
+
+
+def _has_conditional_comment(text):
+    opening = _conditional_comment_open_re.search(text)
+    if opening is None:
+        return False
+    return _conditional_comment_close_re.search(text, opening.end()) is not None
+
+def _remove_css_comments(style):
+    """Remove CSS /* ... */ comments in O(n) time using str.find()."""
+    parts = []
+    pos = 0
+    while True:
+        start = style.find('/*', pos)
+        if start == -1:
+            parts.append(style[pos:])
+            break
+        parts.append(style[pos:start])
+        end = style.find('*/', start + 2)
+        if end == -1:
+            break  # unclosed comment — drop rest of string
+        pos = end + 2
+    return ''.join(parts)
+
+
+def _iter_css_comments(style):
+    """Yield each CSS comment string (including /* and */) in O(n) time."""
+    pos = 0
+    while True:
+        start = style.find('/*', pos)
+        if start == -1:
+            break
+        end = style.find('*/', start + 2)
+        if end == -1:
+            yield style[start:]
+            break
+        yield style[start:end+2]
+        pos = end + 2
+
 
 _find_styled_elements = etree.XPath(
     "descendant-or-self::*[@style]")
@@ -560,10 +602,9 @@ class Cleaner:
         doesn't normally see.  We can't allow anything like that, so
         we'll kill any comments that could be conditional.
         """
-        has_conditional_comment = _conditional_comment_re.search
         self._kill_elements(
-            doc, lambda el: has_conditional_comment(el.text),
-            etree.Comment)                
+            doc, lambda el: _has_conditional_comment(el.text),
+            etree.Comment)
 
     def _kill_elements(self, doc, condition, iterate=None):
         bad = []
@@ -581,9 +622,6 @@ class Cleaner:
             return ''
         return link
 
-    _comments_re = re.compile(r'/\*.*?\*/', re.S)
-    _find_comments = _comments_re.finditer
-    _substitute_comments = _comments_re.sub
     _css_unicode_escape_re = re.compile(r'\\([0-9a-fA-F]{1,6})\s?')
 
     def _decode_css_unicode_escapes(self, style):
@@ -616,7 +654,7 @@ class Cleaner:
         that and remove only the Javascript from the style; this catches
         more sneaky attempts.
         """
-        style = self._substitute_comments('', style)
+        style = _remove_css_comments(style)
         style = self._decode_css_unicode_escapes(style)
         style = style.replace('\\', '')
         style = _substitute_whitespace('', style)
@@ -644,8 +682,7 @@ class Cleaner:
         in some specific context and that might cause code in CSS
         comments to run.
         """
-        for match in self._find_comments(style):
-            comment = match.group(0)
+        for comment in _iter_css_comments(style):
             if _has_javascript_scheme(comment) or _looks_like_tag_content(comment):
                 style = style.replace(comment, "/* deleted */")
 

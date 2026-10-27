@@ -7,8 +7,16 @@ import pytest
 from pytest_django.asserts import assertTemplateUsed
 
 from allauth import app_settings as allauth_settings
-from allauth.account.adapter import get_adapter
-from allauth.account.authentication import AUTHENTICATION_METHODS_SESSION_KEY
+from allauth.account.adapter import DefaultAccountAdapter, get_adapter
+from allauth.account.authentication import get_authentication_records
+from allauth.account.decorators import reauthentication_required
+from allauth.account.models import EmailAddress
+from allauth.core.exceptions import ReauthenticationRequired
+
+
+class ReauthenticationRequiredAdapter(DefaultAccountAdapter):
+    def is_reauthentication_required(self, *, app, **kwargs):
+        return app == "allauth.account"
 
 
 @pytest.mark.parametrize(
@@ -41,7 +49,7 @@ def test_user_with_mfa_only(
             assert "next=%2Ffoo" in resp["location"]
 
 
-def test_reauthentication(settings, auth_client, user_password):
+def test_reauthentication(settings, auth_client, user, user_password):
     settings.ACCOUNT_REAUTHENTICATION_REQUIRED = True
     resp = auth_client.post(
         reverse("account_email"),
@@ -59,5 +67,38 @@ def test_reauthentication(settings, auth_client, user_password):
         {"action_add": "", "email": "john3@example.org"},
     )
     assert resp["location"].startswith(reverse("account_email"))
-    methods = auth_client.session[AUTHENTICATION_METHODS_SESSION_KEY]
-    assert methods[-1] == {"method": "password", "at": ANY, "reauthenticated": True}
+    methods = get_authentication_records(resp.wsgi_request, user)
+    assert methods[-1] == {
+        "method": "password",
+        "at": ANY,
+        "reauthenticated": True,
+    }
+
+
+def test_reauthentication_required_decorator_is_enabled_by_default(settings, rf, user):
+    settings.ACCOUNT_REAUTHENTICATION_REQUIRED = False
+    request = rf.post("/")
+    request.user = user
+    request.session = {}
+
+    @reauthentication_required
+    def view(request):
+        raise AssertionError("The protected view must not be called")
+
+    with pytest.raises(ReauthenticationRequired):
+        view(request)
+
+
+def test_adapter_can_require_reauthentication(settings, auth_client):
+    settings.ACCOUNT_REAUTHENTICATION_REQUIRED = False
+    settings.ACCOUNT_ADAPTER = (
+        "tests.apps.account.test_reauthentication." "ReauthenticationRequiredAdapter"
+    )
+
+    resp = auth_client.post(
+        reverse("account_email"),
+        {"action_add": "", "email": "reauthenticate@example.org"},
+    )
+
+    assert not EmailAddress.objects.filter(email="reauthenticate@example.org").exists()
+    assert resp["location"].startswith(reverse("account_reauthenticate"))

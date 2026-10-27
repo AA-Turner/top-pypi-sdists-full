@@ -159,6 +159,7 @@ except ImportError as _missing:
 
 import probe
 from probe.sdk import fluent, hashing, safe_warn
+from probe.sdk.config import env_run_id as _env_run_id
 
 from . import _checkpoints, _rank_lease
 from ._worker_exit import (
@@ -620,7 +621,7 @@ class ProbeCallback(TrainerCallback):
             if value is not None
         }
         kwargs.update(self._init_kwargs)
-        launcher_run = os.environ.get("PROBE_RUN_ID", "").strip()
+        launcher_run = _env_run_id()
         if launcher_run:
             # probe.init() refuses identity kwargs next to PROBE_RUN_ID (the
             # launcher already chose the run). Join the launcher's run instead.
@@ -652,7 +653,7 @@ class ProbeCallback(TrainerCallback):
         _UNFINISHED.pop(active.id, None)
         fluent._forget_noted_exit(active)
         label = self._label(active)
-        if active.id == os.environ.get("PROBE_RUN_ID", "").strip():
+        if active.id == _env_run_id():
             # The launcher's run, joined by the script's own probe.init()
             # under `probe exec`: the launcher closes it, from the exit code.
             _LAUNCHER_RUNS.add(active.id)
@@ -957,7 +958,7 @@ _ATTR = {"project": "_project", "experiment": "_experiment_name", "name": "_run_
 def _launcher_run() -> tuple[str, int | None] | None:
     """``PROBE_RUN_ID`` (with ``PROBE_RUN_EPOCH``): a launcher (``probe exec``)
     named this job's run on every rank, and rank 0 writes to it too."""
-    run_id = os.environ.get("PROBE_RUN_ID", "").strip()
+    run_id = _env_run_id()
     if not run_id:
         return None
     raw = os.environ.get("PROBE_RUN_EPOCH", "").strip()
@@ -1068,7 +1069,7 @@ class _AtExit:
             run = probe.active_run()
             if run is None or (run.id not in _UNFINISHED and run.id not in _ENDED_AS):
                 return
-            if run.id in _LAUNCHER_RUNS or run.id == os.environ.get("PROBE_RUN_ID", "").strip():
+            if run.id in _LAUNCHER_RUNS or run.id == _env_run_id():
                 return  # the launcher closes it from the real exit code
             if getattr(fluent, "_exit_recorded", False):
                 return

@@ -36,12 +36,18 @@ from lmnr.opentelemetry_lib.opentelemetry.instrumentation.anthropic.streaming im
     WrappedMessageStreamManager,
     abuild_from_streaming_response,
     build_from_streaming_response,
+    record_span_error,
 )
 from lmnr.opentelemetry_lib.opentelemetry.instrumentation.anthropic.utils import (
     run_async,
 )
 from lmnr.opentelemetry_lib.opentelemetry.instrumentation.shared.base_instrumentor import (
     BaseLaminarInstrumentor,
+)
+from lmnr.opentelemetry_lib.opentelemetry.instrumentation.shared.raw_response import (
+    aparse_raw_response,
+    as_raw_response,
+    parse_raw_stream,
 )
 from lmnr.opentelemetry_lib.opentelemetry.instrumentation.shared.types import (
     LaminarInstrumentationScopeAttributes,
@@ -56,6 +62,7 @@ from lmnr.opentelemetry_lib.opentelemetry.instrumentation.shared.utils import (
 from lmnr.opentelemetry_lib.opentelemetry.instrumentation.shared.wrapper_helpers import (
     stamp_instrumentation_scope,
 )
+from lmnr.opentelemetry_lib.tracing.anthropic_native import use_native_spans
 from lmnr.sdk.log import get_default_logger
 
 # `anthropic` may be missing or older than the names below; keep these imports
@@ -318,27 +325,34 @@ def _wrap(
     rollout_wrapper = get_anthropic_rollout_wrapper()
     is_rollout = rollout_wrapper is not None
 
-    if rollout_wrapper:
-        response = rollout_wrapper.wrap_create(
-            wrapped,
-            instance,
-            args,
-            kwargs,
-            span=span,
-            is_streaming=kwargs.get("stream", False),
-            is_async=False,
-        )
-    else:
-        response = wrapped(*args, **kwargs)
+    try:
+        if rollout_wrapper:
+            response = rollout_wrapper.wrap_create(
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                span=span,
+                is_streaming=kwargs.get("stream", False),
+                is_async=False,
+            )
+        else:
+            response = wrapped(*args, **kwargs)
+    except Exception as e:
+        record_span_error(span, e)
+        raise
+
+    response, raw = parse_raw_stream(kwargs, response)
 
     if kwargs.get("stream") or is_streaming_response(response):
-        return build_from_streaming_response(
+        stream = build_from_streaming_response(
             span,
             cast("MessageStream", response),
             instance._client,
             kwargs,
             record_raw_response=is_rollout,
         )
+        return as_raw_response(kwargs, stream, raw)
     elif is_stream_manager(response):
         if response.__class__.__name__ == "AsyncMessageStreamManager":
             return WrappedAsyncMessageStreamManager(
@@ -372,7 +386,7 @@ def _wrap(
         if span.is_recording():
             span.set_status(Status(StatusCode.OK))
     span.end()
-    return response
+    return as_raw_response(kwargs, response, raw)
 
 
 async def _awrap(
@@ -408,27 +422,34 @@ async def _awrap(
     rollout_wrapper = get_anthropic_rollout_wrapper()
     is_rollout = rollout_wrapper is not None
 
-    if rollout_wrapper:
-        response = await rollout_wrapper.wrap_create(
-            wrapped,
-            instance,
-            args,
-            kwargs,
-            span=span,
-            is_streaming=kwargs.get("stream", False),
-            is_async=True,
-        )
-    else:
-        response = await wrapped(*args, **kwargs)
+    try:
+        if rollout_wrapper:
+            response = await rollout_wrapper.wrap_create(
+                wrapped,
+                instance,
+                args,
+                kwargs,
+                span=span,
+                is_streaming=kwargs.get("stream", False),
+                is_async=True,
+            )
+        else:
+            response = await wrapped(*args, **kwargs)
+    except Exception as e:
+        record_span_error(span, e)
+        raise
+
+    response, raw = await aparse_raw_response(kwargs, response)
 
     if kwargs.get("stream") or is_streaming_response(response):
-        return abuild_from_streaming_response(
+        stream = abuild_from_streaming_response(
             span,
             cast("AsyncMessageStream", response),
             instance._client,
             kwargs,
             record_raw_response=is_rollout,
         )
+        return as_raw_response(kwargs, stream, raw, is_async=True)
     elif is_stream_manager(response):
         if response.__class__.__name__ == "AsyncMessageStreamManager":
             return WrappedAsyncMessageStreamManager(
@@ -458,7 +479,7 @@ async def _awrap(
             )
             span.set_status(Status(StatusCode.OK))
     span.end()
-    return response
+    return as_raw_response(kwargs, response, raw, is_async=True)
 
 
 WRAPPED_FUNCTIONS: list[WrappedFunctionSpec] = [
@@ -635,6 +656,18 @@ class AnthropicInstrumentor(BaseLaminarInstrumentor):
     @override
     def instrumentation_dependencies(self) -> Collection[str]:
         return _instruments
+
+    @override
+    def _instrument(self, **kwargs: dict[str, Any]):
+        if use_native_spans():
+            # The SDK's own spans record the calls; ours would count them twice.
+            # See `tracing/anthropic_native.py`.
+            logger.debug(
+                "ANTHROPIC_OPEN_TELEMETRY_TRACES_CONTENT_MODE=content: using the anthropic "
+                + "SDK's native spans instead of Laminar's anthropic instrumentation"
+            )
+            return
+        super()._instrument(**kwargs)
 
     @override
     def instrumentation_scope(self) -> LaminarInstrumentationScopeAttributes:

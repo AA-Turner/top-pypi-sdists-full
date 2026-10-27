@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: client-signals
-Version: 0.4.4
+Version: 0.5.0
 Summary: Privacy-safe client signals for CLI HTTP traffic.
 License: MIT
 Requires-Python: >=3.9

@@ -220,6 +220,7 @@ class CfnSuiteDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -286,7 +287,7 @@ class CfnSuiteDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__317c2091d233afa7482c288ee5b7936df2985381cf92c37042f75df938b06ccc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "suiteDefinitionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "suiteDefinitionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -302,7 +303,7 @@ class CfnSuiteDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0cbe94c4a5fef0228a9bbec1e1b5971dc30e57c5e6ab1bc763768655a7a6620f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotcoredeviceadvisor.CfnSuiteDefinition.DeviceUnderTestProperty",

@@ -17,7 +17,9 @@ class JaccardLoss(_Loss):
         log_loss: bool = False,
         from_logits: bool = True,
         smooth: float = 0.0,
+        ignore_index: Optional[int] = None,
         eps: float = 1e-7,
+        class_weights: Optional[List[float]] = None,
     ):
         """Jaccard loss for image segmentation task.
         It supports binary, multiclass and multilabel cases
@@ -30,6 +32,9 @@ class JaccardLoss(_Loss):
             smooth: Smoothness constant for dice coefficient
             eps: A small epsilon for numerical stability to avoid zero division error
                 (denominator will be always greater or equal to eps)
+            class_weights: List of weights for each class. If not ``None``, the loss for each class
+                is multiplied by the corresponding weight. Only supported for multiclass and
+                multilabel modes. Weights do not need to be normalized.
 
         Shape
              - **y_pred** - torch.Tensor of shape (N, C, H, W)
@@ -42,6 +47,8 @@ class JaccardLoss(_Loss):
         super(JaccardLoss, self).__init__()
 
         self.mode = mode
+        if class_weights is not None and mode == BINARY_MODE:
+            raise ValueError("class_weights are not supported with mode=binary")
         if classes is not None:
             assert mode != BINARY_MODE, (
                 "Masking classes is not supported with mode=binary"
@@ -51,8 +58,14 @@ class JaccardLoss(_Loss):
         self.classes = classes
         self.from_logits = from_logits
         self.smooth = smooth
+        self.ignore_index = ignore_index
         self.eps = eps
         self.log_loss = log_loss
+        self.class_weights = (
+            to_tensor(class_weights, dtype=torch.float)
+            if class_weights is not None
+            else None
+        )
 
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         assert y_true.size(0) == y_pred.size(0)
@@ -71,19 +84,38 @@ class JaccardLoss(_Loss):
         dims = (0, 2)
 
         if self.mode == BINARY_MODE:
-            y_true = y_true.view(bs, 1, -1)
-            y_pred = y_pred.view(bs, 1, -1)
+            y_true = y_true.reshape(bs, 1, -1)
+            y_pred = y_pred.reshape(bs, 1, -1)
+
+            if self.ignore_index is not None:
+                mask = y_true != self.ignore_index
+                y_pred = y_pred * mask
+                y_true = y_true * mask
 
         if self.mode == MULTICLASS_MODE:
-            y_true = y_true.view(bs, -1)
-            y_pred = y_pred.view(bs, num_classes, -1)
+            y_true = y_true.reshape(bs, -1)
+            y_pred = y_pred.reshape(bs, num_classes, -1)
 
-            y_true = F.one_hot(y_true, num_classes)  # N,H*W -> N,H*W, C
-            y_true = y_true.permute(0, 2, 1)  # H, C, H*W
+            if self.ignore_index is not None:
+                mask = y_true != self.ignore_index
+                y_pred = y_pred * mask.unsqueeze(1)
+
+                y_true = F.one_hot(
+                    (y_true * mask).to(torch.long), num_classes
+                )  # N,H*W -> N,H*W, C
+                y_true = y_true.permute(0, 2, 1) * mask.unsqueeze(1)  # N, C, H*W
+            else:
+                y_true = F.one_hot(y_true, num_classes)  # N,H*W -> N,H*W, C
+                y_true = y_true.permute(0, 2, 1)  # N, C, H*W
 
         if self.mode == MULTILABEL_MODE:
-            y_true = y_true.view(bs, num_classes, -1)
-            y_pred = y_pred.view(bs, num_classes, -1)
+            y_true = y_true.reshape(bs, num_classes, -1)
+            y_pred = y_pred.reshape(bs, num_classes, -1)
+
+            if self.ignore_index is not None:
+                mask = y_true != self.ignore_index
+                y_pred = y_pred * mask
+                y_true = y_true * mask
 
         scores = soft_jaccard_score(
             y_pred,
@@ -108,5 +140,11 @@ class JaccardLoss(_Loss):
 
         if self.classes is not None:
             loss = loss[self.classes]
+
+        if self.class_weights is not None:
+            weights = self.class_weights.to(loss.device)
+            if self.classes is not None:
+                weights = weights[self.classes]
+            return (loss * weights).sum() / weights.sum()
 
         return loss.mean()

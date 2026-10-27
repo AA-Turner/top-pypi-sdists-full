@@ -17,6 +17,10 @@ Usage::
         ListBillingViewsPaginator,
         ListBusinessSupportAccountChargesPaginator,
         ListBusinessSupportSubscriptionHistoryPaginator,
+        ListContractsPaginator,
+        ListContractualInvestmentAttestationsPaginator,
+        ListContractualInvestmentSummariesPaginator,
+        ListContractualInvestmentsPaginator,
         ListEnterpriseSupportLinkedAccountChargesPaginator,
         ListSourceViewsForBillingViewPaginator,
     )
@@ -29,6 +33,10 @@ Usage::
     list_billing_views_paginator: ListBillingViewsPaginator = client.get_paginator("list_billing_views")
     list_business_support_account_charges_paginator: ListBusinessSupportAccountChargesPaginator = client.get_paginator("list_business_support_account_charges")
     list_business_support_subscription_history_paginator: ListBusinessSupportSubscriptionHistoryPaginator = client.get_paginator("list_business_support_subscription_history")
+    list_contracts_paginator: ListContractsPaginator = client.get_paginator("list_contracts")
+    list_contractual_investment_attestations_paginator: ListContractualInvestmentAttestationsPaginator = client.get_paginator("list_contractual_investment_attestations")
+    list_contractual_investment_summaries_paginator: ListContractualInvestmentSummariesPaginator = client.get_paginator("list_contractual_investment_summaries")
+    list_contractual_investments_paginator: ListContractualInvestmentsPaginator = client.get_paginator("list_contractual_investments")
     list_enterprise_support_linked_account_charges_paginator: ListEnterpriseSupportLinkedAccountChargesPaginator = client.get_paginator("list_enterprise_support_linked_account_charges")
     list_source_views_for_billing_view_paginator: ListSourceViewsForBillingViewPaginator = client.get_paginator("list_source_views_for_billing_view")
     ```
@@ -52,6 +60,14 @@ from .type_defs import (
     ListBusinessSupportAccountChargesResponseTypeDef,
     ListBusinessSupportSubscriptionHistoryRequestPaginateTypeDef,
     ListBusinessSupportSubscriptionHistoryResponseTypeDef,
+    ListContractsRequestPaginateTypeDef,
+    ListContractsResponseTypeDef,
+    ListContractualInvestmentAttestationsRequestPaginateTypeDef,
+    ListContractualInvestmentAttestationsResponseTypeDef,
+    ListContractualInvestmentsRequestPaginateTypeDef,
+    ListContractualInvestmentsResponseTypeDef,
+    ListContractualInvestmentSummariesRequestPaginateTypeDef,
+    ListContractualInvestmentSummariesResponseTypeDef,
     ListEnterpriseSupportLinkedAccountChargesRequestPaginateTypeDef,
     ListEnterpriseSupportLinkedAccountChargesResponseTypeDef,
     ListSourceViewsForBillingViewRequestPaginateTypeDef,
@@ -70,6 +86,10 @@ __all__ = (
     "ListBillingViewsPaginator",
     "ListBusinessSupportAccountChargesPaginator",
     "ListBusinessSupportSubscriptionHistoryPaginator",
+    "ListContractsPaginator",
+    "ListContractualInvestmentAttestationsPaginator",
+    "ListContractualInvestmentSummariesPaginator",
+    "ListContractualInvestmentsPaginator",
     "ListEnterpriseSupportLinkedAccountChargesPaginator",
     "ListSourceViewsForBillingViewPaginator",
 )
@@ -183,6 +203,96 @@ class ListBusinessSupportSubscriptionHistoryPaginator(
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListBusinessSupportSubscriptionHistory.html#Billing.Paginator.ListBusinessSupportSubscriptionHistory.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/paginators/#listbusinesssupportsubscriptionhistorypaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListContractsPaginatorBase = Paginator[ListContractsResponseTypeDef]
+else:
+    _ListContractsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListContractsPaginator(_ListContractsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListContracts.html#Billing.Paginator.ListContracts)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/paginators/#listcontractspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContractsRequestPaginateTypeDef]
+    ) -> PageIterator[ListContractsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListContracts.html#Billing.Paginator.ListContracts.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/paginators/#listcontractspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListContractualInvestmentAttestationsPaginatorBase = Paginator[
+        ListContractualInvestmentAttestationsResponseTypeDef
+    ]
+else:
+    _ListContractualInvestmentAttestationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListContractualInvestmentAttestationsPaginator(
+    _ListContractualInvestmentAttestationsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListContractualInvestmentAttestations.html#Billing.Paginator.ListContractualInvestmentAttestations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/paginators/#listcontractualinvestmentattestationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContractualInvestmentAttestationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListContractualInvestmentAttestationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListContractualInvestmentAttestations.html#Billing.Paginator.ListContractualInvestmentAttestations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/paginators/#listcontractualinvestmentattestationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListContractualInvestmentSummariesPaginatorBase = Paginator[
+        ListContractualInvestmentSummariesResponseTypeDef
+    ]
+else:
+    _ListContractualInvestmentSummariesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListContractualInvestmentSummariesPaginator(_ListContractualInvestmentSummariesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListContractualInvestmentSummaries.html#Billing.Paginator.ListContractualInvestmentSummaries)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/paginators/#listcontractualinvestmentsummariespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContractualInvestmentSummariesRequestPaginateTypeDef]
+    ) -> PageIterator[ListContractualInvestmentSummariesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListContractualInvestmentSummaries.html#Billing.Paginator.ListContractualInvestmentSummaries.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/paginators/#listcontractualinvestmentsummariespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListContractualInvestmentsPaginatorBase = Paginator[ListContractualInvestmentsResponseTypeDef]
+else:
+    _ListContractualInvestmentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListContractualInvestmentsPaginator(_ListContractualInvestmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListContractualInvestments.html#Billing.Paginator.ListContractualInvestments)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/paginators/#listcontractualinvestmentspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContractualInvestmentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListContractualInvestmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/paginator/ListContractualInvestments.html#Billing.Paginator.ListContractualInvestments.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/paginators/#listcontractualinvestmentspaginator)
         """
 
 

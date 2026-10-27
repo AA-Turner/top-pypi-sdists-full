@@ -13,7 +13,7 @@ class DescribeInstanceModificationPriceResponseBody(DaraModel):
         price_info: main_models.DescribeInstanceModificationPriceResponseBodyPriceInfo = None,
         request_id: str = None,
     ):
-        # The price information, including the price and discount rule information.
+        # The PriceInfo data type, which includes pricing and discount rule information.
         self.price_info = price_info
         # The request ID.
         self.request_id = request_id
@@ -55,7 +55,7 @@ class DescribeInstanceModificationPriceResponseBodyPriceInfo(DaraModel):
     ):
         # The price.
         self.price = price
-        # The related price.
+        # The associated price.
         self.related_price = related_price
         self.rules = rules
 
@@ -217,7 +217,7 @@ class DescribeInstanceModificationPriceResponseBodyPriceInfoRelatedPriceMarketpl
         self.discount_price = discount_price
         # The original price.
         self.original_price = original_price
-        # The transaction price, which is equal to the original price minus the discount.
+        # The final price, which is the original price minus the discount.
         self.trade_price = trade_price
 
     def validate(self):
@@ -278,7 +278,7 @@ class DescribeInstanceModificationPriceResponseBodyPriceInfoPrice(DaraModel):
         self.discount_price = discount_price
         # The original price.
         self.original_price = original_price
-        # The transaction price, which is equal to the original price minus the discount.
+        # The final price, which is the original price minus the discount.
         self.trade_price = trade_price
 
     def validate(self):

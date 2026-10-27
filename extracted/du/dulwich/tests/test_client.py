@@ -63,6 +63,7 @@ from dulwich.client import (
     _handle_upload_pack_head,
     _handle_upload_pack_tail,
     _read_shallow_updates,
+    _read_shallow_updates_v2,
     _remote_error_from_stderr,
     _win32_url_to_path,
     build_fetch_request_v2,
@@ -385,6 +386,38 @@ class GitClientTests(TestCase):
         output = self.rout.getvalue()
         self.assertIn(b"deepen-since 2023-01-01T00:00:00Z\n", output)
         self.assertIn(b"deepen-not refs/heads/excluded\n", output)
+
+    def test_handle_upload_pack_head_shallow_client_v2(self) -> None:
+        # A shallow client fetching without a depth change still gets a
+        # shallow-info section in protocol v2. It has to be consumed here so
+        # the packfile section that follows is not misread as empty (#2478).
+        self.rin.write(pkt_line(b"shallow-info\n") + b"0001" + pkt_line(b"packfile\n"))
+        self.rin.seek(0)
+
+        class DummyGraphWalker:
+            def __init__(self) -> None:
+                self.shallow = {b"2f3dc7a53fb752a6961d3a56683df46d4d3bf262"}
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                return None
+
+        proto = Protocol(self.rin.read, self.rout.write)
+        (new_shallow, new_unshallow) = _handle_upload_pack_head(
+            proto=proto,
+            capabilities=[b"fetch=shallow"],
+            graph_walker=DummyGraphWalker(),
+            wants=[b"55dcc6bf963f922e1ed5c4bbaaefcfacef57b1d7"],
+            can_read=lambda: False,
+            depth=None,
+            protocol_version=2,
+        )
+        self.assertEqual(set(), new_shallow)
+        self.assertEqual(set(), new_unshallow)
+        # The packfile section header is left for _handle_upload_pack_tail.
+        self.assertEqual(b"packfile\n", proto.read_pkt_line())
 
     def test_handle_upload_pack_head_stateless_bounds_haves(self) -> None:
         # Stateless transports cannot receive ACKs while building the request.
@@ -3668,6 +3701,39 @@ class ReadShallowUpdatesTests(TestCase):
         )
 
 
+class ReadShallowUpdatesV2Tests(TestCase):
+    def test_section_present(self) -> None:
+        rin = BytesIO(
+            pkt_line(b"shallow-info\n")
+            + pkt_line(b"shallow 2f3dc7a53fb752a6961d3a56683df46d4d3bf262\n")
+            + b"0001"
+            + pkt_line(b"packfile\n")
+        )
+        proto = Protocol(rin.read, None)
+        (new_shallow, new_unshallow) = _read_shallow_updates_v2(proto)
+        self.assertEqual({b"2f3dc7a53fb752a6961d3a56683df46d4d3bf262"}, new_shallow)
+        self.assertEqual(set(), new_unshallow)
+        self.assertEqual(b"packfile\n", proto.read_pkt_line())
+
+    def test_empty_section(self) -> None:
+        # A shallow client fetching without a depth change gets a
+        # shallow-info section with no shallow or unshallow lines.
+        rin = BytesIO(pkt_line(b"shallow-info\n") + b"0001" + pkt_line(b"packfile\n"))
+        proto = Protocol(rin.read, None)
+        (new_shallow, new_unshallow) = _read_shallow_updates_v2(proto)
+        self.assertEqual(set(), new_shallow)
+        self.assertEqual(set(), new_unshallow)
+        self.assertEqual(b"packfile\n", proto.read_pkt_line())
+
+    def test_section_absent(self) -> None:
+        rin = BytesIO(pkt_line(b"packfile\n"))
+        proto = Protocol(rin.read, None)
+        (new_shallow, new_unshallow) = _read_shallow_updates_v2(proto)
+        self.assertEqual(set(), new_shallow)
+        self.assertEqual(set(), new_unshallow)
+        self.assertEqual(b"packfile\n", proto.read_pkt_line())
+
+
 class FetchPackResultTests(TestCase):
     def test_eq(self) -> None:
         self.assertEqual(
@@ -3763,6 +3829,43 @@ And this line is just random noise, too.
                 ]
             ),
         )
+
+
+class StderrDummyClient(TraditionalGitClient):
+    def __init__(self, stdout: bytes, stderr: bytes) -> None:
+        self.stdout = BytesIO(stdout)
+        self.stderr = BytesIO(stderr)
+        TraditionalGitClient.__init__(self)
+
+    def _connect(self, service, path, protocol_version=None):
+        return (
+            Protocol(self.stdout.read, BytesIO().write),
+            lambda: False,
+            self.stderr,
+        )
+
+
+class HangupBeforeAdvertisementTests(TestCase):
+    def expected(self):
+        return HangupException([b"Permission denied (publickey)."])
+
+    def test_get_refs(self) -> None:
+        c = StderrDummyClient(b"", b"Permission denied (publickey).\n")
+        with self.assertRaises(HangupException) as cm:
+            c.get_refs(b"/")
+        self.assertEqual(self.expected(), cm.exception)
+
+    def test_get_refs_v2_capabilities(self) -> None:
+        c = StderrDummyClient(b"000eversion 2\n", b"Permission denied (publickey).\n")
+        with self.assertRaises(HangupException) as cm:
+            c.get_refs(b"/", protocol_version=2)
+        self.assertEqual(self.expected(), cm.exception)
+
+    def test_fetch_pack(self) -> None:
+        c = StderrDummyClient(b"", b"Permission denied (publickey).\n")
+        with self.assertRaises(HangupException) as cm:
+            c.fetch_pack(b"/", lambda heads, depth=None: [], None, None)
+        self.assertEqual(self.expected(), cm.exception)
 
 
 class TestExtractAgentAndSymrefs(TestCase):

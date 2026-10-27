@@ -362,8 +362,11 @@ class AlgebraicRecon(Recon):
             elif self.experiment.AOsignal_withoutTumor is not None:
                 self.experiment.AOsignal_withoutTumor_demodulated = self.experiment.demodulate_AOsignal(withTumor=False)
             else:
-                raise ValueError("[AOT-biomaps] No AO signal available for demodulation. Please provide at least one signal, with or without tumor.")
-            self.experiment.AcousticFields_demodulated = self.experiment.demodulate_acoustic_fields()
+                print("[AOT-biomaps] Warning No AO signal available for demodulation. Please provide at least one signal, with or without tumor.")
+            if self.experiment.AcousticFields is not None:
+                self.experiment.AcousticFields_demodulated = self.experiment.demodulate_acoustic_fields()
+            else:
+                print("[AOT-biomaps] Warning: No acoustic fields available for demodulation. Please provide acoustic fields for complex reconstruction.")
     
     def _validate_potential_compatibility(self, errors: list):
         """

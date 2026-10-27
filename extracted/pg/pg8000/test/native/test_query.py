@@ -2,7 +2,6 @@ import pytest
 
 from pg8000.native import DatabaseError, to_statement
 
-
 # Tests relating to the basic operation of the database driver, driven by the
 # pg8000 custom interface.
 

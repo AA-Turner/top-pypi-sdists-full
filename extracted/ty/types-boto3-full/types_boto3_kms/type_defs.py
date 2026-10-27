@@ -73,6 +73,8 @@ __all__ = (
     "CreateKeyRequestTypeDef",
     "CreateKeyResponseTypeDef",
     "CustomKeyStoresListEntryTypeDef",
+    "DecapsulateRequestTypeDef",
+    "DecapsulateResponseTypeDef",
     "DecryptRequestTypeDef",
     "DecryptResponseTypeDef",
     "DeleteAliasRequestTypeDef",
@@ -92,6 +94,8 @@ __all__ = (
     "EmptyResponseMetadataTypeDef",
     "EnableKeyRequestTypeDef",
     "EnableKeyRotationRequestTypeDef",
+    "EncapsulateRequestTypeDef",
+    "EncapsulateResponseTypeDef",
     "EncryptRequestTypeDef",
     "EncryptResponseTypeDef",
     "GenerateDataKeyPairRequestTypeDef",
@@ -285,6 +289,13 @@ class EnableKeyRotationRequestTypeDef(TypedDict):
     RotationPeriodInDays: NotRequired[int]
 
 
+class EncapsulateRequestTypeDef(TypedDict):
+    KeyId: str
+    EncapsulationAlgorithm: Literal["ML_KEM"]
+    GrantTokens: NotRequired[Sequence[str]]
+    DryRun: NotRequired[bool]
+
+
 class GenerateDataKeyPairWithoutPlaintextRequestTypeDef(TypedDict):
     KeyId: str
     KeyPairSpec: DataKeyPairSpecType
@@ -469,6 +480,14 @@ class UpdatePrimaryRegionRequestTypeDef(TypedDict):
     PrimaryRegion: str
 
 
+class DecapsulateRequestTypeDef(TypedDict):
+    KeyId: str
+    SharedSecretCiphertextBlob: BlobTypeDef
+    EncapsulationAlgorithm: Literal["ML_KEM"]
+    GrantTokens: NotRequired[Sequence[str]]
+    DryRun: NotRequired[bool]
+
+
 class EncryptRequestTypeDef(TypedDict):
     KeyId: str
     Plaintext: BlobTypeDef
@@ -548,6 +567,13 @@ class CreateGrantResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DecapsulateResponseTypeDef(TypedDict):
+    KeyId: str
+    SharedSecret: bytes
+    EncapsulationAlgorithm: Literal["ML_KEM"]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DecryptResponseTypeDef(TypedDict):
     KeyId: str
     Plaintext: bytes
@@ -573,6 +599,14 @@ class DeriveSharedSecretResponseTypeDef(TypedDict):
 
 
 class EmptyResponseMetadataTypeDef(TypedDict):
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class EncapsulateResponseTypeDef(TypedDict):
+    KeyId: str
+    SharedSecret: bytes
+    SharedSecretCiphertextBlob: bytes
+    EncapsulationAlgorithm: Literal["ML_KEM"]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -664,6 +698,7 @@ class GetPublicKeyResponseTypeDef(TypedDict):
     EncryptionAlgorithms: list[EncryptionAlgorithmSpecType]
     SigningAlgorithms: list[SigningAlgorithmSpecType]
     KeyAgreementAlgorithms: list[Literal["ECDH"]]
+    EncapsulationAlgorithms: list[Literal["ML_KEM"]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1000,6 +1035,7 @@ class KeyMetadataTypeDef(TypedDict):
     EncryptionAlgorithms: NotRequired[list[EncryptionAlgorithmSpecType]]
     SigningAlgorithms: NotRequired[list[SigningAlgorithmSpecType]]
     KeyAgreementAlgorithms: NotRequired[list[Literal["ECDH"]]]
+    EncapsulationAlgorithms: NotRequired[list[Literal["ML_KEM"]]]
     MultiRegion: NotRequired[bool]
     MultiRegionConfiguration: NotRequired[MultiRegionConfigurationTypeDef]
     PendingDeletionWindowInDays: NotRequired[int]

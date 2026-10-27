@@ -214,6 +214,7 @@ class CfnSimulation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -254,7 +255,7 @@ class CfnSimulation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cee178cc692dbe490816570d9a4e2e7a1337df4dada160c359d1e63f9610a019)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -267,7 +268,7 @@ class CfnSimulation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8cf80826f07ceb33872e230ca4db5787964200674ba7f1acac6b09dd5c724ba1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="maximumDuration")
@@ -280,7 +281,7 @@ class CfnSimulation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a94aed77c22b4214ad09ce3c32e695147377205b63da1699fb7e1e3b97467dc9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maximumDuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maximumDuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="schemaS3Location")
@@ -298,7 +299,7 @@ class CfnSimulation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__19e5b9acd452852f4eb9cb770f11aaf43e111ff00ccb82a5824b65ae6869ef67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schemaS3Location", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "schemaS3Location", value)
 
     @builtins.property
     @jsii.member(jsii_name="snapshotS3Location")
@@ -316,7 +317,7 @@ class CfnSimulation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eae2ce65a01ef04b46cbcb9953c071289e4b3d8a6e8631a73da64120010bc9c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotS3Location", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snapshotS3Location", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_simspaceweaver.CfnSimulation.S3LocationProperty",

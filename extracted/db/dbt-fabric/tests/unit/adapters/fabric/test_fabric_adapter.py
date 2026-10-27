@@ -8,6 +8,9 @@ from dbt_common.contracts.constraints import (
 )
 
 from dbt.adapters.fabric.fabric_adapter import FabricAdapter
+from dbt.adapters.fabric.fabric_column import FabricColumn
+from dbt.adapters.fabric.fabric_relation import FabricRelation
+from dbt.adapters.fabric.table_refresh import FabricTableConstraint, IdentityColumn
 
 
 class TestConvertBooleanType:
@@ -79,6 +82,394 @@ def _make_adapter_instance():
     return object.__new__(FabricAdapter)
 
 
+class TestTableRefreshConstraintPlanning:
+    @pytest.fixture
+    def adapter(self):
+        adapter = _make_adapter_instance()
+        columns = [
+            FabricColumn(
+                "id",
+                "int",
+                char_size=4,
+                numeric_precision=10,
+                numeric_scale=0,
+                is_nullable=False,
+            )
+        ]
+        adapter._describe_query_columns = lambda sql: columns
+        adapter.get_columns_in_relation = lambda relation: columns
+        adapter._get_table_cluster_by = lambda relation: []
+        adapter.get_constraints_in_relation = lambda relation: []
+        return adapter
+
+    @pytest.fixture
+    def relation(self):
+        return FabricRelation.create(
+            database="warehouse",
+            schema="dbo",
+            identifier="refresh_table",
+            type="table",
+        )
+
+    def test_plan_contains_rendered_constraint_addition(self, adapter, relation):
+        plan = adapter.get_table_refresh_plan(
+            relation,
+            "select cast(1 as int) as id",
+            constraints=[
+                {
+                    "name": "uq_refresh_table",
+                    "type": "unique",
+                    "columns": ["id"],
+                }
+            ],
+        )
+
+        assert plan["action"] == "reload"
+        assert plan["constraints_to_add"] == ["uq_refresh_table"]
+        assert plan["constraint_add_sql"] == [
+            "add constraint uq_refresh_table unique nonclustered(id) not enforced"
+        ]
+
+    def test_custom_constraint_forces_replacement(self, adapter, relation):
+        plan = adapter.get_table_refresh_plan(
+            relation,
+            "select cast(1 as int) as id",
+            constraints=[
+                {
+                    "name": "custom_refresh_table",
+                    "type": "custom",
+                    "expression": "constraint custom_refresh_table unique (id)",
+                }
+            ],
+        )
+
+        assert plan["action"] == "replace"
+        assert plan["reason"] == "constraint definition requires table replacement"
+
+    def test_changed_qualified_foreign_key_is_reconciled(self, adapter, relation):
+        adapter.get_constraints_in_relation = lambda relation: [
+            FabricTableConstraint(
+                "fk_refresh_table",
+                "foreign_key",
+                ("id",),
+                referenced_database="warehouse",
+                referenced_schema="archive",
+                referenced_table="parent",
+                referenced_columns=("id",),
+            )
+        ]
+
+        plan = adapter.get_table_refresh_plan(
+            relation,
+            "select cast(1 as int) as id",
+            constraints=[
+                {
+                    "name": "fk_refresh_table",
+                    "type": "foreign_key",
+                    "columns": ["id"],
+                    "expression": "[warehouse].[dbo].[parent] ([id])",
+                }
+            ],
+        )
+
+        assert plan["constraints_to_drop"] == ["fk_refresh_table"]
+        assert plan["constraints_to_add"] == ["fk_refresh_table"]
+
+    def test_unchanged_constraint_is_not_rendered(self, adapter, relation):
+        adapter.get_constraints_in_relation = lambda relation: [
+            FabricTableConstraint("uq_refresh_table", "unique", ("id",))
+        ]
+
+        plan = adapter.get_table_refresh_plan(
+            relation,
+            "select cast(1 as int) as id",
+            constraints=[
+                {
+                    "name": "uq_refresh_table",
+                    "type": "unique",
+                    "columns": ["id"],
+                }
+            ],
+        )
+
+        assert plan["action"] == "reload"
+        assert plan["constraints_to_drop"] == []
+        assert plan["constraints_to_add"] == []
+        assert plan["constraint_add_sql"] == []
+
+    def test_query_referencing_target_forces_replacement(self, adapter, relation):
+        plan = adapter.get_table_refresh_plan(
+            relation,
+            "select id from [warehouse].[dbo].[refresh_table]",
+        )
+
+        assert plan["action"] == "replace"
+        assert plan["reason"] == "query references the target relation"
+
+
+class TestTableRefreshIdentityPlanning:
+    @pytest.fixture
+    def adapter(self):
+        adapter = _make_adapter_instance()
+        columns = [
+            FabricColumn(
+                "id",
+                "bigint",
+                char_size=8,
+                numeric_precision=19,
+                numeric_scale=0,
+                is_nullable=False,
+            )
+        ]
+        adapter._describe_query_columns = lambda sql: columns
+        adapter.get_columns_in_relation = lambda relation: columns
+        adapter._get_table_cluster_by = lambda relation: []
+        adapter.get_constraints_in_relation = lambda relation: []
+        return adapter
+
+    @pytest.fixture
+    def relation(self):
+        return FabricRelation.create(
+            database="warehouse",
+            schema="dbo",
+            identifier="refresh_table",
+            type="table",
+        )
+
+    def test_get_identity_column_resolves_declared_identity(self, adapter):
+        columns = {"id": {"name": "id", "data_type": "bigint", "meta": {"identity": "auto"}}}
+
+        identity_column = adapter.get_identity_column(columns, contract_enforced=True)
+
+        assert identity_column == IdentityColumn(name="id", mode="auto")
+
+    def test_get_identity_column_returns_none_without_declaration(self, adapter):
+        columns = {"id": {"name": "id", "data_type": "bigint", "meta": {}}}
+
+        assert adapter.get_identity_column(columns, contract_enforced=True) is None
+
+    def test_table_refresh_plan_passes_through_identity_column(self, adapter, relation):
+        """Target already has identity; the model declares the same column, so this
+        is a plain reload, not a schema change."""
+        adapter.get_columns_in_relation = lambda relation: [
+            FabricColumn(
+                "id",
+                "bigint",
+                char_size=8,
+                numeric_precision=19,
+                numeric_scale=0,
+                is_nullable=False,
+                is_identity=True,
+            )
+        ]
+        columns = {"id": {"name": "id", "data_type": "bigint", "meta": {"identity": "insert"}}}
+
+        plan = adapter.get_table_refresh_plan(
+            relation,
+            "select cast(1 as bigint) as id",
+            columns=columns,
+            contract_enforced=True,
+        )
+
+        assert plan["action"] == "reload"
+        assert plan["identity_column"] == IdentityColumn(name="id", mode="insert")
+
+    def test_table_refresh_plan_forces_replace_when_identity_newly_declared(
+        self, adapter, relation
+    ):
+        """Target has no identity column yet; the model newly declares one."""
+        adapter.get_columns_in_relation = lambda relation: [
+            FabricColumn(
+                "id",
+                "bigint",
+                char_size=8,
+                numeric_precision=19,
+                numeric_scale=0,
+                is_nullable=False,
+            )
+        ]
+        columns = {"id": {"name": "id", "data_type": "bigint", "meta": {"identity": "auto"}}}
+
+        plan = adapter.get_table_refresh_plan(
+            relation,
+            "select cast(1 as bigint) as id",
+            columns=columns,
+            contract_enforced=True,
+        )
+
+        assert plan["action"] == "replace"
+        assert plan["reason"] == "identity column 'id' added"
+
+    def test_table_refresh_plan_rejects_identity_without_contract(self, adapter, relation):
+        columns = {"id": {"name": "id", "data_type": "bigint", "meta": {"identity": "auto"}}}
+
+        with pytest.raises(
+            dbt_common.exceptions.DbtDatabaseError, match="require `contract.enforced: true`"
+        ):
+            adapter.get_table_refresh_plan(
+                relation,
+                "select cast(1 as bigint) as id",
+                columns=columns,
+                contract_enforced=False,
+            )
+
+
+class TestTableRefreshMetadata:
+    @pytest.mark.parametrize(
+        ("data_type", "max_length", "expected"),
+        [
+            ("varchar", 100, 100),
+            ("nvarchar", 100, 50),
+            ("NCHAR", "20", 10),
+            ("nvarchar", -1, -1),
+            ("date", None, None),
+        ],
+    )
+    def test_column_character_size(self, data_type, max_length, expected):
+        assert FabricAdapter._column_character_size(data_type, max_length) == expected
+
+    def test_column_character_size_rejects_unexpected_value(self):
+        with pytest.raises(TypeError, match="Unexpected max_length"):
+            FabricAdapter._column_character_size("varchar", object())
+
+    def test_describe_query_columns_maps_metadata_and_skips_hidden_columns(self):
+        adapter = _make_adapter_instance()
+        captured_sql = []
+        adapter._fetch_dicts = lambda sql: (
+            captured_sql.append(sql)
+            or [
+                {
+                    "name": "name",
+                    "system_type_name": "nvarchar(50)",
+                    "max_length": 100,
+                    "precision": 0,
+                    "scale": 0,
+                    "is_nullable": 1,
+                    "collation_name": "Latin1_General_100_CI_AS",
+                    "is_identity_column": 0,
+                    "is_hidden": 0,
+                },
+                {
+                    "name": "hidden",
+                    "system_type_name": "int",
+                    "max_length": 4,
+                    "precision": 10,
+                    "scale": 0,
+                    "is_nullable": 0,
+                    "collation_name": None,
+                    "is_identity_column": 0,
+                    "is_hidden": 1,
+                },
+            ]
+        )
+
+        columns = adapter._describe_query_columns("select 'value' as name")
+
+        assert "select ''value'' as name" in captured_sql[0]
+        assert columns == [
+            FabricColumn(
+                "name",
+                "nvarchar",
+                char_size=50,
+                numeric_precision=0,
+                numeric_scale=0,
+                is_nullable=True,
+                collation_name="Latin1_General_100_CI_AS",
+            )
+        ]
+
+    def test_get_constraints_groups_composite_key_and_foreign_key_columns(self):
+        adapter = _make_adapter_instance()
+        adapter._fetch_dicts = lambda sql: [
+            {
+                "name": "pk_model",
+                "constraint_type": "primary_key",
+                "column_name": "tenant_id",
+                "referenced_database": None,
+                "referenced_schema": None,
+                "referenced_table": None,
+                "referenced_column": None,
+            },
+            {
+                "name": "pk_model",
+                "constraint_type": "primary_key",
+                "column_name": "id",
+                "referenced_database": None,
+                "referenced_schema": None,
+                "referenced_table": None,
+                "referenced_column": None,
+            },
+            {
+                "name": "fk_parent",
+                "constraint_type": "foreign_key",
+                "column_name": "parent_tenant_id",
+                "referenced_database": "warehouse",
+                "referenced_schema": "dbo",
+                "referenced_table": "parent",
+                "referenced_column": "tenant_id",
+            },
+            {
+                "name": "fk_parent",
+                "constraint_type": "foreign_key",
+                "column_name": "parent_id",
+                "referenced_database": "warehouse",
+                "referenced_schema": "dbo",
+                "referenced_table": "parent",
+                "referenced_column": "id",
+            },
+        ]
+        relation = FabricRelation.create(
+            database="warehouse",
+            schema="dbo",
+            identifier="model",
+            type="table",
+        )
+
+        assert adapter.get_constraints_in_relation(relation) == [
+            FabricTableConstraint("pk_model", "primary_key", ("tenant_id", "id")),
+            FabricTableConstraint(
+                "fk_parent",
+                "foreign_key",
+                ("parent_tenant_id", "parent_id"),
+                referenced_database="warehouse",
+                referenced_schema="dbo",
+                referenced_table="parent",
+                referenced_columns=("tenant_id", "id"),
+            ),
+        ]
+
+
+class TestColumnSchemaFromQuery:
+    def test_preserves_connection_type_normalization(self):
+        adapter = _make_adapter_instance()
+        cursor = type(
+            "Cursor",
+            (),
+            {
+                "description": [
+                    ("amount", 3, None, None, None, None, None),
+                    ("id", 4, None, None, None, None, None),
+                ]
+            },
+        )()
+        adapter.connections = type(
+            "Connections",
+            (),
+            {
+                "add_select_query": lambda self, sql: (None, cursor),
+                "data_type_code_to_name": lambda self, code: {
+                    3: "decimal",
+                    4: "int",
+                }[code],
+            },
+        )()
+
+        assert adapter.get_column_schema_from_query("select 1.0 as amount, 1 as id") == [
+            FabricColumn("amount", "decimal"),
+            FabricColumn("id", "int"),
+        ]
+
+
 class TestTimestampAddSql:
     def test_default_parameters(self):
         adapter = _make_adapter_instance()
@@ -117,6 +508,55 @@ class TestValidIncrementalStrategies:
             "microbatch",
             "merge",
         ]
+
+
+class TestRenderRawColumnsConstraints:
+    def test_identity_column_gets_identity_suffix(self):
+        raw_columns = {
+            "id": {"name": "id", "data_type": "bigint", "meta": {"identity": "auto"}},
+            "amount": {"name": "amount", "data_type": "int", "meta": {}},
+        }
+
+        rendered = FabricAdapter.render_raw_columns_constraints(raw_columns)
+
+        assert rendered == ["id bigint IDENTITY", "amount int"]
+
+    def test_no_identity_declared_renders_unchanged(self):
+        raw_columns = {
+            "id": {"name": "id", "data_type": "bigint", "meta": {}},
+        }
+
+        rendered = FabricAdapter.render_raw_columns_constraints(raw_columns)
+
+        assert rendered == ["id bigint"]
+
+    def test_identity_column_with_not_null_constraint(self):
+        raw_columns = {
+            "id": {
+                "name": "id",
+                "data_type": "bigint",
+                "meta": {"identity": "insert"},
+                "constraints": [{"type": "not_null"}],
+            },
+        }
+
+        rendered = FabricAdapter.render_raw_columns_constraints(raw_columns)
+
+        assert rendered == ["id bigint IDENTITY not null"]
+
+    def test_quoted_identity_column(self):
+        raw_columns = {
+            "order id": {
+                "name": "order id",
+                "data_type": "bigint",
+                "quote": True,
+                "meta": {"identity": "auto"},
+            },
+        }
+
+        rendered = FabricAdapter.render_raw_columns_constraints(raw_columns)
+
+        assert rendered == ["[order id] bigint IDENTITY"]
 
 
 class TestRenderColumnConstraint:

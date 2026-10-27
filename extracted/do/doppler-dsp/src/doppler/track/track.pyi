@@ -2525,7 +2525,7 @@ class RateSync:
     @property
     def clipped(self) -> bool:
         """True if the cascade's CIC stage has clipped its input since the last
-        reset(). A CIC bounds its input to +-1.0 and clips silently past that,
+        reset(). A CIC bounds its input to +-2.0 and clips silently past that,
         which no timing metric reveals -- an overdriven front end degrades EVM
         by 25 dB with a perfectly healthy lock. Always False when the plan
         contains no CIC stage.
@@ -3126,16 +3126,15 @@ class CarrierNda:
         Full lockdet control, mirroring dp_costas_configure_lock(): a split
         declare/drop threshold pair on the lock-signal EMA (level hysteresis)
         and both verify counts (time hysteresis). Defaults (0.5/0.4, 64 up / 32
-        down) start from MpskReceiver's own pre-existing acquisition<->
-        tracking handover thresholds, but size n_up independently: `lock` is a
-        fast per-sample EMA, so consecutive looks are highly autocorrelated and
-        MpskReceiver's own n_up=8 does not compound the false-declare rate the
-        way it would for independent looks (direct Monte Carlo against a
-        noise-only, no-carrier input found real false locks at n_up=8; n_up=64
-        was the smallest verify count that reliably eliminated them -- see
-        carrier_nda_core.c's CARRIER_NDA_LOCK_DEFAULT_* comment for the exact
-        trial data). A live lock survives the re-tune; the in-flight verify run
-        restarts.
+        down) start from MpskReceiver's own carrier lock-indicator thresholds,
+        but size n_up independently: `lock` is a fast per-sample EMA, so
+        consecutive looks are highly autocorrelated and MpskReceiver's own
+        n_up=8 does not compound the false-declare rate the way it would for
+        independent looks (direct Monte Carlo against a noise-only, no-carrier
+        input found real false locks at n_up=8; n_up=64 was the smallest verify
+        count that reliably eliminated them -- see carrier_nda_core.c's
+        CARRIER_NDA_LOCK_DEFAULT_* comment for the exact trial data). A live
+        lock survives the re-tune; the in-flight verify run restarts.
 
         Parameters
         ----------
@@ -3504,12 +3503,13 @@ class MpskReceiver:
     ) -> None:
         """Attach (or detach) a telemetry context across the receiver.
         Registers the receiver's own "<prefix>.lock" probe (the carrier lock
-        EMA), then the carrier loop's "<prefix>.car.e" / ".freq" / ".locked"
-        and the symbol-timing loop's "<prefix>.sync.e" / ".ctrl" / ".rate" /
-        ".lock" / ".locked" / ".mu" -- ten probes emitted once per recovered
-        symbol -- then the front end's AGC under "<prefix>.agc"
+        EMA), the carrier loop's "<prefix>.car.e" / ".freq" / ".nco" /
+        ".locked", the decided symbol's "<prefix>.sym.i" / ".sym.q", and the
+        symbol-timing loop's "<prefix>.sync.e" / ".ctrl" / ".rate" / ".lock" /
+        ".locked" / ".mu" -- thirteen probes emitted once per recovered symbol
+        -- then the front end's AGC under "<prefix>.agc"
         ("<prefix>.agc.gain_db" and "<prefix>.agc.level_db"; see
-        dp_agc_set_telemetry()). Twelve probes total, all thinned by decim.
+        dp_agc_set_telemetry()). Fifteen probes total, all thinned by decim.
         Passing NULL detaches everything.
 
         Instrumenting it matters because it is FIRST in the chain, and a level
@@ -3551,14 +3551,14 @@ class MpskReceiver:
 
         Warnings
         --------
-        The two AGC probes are NOT at the symbol rate the other ten are. That
-        AGC sits pre-terminal in the cascade (RateConverter's tap, ahead of the
-        stage the timing loop steers) and emits once per gain-update event,
-        i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream -- so it
-        reports on a grid that depends on the planned cascade, not on recovered
-        symbols, and a run yields a different number of AGC records than
-        carrier records. Compare the two by TIME, never by record index. This
-        is deliberate: the AGC's bandwidth is quoted in the pre-terminal
+        The two AGC probes are NOT at the symbol rate the other thirteen are.
+        That AGC sits pre-terminal in the cascade (RateConverter's tap, ahead
+        of the stage the timing loop steers) and emits once per gain-update
+        event, i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream
+        -- so it reports on a grid that depends on the planned cascade, not on
+        recovered symbols, and a run yields a different number of AGC records
+        than carrier records. Compare the two by TIME, never by record index.
+        This is deliberate: the AGC's bandwidth is quoted in the pre-terminal
         stream's units precisely so it is not coupled to the loop that is
         stretching the symbol grid (see dp_RateConverter_enable_agc()).
 
@@ -3852,9 +3852,10 @@ class MpskReceiver:
 
     @property
     def lock_thresh(self) -> float:
-        """Handover declare threshold actually in use. Reads back the DERIVED
-        `sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the constructor was
-        given 0. See `zeta` for why every derived value is reported.
+        """Carrier lock-indicator declare threshold actually in use. Reads back
+        the DERIVED `sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the
+        constructor was given 0. See `zeta` for why every derived value is
+        reported.
         """
 
     @property
@@ -3945,7 +3946,7 @@ class MpskReceiver:
     @property
     def clipped(self) -> int:
         """Has the cascade's CIC stage clipped its input since the last reset?
-        A CIC bounds its input to |Re|, |Im| <= 1.0 and clips silently past
+        A CIC bounds its input to |Re|, |Im| <= 2.0 and clips silently past
         that -- the output stays finite and plausible, merely distorted, at a
         cost of ~25 dB of EVM that no lock metric reveals. Always 0 for a plan
         with no CIC stage.
@@ -4084,12 +4085,13 @@ class BpskReceiver:
     ) -> None:
         """Attach (or detach) a telemetry context across the receiver.
         Registers the receiver's own "<prefix>.lock" probe (the carrier lock
-        EMA), then the carrier loop's "<prefix>.car.e" / ".freq" / ".locked"
-        and the symbol-timing loop's "<prefix>.sync.e" / ".ctrl" / ".rate" /
-        ".lock" / ".locked" / ".mu" -- ten probes emitted once per recovered
-        symbol -- then the front end's AGC under "<prefix>.agc"
+        EMA), the carrier loop's "<prefix>.car.e" / ".freq" / ".nco" /
+        ".locked", the decided symbol's "<prefix>.sym.i" / ".sym.q", and the
+        symbol-timing loop's "<prefix>.sync.e" / ".ctrl" / ".rate" / ".lock" /
+        ".locked" / ".mu" -- thirteen probes emitted once per recovered symbol
+        -- then the front end's AGC under "<prefix>.agc"
         ("<prefix>.agc.gain_db" and "<prefix>.agc.level_db"; see
-        dp_agc_set_telemetry()). Twelve probes total, all thinned by decim.
+        dp_agc_set_telemetry()). Fifteen probes total, all thinned by decim.
         Passing NULL detaches everything.
 
         Instrumenting it matters because it is FIRST in the chain, and a level
@@ -4131,14 +4133,14 @@ class BpskReceiver:
 
         Warnings
         --------
-        The two AGC probes are NOT at the symbol rate the other ten are. That
-        AGC sits pre-terminal in the cascade (RateConverter's tap, ahead of the
-        stage the timing loop steers) and emits once per gain-update event,
-        i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream -- so it
-        reports on a grid that depends on the planned cascade, not on recovered
-        symbols, and a run yields a different number of AGC records than
-        carrier records. Compare the two by TIME, never by record index. This
-        is deliberate: the AGC's bandwidth is quoted in the pre-terminal
+        The two AGC probes are NOT at the symbol rate the other thirteen are.
+        That AGC sits pre-terminal in the cascade (RateConverter's tap, ahead
+        of the stage the timing loop steers) and emits once per gain-update
+        event, i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream
+        -- so it reports on a grid that depends on the planned cascade, not on
+        recovered symbols, and a run yields a different number of AGC records
+        than carrier records. Compare the two by TIME, never by record index.
+        This is deliberate: the AGC's bandwidth is quoted in the pre-terminal
         stream's units precisely so it is not coupled to the loop that is
         stretching the symbol grid (see dp_RateConverter_enable_agc()).
 
@@ -4432,9 +4434,10 @@ class BpskReceiver:
 
     @property
     def lock_thresh(self) -> float:
-        """Handover declare threshold actually in use. Reads back the DERIVED
-        `sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the constructor was
-        given 0. See `zeta` for why every derived value is reported.
+        """Carrier lock-indicator declare threshold actually in use. Reads back
+        the DERIVED `sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the
+        constructor was given 0. See `zeta` for why every derived value is
+        reported.
         """
 
     @property
@@ -4525,7 +4528,7 @@ class BpskReceiver:
     @property
     def clipped(self) -> int:
         """Has the cascade's CIC stage clipped its input since the last reset?
-        A CIC bounds its input to |Re|, |Im| <= 1.0 and clips silently past
+        A CIC bounds its input to |Re|, |Im| <= 2.0 and clips silently past
         that -- the output stays finite and plausible, merely distorted, at a
         cost of ~25 dB of EVM that no lock metric reveals. Always 0 for a plan
         with no CIC stage.
@@ -4753,12 +4756,13 @@ class MpskReceiverR:
     ) -> None:
         """Attach (or detach) a telemetry context across the receiver.
         Registers the receiver's own "<prefix>.lock" probe (the carrier lock
-        EMA), then the carrier loop's "<prefix>.car.e" / ".freq" / ".locked"
-        and the symbol-timing loop's "<prefix>.sync.e" / ".ctrl" / ".rate" /
-        ".lock" / ".locked" / ".mu" -- ten probes emitted once per recovered
-        symbol -- then the front end's AGC under "<prefix>.agc"
+        EMA), the carrier loop's "<prefix>.car.e" / ".freq" / ".nco" /
+        ".locked", the decided symbol's "<prefix>.sym.i" / ".sym.q", and the
+        symbol-timing loop's "<prefix>.sync.e" / ".ctrl" / ".rate" / ".lock" /
+        ".locked" / ".mu" -- thirteen probes emitted once per recovered symbol
+        -- then the front end's AGC under "<prefix>.agc"
         ("<prefix>.agc.gain_db" and "<prefix>.agc.level_db"; see
-        dp_agc_set_telemetry()). Twelve probes total, all thinned by decim.
+        dp_agc_set_telemetry()). Fifteen probes total, all thinned by decim.
         Passing NULL detaches everything.
 
         Instrumenting it matters because it is FIRST in the chain, and a level
@@ -4800,14 +4804,14 @@ class MpskReceiverR:
 
         Warnings
         --------
-        The two AGC probes are NOT at the symbol rate the other ten are. That
-        AGC sits pre-terminal in the cascade (RateConverter's tap, ahead of the
-        stage the timing loop steers) and emits once per gain-update event,
-        i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream -- so it
-        reports on a grid that depends on the planned cascade, not on recovered
-        symbols, and a run yields a different number of AGC records than
-        carrier records. Compare the two by TIME, never by record index. This
-        is deliberate: the AGC's bandwidth is quoted in the pre-terminal
+        The two AGC probes are NOT at the symbol rate the other thirteen are.
+        That AGC sits pre-terminal in the cascade (RateConverter's tap, ahead
+        of the stage the timing loop steers) and emits once per gain-update
+        event, i.e. every AGC_DECIM_DEFAULT samples of that fixed-rate stream
+        -- so it reports on a grid that depends on the planned cascade, not on
+        recovered symbols, and a run yields a different number of AGC records
+        than carrier records. Compare the two by TIME, never by record index.
+        This is deliberate: the AGC's bandwidth is quoted in the pre-terminal
         stream's units precisely so it is not coupled to the loop that is
         stretching the symbol grid (see dp_RateConverter_enable_agc()).
 
@@ -5107,9 +5111,10 @@ class MpskReceiverR:
 
     @property
     def lock_thresh(self) -> float:
-        """Handover declare threshold actually in use. Reads back the DERIVED
-        `sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the constructor was
-        given 0. See `zeta` for why every derived value is reported.
+        """Carrier lock-indicator declare threshold actually in use. Reads back
+        the DERIVED `sigma_H0 * eta(Pfa)` = 0.4999 at `Pfa = 5e-6` when the
+        constructor was given 0. See `zeta` for why every derived value is
+        reported.
         """
 
     @property
@@ -5200,7 +5205,7 @@ class MpskReceiverR:
     @property
     def clipped(self) -> int:
         """Has the cascade's CIC stage clipped its input since the last reset?
-        A CIC bounds its input to |Re|, |Im| <= 1.0 and clips silently past
+        A CIC bounds its input to |Re|, |Im| <= 2.0 and clips silently past
         that -- the output stays finite and plausible, merely distorted, at a
         cost of ~25 dB of EVM that no lock metric reveals. Always 0 for a plan
         with no CIC stage.

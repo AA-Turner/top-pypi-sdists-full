@@ -25,9 +25,11 @@ __all__ = (
     "ChannelLatencyModeType",
     "ChannelTypeType",
     "ContainerFormatType",
+    "FailoverSlateConfigurationStateType",
     "IVSServiceName",
     "ListAdConfigurationsPaginatorName",
     "ListChannelsPaginatorName",
+    "ListFailoverSlateConfigurationsPaginatorName",
     "ListPlaybackKeyPairsPaginatorName",
     "ListRecordingConfigurationsPaginatorName",
     "ListStreamKeysPaginatorName",
@@ -52,8 +54,10 @@ __all__ = (
 ChannelLatencyModeType = Literal["LOW", "NORMAL"]
 ChannelTypeType = Literal["ADVANCED_HD", "ADVANCED_SD", "BASIC", "STANDARD"]
 ContainerFormatType = Literal["FRAGMENTED_MP4", "TS"]
+FailoverSlateConfigurationStateType = Literal["CREATED", "CREATE_FAILED", "CREATING", "UPDATING"]
 ListAdConfigurationsPaginatorName = Literal["list_ad_configurations"]
 ListChannelsPaginatorName = Literal["list_channels"]
+ListFailoverSlateConfigurationsPaginatorName = Literal["list_failover_slate_configurations"]
 ListPlaybackKeyPairsPaginatorName = Literal["list_playback_key_pairs"]
 ListRecordingConfigurationsPaginatorName = Literal["list_recording_configurations"]
 ListStreamKeysPaginatorName = Literal["list_stream_keys"]
@@ -512,6 +516,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_ad_configurations",
     "list_channels",
+    "list_failover_slate_configurations",
     "list_playback_key_pairs",
     "list_recording_configurations",
     "list_stream_keys",

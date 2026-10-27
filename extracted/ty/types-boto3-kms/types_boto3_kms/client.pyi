@@ -47,6 +47,8 @@ from .type_defs import (
     CreateGrantResponseTypeDef,
     CreateKeyRequestTypeDef,
     CreateKeyResponseTypeDef,
+    DecapsulateRequestTypeDef,
+    DecapsulateResponseTypeDef,
     DecryptRequestTypeDef,
     DecryptResponseTypeDef,
     DeleteAliasRequestTypeDef,
@@ -65,6 +67,8 @@ from .type_defs import (
     EmptyResponseMetadataTypeDef,
     EnableKeyRequestTypeDef,
     EnableKeyRotationRequestTypeDef,
+    EncapsulateRequestTypeDef,
+    EncapsulateResponseTypeDef,
     EncryptRequestTypeDef,
     EncryptResponseTypeDef,
     GenerateDataKeyPairRequestTypeDef,
@@ -286,6 +290,17 @@ class KMSClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kms/client/#create_key)
         """
 
+    def decapsulate(
+        self, **kwargs: Unpack[DecapsulateRequestTypeDef]
+    ) -> DecapsulateResponseTypeDef:
+        """
+        Recovers the shared secret that was encapsulated with the public key of an
+        ML-KEM KMS key.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/decapsulate.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kms/client/#decapsulate)
+        """
+
     def decrypt(self, **kwargs: Unpack[DecryptRequestTypeDef]) -> DecryptResponseTypeDef:
         """
         Decrypts ciphertext that was encrypted by a KMS key using any of the following
@@ -411,6 +426,17 @@ class KMSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/enable_key_rotation.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kms/client/#enable_key_rotation)
+        """
+
+    def encapsulate(
+        self, **kwargs: Unpack[EncapsulateRequestTypeDef]
+    ) -> EncapsulateResponseTypeDef:
+        """
+        Generates a shared secret and its encapsulated (ciphertext) form using the
+        public key of an ML-KEM KMS key pair.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/encapsulate.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kms/client/#encapsulate)
         """
 
     def encrypt(self, **kwargs: Unpack[EncryptRequestTypeDef]) -> EncryptResponseTypeDef:

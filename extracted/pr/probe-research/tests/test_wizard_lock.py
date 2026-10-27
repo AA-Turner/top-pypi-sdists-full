@@ -21,9 +21,12 @@ import pytest
 from typer.testing import CliRunner
 
 from probe._shared import oscompat
-from probe.cli import autoupdate, capture, upgrading, version_refresh, wizard_lock
+from probe.cli import autoupdate, capture, tui, upgrading, version_refresh, wizard_lock
+from probe.cli import setup as wizard_setup
+from probe.cli.actions import Action
 from probe.sdk.config import load_context, save_context
 from tests import test_wizard_json_events as events
+from tests.test_wizard_auth_entry import entry  # noqa: F401 -- a fixture: the wizard's menu, scripted
 
 device = events.device
 main = events.main
@@ -302,3 +305,218 @@ def test_a_run_turned_away_leaves_pis_sign_in_marker_alone(held_elsewhere):
     marker.write_text(capture.AWAITING_CONFIRMATION, encoding="utf-8")
     CliRunner().invoke(main.app, ["wizard", "--action", "update", "--yes"])
     assert marker.exists()
+
+
+# -- nothing a person leaves open keeps the lock from updates for a day (C1) -----
+
+
+def test_a_holder_says_since_when_it_holds_the_lock_and_the_service_reads_it(device):
+    """The Probe service updates past a setup that has held the lock for a day
+    (`probe.service.updater.LIMITED`). It can tell how long only from the
+    record the holder writes into the lock file as it takes it."""
+    from probe.service import updater
+
+    before = time.time()
+    with wizard_lock.held():
+        since = updater.setup_held_since(wizard_lock.lock_path())
+    assert since is not None and before <= since <= time.time()
+    # Cleared as it lets go: a holder from before the record taking the lock
+    # next must not inherit this one's date.
+    assert (wizard_lock.lock_path().read_text(), updater.setup_held_since(wizard_lock.lock_path())) == ("", None)
+
+
+@pytest.mark.parametrize("writer", ["gone", "a-reused-pid"])
+def test_a_record_whose_writer_is_not_running_says_nothing_of_the_holder(device, writer):
+    """A holder killed with SIGKILL leaves its record behind; a setup from
+    before the record that takes the lock next writes none. That old date must
+    not read as how long the lock has been held -- nor must it when its pid
+    now names another process (a start time that is not the record's): the
+    service then counts its own deferrals instead."""
+    from probe.service import procid, updater
+
+    if writer == "gone":
+        gone = subprocess.Popen([sys.executable, "-c", "pass"])
+        gone.wait(timeout=30)
+        pid, start = gone.pid, "1"
+    else:
+        pid, start = os.getpid(), f"{procid.start_time(os.getpid())}0"
+    path = wizard_lock.lock_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"pid": pid, "start": start, "at": time.time() - 3 * 86400}))
+    assert updater.setup_held_since(path) is None
+
+
+@pytest.fixture
+def menu_elsewhere(device, tmp_path):
+    """Another process's `probe wizard` menu waits on a person, its marker
+    dated `age` seconds ago (`setup_marks.menu_path`)."""
+    from probe._shared import setup_marks
+    from probe.sdk import session_marker
+    from probe.service import procid
+
+    other = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+    start = procid.start_time(other.pid)
+
+    def mark(age: float = 60.0) -> None:
+        folder = session_marker.state_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        setup_marks.menu_path(folder, other.pid).write_text(
+            json.dumps({"pid": other.pid, "start": start, "at": time.time() - age})
+        )
+
+    try:
+        yield mark
+    finally:
+        other.kill()
+        other.wait(timeout=30)
+
+
+@pytest.mark.parametrize(
+    ("age", "leaves_cli", "runs"),
+    [
+        (60, None, False),  # it may move the menu's files: in place, or the first switch
+        # Bound to go beside the running version (the service says so, and that
+        # update never falls back to in place): the files stay where they are.
+        (60, "PROBE_UPDATE_SIDE_BY_SIDE", True),
+        # Plugins only (the service's, or what follows an adopt's switch).
+        (60, "PROBE_UPDATE_SKIP_CLI", True),
+        (25 * 3600, None, True),  # a day of waiting at most, as the lock
+    ],
+)
+def test_a_menu_waiting_elsewhere_holds_off_an_update_that_would_move_its_files(
+    update_ran, menu_elsewhere, monkeypatch, age, leaves_cli, runs
+):
+    """The menu lets go of the lock while it waits on a person (C1), but it
+    still runs from the CLI's files: an update in place (or the first switch)
+    under it fails its next import mid-write. Its marker holds that off, for a
+    day at most. Only an update bound to go side by side passes: a side-by-side
+    machine still falls back to in place (`PROBE_UPDATE_IN_PLACE`, a receipt
+    it cannot restate, no target known), so "this machine can" is not enough."""
+    from probe.cli import updater as cli_updater
+    from probe.service import updater as service_updater
+
+    assert {cli_updater.REQUIRE_SIDE_BY_SIDE_ENV, upgrading.SKIP_CLI_ENV} == {
+        "PROBE_UPDATE_SIDE_BY_SIDE", "PROBE_UPDATE_SKIP_CLI"
+    }
+    menu_elsewhere(age)
+    monkeypatch.setattr(service_updater, "side_by_side", lambda: True)
+    if leaves_cli:
+        monkeypatch.setenv(leaves_cli, "1")
+    result = CliRunner().invoke(main.app, ["wizard", "--action", "update", "--yes", "--agent", "claude"])
+    expected = (0, 1) if runs else (wizard_lock.BUSY_EXIT_CODE, 0)
+    assert (result.exit_code, len(update_ran)) == expected, result.output
+    if not runs:
+        assert autoupdate.load().last_skip.reason == autoupdate.SKIP_SETUP_RUNNING
+        # The detached auto-updater too, which takes no wizard run lock of its own.
+        assert version_refresh.main(["--apply", "--no-daemon"]) == wizard_lock.BUSY_EXIT_CODE
+
+
+def test_two_menus_each_keep_their_own_marker(menu_elsewhere):
+    """Two terminals, two menus: one shared marker let the second overwrite
+    the first's and delete it on exit, and an update then ran in place under
+    the first. Each has its own; a menu's own Update passes only its own."""
+    from probe._shared import setup_marks
+    from probe.sdk import session_marker
+
+    menu_elsewhere(60)  # menu A, in another process
+    state = session_marker.state_dir()
+    setup_marks.mark_menu(state)  # menu B, this process
+    assert setup_marks.menu_waiting(state, exclude_pid=os.getpid())[0] is True  # B's Update: A still waits
+    assert upgrading.menu_holds_update_off() is True
+    setup_marks.unmark_menu(state)  # B exits
+    assert setup_marks.menu_waiting(state)[0] is True, "B's exit took A's marker with it"
+
+
+def test_an_update_the_menu_turns_away_holds_no_lock_while_it_says_so(menu, menu_elsewhere, monkeypatch):
+    """Turned away by another menu's marker, the menu's Update takes no lock:
+    the page that says so waits on a person, and must hold nothing meanwhile."""
+    menu_elsewhere(60)
+    picks = iter([Action.UPDATE, Action.EXIT])
+    pages: list = []
+    monkeypatch.setattr(wizard_setup, "run_action_menu", lambda _caps: next(picks))
+    monkeypatch.setattr(tui, "page", lambda lines, **kw: pages.append((lines, wizard_lock.running())))
+    monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: pytest.fail("updated under another menu"))
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    (lines, locked), = pages
+    assert (any(wizard_lock.BUSY_MESSAGE in line for line in lines), locked) == (True, False)
+
+
+@pytest.mark.parametrize(
+    ("forced", "runs"),
+    [("setup_running", True), ("run_in_flight,setup_running", True), ("run_in_flight", False)],
+)
+def test_an_update_the_service_forced_past_a_setup_runs_beside_it(update_ran, monkeypatch, forced, runs):
+    """The service updates past a setup that has held the lock for a day and
+    tells its update child so (`upgrading.FORCED_ENV`). The child must not then
+    turn itself away on that same lock, in the wizard's run lock or in
+    `perform_update`'s own; forced past a run alone, it still is."""
+    monkeypatch.setenv(upgrading.FORCED_ENV, forced)
+    with _held_by_another_process():
+        result = CliRunner().invoke(main.app, ["wizard", "--action", "update", "--yes", "--agent", "claude"])
+    expected = (0, 1) if runs else (wizard_lock.BUSY_EXIT_CODE, 0)
+    assert (result.exit_code, len(update_ran)) == expected, result.output
+
+
+@pytest.fixture
+def menu(entry, tmp_path, monkeypatch):  # noqa: F811 -- `entry` is the imported fixture
+    """The interactive wizard, its menu and its actions scripted
+    (`test_wizard_auth_entry.entry`), signed in, in a home of its own."""
+    for name, sub in (("HOME", "home"), ("CLAUDE_CONFIG_DIR", "claude"), ("CODEX_HOME", "codex"),
+                      ("PI_CODING_AGENT_DIR", "pi")):
+        monkeypatch.setenv(name, str(tmp_path / sub))
+    save_context({"token": "probe_pat_existing", "base_url": "https://api.test"})
+    return entry
+
+
+def test_the_menu_holds_the_lock_only_while_an_action_runs(menu, monkeypatch):
+    """The menu held the lock for as long as it stayed open, so a `probe
+    wizard` left open in a terminal held every update off, for good (C1). It
+    holds it while an action runs, and lets go while it waits on a person: at
+    the menu, and at an action's result page. While it waits it says so in its
+    marker (an update must not move the files it runs from), gone once the
+    wizard exits."""
+    from probe._shared import setup_marks
+    from probe.sdk import session_marker
+
+    def waiting() -> bool:
+        return setup_marks.menu_waiting(session_marker.state_dir())[0]
+
+    seen: list[tuple[str, bool | None, bool]] = []
+    picks = iter([Action.SETTINGS, Action.EXIT])
+    monkeypatch.setattr(
+        wizard_setup, "run_action_menu",
+        lambda _caps: seen.append(("menu", wizard_lock.running(), waiting())) or next(picks),
+    )
+    monkeypatch.setattr(
+        main, "_run_wizard_action",
+        lambda *a, **kw: seen.append(("action", wizard_lock.running(), waiting())) or ["Saved."],
+    )
+    monkeypatch.setattr(tui, "page", lambda *a, **kw: seen.append(("page", wizard_lock.running(), waiting())))
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    assert seen == [("menu", False, True), ("action", True, True), ("page", False, True), ("menu", False, True)]
+    assert not waiting()
+
+
+def test_an_action_picked_after_another_setup_took_the_lock_changes_nothing(menu, monkeypatch):
+    """With the lock let go at the menu, another setup (the desktop app) can
+    take it meanwhile: the action picked then is turned away, having run
+    nothing, and the menu comes back."""
+    other: list = []
+
+    def pick(_caps):
+        if not other:
+            other.append(open(wizard_lock.lock_path(), "a+"))  # noqa: SIM115 -- closed at the next pick
+            oscompat.flock(other[0].fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+            return Action.SETTINGS
+        other[0].close()
+        return Action.EXIT
+
+    pages: list = []
+    monkeypatch.setattr(wizard_setup, "run_action_menu", pick)
+    monkeypatch.setattr(tui, "page", lambda lines, **kw: pages.append(lines))
+    monkeypatch.setattr(main, "_run_wizard_action", lambda *a, **kw: pytest.fail("ran while another setup held it"))
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    assert len(other) == 1 and any(wizard_lock.BUSY_MESSAGE in line for line in pages[0])

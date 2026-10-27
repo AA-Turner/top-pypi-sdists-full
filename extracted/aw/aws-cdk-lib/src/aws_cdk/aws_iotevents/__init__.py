@@ -281,41 +281,6 @@ class CfnAlarmModel(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="arnForAlarmModel")
-    @builtins.classmethod
-    def arn_for_alarm_model(
-        cls,
-        resource: "_aws_iotevents_949c0131.IAlarmModelRef",
-    ) -> builtins.str:
-        '''
-        :param resource: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__5f1ed3ba9d52fbe77628ba0d4ae396b1e743cd77ad8834265ce45146b0f21e11)
-            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAlarmModel", [resource]))
-
-    @jsii.member(jsii_name="fromAlarmModelName")
-    @builtins.classmethod
-    def from_alarm_model_name(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        alarm_model_name: builtins.str,
-    ) -> "_aws_iotevents_949c0131.IAlarmModelRef":
-        '''Creates a new IAlarmModelRef from a alarmModelName.
-
-        :param scope: -
-        :param id: -
-        :param alarm_model_name: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__08129328e28cb00ce8f3d88ce6a01d350ff74f935ed83c2a1b71d2c0cb21a69d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument alarm_model_name", value=alarm_model_name, expected_type=type_hints["alarm_model_name"])
-        return typing.cast("_aws_iotevents_949c0131.IAlarmModelRef", jsii.sinvoke(cls, "fromAlarmModelName", [scope, id, alarm_model_name]))
-
     @jsii.member(jsii_name="isCfnAlarmModel")
     @builtins.classmethod
     def is_cfn_alarm_model(cls, x: typing.Any) -> builtins.bool:
@@ -354,6 +319,7 @@ class CfnAlarmModel(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -363,6 +329,14 @@ class CfnAlarmModel(
     def alarm_model_ref(self) -> "_aws_iotevents_949c0131.AlarmModelReference":
         '''A reference to a AlarmModel resource.'''
         return typing.cast("_aws_iotevents_949c0131.AlarmModelReference", jsii.get(self, "alarmModelRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -396,7 +370,7 @@ class CfnAlarmModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__36c0e05874a966c4cf11e13423d2cf0b8945f4dafb03af1bb65b04fe1f904e1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmRule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmRule", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -409,7 +383,7 @@ class CfnAlarmModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__667c04eef9049300d49a54887f048621c4279fc765df4962bf383ab77e428d5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmCapabilities")
@@ -427,7 +401,7 @@ class CfnAlarmModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d85be71c4d51b50fc44306a17518e6e2409c133128f31c26dcdf967abb3e0ec7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmCapabilities", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmCapabilities", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmEventActions")
@@ -445,7 +419,7 @@ class CfnAlarmModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8227f73f350bd144d86be0ccf98762b44508b027f4ffb7aef8e68eeaafd91ecd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmEventActions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmEventActions", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmModelDescription")
@@ -458,7 +432,7 @@ class CfnAlarmModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0b540895073c6ca51a688168fe27abe8c0bc5df06473c9a8e026f6b4a5c1881f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmModelDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmModelDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmModelName")
@@ -471,7 +445,7 @@ class CfnAlarmModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2520aa074d1ed7d38b09cd7416997eb16982c8c7dc7a4340e5fd1178569cc01a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmModelName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmModelName", value)
 
     @builtins.property
     @jsii.member(jsii_name="key")
@@ -484,7 +458,7 @@ class CfnAlarmModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f86ab353b386a192172ab818d729e6584ca5b5df31c6e550f1e7986ea1ce3026)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "key", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "key", value)
 
     @builtins.property
     @jsii.member(jsii_name="severity")
@@ -497,7 +471,7 @@ class CfnAlarmModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cc04b5b9d376105aa5bf470e04873d2255ed6412dbf222f2dbc18a074c52ed49)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "severity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "severity", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -513,7 +487,7 @@ class CfnAlarmModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__877eb82e1ea1e65eaa71c65808ed46b8a70c4cbff438aa7f010439bd4b409dcb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotevents.CfnAlarmModel.AcknowledgeFlowProperty",
@@ -3317,6 +3291,7 @@ class CfnDetectorModel(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3359,7 +3334,7 @@ class CfnDetectorModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__63791e6db81942e4097ff9f1b03dce0b5618f92376af9187df3403f25fe75d85)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "detectorModelDefinition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "detectorModelDefinition", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -3372,7 +3347,7 @@ class CfnDetectorModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ea88e939b3cea49f4e92a8fa44670ef9976e22c5a0fb5fe78ac052fd14c5dab0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="detectorModelDescription")
@@ -3385,7 +3360,7 @@ class CfnDetectorModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7eee7f26e62967552ad2a22246ac4aa020ed80878cef3e44ceb4849bba312eda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "detectorModelDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "detectorModelDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="detectorModelName")
@@ -3398,7 +3373,7 @@ class CfnDetectorModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d4faf59137fbafe31260e949107d4c02fc4239abc15c840bc619336d54bf866e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "detectorModelName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "detectorModelName", value)
 
     @builtins.property
     @jsii.member(jsii_name="evaluationMethod")
@@ -3411,7 +3386,7 @@ class CfnDetectorModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fb0b24d2480d69d447d4a28a886f18008b5a68a52c7e66b5764230e251def06d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluationMethod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "evaluationMethod", value)
 
     @builtins.property
     @jsii.member(jsii_name="key")
@@ -3424,7 +3399,7 @@ class CfnDetectorModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1d0b60cb750a8707e4533e77383c39c786579957920ad5474c000e7a4565e4f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "key", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "key", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3440,7 +3415,7 @@ class CfnDetectorModel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e0a32c9ce5c2628faeace1b70ec3577ac67b86fb20a6cdea89790127622b2feb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotevents.CfnDetectorModel.ActionProperty",
@@ -7187,6 +7162,7 @@ class CfnInput(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7229,7 +7205,7 @@ class CfnInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0004ecf75c5e3b12b061a20c9d32313a59f1da49257f0b4e64ef4078d1319f24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inputDefinition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "inputDefinition", value)
 
     @builtins.property
     @jsii.member(jsii_name="inputDescription")
@@ -7242,7 +7218,7 @@ class CfnInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__672cf73a96fd163fb0565663222ff047175ff027f69faa2f36c053476d838b46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inputDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "inputDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="inputName")
@@ -7255,7 +7231,7 @@ class CfnInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__35c7cf9f1b2f6085acdb0b2064761cbaa054e480db69e5e48683595307b7dd11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inputName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "inputName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7271,7 +7247,7 @@ class CfnInput(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3cccadfdb4d8f7d42a3fa7d77dc4ad38b0292efb2ca6816bf878c1321670ceed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotevents.CfnInput.AttributeProperty",
@@ -7539,20 +7515,6 @@ def _typecheckingstub__ef7f48b87ae58ab2d16bfb25fbcc61ae8753eb0c9a5b0016eec37a52e
     key: typing.Optional[builtins.str] = None,
     severity: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5f1ed3ba9d52fbe77628ba0d4ae396b1e743cd77ad8834265ce45146b0f21e11(
-    resource: _aws_iotevents_949c0131.IAlarmModelRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__08129328e28cb00ce8f3d88ce6a01d350ff74f935ed83c2a1b71d2c0cb21a69d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    alarm_model_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

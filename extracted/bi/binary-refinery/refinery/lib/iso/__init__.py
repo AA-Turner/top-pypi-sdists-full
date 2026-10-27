@@ -8,9 +8,37 @@ import enum
 
 from typing import TYPE_CHECKING
 
+from refinery.lib.iso.raw import FIRST_VOLUME_DESCRIPTOR_SECTOR, SectorLayout
+from refinery.lib.types import buf
+
 if TYPE_CHECKING:
     from refinery.lib.iso.iso9660 import ISORef
     from refinery.lib.iso.udf import UDFRef
+
+VOLUME_STRUCTURE_IDENTIFIERS = frozenset((
+    B'BEA01',
+    B'BOOT2',
+    B'CD001',
+    B'CDW02',
+    B'NSR02',
+    B'NSR03',
+    B'TEA01',
+))
+
+
+def is_disc_image(data: buf) -> bool:
+    """
+    Check whether one of the first three sectors of the volume recognition sequence holds a volume
+    structure descriptor. ISO 9660 volume descriptors carry the identifier `CD001`, and a UDF
+    volume is announced by the descriptors `BEA01`, `NSR02` or `NSR03`, and `TEA01`.
+    """
+    view = memoryview(data)
+    layout = SectorLayout.detect(view)
+    for sector in range(FIRST_VOLUME_DESCRIPTOR_SECTOR, FIRST_VOLUME_DESCRIPTOR_SECTOR + 3):
+        start = layout.position(sector) + 1
+        if bytes(view[start:start + 5]) in VOLUME_STRUCTURE_IDENTIFIERS:
+            return True
+    return False
 
 
 class FileSystemType(enum.Enum):
@@ -48,11 +76,16 @@ class ISOFile:
 
 class ISOArchive:
     """
-    Unified ISO/UDF archive reader. Tries UDF first, falls back to ISO 9660.
+    Unified ISO/UDF archive reader. Tries UDF first, falls back to ISO 9660. Raw CD images are
+    reduced to the user data of their sectors first, see `refinery.lib.iso.raw.SectorLayout`.
     """
 
     def __init__(self, data):
         from refinery.lib.iso.udf import ANCHOR_SECTOR, UDFArchive, _verify_tag
+
+        self.sector_layout = layout = SectorLayout.detect(data)
+        if layout.raw:
+            data = layout.user_data(data)
 
         self._data = data
         self._iso = None
@@ -91,27 +124,35 @@ class ISOArchive:
     def filesystem_type(self) -> str:
         return self._type.value
 
-    def select_filesystem(self, fs: FileSystemType) -> None:
+    def select_filesystem(self, fs: FileSystemType) -> bool:
+        """
+        Select the given file system and return whether the image contains it. Otherwise, the
+        previous selection remains, except that requesting Rock Ridge while ISO 9660 is selected
+        yields the plain ISO 9660 names when the primary volume lacks these extensions.
+        """
         if fs is FileSystemType.UDF:
-            if self._udf is not None:
-                self._type = FileSystemType.UDF
-                return
-            from refinery.lib.iso.udf import UDFArchive
-            udf = UDFArchive()
-            try:
-                udf.open(self._data)
-            except Exception:
-                return
-            if udf.refs:
+            if self._udf is None:
+                from refinery.lib.iso.udf import UDFArchive
+                udf = UDFArchive()
+                try:
+                    udf.open(self._data)
+                except Exception:
+                    return False
+                if not udf.refs:
+                    return False
                 self._udf = udf
-                self._type = FileSystemType.UDF
-        elif fs in (FileSystemType.JOLIET, FileSystemType.RR, FileSystemType.ISO):
-            if self._iso is None:
-                from refinery.lib.iso.iso9660 import ISO9660Archive
-                self._iso = ISO9660Archive()
-                self._iso.open(self._data)
-            self._iso.select_filesystem(fs)
-            self._type = self._iso.filesystem_type
+            self._type = FileSystemType.UDF
+            return True
+        if fs not in (FileSystemType.JOLIET, FileSystemType.RR, FileSystemType.ISO):
+            return False
+        if (iso := self._iso) is None:
+            from refinery.lib.iso.iso9660 import ISO9660Archive
+            self._iso = iso = ISO9660Archive()
+            iso.open(self._data)
+        selected = iso.select_filesystem(fs)
+        if selected or self._type is not FileSystemType.UDF:
+            self._type = iso.filesystem_type
+        return selected
 
     def entries(self):
         if self._type is FileSystemType.UDF and self._udf is not None:

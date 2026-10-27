@@ -15,14 +15,14 @@ class xtchm(PathExtractorUnit, docs='{0}{p}{PathExtractorUnit}'):
         self.log_info(F'language: {chm.header.language_name}')
         self.log_info(F'codepage: {chm.header.codepage}')
 
-        for path, record in chm.filesystem.items():
-            def extract(chm=chm, record=record):
-                return chm.read(record)
+        for record in chm.entries():
             if record.length <= 0:
                 continue
-            if path.startswith('::DataSpace'):
+            if (path := record.name).startswith('::DataSpace'):
                 continue
-            yield UnpackResult(path, extract)
+            if path.startswith('/#') or path.startswith('/$'):
+                path = F'/$CHM{path}'
+            yield UnpackResult(path, chm.extractor(record))
 
     @classmethod
     def handles(cls, data):

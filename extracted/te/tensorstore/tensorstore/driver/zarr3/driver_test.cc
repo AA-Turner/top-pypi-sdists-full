@@ -1136,6 +1136,65 @@ TEST(DriverCreateWithSchemaTest, DimensionUnits) {
       Schema::DimensionUnits({"m", "m", "s", "s"}));
 }
 
+TEST(DriverCreateWithSchemaTest, LargeChunkMetadataCodecsWithoutBytes) {
+  ::nlohmann::json expected_schema{
+      {"dtype", "uint16"},
+      {"fill_value", 0},
+      {"domain", {{"shape", {{1}, {550}, {200}, {10}}}}},
+      {"chunk_layout",
+       {{"grid_origin", {0, 0, 0, 0}},
+        {"inner_order", {0, 1, 2, 3}},
+        {"read_chunk", {{"shape", {1, 550, 200, 10}}}},
+        {"write_chunk", {{"shape", {1, 550, 200, 10}}}}}},
+      {"codec",
+       {
+           {"driver", "zarr3"},
+           {"codecs",
+            {
+                GetDefaultBytesCodecJson(),
+                {{"name", "zstd"},
+                 {"configuration", {{"level", 1}, {"checksum", false}}}},
+            }},
+       }},
+  };
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "zarr3"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"metadata",
+           {
+               {"data_type", "uint16"},
+               {"shape", {1, 550, 200, 10}},
+               {"chunk_grid",
+                {{"name", "regular"},
+                 {"configuration", {{"chunk_shape", {1, 550, 200, 10}}}}}},
+               {"codecs",
+                {{{"name", "zstd"}, {"configuration", {{"level", 1}}}}}},
+           }},
+      },
+      expected_schema);
+  TestTensorStoreCreateCheckSchema(
+      {
+          {"driver", "zarr3"},
+          {"kvstore", {{"driver", "memory"}}},
+          {"schema",
+           {
+               {"dtype", "uint16"},
+               {"domain", {{"shape", {1, 550, 200, 10}}}},
+               {"chunk_layout",
+                {
+                    {"write_chunk", {{"shape", {1, 550, 200, 10}}}},
+                }},
+           }},
+          {"metadata",
+           {
+               {"codecs",
+                {{{"name", "zstd"}, {"configuration", {{"level", 1}}}}}},
+           }},
+      },
+      expected_schema);
+}
+
 template <typename... Option>
 Result<std::vector<std::string>> GetKeysForChunkKeyEncoding(
     ::nlohmann::json encoding, Option&&... option) {
@@ -4384,6 +4443,61 @@ TEST(Zarr3StructuredTest, ShardedStructFillValue) {
                         tensorstore::AllDims().TranslateTo(0))
           .result());
   EXPECT_EQ(tensorstore::MakeArray<int32_t>({{0, 0}, {0, 0}}), b_zero);
+}
+
+TEST(Zarr3DriverTest, CreateWithDeleteExistingRefreshesMetadataAfterDelete) {
+  auto context = Context::Default();
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto mock_key_value_store_resource,
+      context.GetResource<tensorstore::internal::MockKeyValueStoreResource>());
+  auto mock_key_value_store = *mock_key_value_store_resource;
+  auto memory_store = tensorstore::GetMemoryKeyValueStore();
+
+  ::nlohmann::json json_spec{
+      {"driver", "zarr3"},
+      {"kvstore", {{"driver", "mock_key_value_store"}, {"path", "prefix/"}}},
+      {"metadata",
+       {
+           {"data_type", "int32"},
+           {"shape", {4, 4}},
+           {"chunk_grid",
+            {{"name", "regular"},
+             {"configuration", {{"chunk_shape", {2, 2}}}}}},
+       }},
+  };
+
+  // Initial create using memory_store forwarded through mock_key_value_store.
+  mock_key_value_store->forward_to = memory_store;
+  TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+      auto store1,
+      tensorstore::Open(json_spec, context, tensorstore::OpenMode::create,
+                        tensorstore::ReadWriteMode::read_write)
+          .result());
+
+  // Intercept DeleteRange to simulate a metadata cache read completing while
+  // DeleteRange is in flight (after Open captured its initial request_time_).
+  mock_key_value_store->forward_to = {};
+  auto open_future = tensorstore::Open(
+      json_spec, context,
+      tensorstore::OpenMode::create | tensorstore::OpenMode::delete_existing,
+      tensorstore::ReadWriteMode::read_write);
+
+  auto delete_req = mock_key_value_store->delete_range_requests.pop();
+  // While DeleteRange is still pending, open the existing store in read mode
+  // so MetadataCache populates a read_state with stamp.time > Open's start
+  // time.
+  mock_key_value_store->forward_to = memory_store;
+  TENSORSTORE_ASSERT_OK(tensorstore::Open({{"driver", "zarr3"},
+                                           {"kvstore",
+                                            {{"driver", "mock_key_value_store"},
+                                             {"path", "prefix/"}}}},
+                                          context, tensorstore::OpenMode::open,
+                                          tensorstore::ReadWriteMode::read)
+                            .result());
+
+  // Now complete DeleteRange against memory_store.
+  delete_req(memory_store);
+  TENSORSTORE_EXPECT_OK(open_future.result());
 }
 
 }  // namespace

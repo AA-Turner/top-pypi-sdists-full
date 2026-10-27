@@ -3956,6 +3956,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_11")
+    @builtins.classmethod
     def FLINK_1_11(cls) -> "Runtime":
         '''(deprecated) Flink Version 1.11.
 
@@ -3968,6 +3969,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_13")
+    @builtins.classmethod
     def FLINK_1_13(cls) -> "Runtime":
         '''(deprecated) Flink Version 1.13.
 
@@ -3980,6 +3982,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_15")
+    @builtins.classmethod
     def FLINK_1_15(cls) -> "Runtime":
         '''(experimental) Flink Version 1.15.
 
@@ -3989,6 +3992,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_18")
+    @builtins.classmethod
     def FLINK_1_18(cls) -> "Runtime":
         '''(experimental) Flink Version 1.18.
 
@@ -3998,6 +4002,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_19")
+    @builtins.classmethod
     def FLINK_1_19(cls) -> "Runtime":
         '''(experimental) Flink Version 1.19.
 
@@ -4007,6 +4012,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_20")
+    @builtins.classmethod
     def FLINK_1_20(cls) -> "Runtime":
         '''(experimental) Flink Version 1.20.
 
@@ -4016,6 +4022,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_6")
+    @builtins.classmethod
     def FLINK_1_6(cls) -> "Runtime":
         '''(deprecated) Flink Version 1.6.
 
@@ -4028,6 +4035,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_1_8")
+    @builtins.classmethod
     def FLINK_1_8(cls) -> "Runtime":
         '''(deprecated) Flink Version 1.8.
 
@@ -4040,6 +4048,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FLINK_2_2")
+    @builtins.classmethod
     def FLINK_2_2(cls) -> "Runtime":
         '''(experimental) Flink Version 2.2.
 
@@ -4049,6 +4058,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQL_1_0")
+    @builtins.classmethod
     def SQL_1_0(cls) -> "Runtime":
         '''(experimental) SQL Version 1.0.
 
@@ -4058,6 +4068,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ZEPPELIN_FLINK_1_0")
+    @builtins.classmethod
     def ZEPPELIN_FLINK_1_0(cls) -> "Runtime":
         '''(experimental) Zeppelin Flink Version 1.0.
 
@@ -4067,6 +4078,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ZEPPELIN_FLINK_2_0")
+    @builtins.classmethod
     def ZEPPELIN_FLINK_2_0(cls) -> "Runtime":
         '''(experimental) Zeppelin Flink Version 2.0.
 
@@ -4076,6 +4088,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ZEPPELIN_FLINK_3_0")
+    @builtins.classmethod
     def ZEPPELIN_FLINK_3_0(cls) -> "Runtime":
         '''(experimental) Zeppelin Flink Version 3.0.
 
@@ -5793,6 +5806,7 @@ class Application(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 

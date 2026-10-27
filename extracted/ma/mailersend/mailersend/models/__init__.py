@@ -179,6 +179,35 @@ from .whatsapp import (
     WhatsAppPersonalization,
     WhatsAppSendRequest,
 )
+from .whatsapp_messages import (
+    WhatsAppMessagesListRequest,
+    WhatsAppMessageGetRequest,
+)
+from .whatsapp_items import (
+    WhatsAppItemStatus,
+    WhatsAppItemsListRequest,
+    WhatsAppItemGetRequest,
+)
+from .whatsapp_activities import (
+    WhatsAppActivityType,
+    WhatsAppActivitiesListRequest,
+)
+from .whatsapp_inbound_messages import (
+    WhatsAppInboundMessageType,
+    WhatsAppInboundMessagesListRequest,
+    WhatsAppInboundMessageGetRequest,
+)
+from .whatsapp_recipients import (
+    WhatsAppRecipientStatus,
+    WhatsAppRecipientsListRequest,
+    WhatsAppRecipientGetRequest,
+)
+from .whatsapp_templates import (
+    WhatsAppTemplateStatus,
+    WhatsAppTemplateCategory,
+    WhatsAppTemplatesListRequest,
+    WhatsAppTemplateGetRequest,
+)
 
 __all__ = [
     "BaseModel",
@@ -327,4 +356,27 @@ __all__ = [
     "WhatsAppPersonalizationData",
     "WhatsAppPersonalization",
     "WhatsAppSendRequest",
+    # WhatsApp Messages models
+    "WhatsAppMessagesListRequest",
+    "WhatsAppMessageGetRequest",
+    # WhatsApp Items models
+    "WhatsAppItemStatus",
+    "WhatsAppItemsListRequest",
+    "WhatsAppItemGetRequest",
+    # WhatsApp Activities models
+    "WhatsAppActivityType",
+    "WhatsAppActivitiesListRequest",
+    # WhatsApp Inbound Messages models
+    "WhatsAppInboundMessageType",
+    "WhatsAppInboundMessagesListRequest",
+    "WhatsAppInboundMessageGetRequest",
+    # WhatsApp Recipients models
+    "WhatsAppRecipientStatus",
+    "WhatsAppRecipientsListRequest",
+    "WhatsAppRecipientGetRequest",
+    # WhatsApp Templates models
+    "WhatsAppTemplateStatus",
+    "WhatsAppTemplateCategory",
+    "WhatsAppTemplatesListRequest",
+    "WhatsAppTemplateGetRequest",
 ]

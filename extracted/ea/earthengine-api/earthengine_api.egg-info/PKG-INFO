@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthengine-api
-Version: 1.7.49
+Version: 1.7.50
 Summary: Earth Engine Python API
 Author-email: Google LLC <noreply@google.com>
 License: Apache-2.0
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python
 Classifier: Topic :: Multimedia :: Graphics :: Viewers
 Classifier: Topic :: Scientific/Engineering :: GIS
@@ -27,9 +28,9 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: google-cloud-storage
-Requires-Dist: google-api-python-client>=2.198.0
-Requires-Dist: google-auth>=2.58.0
-Requires-Dist: google-auth-httplib2>=0.4.2
+Requires-Dist: google-api-python-client>=2.201.0
+Requires-Dist: google-auth>=2.59.1
+Requires-Dist: google-auth-httplib2>=0.4.4
 Requires-Dist: httplib2<1dev,>=0.32.0
 Requires-Dist: requests
 Provides-Extra: tests

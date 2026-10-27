@@ -22,20 +22,22 @@ def flattened(data: dict, prefix: str = '', separator: str = '.'):
     Yield the rows of a flattened view for the input JSON dictionary. This is used by several
     refinery units to display a tabular view of what would otherwise be output as JSON.
     """
-    def flatten(
-        cursor: dict | list | str | int | float | bool, prefix: str
-    ) -> Generator[tuple[str, int | float | bool | str]]:
-        if isinstance(cursor, dict):
-            for key, value in cursor.items():
-                new_prefix = key if not prefix else F'{prefix}{separator}{key}'
-                yield from flatten(value, new_prefix)
-        elif isinstance(cursor, list):
-            width = len(F'{len(cursor) - 1:X}')
-            for key, value in enumerate(cursor):
-                yield from flatten(value, F'{prefix}[0x{key:0{width}X}]')
-        else:
-            yield (prefix, cursor)
-    yield from flatten(data, prefix)
+    yield from _flatten(data, prefix, separator)
+
+
+def _flatten(
+    cursor: dict | list | str | int | float | bool, prefix: str, separator: str
+) -> Generator[tuple[str, int | float | bool | str]]:
+    if isinstance(cursor, dict):
+        for key, value in cursor.items():
+            new_prefix = key if not prefix else F'{prefix}{separator}{key}'
+            yield from _flatten(value, new_prefix, separator)
+    elif isinstance(cursor, list):
+        width = len(F'{len(cursor) - 1:X}')
+        for key, value in enumerate(cursor):
+            yield from _flatten(value, F'{prefix}[0x{key:0{width}X}]', separator)
+    else:
+        yield (prefix, cursor)
 
 
 def _common_conversions(o):
@@ -113,14 +115,13 @@ def py_json_dumps(
     This is the JSON dump method wrapper which is based on the standard library backend. It is
     exposed separately to allow testing.
     """
-    class enc(pyjson.JSONEncoder):
-        default = staticmethod(tojson or standard_conversions) # type:ignore
+    default = tojson or standard_conversions
     if checks:
         object = preprocess(object, keys=True)
     if pretty:
-        out = pyjson.dumps(object, ensure_ascii=False, cls=enc, indent=2)
+        out = pyjson.dumps(object, ensure_ascii=False, default=default, indent=2)
     else:
-        out = pyjson.dumps(object, ensure_ascii=False, cls=enc, indent=None, separators=(',', ':'))
+        out = pyjson.dumps(object, ensure_ascii=False, default=default, indent=None, separators=(',', ':'))
     return out.encode('utf8')
 
 

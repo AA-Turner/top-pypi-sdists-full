@@ -190,6 +190,7 @@ class CfnByteMatchSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -229,7 +230,7 @@ class CfnByteMatchSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aa80a56d6b1278074a9638bf1c62ae5b95c0e6f10c641a404d65e07d491acca5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="byteMatchTuples")
@@ -247,7 +248,7 @@ class CfnByteMatchSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__38cddc571283445976a4c44160553b6f4451eb0f269d8ed67aa4c95fe876378b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "byteMatchTuples", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "byteMatchTuples", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_waf.CfnByteMatchSet.ByteMatchTupleProperty",
@@ -793,6 +794,7 @@ class CfnIPSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -832,7 +834,7 @@ class CfnIPSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9768144c2d6ccbf577bf8b4dd73073cfb642f3638ca622b2900267b473681c34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="ipSetDescriptors")
@@ -850,7 +852,7 @@ class CfnIPSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8ae21436c1ceef6df85fa9b2c6cb46ef635222d7f82d4b601c4e4917039f713e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ipSetDescriptors", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ipSetDescriptors", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_waf.CfnIPSet.IPSetDescriptorProperty",
@@ -1141,6 +1143,7 @@ class CfnRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1180,7 +1183,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bfe46c2a1f9d69ab834d7d06f8088056f1504b4d87ecc9562fbf5767e14a0791)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metricName", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1193,7 +1196,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a38b26d61cf2abb0cf838e02eae71d6842a752ac00e04553ca90ced992e8c7a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="predicates")
@@ -1211,7 +1214,7 @@ class CfnRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fe8f94ea24dfef83c4e04e7936145570ac6b1cabe4c2646ae859402d2943652)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "predicates", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "predicates", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_waf.CfnRule.PredicateProperty",
@@ -1530,6 +1533,7 @@ class CfnSizeConstraintSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1569,7 +1573,7 @@ class CfnSizeConstraintSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dad1d5a6c854622b3e774fb9b62ab426e052c00a1220d33d2caf8f28b8805112)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="sizeConstraints")
@@ -1587,7 +1591,7 @@ class CfnSizeConstraintSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4c2146adeb04010f1c7b71243b8e39949fef1610481d921373278f9a687bb710)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sizeConstraints", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sizeConstraints", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_waf.CfnSizeConstraintSet.FieldToMatchProperty",
@@ -2079,6 +2083,7 @@ class CfnSqlInjectionMatchSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2120,7 +2125,7 @@ class CfnSqlInjectionMatchSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__070b72b88924269143c8b85eb18c01d2a6cbe40559478cc6538752d35d7cfe1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="sqlInjectionMatchTuples")
@@ -2138,7 +2143,7 @@ class CfnSqlInjectionMatchSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__77ea8275da693e2f3e7a1dc9893ac26d01ffd3e9696fe87cf0ccc13256275b24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sqlInjectionMatchTuples", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sqlInjectionMatchTuples", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_waf.CfnSqlInjectionMatchSet.FieldToMatchProperty",
@@ -2586,6 +2591,7 @@ class CfnWebACL(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2630,7 +2636,7 @@ class CfnWebACL(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__52266bb34978087cbb2d4836a08bb254d7158d8b92a950c506b3d45990a0fe77)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultAction", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "defaultAction", value)
 
     @builtins.property
     @jsii.member(jsii_name="metricName")
@@ -2643,7 +2649,7 @@ class CfnWebACL(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d0ca4f0e54c06ac08ebc31fc301143c75bfe313b91d94f304e09d926131cbcd8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metricName", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2656,7 +2662,7 @@ class CfnWebACL(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b4176b992688e8b773ebce1a451b8086aa0f4fb27165303279038651aa82690)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="rules")
@@ -2674,7 +2680,7 @@ class CfnWebACL(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ad794dee9ca743d9926eaae6f7e4f4676a08672333f2e0b1cb9f4311bbc61bdf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rules", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rules", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_waf.CfnWebACL.ActivatedRuleProperty",
@@ -3099,6 +3105,7 @@ class CfnXssMatchSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3138,7 +3145,7 @@ class CfnXssMatchSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__141171e99e860d8e2ce55dc5fb067c655c3c66b28eea83d17bb5b5795df69742)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="xssMatchTuples")
@@ -3156,7 +3163,7 @@ class CfnXssMatchSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6d7007b605981f06615fd476379f0fcfbf9338683d256515aa4555d0ed5efff1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "xssMatchTuples", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "xssMatchTuples", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_waf.CfnXssMatchSet.FieldToMatchProperty",

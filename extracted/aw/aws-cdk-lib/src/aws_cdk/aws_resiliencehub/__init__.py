@@ -233,6 +233,7 @@ class CfnApp(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -288,7 +289,7 @@ class CfnApp(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5c2df1cafeabd95579e76b6448abd4bc8191ed805fa79934e5a2ba2863d8a4a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "appTemplateBody", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "appTemplateBody", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -301,7 +302,7 @@ class CfnApp(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__26ec5f12ec50861e776ad80e27c62359d36bca636f0adbf44ed2618963e02c64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceMappings")
@@ -319,7 +320,7 @@ class CfnApp(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7be56e25078fc8e2aedbbef7b1762fc9e3fdb0096405151631ffaeb94832cc34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceMappings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceMappings", value)
 
     @builtins.property
     @jsii.member(jsii_name="appAssessmentSchedule")
@@ -332,7 +333,7 @@ class CfnApp(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1219dae6dd0d44c29343fb98a2d5c76c2a24c08981364a9635db5d542b60665d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "appAssessmentSchedule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "appAssessmentSchedule", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -345,7 +346,7 @@ class CfnApp(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ef5b0a7209d4ed93ddc4b9b03b30dfaf9f4e659b9ac9551bd3e4332a348c0c36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="eventSubscriptions")
@@ -363,7 +364,7 @@ class CfnApp(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__64d302607b7a1dfbffee8d2ab82e294e1d08c27584331ec9bea2e75add9db5b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventSubscriptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventSubscriptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="permissionModel")
@@ -381,7 +382,7 @@ class CfnApp(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2e15df41e400e8a9cff1ec67cfe4cdb6224b7e0faa1f84a7164a3aff0b0462f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "permissionModel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "permissionModel", value)
 
     @builtins.property
     @jsii.member(jsii_name="resiliencyPolicyArn")
@@ -394,7 +395,7 @@ class CfnApp(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce4ee431bd44e41d23a7b0df5a1d235166dfde2dcb98cb013d61da840d20b025)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resiliencyPolicyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resiliencyPolicyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -410,7 +411,7 @@ class CfnApp(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9d13896f18fa79328cd19410a666196ad5f076947628b86a3d2d74479248cc5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_resiliencehub.CfnApp.EventSubscriptionProperty",
@@ -1442,6 +1443,7 @@ class CfnResiliencyPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1495,7 +1497,7 @@ class CfnResiliencyPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2c81f492b83bee694a01e4aa4ae84bc7903a84252105f01380996bcf77119a83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policy", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyName")
@@ -1508,7 +1510,7 @@ class CfnResiliencyPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a34fd04d0312f7348f68c9a137c175637ed8986ee6668d212f9ccb5f63df73cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tier")
@@ -1521,7 +1523,7 @@ class CfnResiliencyPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__63aa6d63d9a2e5c5908fb449583a66f8f0ca1b9d0299917bf1c9aa1018efbe8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataLocationConstraint")
@@ -1534,7 +1536,7 @@ class CfnResiliencyPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a0ce3251c4d65d121ac1dfd3d81f2cc55a1e4f5d27dd6107aec2662ccd9f9da1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataLocationConstraint", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataLocationConstraint", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyDescription")
@@ -1547,7 +1549,7 @@ class CfnResiliencyPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__33c98d88b8f5dc4d978a76d3d8062b3b9ed0b9dbd8a11666125cf03bdb240c25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1563,7 +1565,7 @@ class CfnResiliencyPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e570922a4c9e088d785778e4bf4377e5e745c3948e4b4c61b64f0cbbefee0ce9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_resiliencehub.CfnResiliencyPolicy.FailurePolicyProperty",

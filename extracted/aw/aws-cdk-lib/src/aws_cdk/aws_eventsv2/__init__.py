@@ -201,6 +201,7 @@ class CfnEventBus(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -276,7 +277,7 @@ class CfnEventBus(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee9ac8b436284a957f1d956f844335a38245bfa0d2c47f6508e873a0cac4a898)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -289,7 +290,7 @@ class CfnEventBus(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7df16b6417ddf005f3950e2298297d1ebe2b6ed2c71861f56407ad1ec7b0ec1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfiguration")
@@ -307,7 +308,7 @@ class CfnEventBus(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7a1587ce163ec2a1690136eb81cc89ac5b130f01424c98fe9cffa19ac50c824c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageConfiguration")
@@ -325,7 +326,7 @@ class CfnEventBus(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc42052cd98bfe53e4c5706d2a05e99640f84231be21e82224d0c890800df8a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -341,7 +342,7 @@ class CfnEventBus(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__88ed1fa75f370cb15d812650283f3363698cbbb3bff10bd187595246d9876fbe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eventsv2.CfnEventBus.EncryptionConfigurationProperty",
@@ -739,6 +740,7 @@ class CfnEventSource(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -832,7 +834,7 @@ class CfnEventSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9c0002932c84a252c296e10e872e5fa5abf135d0e4984dca9be5082e00c13e5f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="eventBusArn")
@@ -845,7 +847,7 @@ class CfnEventSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d564d56b64810b9021d7445571c5638763974b5383ed5587190ac200f4d573a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventBusArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventBusArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -858,7 +860,7 @@ class CfnEventSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d6c8780caa2a0ffb779a7016735274f6123fb5da20a53ba8a93448bb0787224)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -871,7 +873,7 @@ class CfnEventSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7bfe70eadeea68822e462ab5cf2a07af053d7db9970b9f203fd623a1d7ab9124)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -887,7 +889,7 @@ class CfnEventSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6f880032e0ea2a6bf89a92521abfc144ac2ee6a1f69595b51d0dcfea3769e3ee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eventsv2.CfnEventSource.AwsServiceEventsConfigurationProperty",
@@ -1509,6 +1511,7 @@ class CfnResourcePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1551,7 +1554,7 @@ class CfnResourcePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ad236f15451341d60d13dd82d2e4d162f902f0bd8908b8b4858d3dbc5b8892cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventBusArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventBusArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -1564,7 +1567,7 @@ class CfnResourcePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72321d83da7c7a058cee5f887d58a2593886e141b1e3893abd2f0dee518d2df7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDocument", value)
 
 
 @jsii.data_type(
@@ -1668,6 +1671,95 @@ class CfnSubscriber(
         
         cfn_subscriber = eventsv2.CfnSubscriber(self, "MyCfnSubscriber",
             event_bus_arn="eventBusArn",
+            invoke_configuration=eventsv2.CfnSubscriber.InvokeConfigurationProperty(
+                role_arn="roleArn",
+                target_arn="targetArn",
+        
+                # the properties below are optional
+                event_bus_v2_parameters=eventsv2.CfnSubscriber.EventBusV2ParametersProperty(
+                    deduplication_configuration=eventsv2.CfnSubscriber.DeduplicationConfigurationProperty(
+                        deduplication_type="deduplicationType"
+                    ),
+                    metadata={
+                        "metadata_key": "metadata"
+                    },
+                    system_metadata=eventsv2.CfnSubscriber.EventBusV2SystemMetadataProperty(
+                        deduplication_id="deduplicationId",
+                        event_group_id="eventGroupId"
+                    )
+                ),
+                http_parameters=eventsv2.CfnSubscriber.HttpParametersProperty(
+                    header_parameters={
+                        "header_parameters_key": "headerParameters"
+                    },
+                    invocation_timeout_seconds="invocationTimeoutSeconds",
+                    path_parameter_values=["pathParameterValues"],
+                    query_string_parameters={
+                        "query_string_parameters_key": "queryStringParameters"
+                    }
+                ),
+                kinesis_parameters=eventsv2.CfnSubscriber.KinesisParametersProperty(
+                    explicit_hash_key="explicitHashKey",
+                    partition_key="partitionKey"
+                ),
+                lambda_parameters=eventsv2.CfnSubscriber.LambdaParametersProperty(
+                    durable_execution_name="durableExecutionName",
+                    invocation_timeout_seconds="invocationTimeoutSeconds",
+                    invocation_type="invocationType",
+                    qualifier="qualifier",
+                    tenant_id="tenantId"
+                ),
+                sns_parameters=eventsv2.CfnSubscriber.SnsParametersProperty(
+                    message_attributes={
+                        "message_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                            data_type="dataType",
+        
+                            # the properties below are optional
+                            binary_value="binaryValue",
+                            string_value="stringValue"
+                        )
+                    },
+                    message_deduplication_id="messageDeduplicationId",
+                    message_group_id="messageGroupId",
+                    message_structure="messageStructure",
+                    subject="subject"
+                ),
+                sqs_parameters=eventsv2.CfnSubscriber.SqsParametersProperty(
+                    delay_seconds="delaySeconds",
+                    message_attributes={
+                        "message_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                            data_type="dataType",
+        
+                            # the properties below are optional
+                            binary_value="binaryValue",
+                            string_value="stringValue"
+                        )
+                    },
+                    message_deduplication_id="messageDeduplicationId",
+                    message_group_id="messageGroupId",
+                    message_system_attributes={
+                        "message_system_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                            data_type="dataType",
+        
+                            # the properties below are optional
+                            binary_value="binaryValue",
+                            string_value="stringValue"
+                        )
+                    }
+                ),
+                step_functions_parameters=eventsv2.CfnSubscriber.StepFunctionsParametersProperty(
+                    invocation_timeout_seconds="invocationTimeoutSeconds",
+                    invocation_type="invocationType",
+                    name="name",
+                    trace_header="traceHeader"
+                ),
+                universal_target_parameters=eventsv2.CfnSubscriber.UniversalTargetParametersProperty(
+                    input="input",
+        
+                    # the properties below are optional
+                    invocation_timeout_seconds="invocationTimeoutSeconds"
+                )
+            ),
             name="name",
         
             # the properties below are optional
@@ -1727,6 +1819,7 @@ class CfnSubscriber(
         id: builtins.str,
         *,
         event_bus_arn: builtins.str,
+        invoke_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.InvokeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         batch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.BatchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
@@ -1747,6 +1840,7 @@ class CfnSubscriber(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param event_bus_arn: The ARN of the event bus this subscriber belongs to.
+        :param invoke_configuration: Configuration for how the subscriber invokes its target. Specify the target ARN, the IAM role, and, optionally, the target-specific parameters object that matches the target type.
         :param name: The name of the subscriber. The first character must be alphanumeric; the remaining characters may also include '.', '-', and '_'.
         :param batch_configuration: Configuration for batching events into a single delivery.
         :param description: A description of the subscriber. Control characters and Unicode line separators are not allowed.
@@ -1768,6 +1862,7 @@ class CfnSubscriber(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnSubscriberProps(
             event_bus_arn=event_bus_arn,
+            invoke_configuration=invoke_configuration,
             name=name,
             batch_configuration=batch_configuration,
             description=description,
@@ -1838,6 +1933,7 @@ class CfnSubscriber(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1913,7 +2009,25 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3933a6bedc3ebda376667b88f5aff39872b63d4f4cc267377f0ce24146444149)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventBusArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventBusArn", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="invokeConfiguration")
+    def invoke_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.InvokeConfigurationProperty"]:
+        '''Configuration for how the subscriber invokes its target.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.InvokeConfigurationProperty"], jsii.get(self, "invokeConfiguration"))
+
+    @invoke_configuration.setter
+    def invoke_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.InvokeConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f60dbe21b9f6039c11a48fa69654449568412c82a35ad34b286e1ff9802031c8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "invokeConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1926,7 +2040,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__87904eb3d4c136da852fa2f79014380c4a8e213f434e3ca7df4a95969dbba534)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="batchConfiguration")
@@ -1944,7 +2058,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e9053b06fb8b200688b5dedefd3ba0608cdc0faadf89ec23b8d5ae6a581297e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "batchConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "batchConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1957,7 +2071,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1d72dec88e45963d45b13efedcf6c93e95289752c135f4912ba07db0e94bfb10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="filterConfiguration")
@@ -1975,7 +2089,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6556d4defc8819b1d1fd5d44b772ba7336f8d8ac3f7199cd9243dd8626324d8a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "filterConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "filterConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="logConfiguration")
@@ -1993,7 +2107,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3e436742c5ebe5420abdab660baf82f0d4727a9c0a1ad77992e1ec3bc27b005e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="onFailureConfiguration")
@@ -2011,7 +2125,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__346b06bebd51f3c10e212119be182d6411b38595d52f541084cbf66b6d6947c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "onFailureConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "onFailureConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="pointInTimeConfiguration")
@@ -2029,7 +2143,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c3a4b0a55ccbc09e680639c37389e152fc2a68249d30b23fb7bf1f8502116d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pointInTimeConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "pointInTimeConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="resumePosition")
@@ -2042,7 +2156,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b1a6aa60908c077debd64afa6b695d61a4a0244544cfb3471664671dc39b01e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resumePosition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resumePosition", value)
 
     @builtins.property
     @jsii.member(jsii_name="retryPolicy")
@@ -2060,7 +2174,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b6288cda489031a5be2eb50bf47b6782e46ab8d4a9940cb162abd728b474a6f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "retryPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "retryPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="startingPosition")
@@ -2073,7 +2187,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7a8523d5487330fd3418214fa760d6b5418285dea76accbc0da7b6b896d7f44e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "startingPosition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "startingPosition", value)
 
     @builtins.property
     @jsii.member(jsii_name="state")
@@ -2086,7 +2200,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__264763c09a5d9d05410adb39930dd8cc7700affba24348821eb71fdebfa1ce7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "state", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2102,7 +2216,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1897a8d64094bec408dc401b2f1a02aff6ed9c2611c6e9969c4fefbce7bcb4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="transformer")
@@ -2120,7 +2234,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__82679293e1412208d25ea9d26d5f638b05de8132e6cd164ac54dc8ee77a5d173)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transformer", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "transformer", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -2133,7 +2247,7 @@ class CfnSubscriber(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fce7acb5b15cca1bf03e0e113c94bc4f18e5a5a2ca2a44cc2d9439db48ab3865)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.BatchConfigurationProperty",
@@ -2209,6 +2323,241 @@ class CfnSubscriber(
 
         def __repr__(self) -> str:
             return "BatchConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.DeduplicationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"deduplication_type": "deduplicationType"},
+    )
+    class DeduplicationConfigurationProperty:
+        def __init__(self, *, deduplication_type: builtins.str) -> None:
+            '''Deduplication settings applied to the forwarded events on the downstream bus.
+
+            :param deduplication_type: How duplicate events are detected: CONTENT_BASED deduplicates by a hash of the event content. To deduplicate by a caller-supplied token instead, omit DeduplicationConfiguration and set SystemMetadata.DeduplicationId.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-deduplicationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                deduplication_configuration_property = eventsv2.CfnSubscriber.DeduplicationConfigurationProperty(
+                    deduplication_type="deduplicationType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3cdfdb9cfa549b4286f60146599b829606fde07d17b480f5b5ca5a4e8393788e)
+                check_type(argname="argument deduplication_type", value=deduplication_type, expected_type=type_hints["deduplication_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "deduplication_type": deduplication_type,
+            }
+
+        @builtins.property
+        def deduplication_type(self) -> builtins.str:
+            '''How duplicate events are detected: CONTENT_BASED deduplicates by a hash of the event content.
+
+            To deduplicate by a caller-supplied token instead, omit DeduplicationConfiguration and set SystemMetadata.DeduplicationId.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-deduplicationconfiguration.html#cfn-eventsv2-subscriber-deduplicationconfiguration-deduplicationtype
+            '''
+            result = self._values.get("deduplication_type")
+            assert result is not None, "Required property 'deduplication_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeduplicationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.EventBusV2ParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "deduplication_configuration": "deduplicationConfiguration",
+            "metadata": "metadata",
+            "system_metadata": "systemMetadata",
+        },
+    )
+    class EventBusV2ParametersProperty:
+        def __init__(
+            self,
+            *,
+            deduplication_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.DeduplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            system_metadata: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.EventBusV2SystemMetadataProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Parameters for forwarding events to another EventBridge event bus, used when TargetArn is an event bus ARN of the form arn:{partition}:events:{region}:{account}:event-busv2/{name}/{id}.
+
+            :param deduplication_configuration: Deduplication settings applied to the forwarded events on the downstream bus.
+            :param metadata: Metadata forwarded with each event, as key-value string pairs, with at most 100 entries. A key or value may also be a JSONata expression.
+            :param system_metadata: Customer-controllable system metadata attached to each forwarded event.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-eventbusv2parameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                event_bus_v2_parameters_property = eventsv2.CfnSubscriber.EventBusV2ParametersProperty(
+                    deduplication_configuration=eventsv2.CfnSubscriber.DeduplicationConfigurationProperty(
+                        deduplication_type="deduplicationType"
+                    ),
+                    metadata={
+                        "metadata_key": "metadata"
+                    },
+                    system_metadata=eventsv2.CfnSubscriber.EventBusV2SystemMetadataProperty(
+                        deduplication_id="deduplicationId",
+                        event_group_id="eventGroupId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a988502e9cabb54af1bdc12981421d3d609c773f0743fe5306e7e5f97f0601ea)
+                check_type(argname="argument deduplication_configuration", value=deduplication_configuration, expected_type=type_hints["deduplication_configuration"])
+                check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+                check_type(argname="argument system_metadata", value=system_metadata, expected_type=type_hints["system_metadata"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if deduplication_configuration is not None:
+                self._values["deduplication_configuration"] = deduplication_configuration
+            if metadata is not None:
+                self._values["metadata"] = metadata
+            if system_metadata is not None:
+                self._values["system_metadata"] = system_metadata
+
+        @builtins.property
+        def deduplication_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.DeduplicationConfigurationProperty"]]:
+            '''Deduplication settings applied to the forwarded events on the downstream bus.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-eventbusv2parameters.html#cfn-eventsv2-subscriber-eventbusv2parameters-deduplicationconfiguration
+            '''
+            result = self._values.get("deduplication_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.DeduplicationConfigurationProperty"]], result)
+
+        @builtins.property
+        def metadata(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Metadata forwarded with each event, as key-value string pairs, with at most 100 entries.
+
+            A key or value may also be a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-eventbusv2parameters.html#cfn-eventsv2-subscriber-eventbusv2parameters-metadata
+            '''
+            result = self._values.get("metadata")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def system_metadata(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.EventBusV2SystemMetadataProperty"]]:
+            '''Customer-controllable system metadata attached to each forwarded event.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-eventbusv2parameters.html#cfn-eventsv2-subscriber-eventbusv2parameters-systemmetadata
+            '''
+            result = self._values.get("system_metadata")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.EventBusV2SystemMetadataProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EventBusV2ParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.EventBusV2SystemMetadataProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "deduplication_id": "deduplicationId",
+            "event_group_id": "eventGroupId",
+        },
+    )
+    class EventBusV2SystemMetadataProperty:
+        def __init__(
+            self,
+            *,
+            deduplication_id: typing.Optional[builtins.str] = None,
+            event_group_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Customer-controllable system metadata attached to each forwarded event.
+
+            :param deduplication_id: The deduplication ID for FIFO deduplication on the downstream event bus. Accepts a literal value or a JSONata expression.
+            :param event_group_id: The event group ID for FIFO ordering on the downstream event bus. Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-eventbusv2systemmetadata.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                event_bus_v2_system_metadata_property = eventsv2.CfnSubscriber.EventBusV2SystemMetadataProperty(
+                    deduplication_id="deduplicationId",
+                    event_group_id="eventGroupId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e79a9806a605d2c5eb1976c8859a3222a875095d9a7c8c4972da3dbfc81bf9c6)
+                check_type(argname="argument deduplication_id", value=deduplication_id, expected_type=type_hints["deduplication_id"])
+                check_type(argname="argument event_group_id", value=event_group_id, expected_type=type_hints["event_group_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if deduplication_id is not None:
+                self._values["deduplication_id"] = deduplication_id
+            if event_group_id is not None:
+                self._values["event_group_id"] = event_group_id
+
+        @builtins.property
+        def deduplication_id(self) -> typing.Optional[builtins.str]:
+            '''The deduplication ID for FIFO deduplication on the downstream event bus.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-eventbusv2systemmetadata.html#cfn-eventsv2-subscriber-eventbusv2systemmetadata-deduplicationid
+            '''
+            result = self._values.get("deduplication_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def event_group_id(self) -> typing.Optional[builtins.str]:
+            '''The event group ID for FIFO ordering on the downstream event bus.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-eventbusv2systemmetadata.html#cfn-eventsv2-subscriber-eventbusv2systemmetadata-eventgroupid
+            '''
+            result = self._values.get("event_group_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EventBusV2SystemMetadataProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2363,6 +2712,424 @@ class CfnSubscriber(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.HttpParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "header_parameters": "headerParameters",
+            "invocation_timeout_seconds": "invocationTimeoutSeconds",
+            "path_parameter_values": "pathParameterValues",
+            "query_string_parameters": "queryStringParameters",
+        },
+    )
+    class HttpParametersProperty:
+        def __init__(
+            self,
+            *,
+            header_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            invocation_timeout_seconds: typing.Optional[builtins.str] = None,
+            path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+            query_string_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''Parameters for invoking an HTTP endpoint target, such as an Amazon API Gateway endpoint or an EventBridge API destination.
+
+            :param header_parameters: A map of HTTP header names to values. A header name or value may also be a JSONata expression.
+            :param invocation_timeout_seconds: The timeout in seconds for each invocation of the target, written as a string. Accepts a literal value or a JSONata expression.
+            :param path_parameter_values: Values for the path parameters (wildcards) in the target URL, in order.
+            :param query_string_parameters: A map of query string parameter names to values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-httpparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                http_parameters_property = eventsv2.CfnSubscriber.HttpParametersProperty(
+                    header_parameters={
+                        "header_parameters_key": "headerParameters"
+                    },
+                    invocation_timeout_seconds="invocationTimeoutSeconds",
+                    path_parameter_values=["pathParameterValues"],
+                    query_string_parameters={
+                        "query_string_parameters_key": "queryStringParameters"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ea7493f73beea95f128b7d023169b18e86fb41d43435bd7a793be564abde93d3)
+                check_type(argname="argument header_parameters", value=header_parameters, expected_type=type_hints["header_parameters"])
+                check_type(argname="argument invocation_timeout_seconds", value=invocation_timeout_seconds, expected_type=type_hints["invocation_timeout_seconds"])
+                check_type(argname="argument path_parameter_values", value=path_parameter_values, expected_type=type_hints["path_parameter_values"])
+                check_type(argname="argument query_string_parameters", value=query_string_parameters, expected_type=type_hints["query_string_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if header_parameters is not None:
+                self._values["header_parameters"] = header_parameters
+            if invocation_timeout_seconds is not None:
+                self._values["invocation_timeout_seconds"] = invocation_timeout_seconds
+            if path_parameter_values is not None:
+                self._values["path_parameter_values"] = path_parameter_values
+            if query_string_parameters is not None:
+                self._values["query_string_parameters"] = query_string_parameters
+
+        @builtins.property
+        def header_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A map of HTTP header names to values.
+
+            A header name or value may also be a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-httpparameters.html#cfn-eventsv2-subscriber-httpparameters-headerparameters
+            '''
+            result = self._values.get("header_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def invocation_timeout_seconds(self) -> typing.Optional[builtins.str]:
+            '''The timeout in seconds for each invocation of the target, written as a string.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-httpparameters.html#cfn-eventsv2-subscriber-httpparameters-invocationtimeoutseconds
+            '''
+            result = self._values.get("invocation_timeout_seconds")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def path_parameter_values(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Values for the path parameters (wildcards) in the target URL, in order.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-httpparameters.html#cfn-eventsv2-subscriber-httpparameters-pathparametervalues
+            '''
+            result = self._values.get("path_parameter_values")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def query_string_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A map of query string parameter names to values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-httpparameters.html#cfn-eventsv2-subscriber-httpparameters-querystringparameters
+            '''
+            result = self._values.get("query_string_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HttpParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.InvokeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "role_arn": "roleArn",
+            "target_arn": "targetArn",
+            "event_bus_v2_parameters": "eventBusV2Parameters",
+            "http_parameters": "httpParameters",
+            "kinesis_parameters": "kinesisParameters",
+            "lambda_parameters": "lambdaParameters",
+            "sns_parameters": "snsParameters",
+            "sqs_parameters": "sqsParameters",
+            "step_functions_parameters": "stepFunctionsParameters",
+            "universal_target_parameters": "universalTargetParameters",
+        },
+    )
+    class InvokeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            role_arn: builtins.str,
+            target_arn: builtins.str,
+            event_bus_v2_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.EventBusV2ParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            http_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.HttpParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            kinesis_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.KinesisParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lambda_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.LambdaParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sns_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.SnsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sqs_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.SqsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            step_functions_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.StepFunctionsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            universal_target_parameters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.UniversalTargetParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration for how the subscriber invokes its target.
+
+            Specify the target ARN, the IAM role, and, optionally, the target-specific parameters object that matches the target type.
+
+            :param role_arn: The ARN of the IAM role the service assumes to invoke the target. The role must belong to the same account as the subscriber.
+            :param target_arn: The Amazon Resource Name (ARN) of the target that the subscriber invokes. For universal service integration targets, use the form arn:{partition}:events:::aws-sdk:{service}:{apiAction}.
+            :param event_bus_v2_parameters: Parameters for forwarding events to another EventBridge event bus, used when TargetArn is an event bus ARN of the form arn:{partition}:events:{region}:{account}:event-busv2/{name}/{id}.
+            :param http_parameters: Parameters for invoking an HTTP endpoint target, such as an Amazon API Gateway endpoint or an EventBridge API destination.
+            :param kinesis_parameters: Parameters for writing events to an Amazon Kinesis Data Streams target.
+            :param lambda_parameters: Parameters for invoking an AWS Lambda function target.
+            :param sns_parameters: Parameters for publishing events to an Amazon SNS topic target.
+            :param sqs_parameters: Parameters for sending events to an Amazon SQS queue target.
+            :param step_functions_parameters: Parameters for starting an AWS Step Functions state machine execution target.
+            :param universal_target_parameters: Parameters for invoking an AWS service API as a universal service integration target, used when TargetArn has the form arn:{partition}:events:::aws-sdk:{service}:{apiAction}.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                invoke_configuration_property = eventsv2.CfnSubscriber.InvokeConfigurationProperty(
+                    role_arn="roleArn",
+                    target_arn="targetArn",
+                
+                    # the properties below are optional
+                    event_bus_v2_parameters=eventsv2.CfnSubscriber.EventBusV2ParametersProperty(
+                        deduplication_configuration=eventsv2.CfnSubscriber.DeduplicationConfigurationProperty(
+                            deduplication_type="deduplicationType"
+                        ),
+                        metadata={
+                            "metadata_key": "metadata"
+                        },
+                        system_metadata=eventsv2.CfnSubscriber.EventBusV2SystemMetadataProperty(
+                            deduplication_id="deduplicationId",
+                            event_group_id="eventGroupId"
+                        )
+                    ),
+                    http_parameters=eventsv2.CfnSubscriber.HttpParametersProperty(
+                        header_parameters={
+                            "header_parameters_key": "headerParameters"
+                        },
+                        invocation_timeout_seconds="invocationTimeoutSeconds",
+                        path_parameter_values=["pathParameterValues"],
+                        query_string_parameters={
+                            "query_string_parameters_key": "queryStringParameters"
+                        }
+                    ),
+                    kinesis_parameters=eventsv2.CfnSubscriber.KinesisParametersProperty(
+                        explicit_hash_key="explicitHashKey",
+                        partition_key="partitionKey"
+                    ),
+                    lambda_parameters=eventsv2.CfnSubscriber.LambdaParametersProperty(
+                        durable_execution_name="durableExecutionName",
+                        invocation_timeout_seconds="invocationTimeoutSeconds",
+                        invocation_type="invocationType",
+                        qualifier="qualifier",
+                        tenant_id="tenantId"
+                    ),
+                    sns_parameters=eventsv2.CfnSubscriber.SnsParametersProperty(
+                        message_attributes={
+                            "message_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                                data_type="dataType",
+                
+                                # the properties below are optional
+                                binary_value="binaryValue",
+                                string_value="stringValue"
+                            )
+                        },
+                        message_deduplication_id="messageDeduplicationId",
+                        message_group_id="messageGroupId",
+                        message_structure="messageStructure",
+                        subject="subject"
+                    ),
+                    sqs_parameters=eventsv2.CfnSubscriber.SqsParametersProperty(
+                        delay_seconds="delaySeconds",
+                        message_attributes={
+                            "message_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                                data_type="dataType",
+                
+                                # the properties below are optional
+                                binary_value="binaryValue",
+                                string_value="stringValue"
+                            )
+                        },
+                        message_deduplication_id="messageDeduplicationId",
+                        message_group_id="messageGroupId",
+                        message_system_attributes={
+                            "message_system_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                                data_type="dataType",
+                
+                                # the properties below are optional
+                                binary_value="binaryValue",
+                                string_value="stringValue"
+                            )
+                        }
+                    ),
+                    step_functions_parameters=eventsv2.CfnSubscriber.StepFunctionsParametersProperty(
+                        invocation_timeout_seconds="invocationTimeoutSeconds",
+                        invocation_type="invocationType",
+                        name="name",
+                        trace_header="traceHeader"
+                    ),
+                    universal_target_parameters=eventsv2.CfnSubscriber.UniversalTargetParametersProperty(
+                        input="input",
+                
+                        # the properties below are optional
+                        invocation_timeout_seconds="invocationTimeoutSeconds"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__01be247ac650a026d2eb02dc72766e9b09eddbe8457edfe15c69b1840d49189d)
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument target_arn", value=target_arn, expected_type=type_hints["target_arn"])
+                check_type(argname="argument event_bus_v2_parameters", value=event_bus_v2_parameters, expected_type=type_hints["event_bus_v2_parameters"])
+                check_type(argname="argument http_parameters", value=http_parameters, expected_type=type_hints["http_parameters"])
+                check_type(argname="argument kinesis_parameters", value=kinesis_parameters, expected_type=type_hints["kinesis_parameters"])
+                check_type(argname="argument lambda_parameters", value=lambda_parameters, expected_type=type_hints["lambda_parameters"])
+                check_type(argname="argument sns_parameters", value=sns_parameters, expected_type=type_hints["sns_parameters"])
+                check_type(argname="argument sqs_parameters", value=sqs_parameters, expected_type=type_hints["sqs_parameters"])
+                check_type(argname="argument step_functions_parameters", value=step_functions_parameters, expected_type=type_hints["step_functions_parameters"])
+                check_type(argname="argument universal_target_parameters", value=universal_target_parameters, expected_type=type_hints["universal_target_parameters"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "role_arn": role_arn,
+                "target_arn": target_arn,
+            }
+            if event_bus_v2_parameters is not None:
+                self._values["event_bus_v2_parameters"] = event_bus_v2_parameters
+            if http_parameters is not None:
+                self._values["http_parameters"] = http_parameters
+            if kinesis_parameters is not None:
+                self._values["kinesis_parameters"] = kinesis_parameters
+            if lambda_parameters is not None:
+                self._values["lambda_parameters"] = lambda_parameters
+            if sns_parameters is not None:
+                self._values["sns_parameters"] = sns_parameters
+            if sqs_parameters is not None:
+                self._values["sqs_parameters"] = sqs_parameters
+            if step_functions_parameters is not None:
+                self._values["step_functions_parameters"] = step_functions_parameters
+            if universal_target_parameters is not None:
+                self._values["universal_target_parameters"] = universal_target_parameters
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''The ARN of the IAM role the service assumes to invoke the target.
+
+            The role must belong to the same account as the subscriber.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html#cfn-eventsv2-subscriber-invokeconfiguration-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def target_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the target that the subscriber invokes.
+
+            For universal service integration targets, use the form arn:{partition}:events:::aws-sdk:{service}:{apiAction}.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html#cfn-eventsv2-subscriber-invokeconfiguration-targetarn
+            '''
+            result = self._values.get("target_arn")
+            assert result is not None, "Required property 'target_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def event_bus_v2_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.EventBusV2ParametersProperty"]]:
+            '''Parameters for forwarding events to another EventBridge event bus, used when TargetArn is an event bus ARN of the form arn:{partition}:events:{region}:{account}:event-busv2/{name}/{id}.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html#cfn-eventsv2-subscriber-invokeconfiguration-eventbusv2parameters
+            '''
+            result = self._values.get("event_bus_v2_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.EventBusV2ParametersProperty"]], result)
+
+        @builtins.property
+        def http_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.HttpParametersProperty"]]:
+            '''Parameters for invoking an HTTP endpoint target, such as an Amazon API Gateway endpoint or an EventBridge API destination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html#cfn-eventsv2-subscriber-invokeconfiguration-httpparameters
+            '''
+            result = self._values.get("http_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.HttpParametersProperty"]], result)
+
+        @builtins.property
+        def kinesis_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.KinesisParametersProperty"]]:
+            '''Parameters for writing events to an Amazon Kinesis Data Streams target.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html#cfn-eventsv2-subscriber-invokeconfiguration-kinesisparameters
+            '''
+            result = self._values.get("kinesis_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.KinesisParametersProperty"]], result)
+
+        @builtins.property
+        def lambda_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.LambdaParametersProperty"]]:
+            '''Parameters for invoking an AWS Lambda function target.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html#cfn-eventsv2-subscriber-invokeconfiguration-lambdaparameters
+            '''
+            result = self._values.get("lambda_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.LambdaParametersProperty"]], result)
+
+        @builtins.property
+        def sns_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.SnsParametersProperty"]]:
+            '''Parameters for publishing events to an Amazon SNS topic target.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html#cfn-eventsv2-subscriber-invokeconfiguration-snsparameters
+            '''
+            result = self._values.get("sns_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.SnsParametersProperty"]], result)
+
+        @builtins.property
+        def sqs_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.SqsParametersProperty"]]:
+            '''Parameters for sending events to an Amazon SQS queue target.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html#cfn-eventsv2-subscriber-invokeconfiguration-sqsparameters
+            '''
+            result = self._values.get("sqs_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.SqsParametersProperty"]], result)
+
+        @builtins.property
+        def step_functions_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.StepFunctionsParametersProperty"]]:
+            '''Parameters for starting an AWS Step Functions state machine execution target.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html#cfn-eventsv2-subscriber-invokeconfiguration-stepfunctionsparameters
+            '''
+            result = self._values.get("step_functions_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.StepFunctionsParametersProperty"]], result)
+
+        @builtins.property
+        def universal_target_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.UniversalTargetParametersProperty"]]:
+            '''Parameters for invoking an AWS service API as a universal service integration target, used when TargetArn has the form arn:{partition}:events:::aws-sdk:{service}:{apiAction}.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-invokeconfiguration.html#cfn-eventsv2-subscriber-invokeconfiguration-universaltargetparameters
+            '''
+            result = self._values.get("universal_target_parameters")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.UniversalTargetParametersProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InvokeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.JsonataConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"expression": "expression"},
@@ -2411,6 +3178,212 @@ class CfnSubscriber(
 
         def __repr__(self) -> str:
             return "JsonataConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.KinesisParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "explicit_hash_key": "explicitHashKey",
+            "partition_key": "partitionKey",
+        },
+    )
+    class KinesisParametersProperty:
+        def __init__(
+            self,
+            *,
+            explicit_hash_key: typing.Optional[builtins.str] = None,
+            partition_key: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Parameters for writing events to an Amazon Kinesis Data Streams target.
+
+            :param explicit_hash_key: An explicit hash key that overrides the partition key's shard assignment. Accepts a literal value or a JSONata expression.
+            :param partition_key: The partition key that determines which shard each record is written to. Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-kinesisparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                kinesis_parameters_property = eventsv2.CfnSubscriber.KinesisParametersProperty(
+                    explicit_hash_key="explicitHashKey",
+                    partition_key="partitionKey"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5f37169df2179aa164da02059da00496ecea77c53ca94d6b35d40bec5119b264)
+                check_type(argname="argument explicit_hash_key", value=explicit_hash_key, expected_type=type_hints["explicit_hash_key"])
+                check_type(argname="argument partition_key", value=partition_key, expected_type=type_hints["partition_key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if explicit_hash_key is not None:
+                self._values["explicit_hash_key"] = explicit_hash_key
+            if partition_key is not None:
+                self._values["partition_key"] = partition_key
+
+        @builtins.property
+        def explicit_hash_key(self) -> typing.Optional[builtins.str]:
+            '''An explicit hash key that overrides the partition key's shard assignment.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-kinesisparameters.html#cfn-eventsv2-subscriber-kinesisparameters-explicithashkey
+            '''
+            result = self._values.get("explicit_hash_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def partition_key(self) -> typing.Optional[builtins.str]:
+            '''The partition key that determines which shard each record is written to.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-kinesisparameters.html#cfn-eventsv2-subscriber-kinesisparameters-partitionkey
+            '''
+            result = self._values.get("partition_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KinesisParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.LambdaParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "durable_execution_name": "durableExecutionName",
+            "invocation_timeout_seconds": "invocationTimeoutSeconds",
+            "invocation_type": "invocationType",
+            "qualifier": "qualifier",
+            "tenant_id": "tenantId",
+        },
+    )
+    class LambdaParametersProperty:
+        def __init__(
+            self,
+            *,
+            durable_execution_name: typing.Optional[builtins.str] = None,
+            invocation_timeout_seconds: typing.Optional[builtins.str] = None,
+            invocation_type: typing.Optional[builtins.str] = None,
+            qualifier: typing.Optional[builtins.str] = None,
+            tenant_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Parameters for invoking an AWS Lambda function target.
+
+            :param durable_execution_name: A unique name for a durable function execution. Accepts a literal value or a JSONata expression.
+            :param invocation_timeout_seconds: The timeout in seconds for each invocation of the target, written as a string. Accepts a literal value or a JSONata expression.
+            :param invocation_type: How the function is invoked: EVENT (asynchronous) or REQUEST_RESPONSE (synchronous).
+            :param qualifier: The version or alias of the Lambda function to invoke. Accepts a literal value or a JSONata expression.
+            :param tenant_id: The tenant identifier for multi-tenant Lambda functions. Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-lambdaparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                lambda_parameters_property = eventsv2.CfnSubscriber.LambdaParametersProperty(
+                    durable_execution_name="durableExecutionName",
+                    invocation_timeout_seconds="invocationTimeoutSeconds",
+                    invocation_type="invocationType",
+                    qualifier="qualifier",
+                    tenant_id="tenantId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__118aff948456abaa68d2b12b4952f9ed230d40a40594933b7acc3e99eb6bef2c)
+                check_type(argname="argument durable_execution_name", value=durable_execution_name, expected_type=type_hints["durable_execution_name"])
+                check_type(argname="argument invocation_timeout_seconds", value=invocation_timeout_seconds, expected_type=type_hints["invocation_timeout_seconds"])
+                check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
+                check_type(argname="argument qualifier", value=qualifier, expected_type=type_hints["qualifier"])
+                check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if durable_execution_name is not None:
+                self._values["durable_execution_name"] = durable_execution_name
+            if invocation_timeout_seconds is not None:
+                self._values["invocation_timeout_seconds"] = invocation_timeout_seconds
+            if invocation_type is not None:
+                self._values["invocation_type"] = invocation_type
+            if qualifier is not None:
+                self._values["qualifier"] = qualifier
+            if tenant_id is not None:
+                self._values["tenant_id"] = tenant_id
+
+        @builtins.property
+        def durable_execution_name(self) -> typing.Optional[builtins.str]:
+            '''A unique name for a durable function execution.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-lambdaparameters.html#cfn-eventsv2-subscriber-lambdaparameters-durableexecutionname
+            '''
+            result = self._values.get("durable_execution_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def invocation_timeout_seconds(self) -> typing.Optional[builtins.str]:
+            '''The timeout in seconds for each invocation of the target, written as a string.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-lambdaparameters.html#cfn-eventsv2-subscriber-lambdaparameters-invocationtimeoutseconds
+            '''
+            result = self._values.get("invocation_timeout_seconds")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def invocation_type(self) -> typing.Optional[builtins.str]:
+            '''How the function is invoked: EVENT (asynchronous) or REQUEST_RESPONSE (synchronous).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-lambdaparameters.html#cfn-eventsv2-subscriber-lambdaparameters-invocationtype
+            '''
+            result = self._values.get("invocation_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def qualifier(self) -> typing.Optional[builtins.str]:
+            '''The version or alias of the Lambda function to invoke.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-lambdaparameters.html#cfn-eventsv2-subscriber-lambdaparameters-qualifier
+            '''
+            result = self._values.get("qualifier")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def tenant_id(self) -> typing.Optional[builtins.str]:
+            '''The tenant identifier for multi-tenant Lambda functions.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-lambdaparameters.html#cfn-eventsv2-subscriber-lambdaparameters-tenantid
+            '''
+            result = self._values.get("tenant_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LambdaParametersProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2485,6 +3458,100 @@ class CfnSubscriber(
 
         def __repr__(self) -> str:
             return "LogConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.MessageAttributeValueProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "data_type": "dataType",
+            "binary_value": "binaryValue",
+            "string_value": "stringValue",
+        },
+    )
+    class MessageAttributeValueProperty:
+        def __init__(
+            self,
+            *,
+            data_type: builtins.str,
+            binary_value: typing.Optional[builtins.str] = None,
+            string_value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A message attribute value and its data type, for Amazon SQS and Amazon SNS targets.
+
+            :param data_type: The attribute data type. For Amazon SQS targets, specify String, Number, or Binary, optionally with a custom label suffix such as Number.float. For Amazon SNS targets, specify String, String.Array, Number, or Binary.
+            :param binary_value: The attribute value for the Binary data type, Base64-encoded.
+            :param string_value: The attribute value for the String and Number data types (and String.Array for Amazon SNS targets).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-messageattributevalue.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                message_attribute_value_property = eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                    data_type="dataType",
+                
+                    # the properties below are optional
+                    binary_value="binaryValue",
+                    string_value="stringValue"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__acda20a85d5143ab4c0ce6ac93191041b2e563a4fd772cf2a0c4052ddb014afc)
+                check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
+                check_type(argname="argument binary_value", value=binary_value, expected_type=type_hints["binary_value"])
+                check_type(argname="argument string_value", value=string_value, expected_type=type_hints["string_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "data_type": data_type,
+            }
+            if binary_value is not None:
+                self._values["binary_value"] = binary_value
+            if string_value is not None:
+                self._values["string_value"] = string_value
+
+        @builtins.property
+        def data_type(self) -> builtins.str:
+            '''The attribute data type.
+
+            For Amazon SQS targets, specify String, Number, or Binary, optionally with a custom label suffix such as Number.float. For Amazon SNS targets, specify String, String.Array, Number, or Binary.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-messageattributevalue.html#cfn-eventsv2-subscriber-messageattributevalue-datatype
+            '''
+            result = self._values.get("data_type")
+            assert result is not None, "Required property 'data_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def binary_value(self) -> typing.Optional[builtins.str]:
+            '''The attribute value for the Binary data type, Base64-encoded.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-messageattributevalue.html#cfn-eventsv2-subscriber-messageattributevalue-binaryvalue
+            '''
+            result = self._values.get("binary_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def string_value(self) -> typing.Optional[builtins.str]:
+            '''The attribute value for the String and Number data types (and String.Array for Amazon SNS targets).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-messageattributevalue.html#cfn-eventsv2-subscriber-messageattributevalue-stringvalue
+            '''
+            result = self._values.get("string_value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MessageAttributeValueProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2733,6 +3800,409 @@ class CfnSubscriber(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.SnsParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "message_attributes": "messageAttributes",
+            "message_deduplication_id": "messageDeduplicationId",
+            "message_group_id": "messageGroupId",
+            "message_structure": "messageStructure",
+            "subject": "subject",
+        },
+    )
+    class SnsParametersProperty:
+        def __init__(
+            self,
+            *,
+            message_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.MessageAttributeValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            message_deduplication_id: typing.Optional[builtins.str] = None,
+            message_group_id: typing.Optional[builtins.str] = None,
+            message_structure: typing.Optional[builtins.str] = None,
+            subject: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Parameters for publishing events to an Amazon SNS topic target.
+
+            :param message_attributes: A map of message attribute names to values, with at most 50 attributes. Amazon SQS and Amazon SNS enforce their own per-message attribute limits on delivery.
+            :param message_deduplication_id: The message deduplication ID to use when the target is a FIFO topic. Accepts a literal value or a JSONata expression.
+            :param message_group_id: The message group ID to use when the target is a FIFO topic. Accepts a literal value or a JSONata expression.
+            :param message_structure: Set to json to send a different message per delivery protocol. Accepts a literal value or a JSONata expression.
+            :param subject: The subject line to use for email-protocol subscriptions. Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-snsparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                sns_parameters_property = eventsv2.CfnSubscriber.SnsParametersProperty(
+                    message_attributes={
+                        "message_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                            data_type="dataType",
+                
+                            # the properties below are optional
+                            binary_value="binaryValue",
+                            string_value="stringValue"
+                        )
+                    },
+                    message_deduplication_id="messageDeduplicationId",
+                    message_group_id="messageGroupId",
+                    message_structure="messageStructure",
+                    subject="subject"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__bf372c3b423c0ee61ef2ef017ed6f37c03f02b0fcb00c1b872cf1a9e4822b337)
+                check_type(argname="argument message_attributes", value=message_attributes, expected_type=type_hints["message_attributes"])
+                check_type(argname="argument message_deduplication_id", value=message_deduplication_id, expected_type=type_hints["message_deduplication_id"])
+                check_type(argname="argument message_group_id", value=message_group_id, expected_type=type_hints["message_group_id"])
+                check_type(argname="argument message_structure", value=message_structure, expected_type=type_hints["message_structure"])
+                check_type(argname="argument subject", value=subject, expected_type=type_hints["subject"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if message_attributes is not None:
+                self._values["message_attributes"] = message_attributes
+            if message_deduplication_id is not None:
+                self._values["message_deduplication_id"] = message_deduplication_id
+            if message_group_id is not None:
+                self._values["message_group_id"] = message_group_id
+            if message_structure is not None:
+                self._values["message_structure"] = message_structure
+            if subject is not None:
+                self._values["subject"] = subject
+
+        @builtins.property
+        def message_attributes(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.MessageAttributeValueProperty"]]]]:
+            '''A map of message attribute names to values, with at most 50 attributes.
+
+            Amazon SQS and Amazon SNS enforce their own per-message attribute limits on delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-snsparameters.html#cfn-eventsv2-subscriber-snsparameters-messageattributes
+            '''
+            result = self._values.get("message_attributes")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.MessageAttributeValueProperty"]]]], result)
+
+        @builtins.property
+        def message_deduplication_id(self) -> typing.Optional[builtins.str]:
+            '''The message deduplication ID to use when the target is a FIFO topic.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-snsparameters.html#cfn-eventsv2-subscriber-snsparameters-messagededuplicationid
+            '''
+            result = self._values.get("message_deduplication_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def message_group_id(self) -> typing.Optional[builtins.str]:
+            '''The message group ID to use when the target is a FIFO topic.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-snsparameters.html#cfn-eventsv2-subscriber-snsparameters-messagegroupid
+            '''
+            result = self._values.get("message_group_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def message_structure(self) -> typing.Optional[builtins.str]:
+            '''Set to json to send a different message per delivery protocol.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-snsparameters.html#cfn-eventsv2-subscriber-snsparameters-messagestructure
+            '''
+            result = self._values.get("message_structure")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def subject(self) -> typing.Optional[builtins.str]:
+            '''The subject line to use for email-protocol subscriptions.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-snsparameters.html#cfn-eventsv2-subscriber-snsparameters-subject
+            '''
+            result = self._values.get("subject")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SnsParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.SqsParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "delay_seconds": "delaySeconds",
+            "message_attributes": "messageAttributes",
+            "message_deduplication_id": "messageDeduplicationId",
+            "message_group_id": "messageGroupId",
+            "message_system_attributes": "messageSystemAttributes",
+        },
+    )
+    class SqsParametersProperty:
+        def __init__(
+            self,
+            *,
+            delay_seconds: typing.Optional[builtins.str] = None,
+            message_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.MessageAttributeValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            message_deduplication_id: typing.Optional[builtins.str] = None,
+            message_group_id: typing.Optional[builtins.str] = None,
+            message_system_attributes: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.MessageAttributeValueProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Parameters for sending events to an Amazon SQS queue target.
+
+            :param delay_seconds: The delay in seconds for the message, written as a string. Accepts a literal value or a JSONata expression.
+            :param message_attributes: A map of message attribute names to values, with at most 50 attributes. Amazon SQS and Amazon SNS enforce their own per-message attribute limits on delivery.
+            :param message_deduplication_id: The message deduplication ID to use when the target is a FIFO queue. Accepts a literal value or a JSONata expression.
+            :param message_group_id: The message group ID to use when the target is a FIFO queue. Accepts a literal value or a JSONata expression.
+            :param message_system_attributes: A map of message attribute names to values, with at most 50 attributes. Amazon SQS and Amazon SNS enforce their own per-message attribute limits on delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-sqsparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                sqs_parameters_property = eventsv2.CfnSubscriber.SqsParametersProperty(
+                    delay_seconds="delaySeconds",
+                    message_attributes={
+                        "message_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                            data_type="dataType",
+                
+                            # the properties below are optional
+                            binary_value="binaryValue",
+                            string_value="stringValue"
+                        )
+                    },
+                    message_deduplication_id="messageDeduplicationId",
+                    message_group_id="messageGroupId",
+                    message_system_attributes={
+                        "message_system_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                            data_type="dataType",
+                
+                            # the properties below are optional
+                            binary_value="binaryValue",
+                            string_value="stringValue"
+                        )
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d5035b3ce3dd9fe05c62d62cd25fa44d506435e87d270b72cde023a61e239f41)
+                check_type(argname="argument delay_seconds", value=delay_seconds, expected_type=type_hints["delay_seconds"])
+                check_type(argname="argument message_attributes", value=message_attributes, expected_type=type_hints["message_attributes"])
+                check_type(argname="argument message_deduplication_id", value=message_deduplication_id, expected_type=type_hints["message_deduplication_id"])
+                check_type(argname="argument message_group_id", value=message_group_id, expected_type=type_hints["message_group_id"])
+                check_type(argname="argument message_system_attributes", value=message_system_attributes, expected_type=type_hints["message_system_attributes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if delay_seconds is not None:
+                self._values["delay_seconds"] = delay_seconds
+            if message_attributes is not None:
+                self._values["message_attributes"] = message_attributes
+            if message_deduplication_id is not None:
+                self._values["message_deduplication_id"] = message_deduplication_id
+            if message_group_id is not None:
+                self._values["message_group_id"] = message_group_id
+            if message_system_attributes is not None:
+                self._values["message_system_attributes"] = message_system_attributes
+
+        @builtins.property
+        def delay_seconds(self) -> typing.Optional[builtins.str]:
+            '''The delay in seconds for the message, written as a string.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-sqsparameters.html#cfn-eventsv2-subscriber-sqsparameters-delayseconds
+            '''
+            result = self._values.get("delay_seconds")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def message_attributes(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.MessageAttributeValueProperty"]]]]:
+            '''A map of message attribute names to values, with at most 50 attributes.
+
+            Amazon SQS and Amazon SNS enforce their own per-message attribute limits on delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-sqsparameters.html#cfn-eventsv2-subscriber-sqsparameters-messageattributes
+            '''
+            result = self._values.get("message_attributes")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.MessageAttributeValueProperty"]]]], result)
+
+        @builtins.property
+        def message_deduplication_id(self) -> typing.Optional[builtins.str]:
+            '''The message deduplication ID to use when the target is a FIFO queue.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-sqsparameters.html#cfn-eventsv2-subscriber-sqsparameters-messagededuplicationid
+            '''
+            result = self._values.get("message_deduplication_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def message_group_id(self) -> typing.Optional[builtins.str]:
+            '''The message group ID to use when the target is a FIFO queue.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-sqsparameters.html#cfn-eventsv2-subscriber-sqsparameters-messagegroupid
+            '''
+            result = self._values.get("message_group_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def message_system_attributes(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.MessageAttributeValueProperty"]]]]:
+            '''A map of message attribute names to values, with at most 50 attributes.
+
+            Amazon SQS and Amazon SNS enforce their own per-message attribute limits on delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-sqsparameters.html#cfn-eventsv2-subscriber-sqsparameters-messagesystemattributes
+            '''
+            result = self._values.get("message_system_attributes")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.MessageAttributeValueProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SqsParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.StepFunctionsParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "invocation_timeout_seconds": "invocationTimeoutSeconds",
+            "invocation_type": "invocationType",
+            "name": "name",
+            "trace_header": "traceHeader",
+        },
+    )
+    class StepFunctionsParametersProperty:
+        def __init__(
+            self,
+            *,
+            invocation_timeout_seconds: typing.Optional[builtins.str] = None,
+            invocation_type: typing.Optional[builtins.str] = None,
+            name: typing.Optional[builtins.str] = None,
+            trace_header: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Parameters for starting an AWS Step Functions state machine execution target.
+
+            :param invocation_timeout_seconds: The timeout in seconds for each invocation of the target, written as a string. Accepts a literal value or a JSONata expression.
+            :param invocation_type: How the execution is started: EVENT (StartExecution, asynchronous) or REQUEST_RESPONSE (StartSyncExecution, synchronous).
+            :param name: A name for the execution. Must be unique for the account, Region, and state machine. Accepts a literal value or a JSONata expression.
+            :param trace_header: The AWS X-Ray trace header for distributed tracing. Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-stepfunctionsparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                step_functions_parameters_property = eventsv2.CfnSubscriber.StepFunctionsParametersProperty(
+                    invocation_timeout_seconds="invocationTimeoutSeconds",
+                    invocation_type="invocationType",
+                    name="name",
+                    trace_header="traceHeader"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9abb024890651e5fff8c7f397cb0d52779dcff6f64d83dd93967445cf4c32aa6)
+                check_type(argname="argument invocation_timeout_seconds", value=invocation_timeout_seconds, expected_type=type_hints["invocation_timeout_seconds"])
+                check_type(argname="argument invocation_type", value=invocation_type, expected_type=type_hints["invocation_type"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument trace_header", value=trace_header, expected_type=type_hints["trace_header"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if invocation_timeout_seconds is not None:
+                self._values["invocation_timeout_seconds"] = invocation_timeout_seconds
+            if invocation_type is not None:
+                self._values["invocation_type"] = invocation_type
+            if name is not None:
+                self._values["name"] = name
+            if trace_header is not None:
+                self._values["trace_header"] = trace_header
+
+        @builtins.property
+        def invocation_timeout_seconds(self) -> typing.Optional[builtins.str]:
+            '''The timeout in seconds for each invocation of the target, written as a string.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-stepfunctionsparameters.html#cfn-eventsv2-subscriber-stepfunctionsparameters-invocationtimeoutseconds
+            '''
+            result = self._values.get("invocation_timeout_seconds")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def invocation_type(self) -> typing.Optional[builtins.str]:
+            '''How the execution is started: EVENT (StartExecution, asynchronous) or REQUEST_RESPONSE (StartSyncExecution, synchronous).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-stepfunctionsparameters.html#cfn-eventsv2-subscriber-stepfunctionsparameters-invocationtype
+            '''
+            result = self._values.get("invocation_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''A name for the execution.
+
+            Must be unique for the account, Region, and state machine. Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-stepfunctionsparameters.html#cfn-eventsv2-subscriber-stepfunctionsparameters-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def trace_header(self) -> typing.Optional[builtins.str]:
+            '''The AWS X-Ray trace header for distributed tracing.
+
+            Accepts a literal value or a JSONata expression.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-stepfunctionsparameters.html#cfn-eventsv2-subscriber-stepfunctionsparameters-traceheader
+            '''
+            result = self._values.get("trace_header")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StepFunctionsParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.TransformerProperty",
         jsii_struct_bases=[],
         name_mapping={"jsonata_configuration": "jsonataConfiguration", "type": "type"},
@@ -2808,12 +4278,93 @@ class CfnSubscriber(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriber.UniversalTargetParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "input": "input",
+            "invocation_timeout_seconds": "invocationTimeoutSeconds",
+        },
+    )
+    class UniversalTargetParametersProperty:
+        def __init__(
+            self,
+            *,
+            input: builtins.str,
+            invocation_timeout_seconds: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Parameters for invoking an AWS service API as a universal service integration target, used when TargetArn has the form arn:{partition}:events:::aws-sdk:{service}:{apiAction}.
+
+            :param input: JSON string or JSONata expression that produces the API request. Supports {% ... %} JSONata expressions for dynamic values from the event.
+            :param invocation_timeout_seconds: Timeout in seconds for each invocation of the target (1-30, default 30). Must be a literal integer written as a string; JSONata expressions are not supported for this field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-universaltargetparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eventsv2 as eventsv2
+                
+                universal_target_parameters_property = eventsv2.CfnSubscriber.UniversalTargetParametersProperty(
+                    input="input",
+                
+                    # the properties below are optional
+                    invocation_timeout_seconds="invocationTimeoutSeconds"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b6be1f9e6482e99dd3618584a448ed1c96037d8345cde3e39d92e7067914046a)
+                check_type(argname="argument input", value=input, expected_type=type_hints["input"])
+                check_type(argname="argument invocation_timeout_seconds", value=invocation_timeout_seconds, expected_type=type_hints["invocation_timeout_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "input": input,
+            }
+            if invocation_timeout_seconds is not None:
+                self._values["invocation_timeout_seconds"] = invocation_timeout_seconds
+
+        @builtins.property
+        def input(self) -> builtins.str:
+            '''JSON string or JSONata expression that produces the API request.
+
+            Supports {% ... %} JSONata expressions for dynamic values from the event.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-universaltargetparameters.html#cfn-eventsv2-subscriber-universaltargetparameters-input
+            '''
+            result = self._values.get("input")
+            assert result is not None, "Required property 'input' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def invocation_timeout_seconds(self) -> typing.Optional[builtins.str]:
+            '''Timeout in seconds for each invocation of the target (1-30, default 30).
+
+            Must be a literal integer written as a string; JSONata expressions are not supported for this field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eventsv2-subscriber-universaltargetparameters.html#cfn-eventsv2-subscriber-universaltargetparameters-invocationtimeoutseconds
+            '''
+            result = self._values.get("invocation_timeout_seconds")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UniversalTargetParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_eventsv2.CfnSubscriberProps",
     jsii_struct_bases=[],
     name_mapping={
         "event_bus_arn": "eventBusArn",
+        "invoke_configuration": "invokeConfiguration",
         "name": "name",
         "batch_configuration": "batchConfiguration",
         "description": "description",
@@ -2835,6 +4386,7 @@ class CfnSubscriberProps:
         self,
         *,
         event_bus_arn: builtins.str,
+        invoke_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.InvokeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         batch_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnSubscriber.BatchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
@@ -2853,6 +4405,7 @@ class CfnSubscriberProps:
         '''Properties for defining a ``CfnSubscriber``.
 
         :param event_bus_arn: The ARN of the event bus this subscriber belongs to.
+        :param invoke_configuration: Configuration for how the subscriber invokes its target. Specify the target ARN, the IAM role, and, optionally, the target-specific parameters object that matches the target type.
         :param name: The name of the subscriber. The first character must be alphanumeric; the remaining characters may also include '.', '-', and '_'.
         :param batch_configuration: Configuration for batching events into a single delivery.
         :param description: A description of the subscriber. Control characters and Unicode line separators are not allowed.
@@ -2880,6 +4433,95 @@ class CfnSubscriberProps:
             
             cfn_subscriber_props = eventsv2.CfnSubscriberProps(
                 event_bus_arn="eventBusArn",
+                invoke_configuration=eventsv2.CfnSubscriber.InvokeConfigurationProperty(
+                    role_arn="roleArn",
+                    target_arn="targetArn",
+            
+                    # the properties below are optional
+                    event_bus_v2_parameters=eventsv2.CfnSubscriber.EventBusV2ParametersProperty(
+                        deduplication_configuration=eventsv2.CfnSubscriber.DeduplicationConfigurationProperty(
+                            deduplication_type="deduplicationType"
+                        ),
+                        metadata={
+                            "metadata_key": "metadata"
+                        },
+                        system_metadata=eventsv2.CfnSubscriber.EventBusV2SystemMetadataProperty(
+                            deduplication_id="deduplicationId",
+                            event_group_id="eventGroupId"
+                        )
+                    ),
+                    http_parameters=eventsv2.CfnSubscriber.HttpParametersProperty(
+                        header_parameters={
+                            "header_parameters_key": "headerParameters"
+                        },
+                        invocation_timeout_seconds="invocationTimeoutSeconds",
+                        path_parameter_values=["pathParameterValues"],
+                        query_string_parameters={
+                            "query_string_parameters_key": "queryStringParameters"
+                        }
+                    ),
+                    kinesis_parameters=eventsv2.CfnSubscriber.KinesisParametersProperty(
+                        explicit_hash_key="explicitHashKey",
+                        partition_key="partitionKey"
+                    ),
+                    lambda_parameters=eventsv2.CfnSubscriber.LambdaParametersProperty(
+                        durable_execution_name="durableExecutionName",
+                        invocation_timeout_seconds="invocationTimeoutSeconds",
+                        invocation_type="invocationType",
+                        qualifier="qualifier",
+                        tenant_id="tenantId"
+                    ),
+                    sns_parameters=eventsv2.CfnSubscriber.SnsParametersProperty(
+                        message_attributes={
+                            "message_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                                data_type="dataType",
+            
+                                # the properties below are optional
+                                binary_value="binaryValue",
+                                string_value="stringValue"
+                            )
+                        },
+                        message_deduplication_id="messageDeduplicationId",
+                        message_group_id="messageGroupId",
+                        message_structure="messageStructure",
+                        subject="subject"
+                    ),
+                    sqs_parameters=eventsv2.CfnSubscriber.SqsParametersProperty(
+                        delay_seconds="delaySeconds",
+                        message_attributes={
+                            "message_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                                data_type="dataType",
+            
+                                # the properties below are optional
+                                binary_value="binaryValue",
+                                string_value="stringValue"
+                            )
+                        },
+                        message_deduplication_id="messageDeduplicationId",
+                        message_group_id="messageGroupId",
+                        message_system_attributes={
+                            "message_system_attributes_key": eventsv2.CfnSubscriber.MessageAttributeValueProperty(
+                                data_type="dataType",
+            
+                                # the properties below are optional
+                                binary_value="binaryValue",
+                                string_value="stringValue"
+                            )
+                        }
+                    ),
+                    step_functions_parameters=eventsv2.CfnSubscriber.StepFunctionsParametersProperty(
+                        invocation_timeout_seconds="invocationTimeoutSeconds",
+                        invocation_type="invocationType",
+                        name="name",
+                        trace_header="traceHeader"
+                    ),
+                    universal_target_parameters=eventsv2.CfnSubscriber.UniversalTargetParametersProperty(
+                        input="input",
+            
+                        # the properties below are optional
+                        invocation_timeout_seconds="invocationTimeoutSeconds"
+                    )
+                ),
                 name="name",
             
                 # the properties below are optional
@@ -2935,6 +4577,7 @@ class CfnSubscriberProps:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6cd1086538e738cc299431ae14151034acd600e3de88c1196593f9161f2a519)
             check_type(argname="argument event_bus_arn", value=event_bus_arn, expected_type=type_hints["event_bus_arn"])
+            check_type(argname="argument invoke_configuration", value=invoke_configuration, expected_type=type_hints["invoke_configuration"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument batch_configuration", value=batch_configuration, expected_type=type_hints["batch_configuration"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -2951,6 +4594,7 @@ class CfnSubscriberProps:
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "event_bus_arn": event_bus_arn,
+            "invoke_configuration": invoke_configuration,
             "name": name,
         }
         if batch_configuration is not None:
@@ -2989,6 +4633,20 @@ class CfnSubscriberProps:
         result = self._values.get("event_bus_arn")
         assert result is not None, "Required property 'event_bus_arn' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def invoke_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.InvokeConfigurationProperty"]:
+        '''Configuration for how the subscriber invokes its target.
+
+        Specify the target ARN, the IAM role, and, optionally, the target-specific parameters object that matches the target type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventsv2-subscriber.html#cfn-eventsv2-subscriber-invokeconfiguration
+        '''
+        result = self._values.get("invoke_configuration")
+        assert result is not None, "Required property 'invoke_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnSubscriber.InvokeConfigurationProperty"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -3427,6 +5085,7 @@ def _typecheckingstub__05eeedb290d1b08bfcdffd50d6a079078b77f0cf13828494b2822574c
     id: builtins.str,
     *,
     event_bus_arn: builtins.str,
+    invoke_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.InvokeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     batch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.BatchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
@@ -3471,6 +5130,12 @@ def _typecheckingstub__38c14032b6049c2e80ab3ca2f3423cc2d7ba78d02d5b3c3e994d5cf49
 
 def _typecheckingstub__3933a6bedc3ebda376667b88f5aff39872b63d4f4cc267377f0ce24146444149(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f60dbe21b9f6039c11a48fa69654449568412c82a35ad34b286e1ff9802031c8(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnSubscriber.InvokeConfigurationProperty],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3567,6 +5232,30 @@ def _typecheckingstub__78ebab28e0ecf3e029da44f82211ec92cdb5275477fee878cc39d22c7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3cdfdb9cfa549b4286f60146599b829606fde07d17b480f5b5ca5a4e8393788e(
+    *,
+    deduplication_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a988502e9cabb54af1bdc12981421d3d609c773f0743fe5306e7e5f97f0601ea(
+    *,
+    deduplication_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.DeduplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    system_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.EventBusV2SystemMetadataProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e79a9806a605d2c5eb1976c8859a3222a875095d9a7c8c4972da3dbfc81bf9c6(
+    *,
+    deduplication_id: typing.Optional[builtins.str] = None,
+    event_group_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8cfe785c69fb3ea413615ee6b0002cdef19fe4b9a6bee0cd4cea1ee5b4e58629(
     *,
     filters: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.FilterProperty, typing.Dict[builtins.str, typing.Any]]]]],
@@ -3583,9 +5272,54 @@ def _typecheckingstub__a3ae39dcc4ccfc03648459956f13aedf923af4dffa84a8b5c04c3fc5f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ea7493f73beea95f128b7d023169b18e86fb41d43435bd7a793be564abde93d3(
+    *,
+    header_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    invocation_timeout_seconds: typing.Optional[builtins.str] = None,
+    path_parameter_values: typing.Optional[typing.Sequence[builtins.str]] = None,
+    query_string_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01be247ac650a026d2eb02dc72766e9b09eddbe8457edfe15c69b1840d49189d(
+    *,
+    role_arn: builtins.str,
+    target_arn: builtins.str,
+    event_bus_v2_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.EventBusV2ParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.HttpParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.KinesisParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lambda_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.LambdaParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sns_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.SnsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sqs_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.SqsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    step_functions_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.StepFunctionsParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    universal_target_parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.UniversalTargetParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1ca400a0ab75346e88b9e69aed85a9a5363867dbc4e204a1593eb5cf4945dc0e(
     *,
     expression: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f37169df2179aa164da02059da00496ecea77c53ca94d6b35d40bec5119b264(
+    *,
+    explicit_hash_key: typing.Optional[builtins.str] = None,
+    partition_key: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__118aff948456abaa68d2b12b4952f9ed230d40a40594933b7acc3e99eb6bef2c(
+    *,
+    durable_execution_name: typing.Optional[builtins.str] = None,
+    invocation_timeout_seconds: typing.Optional[builtins.str] = None,
+    invocation_type: typing.Optional[builtins.str] = None,
+    qualifier: typing.Optional[builtins.str] = None,
+    tenant_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3594,6 +5328,15 @@ def _typecheckingstub__07669a8451260ee22e83467eed3ec8c8861ed2d68743f71f8050204a2
     *,
     include_payload: typing.Optional[builtins.str] = None,
     level: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__acda20a85d5143ab4c0ce6ac93191041b2e563a4fd772cf2a0c4052ddb014afc(
+    *,
+    data_type: builtins.str,
+    binary_value: typing.Optional[builtins.str] = None,
+    string_value: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3623,6 +5366,38 @@ def _typecheckingstub__3c791dede7e793330db33b26fb73a7685e974fa9f4d5cf40ff32e11d7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bf372c3b423c0ee61ef2ef017ed6f37c03f02b0fcb00c1b872cf1a9e4822b337(
+    *,
+    message_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.MessageAttributeValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    message_deduplication_id: typing.Optional[builtins.str] = None,
+    message_group_id: typing.Optional[builtins.str] = None,
+    message_structure: typing.Optional[builtins.str] = None,
+    subject: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5035b3ce3dd9fe05c62d62cd25fa44d506435e87d270b72cde023a61e239f41(
+    *,
+    delay_seconds: typing.Optional[builtins.str] = None,
+    message_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.MessageAttributeValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    message_deduplication_id: typing.Optional[builtins.str] = None,
+    message_group_id: typing.Optional[builtins.str] = None,
+    message_system_attributes: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.MessageAttributeValueProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9abb024890651e5fff8c7f397cb0d52779dcff6f64d83dd93967445cf4c32aa6(
+    *,
+    invocation_timeout_seconds: typing.Optional[builtins.str] = None,
+    invocation_type: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    trace_header: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__85b761ea193aa8b93943323815709941f390d000a8bfe4fb8cb6913aaffa6e4e(
     *,
     jsonata_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.JsonataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3631,9 +5406,18 @@ def _typecheckingstub__85b761ea193aa8b93943323815709941f390d000a8bfe4fb8cb6913aa
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b6be1f9e6482e99dd3618584a448ed1c96037d8345cde3e39d92e7067914046a(
+    *,
+    input: builtins.str,
+    invocation_timeout_seconds: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a6cd1086538e738cc299431ae14151034acd600e3de88c1196593f9161f2a519(
     *,
     event_bus_arn: builtins.str,
+    invoke_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.InvokeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     batch_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnSubscriber.BatchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,

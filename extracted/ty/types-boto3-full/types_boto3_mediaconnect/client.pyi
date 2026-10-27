@@ -28,6 +28,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListBridgesPaginator,
+    ListDestinationEndpointsPaginator,
     ListEntitlementsPaginator,
     ListFlowsPaginator,
     ListGatewayInstancesPaginator,
@@ -37,6 +38,7 @@ from .paginator import (
     ListRouterInputsPaginator,
     ListRouterNetworkInterfacesPaginator,
     ListRouterOutputsPaginator,
+    ListSourceEndpointsPaginator,
 )
 from .type_defs import (
     AddBridgeOutputsRequestTypeDef,
@@ -51,12 +53,18 @@ from .type_defs import (
     AddFlowSourcesResponseTypeDef,
     AddFlowVpcInterfacesRequestTypeDef,
     AddFlowVpcInterfacesResponseTypeDef,
+    BatchGetDestinationEndpointRequestTypeDef,
+    BatchGetDestinationEndpointResponseTypeDef,
     BatchGetRouterInputRequestTypeDef,
     BatchGetRouterInputResponseTypeDef,
     BatchGetRouterNetworkInterfaceRequestTypeDef,
     BatchGetRouterNetworkInterfaceResponseTypeDef,
     BatchGetRouterOutputRequestTypeDef,
     BatchGetRouterOutputResponseTypeDef,
+    BatchGetSourceEndpointRequestTypeDef,
+    BatchGetSourceEndpointResponseTypeDef,
+    ConnectEndpointsRequestTypeDef,
+    ConnectEndpointsResponseTypeDef,
     CreateBridgeRequestTypeDef,
     CreateBridgeResponseTypeDef,
     CreateFlowRequestTypeDef,
@@ -81,8 +89,12 @@ from .type_defs import (
     DeleteRouterNetworkInterfaceResponseTypeDef,
     DeleteRouterOutputRequestTypeDef,
     DeleteRouterOutputResponseTypeDef,
+    DeregisterDestinationEndpointRequestTypeDef,
+    DeregisterDestinationEndpointResponseTypeDef,
     DeregisterGatewayInstanceRequestTypeDef,
     DeregisterGatewayInstanceResponseTypeDef,
+    DeregisterSourceEndpointRequestTypeDef,
+    DeregisterSourceEndpointResponseTypeDef,
     DescribeBridgeRequestTypeDef,
     DescribeBridgeResponseTypeDef,
     DescribeFlowRequestTypeDef,
@@ -99,7 +111,11 @@ from .type_defs import (
     DescribeOfferingResponseTypeDef,
     DescribeReservationRequestTypeDef,
     DescribeReservationResponseTypeDef,
+    DisconnectEndpointsRequestTypeDef,
+    DisconnectEndpointsResponseTypeDef,
     EmptyResponseMetadataTypeDef,
+    GetDestinationEndpointRequestTypeDef,
+    GetDestinationEndpointResponseTypeDef,
     GetRouterInputRequestTypeDef,
     GetRouterInputResponseTypeDef,
     GetRouterInputSourceMetadataRequestTypeDef,
@@ -110,10 +126,14 @@ from .type_defs import (
     GetRouterNetworkInterfaceResponseTypeDef,
     GetRouterOutputRequestTypeDef,
     GetRouterOutputResponseTypeDef,
+    GetSourceEndpointRequestTypeDef,
+    GetSourceEndpointResponseTypeDef,
     GrantFlowEntitlementsRequestTypeDef,
     GrantFlowEntitlementsResponseTypeDef,
     ListBridgesRequestTypeDef,
     ListBridgesResponseTypeDef,
+    ListDestinationEndpointsRequestTypeDef,
+    ListDestinationEndpointsResponseTypeDef,
     ListEntitlementsRequestTypeDef,
     ListEntitlementsResponseTypeDef,
     ListFlowsRequestTypeDef,
@@ -132,12 +152,18 @@ from .type_defs import (
     ListRouterNetworkInterfacesResponseTypeDef,
     ListRouterOutputsRequestTypeDef,
     ListRouterOutputsResponseTypeDef,
+    ListSourceEndpointsRequestTypeDef,
+    ListSourceEndpointsResponseTypeDef,
     ListTagsForGlobalResourceRequestTypeDef,
     ListTagsForGlobalResourceResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PurchaseOfferingRequestTypeDef,
     PurchaseOfferingResponseTypeDef,
+    RegisterDestinationEndpointRequestTypeDef,
+    RegisterDestinationEndpointResponseTypeDef,
+    RegisterSourceEndpointRequestTypeDef,
+    RegisterSourceEndpointResponseTypeDef,
     RemoveBridgeOutputRequestTypeDef,
     RemoveBridgeOutputResponseTypeDef,
     RemoveBridgeSourceRequestTypeDef,
@@ -182,6 +208,8 @@ from .type_defs import (
     UpdateBridgeSourceResponseTypeDef,
     UpdateBridgeStateRequestTypeDef,
     UpdateBridgeStateResponseTypeDef,
+    UpdateDestinationEndpointRequestTypeDef,
+    UpdateDestinationEndpointResponseTypeDef,
     UpdateFlowEntitlementRequestTypeDef,
     UpdateFlowEntitlementResponseTypeDef,
     UpdateFlowMediaStreamRequestTypeDef,
@@ -200,8 +228,14 @@ from .type_defs import (
     UpdateRouterNetworkInterfaceResponseTypeDef,
     UpdateRouterOutputRequestTypeDef,
     UpdateRouterOutputResponseTypeDef,
+    UpdateSourceEndpointRequestTypeDef,
+    UpdateSourceEndpointResponseTypeDef,
 )
 from .waiter import (
+    DestinationEndpointConnectedWaiter,
+    DestinationEndpointDeregisteredWaiter,
+    DestinationEndpointDisconnectedWaiter,
+    DestinationEndpointRegisteredWaiter,
     FlowActiveWaiter,
     FlowDeletedWaiter,
     FlowStandbyWaiter,
@@ -213,6 +247,12 @@ from .waiter import (
     OutputRoutedWaiter,
     OutputStandbyWaiter,
     OutputUnroutedWaiter,
+    SourceEndpointConnectedWaiter,
+    SourceEndpointConnectingWaiter,
+    SourceEndpointDeregisteredWaiter,
+    SourceEndpointDisconnectedWaiter,
+    SourceEndpointDisconnectingWaiter,
+    SourceEndpointRegisteredWaiter,
 )
 
 if sys.version_info >= (3, 12):
@@ -230,6 +270,7 @@ class Exceptions(BaseClientExceptions):
     CreateBridge420Exception: type[BotocoreClientError]
     CreateFlow420Exception: type[BotocoreClientError]
     CreateGateway420Exception: type[BotocoreClientError]
+    DestinationEndpointServiceQuotaExceededException: type[BotocoreClientError]
     ForbiddenException: type[BotocoreClientError]
     GrantFlowEntitlements420Exception: type[BotocoreClientError]
     InternalServerErrorException: type[BotocoreClientError]
@@ -238,6 +279,7 @@ class Exceptions(BaseClientExceptions):
     RouterNetworkInterfaceServiceQuotaExceededException: type[BotocoreClientError]
     RouterOutputServiceQuotaExceededException: type[BotocoreClientError]
     ServiceUnavailableException: type[BotocoreClientError]
+    SourceEndpointServiceQuotaExceededException: type[BotocoreClientError]
     TooManyRequestsException: type[BotocoreClientError]
 
 class MediaConnectClient(BaseClient):
@@ -335,6 +377,16 @@ class MediaConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#add_flow_vpc_interfaces)
         """
 
+    def batch_get_destination_endpoint(
+        self, **kwargs: Unpack[BatchGetDestinationEndpointRequestTypeDef]
+    ) -> BatchGetDestinationEndpointResponseTypeDef:
+        """
+        Retrieves information about multiple destination endpoints in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/batch_get_destination_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#batch_get_destination_endpoint)
+        """
+
     def batch_get_router_input(
         self, **kwargs: Unpack[BatchGetRouterInputRequestTypeDef]
     ) -> BatchGetRouterInputResponseTypeDef:
@@ -366,6 +418,26 @@ class MediaConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/batch_get_router_output.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#batch_get_router_output)
+        """
+
+    def batch_get_source_endpoint(
+        self, **kwargs: Unpack[BatchGetSourceEndpointRequestTypeDef]
+    ) -> BatchGetSourceEndpointResponseTypeDef:
+        """
+        Retrieves information about multiple source endpoints in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/batch_get_source_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#batch_get_source_endpoint)
+        """
+
+    def connect_endpoints(
+        self, **kwargs: Unpack[ConnectEndpointsRequestTypeDef]
+    ) -> ConnectEndpointsResponseTypeDef:
+        """
+        Connects a source endpoint to a destination endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/connect_endpoints.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#connect_endpoints)
         """
 
     def create_bridge(
@@ -484,6 +556,16 @@ class MediaConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#delete_router_output)
         """
 
+    def deregister_destination_endpoint(
+        self, **kwargs: Unpack[DeregisterDestinationEndpointRequestTypeDef]
+    ) -> DeregisterDestinationEndpointResponseTypeDef:
+        """
+        Deregisters a destination endpoint from MediaConnect.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/deregister_destination_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#deregister_destination_endpoint)
+        """
+
     def deregister_gateway_instance(
         self, **kwargs: Unpack[DeregisterGatewayInstanceRequestTypeDef]
     ) -> DeregisterGatewayInstanceResponseTypeDef:
@@ -492,6 +574,16 @@ class MediaConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/deregister_gateway_instance.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#deregister_gateway_instance)
+        """
+
+    def deregister_source_endpoint(
+        self, **kwargs: Unpack[DeregisterSourceEndpointRequestTypeDef]
+    ) -> DeregisterSourceEndpointResponseTypeDef:
+        """
+        Deregisters a source endpoint from MediaConnect.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/deregister_source_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#deregister_source_endpoint)
         """
 
     def describe_bridge(
@@ -575,6 +667,26 @@ class MediaConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#describe_reservation)
         """
 
+    def disconnect_endpoints(
+        self, **kwargs: Unpack[DisconnectEndpointsRequestTypeDef]
+    ) -> DisconnectEndpointsResponseTypeDef:
+        """
+        Disconnects a source endpoint from a destination endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/disconnect_endpoints.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#disconnect_endpoints)
+        """
+
+    def get_destination_endpoint(
+        self, **kwargs: Unpack[GetDestinationEndpointRequestTypeDef]
+    ) -> GetDestinationEndpointResponseTypeDef:
+        """
+        Retrieves information about a destination endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_destination_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_destination_endpoint)
+        """
+
     def get_router_input(
         self, **kwargs: Unpack[GetRouterInputRequestTypeDef]
     ) -> GetRouterInputResponseTypeDef:
@@ -629,6 +741,16 @@ class MediaConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_router_output)
         """
 
+    def get_source_endpoint(
+        self, **kwargs: Unpack[GetSourceEndpointRequestTypeDef]
+    ) -> GetSourceEndpointResponseTypeDef:
+        """
+        Retrieves information about a source endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_source_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_source_endpoint)
+        """
+
     def grant_flow_entitlements(
         self, **kwargs: Unpack[GrantFlowEntitlementsRequestTypeDef]
     ) -> GrantFlowEntitlementsResponseTypeDef:
@@ -648,6 +770,16 @@ class MediaConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/list_bridges.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#list_bridges)
+        """
+
+    def list_destination_endpoints(
+        self, **kwargs: Unpack[ListDestinationEndpointsRequestTypeDef]
+    ) -> ListDestinationEndpointsResponseTypeDef:
+        """
+        Retrieves a list of the destination endpoints in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/list_destination_endpoints.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#list_destination_endpoints)
         """
 
     def list_entitlements(
@@ -740,6 +872,16 @@ class MediaConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#list_router_outputs)
         """
 
+    def list_source_endpoints(
+        self, **kwargs: Unpack[ListSourceEndpointsRequestTypeDef]
+    ) -> ListSourceEndpointsResponseTypeDef:
+        """
+        Retrieves a list of the source endpoints in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/list_source_endpoints.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#list_source_endpoints)
+        """
+
     def list_tags_for_global_resource(
         self, **kwargs: Unpack[ListTagsForGlobalResourceRequestTypeDef]
     ) -> ListTagsForGlobalResourceResponseTypeDef:
@@ -768,6 +910,26 @@ class MediaConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/purchase_offering.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#purchase_offering)
+        """
+
+    def register_destination_endpoint(
+        self, **kwargs: Unpack[RegisterDestinationEndpointRequestTypeDef]
+    ) -> RegisterDestinationEndpointResponseTypeDef:
+        """
+        Registers a new destination endpoint in MediaConnect.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/register_destination_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#register_destination_endpoint)
+        """
+
+    def register_source_endpoint(
+        self, **kwargs: Unpack[RegisterSourceEndpointRequestTypeDef]
+    ) -> RegisterSourceEndpointResponseTypeDef:
+        """
+        Registers a new source endpoint in MediaConnect.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/register_source_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#register_source_endpoint)
         """
 
     def remove_bridge_output(
@@ -1007,6 +1169,16 @@ class MediaConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#update_bridge_state)
         """
 
+    def update_destination_endpoint(
+        self, **kwargs: Unpack[UpdateDestinationEndpointRequestTypeDef]
+    ) -> UpdateDestinationEndpointResponseTypeDef:
+        """
+        Updates the configuration of a destination endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/update_destination_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#update_destination_endpoint)
+        """
+
     def update_flow(self, **kwargs: Unpack[UpdateFlowRequestTypeDef]) -> UpdateFlowResponseTypeDef:
         """
         Updates an existing flow.
@@ -1098,10 +1270,31 @@ class MediaConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#update_router_output)
         """
 
+    def update_source_endpoint(
+        self, **kwargs: Unpack[UpdateSourceEndpointRequestTypeDef]
+    ) -> UpdateSourceEndpointResponseTypeDef:
+        """
+        Updates the configuration of a source endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/update_source_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#update_source_endpoint)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_bridges"]
     ) -> ListBridgesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_destination_endpoints"]
+    ) -> ListDestinationEndpointsPaginator:
         """
         Create a paginator for an operation.
 
@@ -1206,6 +1399,61 @@ class MediaConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_paginator.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_source_endpoints"]
+    ) -> ListSourceEndpointsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["destination_endpoint_connected"]
+    ) -> DestinationEndpointConnectedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["destination_endpoint_deregistered"]
+    ) -> DestinationEndpointDeregisteredWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["destination_endpoint_disconnected"]
+    ) -> DestinationEndpointDisconnectedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["destination_endpoint_registered"]
+    ) -> DestinationEndpointRegisteredWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_waiter)
         """
 
     @overload  # type: ignore[override]
@@ -1322,6 +1570,72 @@ class MediaConnectClient(BaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["output_unrouted"]
     ) -> OutputUnroutedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["source_endpoint_connected"]
+    ) -> SourceEndpointConnectedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["source_endpoint_connecting"]
+    ) -> SourceEndpointConnectingWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["source_endpoint_deregistered"]
+    ) -> SourceEndpointDeregisteredWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["source_endpoint_disconnected"]
+    ) -> SourceEndpointDisconnectedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["source_endpoint_disconnecting"]
+    ) -> SourceEndpointDisconnectingWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconnect/client/get_waiter.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mediaconnect/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["source_endpoint_registered"]
+    ) -> SourceEndpointRegisteredWaiter:
         """
         Returns an object that can wait for some condition.
 

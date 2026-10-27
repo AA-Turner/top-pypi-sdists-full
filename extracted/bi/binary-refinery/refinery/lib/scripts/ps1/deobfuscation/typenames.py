@@ -3,58 +3,74 @@
 """
 from __future__ import annotations
 
-from refinery.lib.scripts import Node, Transformer
-from refinery.lib.scripts.ps1.deobfuscation.data import (
+from refinery.lib.scripts import Node, Transformer, set_value
+from refinery.lib.scripts.ps1.analysis.cache import model_cache
+from refinery.lib.scripts.ps1.analysis.dataflow import Ps1VariableFlow
+from refinery.lib.scripts.ps1.analysis.values import (
+    Ps1VariableTyping,
+    make_string_literal,
+    resolve_expression_type,
+)
+from refinery.lib.scripts.ps1.analysis.variable_types import non_null_type_at, type_at
+from refinery.lib.scripts.ps1.ast import get_command_name, get_member_name, unwrap_parens
+from refinery.lib.scripts.ps1.data import (
     CANONICAL_TYPE_NAMES,
     GET_MEMBER_ALIASES,
-    MEMBER_LOOKUP,
-    OBJ_COMMANDS,
-    PROPERTY_TYPES,
-    TYPE_MEMBERS,
-    VARIABLE_TYPES,
-    WMI_CLASS_NAMES,
-    WMI_COMMANDS,
-    _resolve_type_name,
+    TYPE_ACCELERATORS,
+    canonical_member,
+    is_enum,
 )
-from refinery.lib.scripts.ps1.deobfuscation.helpers import (
-    MutationKind,
-    extract_first_positional_string,
-    get_command_name,
-    get_member_name,
-    iter_variable_mutations,
-    make_string_literal,
-    unwrap_parens,
+from refinery.lib.scripts.ps1.data import resolve_member_type as data_member_type
+from refinery.lib.scripts.ps1.data import (
+    resolve_type,
+    view_members,
 )
+from refinery.lib.scripts.ps1.dotnet import Ps1TypeName, parse_type_name
 from refinery.lib.scripts.ps1.model import (
     Expression,
-    Ps1ArrayExpression,
-    Ps1ArrayLiteral,
-    Ps1AssignmentExpression,
-    Ps1CastExpression,
     Ps1CommandInvocation,
-    Ps1ExpressionStatement,
-    Ps1ForEachLoop,
-    Ps1HereString,
     Ps1IndexExpression,
     Ps1IntegerLiteral,
     Ps1InvokeMember,
     Ps1MemberAccess,
     Ps1Pipeline,
     Ps1PipelineElement,
-    Ps1ScopeModifier,
+    Ps1Script,
     Ps1StringLiteral,
-    Ps1TypeExpression,
     Ps1Variable,
 )
+
+
+def _accelerator_spelling(name: str) -> bool:
+    """
+    Whether `name` is written as a type accelerator, with or without array, pointer or reference
+    suffixes. A name the type-name grammar does not understand is judged as written.
+    """
+    parsed = parse_type_name(name)
+    if parsed is None:
+        return name.lower() in TYPE_ACCELERATORS
+    return parsed.name.lower() in TYPE_ACCELERATORS
 
 
 def canonical_type_name(name: str) -> str | None:
     """
     Return the canonical PascalCase display name for a .NET type, preserving an explicit `System.`
-    prefix if the caller used one. Returns `None` if the type is not in the database.
+    prefix if the caller used one. Returns `None` if the type is not in the database, or if the name
+    is already a type accelerator: `[ref]`, `[int]` and `[string]` are the readable forms and are
+    left untouched, where a verbose `[System.Int32]` still folds to `[Int32]`.
+
+    The array suffixes are carried through rather than looked up, because the display table is keyed
+    by the element type: rendering `byte[]` off its definition alone would answer `Byte`, a
+    different type, turning `New-Object Byte[] $n` into `New-Object Byte $n`.
+
+    An accelerator keeps its spelling through a suffix too. `[byte[]]` is the readable form for the
+    same reason `[byte]` is, and it reached the display table only because the name it was looked up
+    under carried the suffix and the table is keyed without one.
     """
-    resolved = _resolve_type_name(name)
-    lower = resolved if resolved is not None else name.lower()
+    if _accelerator_spelling(name):
+        return None
+    resolved = resolve_type(name)
+    lower = resolved.definition.lower() if resolved is not None else name.lower()
     display = CANONICAL_TYPE_NAMES.get(lower)
     if display is None:
         bare = lower.removeprefix('system.')
@@ -66,126 +82,54 @@ def canonical_type_name(name: str) -> str | None:
     display_has_system = display.lower().startswith('system.')
     if has_system and not display_has_system:
         display = F'System.{display}'
+    if resolved is not None and (resolved.ranks or resolved.pointers or resolved.byref):
+        return str(resolved._replace(name=display, arity=0, arguments=()))
     return display
 
 
-def canonical_member_name(type_name_lower: str, member: str) -> str | None:
+def canonical_member_name(type_name: str | Ps1TypeName, member: str) -> str | None:
     """
     Return the canonical PascalCase member name for a known .NET type.
     """
-    lookup = MEMBER_LOOKUP.get(type_name_lower)
-    if lookup is None:
-        return None
-    return lookup.get(member.lower())
-
-
-def resolve_expression_type(
-    expr: Expression,
-    variable_types: dict[str, str] | None = None,
-) -> str | None:
-    """
-    Trace the .NET type of a PowerShell expression by walking member access chains. Returns the
-    lowercase full .NET type name, or `None` if the type cannot be determined.
-    """
-    unwrapped = unwrap_parens(expr)
-    if not isinstance(unwrapped, Expression):
-        return None
-    expr = unwrapped
-    if isinstance(expr, (Ps1StringLiteral, Ps1HereString)):
-        return 'system.string'
-    if isinstance(expr, Ps1IntegerLiteral):
-        return 'system.int32'
-    if isinstance(expr, Ps1ArrayLiteral):
-        return 'system.array'
-    if isinstance(expr, Ps1ArrayExpression):
-        if (
-            len(expr.body) == 1
-            and isinstance(expr.body[0], Ps1ExpressionStatement)
-            and isinstance(expr.body[0].expression, Ps1ArrayLiteral)
-        ):
-            return 'system.array'
-    if isinstance(expr, Ps1Variable):
-        key = expr.name.lower()
-        if variable_types and key in variable_types:
-            return variable_types[key]
-        return VARIABLE_TYPES.get(key)
-    if isinstance(expr, Ps1TypeExpression):
-        return _resolve_type_name(expr.name)
-    if isinstance(expr, Ps1CastExpression):
-        return _resolve_type_name(expr.type_name)
-    if isinstance(expr, Ps1CommandInvocation):
-        cmd_name = get_command_name(expr)
-        if cmd_name is not None:
-            cmd_lower = cmd_name.lower()
-            if cmd_lower in OBJ_COMMANDS:
-                type_str = extract_first_positional_string(expr)
-                if type_str is not None:
-                    return _resolve_type_name(type_str)
-            elif cmd_lower in WMI_COMMANDS:
-                class_str = extract_first_positional_string(expr)
-                if class_str is not None:
-                    wmi_lower = class_str.lower()
-                    if wmi_lower in WMI_CLASS_NAMES:
-                        return wmi_lower
-    if isinstance(expr, Ps1MemberAccess):
-        if expr.object is None:
-            return None
-        obj_type = resolve_expression_type(expr.object, variable_types)
-        if obj_type is None:
-            return None
-        member_name = get_member_name(expr.member)
-        if member_name is None:
-            return None
-        return PROPERTY_TYPES.get((obj_type, member_name.lower()))
-    return None
+    return canonical_member(type_name, member)
 
 
 def resolve_member_type(
     obj: Expression,
     member: str,
-    variable_types: dict[str, str] | None = None,
-) -> str | None:
+    type_of_variable: Ps1VariableTyping | None = None,
+) -> Ps1TypeName | None:
     """
-    Resolve the .NET result type of accessing member on obj. Returns the lowercase full .NET type
-    name (e.g. `'system.int32'`), or `None` if the object type or the member cannot be resolved.
+    Resolve the .NET result type of accessing `member` on `obj`, or `None` if the object type or the
+    member cannot be resolved.
     """
-    obj_type = resolve_expression_type(obj, variable_types)
+    obj_type = resolve_expression_type(obj, type_of_variable)
     if obj_type is None:
         return None
-    return PROPERTY_TYPES.get((obj_type, member.lower()))
+    return data_member_type(obj_type, member)
 
 
-def is_known_member(
-    obj: Expression,
-    member: str,
-    variable_types: dict[str, str] | None = None,
-) -> bool:
-    """
-    Return `True` if *member* is a known member (property or method) of the resolved type of obj.
-    """
-    obj_type = resolve_expression_type(obj, variable_types)
-    if obj_type is None:
-        return False
-    lookup = MEMBER_LOOKUP.get(obj_type)
-    if lookup is None:
-        return False
-    return member.lower() in lookup
-
-
-def get_member_order(type_name: str) -> list[str] | None:
+def get_member_order(type_name: str | Ps1TypeName) -> list[str] | None:
     """
     Return the members of a .NET type in PowerShell Get-Member display order: Methods sorted
     alphabetically, then properties sorted alphabetically.
+
+    An enum is refused. `refinery.lib.scripts.ps1.data.view_members` lists an enum's values, which
+    is what may follow `::` on the type, where `Get-Member` on a value of the enum lists the
+    instance surface of `System.Enum` — measured, `($VerbosePreference | Get-Member)[0].Name` is
+    `CompareTo` — and the two lists share no name.
     """
-    members = TYPE_MEMBERS.get(type_name)
+    if is_enum(type_name):
+        return None
+    members = view_members(type_name)
     if members is None:
         return None
     methods = sorted(
-        (m for m in members if (type_name, m.lower()) not in PROPERTY_TYPES),
+        (name for name, m in members.items() if m['kind'] != 'property'),
         key=str.lower,
     )
     properties = sorted(
-        (m for m in members if (type_name, m.lower()) in PROPERTY_TYPES),
+        (name for name, m in members.items() if m['kind'] == 'property'),
         key=str.lower,
     )
     return methods + properties
@@ -209,8 +153,8 @@ def _pipeline_pipes_to_get_member(pipeline: Ps1Pipeline) -> bool:
 
 def _pipeline_source_type(
     pipeline: Ps1Pipeline,
-    variable_types: dict[str, str] | None = None,
-) -> str | None:
+    type_of_variable: Ps1VariableTyping | None = None,
+) -> Ps1TypeName | None:
     """
     Determine the .NET type of the expression piped into `Get-Member`. Assumes `Get-Member` is the
     last pipeline element.
@@ -222,78 +166,58 @@ def _pipeline_source_type(
         return None
     if source.expression is None:
         return None
-    return resolve_expression_type(source.expression, variable_types)
-
-
-def _resolve_foreach_element_type(iterable: Expression | None) -> str | None:
-    """
-    Determine the .NET type of elements produced by a foreach iterable. For a string, PowerShell
-    yields the string itself (not individual chars). For an array literal, if all elements share
-    the same resolved type, that type is returned.
-    """
-    if iterable is None:
-        return None
-    if isinstance(iterable, (Ps1StringLiteral, Ps1HereString)):
-        return 'system.string'
-    if isinstance(iterable, Ps1ArrayLiteral) and iterable.elements:
-        types = set()
-        for elem in iterable.elements:
-            if isinstance(elem, Expression):
-                t = resolve_expression_type(elem)
-                if t is None:
-                    return None
-                types.add(t)
-            else:
-                return None
-        if len(types) == 1:
-            return types.pop()
-    return None
-
-
-def collect_variable_types(root: Node) -> dict[str, str]:
-    """
-    Scan the AST for single-assignment variables whose RHS has a resolvable .NET type; e.g.
-
-        $x = New-Object Net.WebClient
-
-    Returns a mapping from lowercase variable name to canonical .NET type string. Mutations that do
-    not change the variable's type (member/index assignments, ++/--) are not reassignments.
-    """
-    assign_counts: dict[str, int] = {}
-    typed_assigns: dict[str, str] = {}
-    for var, kind, node in iter_variable_mutations(root):
-        if var.scope != Ps1ScopeModifier.NONE:
-            continue
-        key = var.name.lower()
-        if kind in (MutationKind.MEMBER_ASSIGN, MutationKind.INCRDECR):
-            continue
-        assign_counts[key] = assign_counts.get(key, 0) + 1
-        if kind is MutationKind.ASSIGN and isinstance(node, Ps1AssignmentExpression):
-            if node.operator == '=' and isinstance(node.value, Expression):
-                resolved = resolve_expression_type(node.value)
-                if resolved is not None:
-                    typed_assigns[key] = resolved
-        elif kind is MutationKind.FOREACH and isinstance(node, Ps1ForEachLoop):
-            element_type = _resolve_foreach_element_type(node.iterable)
-            if element_type is not None:
-                typed_assigns[key] = element_type
-    return {
-        key: type_name
-        for key, type_name in typed_assigns.items()
-        if assign_counts.get(key, 0) == 1
-    }
+    return resolve_expression_type(source.expression, type_of_variable)
 
 
 class VariableTypeAwareTransformer(Transformer):
+    """
+    A pass that asks `refinery.lib.scripts.ps1.analysis.variable_types.type_at` what a variable
+    holds where it is read, rather than carrying a table of names it built itself.
+
+    The flow model is captured once at the root and dropped when the walk ends, for the reason
+    `refinery.lib.scripts.ps1.deobfuscation.typecast.Ps1TypeCasts.visit` gives. The answers are held
+    for as long as the model is, keyed on the occurrence they were asked about: `type_at` walks
+    every write of a binding, and a member chain, two passes and every iteration of the normalize
+    group ask about the same occurrences again. The occurrence is kept beside its answer because
+    `id` alone identifies a node only while that node is alive, and this walk frees the ones it
+    replaces.
+    """
 
     def __init__(self):
         super().__init__()
-        self._variable_types: dict[str, str] | None = None
+        self._flow: Ps1VariableFlow | None = None
+        self._typed: dict[int, tuple[Ps1Variable, Ps1TypeName | None]] = {}
+        self._origins: dict[int, tuple[Ps1Variable, Ps1TypeName | None]] = {}
+        self._entry = False
 
     def visit(self, node: Node):
-        if self._variable_types is None:
-            self._variable_types = collect_variable_types(node)
-        return super().visit(node)
+        if self._entry or not isinstance(node, Ps1Script):
+            return super().visit(node)
+        self._entry = True
+        try:
+            self._flow = model_cache(self, node).variable_flow
+            return super().visit(node)
+        finally:
+            self._entry = False
+            self._flow = None
+            self._typed.clear()
+            self._origins.clear()
+
+    def _type_of_variable(self, var: Ps1Variable) -> Ps1TypeName | None:
+        if self._flow is None:
+            return None
+        found = self._typed.get(id(var))
+        if found is None or found[0] is not var:
+            found = self._typed[id(var)] = (var, type_at(var, self._flow))
+        return found[1]
+
+    def _origin_of_variable(self, var: Ps1Variable) -> Ps1TypeName | None:
+        if self._flow is None:
+            return None
+        found = self._origins.get(id(var))
+        if found is None or found[0] is not var:
+            found = self._origins[id(var)] = (var, non_null_type_at(var, self._flow))
+        return found[1]
 
 
 class Ps1TypeSystemSimplifications(VariableTypeAwareTransformer):
@@ -322,7 +246,7 @@ class Ps1TypeSystemSimplifications(VariableTypeAwareTransformer):
     def _try_normalize_member_case(self, node: Ps1MemberAccess | Ps1InvokeMember):
         if node.object is None:
             return
-        obj_type = resolve_expression_type(node.object, self._variable_types)
+        obj_type = resolve_expression_type(node.object, self._type_of_variable)
         if obj_type is None:
             return
         member_name = get_member_name(node.member)
@@ -330,7 +254,7 @@ class Ps1TypeSystemSimplifications(VariableTypeAwareTransformer):
             return
         canonical = canonical_member_name(obj_type, member_name)
         if canonical is not None and canonical != member_name:
-            node.member = canonical
+            set_value(node, 'member', canonical)
             self.mark_changed()
 
     def _try_strip_name_on_string(
@@ -353,9 +277,6 @@ class Ps1TypeSystemSimplifications(VariableTypeAwareTransformer):
         self,
         node: Ps1MemberAccess,
     ) -> Expression | None:
-        """
-        Resolve ($X | Get-Member)[N].Name to the Nth member name string.
-        """
         member_name = get_member_name(node.member)
         if member_name is None or member_name.lower() != 'name':
             return None
@@ -370,7 +291,7 @@ class Ps1TypeSystemSimplifications(VariableTypeAwareTransformer):
             return None
         if not _pipeline_pipes_to_get_member(inner):
             return None
-        type_name = _pipeline_source_type(inner, self._variable_types)
+        type_name = _pipeline_source_type(inner, self._type_of_variable)
         if type_name is None:
             return None
         ordered = get_member_order(type_name)

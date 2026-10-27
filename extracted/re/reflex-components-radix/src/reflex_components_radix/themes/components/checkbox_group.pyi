@@ -86,7 +86,15 @@ class CheckboxGroupRoot(RadixThemesComponent):
         | None = None,
         high_contrast: Var[bool] | bool | None = None,
         default_value: Sequence[str] | Var[Sequence[str]] | None = None,
+        value: Sequence[str] | Var[Sequence[str]] | None = None,
         name: Var[str] | str | None = None,
+        disabled: Var[bool] | bool | None = None,
+        required: Var[bool] | bool | None = None,
+        orientation: Literal["horizontal", "vertical"]
+        | Var[Literal["horizontal", "vertical"]]
+        | None = None,
+        dir: Literal["ltr", "rtl"] | Var[Literal["ltr", "rtl"]] | None = None,
+        loop: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -113,6 +121,7 @@ class CheckboxGroupRoot(RadixThemesComponent):
         on_scroll: EventType[()] | None = None,
         on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
+        on_value_change: EventType[()] | EventType[list[str]] | None = None,
         **props,
     ) -> CheckboxGroupRoot:
         """Create a new component instance.
@@ -127,7 +136,13 @@ class CheckboxGroupRoot(RadixThemesComponent):
             color_scheme: Override theme color for button
             high_contrast: Uses a higher contrast color for the component.
             default_value: determines which checkboxes, if any, are checked by default.
+            value: The controlled value of the checked checkboxes. Should be used in conjunction with on_value_change.
             name: used to assign a name to the entire group of checkboxes
+            disabled: Whether the checkbox group is disabled
+            required: When true, every checkbox in the group must be checked before the owning form can be submitted.
+            orientation: The orientation of the component.
+            dir: The reading direction of the checkbox group. If omitted, inherits globally from DirectionProvider or assumes LTR (left-to-right) reading mode.
+            loop: When true, keyboard navigation will loop from last item to first, and vice versa.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -150,6 +165,7 @@ class CheckboxGroupRoot(RadixThemesComponent):
             on_scroll_end: Fired when scrolling ends on the element.
             on_mount: Fired when the component is mounted to the page.
             on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+            on_value_change: Fired when the set of checked checkboxes changes.
             **props: Component properties.
 
         Returns:
@@ -163,6 +179,7 @@ class CheckboxGroupItem(RadixThemesComponent):
         *children,
         value: Var[str] | str | None = None,
         disabled: Var[bool] | bool | None = None,
+        required: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -200,6 +217,7 @@ class CheckboxGroupItem(RadixThemesComponent):
             *children: Child components.
             value: specifies the value associated with a particular checkbox option.
             disabled: Use the native disabled attribute to create a disabled checkbox.
+            required: When true, indicates that the user must check the checkbox item before the owning form can be submitted.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

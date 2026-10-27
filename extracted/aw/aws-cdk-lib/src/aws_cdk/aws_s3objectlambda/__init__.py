@@ -229,6 +229,7 @@ class CfnAccessPoint(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -383,7 +384,7 @@ class CfnAccessPoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72235765a4ddbec3dfa520018313ca825a0eee0d6620fbbc57d8d6942cd266e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "objectLambdaConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "objectLambdaConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -396,7 +397,7 @@ class CfnAccessPoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c1ec3bbadc1fe6d1688dbe3361b2c99aaf74daa3cbcc3c9006d8c862eee8b9f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3objectlambda.CfnAccessPoint.AliasProperty",
@@ -1102,6 +1103,7 @@ class CfnAccessPointPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1135,7 +1137,7 @@ class CfnAccessPointPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40f558fc15d35e909e4982b57f0cb15aac48aef92d7578cdf38fd49590b9353d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "objectLambdaAccessPoint", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "objectLambdaAccessPoint", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -1148,7 +1150,7 @@ class CfnAccessPointPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1efc67ebff8549be6ada402864d14d3f20c1a9eb0a85a3c67f4b18a6e16a0c7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDocument", value)
 
 
 @jsii.data_type(

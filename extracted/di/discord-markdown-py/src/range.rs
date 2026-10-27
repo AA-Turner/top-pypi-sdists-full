@@ -7,6 +7,7 @@
 //! Nothing about a modifier depends on where it sits relative to other rules.
 
 pub mod delim;
+pub mod lossless;
 pub mod pair;
 
 use std::collections::HashMap;
@@ -339,7 +340,9 @@ impl<'a> Rebuild<'a> {
 			Element::Small(Small { content }) => Block::Small(Small {
 				content: self.inline_content(content, next(), applied),
 			}),
-			Element::Quote(content) => Block::Quote(self.block_content(content, next(), applied)),
+			Element::Quote(_, content) => {
+				Block::Quote(self.block_content(content, next(), applied))
+			}
 			Element::List(List { kind, items }) => Block::List(List {
 				kind,
 				items: Spanned {
@@ -452,14 +455,14 @@ impl<'a> Rebuild<'a> {
 			Element::Timestamp(timestamp) => Inline::Timestamp(timestamp),
 			Element::Mention(mention) => Inline::Mention(mention),
 			// link text is a scope of its own
-			Element::Link(link) => Inline::Link(resolve_link(link, self.allowed, self.ids)),
+			Element::Link(_, link) => Inline::Link(resolve_link(link, self.allowed, self.ids)),
 			Element::Code(code) => Inline::Code(code),
 			Element::CodeBlock(code_block) => Inline::CodeBlock(code_block),
 			Element::Text(text) => Inline::Text(text),
 			Element::Heading(_)
 			| Element::List(_)
 			| Element::Paragraph(_)
-			| Element::Quote(_)
+			| Element::Quote(..)
 			| Element::Small(_)
 			| Element::Empty => {
 				unreachable!("inline content is parsed with the inline rules alone")

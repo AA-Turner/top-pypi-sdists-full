@@ -9,7 +9,6 @@ use nom::{
 	},
 	combinator::{map, map_opt, opt, recognize},
 	multi::{many0_count, many1_count},
-	sequence::delimited,
 };
 use tracing::Level;
 use url::Url;
@@ -18,9 +17,10 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
+	lossless::TokenKind,
 	node::Element,
 	scope::Scope,
-	span::{Span, Spanned, TraceOk, TraceParse, WithSpan},
+	span::{Span, Spanned, Syntax, TraceOk, TraceParse, WithSpan, WithToken, attach},
 };
 
 use super::{Link, parse_and_validate_url};
@@ -119,7 +119,7 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = Link<S, Element<'data, S>>;
+	type Output = (Link<S, Element<'data, S>>, S::Syntax);
 	type Error = E;
 
 	#[tracing::instrument(name = "contact_parser", level = Level::TRACE, fields(ok, output))]
@@ -130,21 +130,31 @@ where
 		nom::error::context(
 			"link::contact",
 			map(
-				delimited(
-					char('<'),
-					verify_phone_email(self.context.dev_links).span::<S>(),
-					char('>'),
+				(
+					char('<').token::<S>(TokenKind::LinkOpen),
+					// the text records its token; the sequence holding it spans the same, bare
+					verify_phone_email(self.context.dev_links)
+						.with_token::<S>(TokenKind::Text)
+						.span::<S>()
+						.map(attach)
+						.span::<S>(),
+					char('>').token::<S>(TokenKind::LinkClose),
 				),
-				|Spanned { value, span }| Link {
-					text: Some(Spanned {
-						value: vec![Spanned {
-							value: Element::Text(value.text.into()),
-							span: span.clone(),
-						}],
-						span,
-					}),
-					title: None,
-					url: value.url,
+				|(open, Spanned { value: text, span }, close)| {
+					let url = text.value.url;
+					let text = Spanned {
+						value: Element::Text(text.value.text.into()),
+						span: text.span,
+					};
+					let link = Link {
+						text: Some(Spanned {
+							value: vec![text],
+							span,
+						}),
+						title: None,
+						url,
+					};
+					(link, open.join(close))
 				},
 			),
 		)
@@ -161,7 +171,7 @@ where
 #[must_use]
 pub fn contact<'data, S, E>(
 	context: Context,
-) -> impl Parser<Input<'data>, Output = Link<S, Element<'data, S>>, Error = E>
+) -> impl Parser<Input<'data>, Output = (Link<S, Element<'data, S>>, S::Syntax), Error = E>
 where
 	S: Span,
 	E: ParseError<'data>,
@@ -180,6 +190,7 @@ mod test {
 
 	use super::contact;
 	use crate::context::Context;
+	use crate::lossless::LinkKind;
 	use crate::node::inline::link::Link;
 	use crate::node::{Element, Inline};
 	use crate::test_utils::{handle_nom_err, resolved_inline};
@@ -188,7 +199,7 @@ mod test {
 	#[test]
 	fn phone_number_link() {
 		let s = "<+1 (800) 588-2300>";
-		let (rem, res) = contact::<(), _>(Context::default())
+		let (rem, (res, ())) = contact::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -196,7 +207,7 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			resolved_inline(Element::Link(res)),
+			resolved_inline(Element::Link(LinkKind::Contact, res)),
 			Inline::Link(Link {
 				url: Url::parse("tel:+1-(800)-588-2300").unwrap(),
 				text: Some(spanned_vec![text!("+1 (800) 588-2300")]),
@@ -220,7 +231,7 @@ mod test {
 	#[test]
 	fn email_address_link() {
 		let s = "<tim@apple.com>";
-		let (rem, res) = contact::<(), _>(Context::default())
+		let (rem, (res, ())) = contact::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -228,7 +239,7 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(
-			resolved_inline(Element::Link(res)),
+			resolved_inline(Element::Link(LinkKind::Contact, res)),
 			Inline::Link(Link {
 				url: Url::parse("mailto:tim@apple.com").unwrap(),
 				text: Some(spanned_vec![text!("tim@apple.com")]),

@@ -157,6 +157,7 @@ __all__ = (
     "GlobalConfigurationOutputLockingModeType",
     "GlobalConfigurationOutputTimingSourceType",
     "H264AdaptiveQuantizationType",
+    "H264AllowExplicitWeightedPredictionType",
     "H264ColorMetadataType",
     "H264EntropyEncodingType",
     "H264FlickerAqType",
@@ -348,6 +349,7 @@ __all__ = (
     "OfferingTypeType",
     "OutputUsageType",
     "PaginatorName",
+    "PerceptualFilterStrengthType",
     "PipelineIdType",
     "PipelineLockingMethodType",
     "PreferredChannelPipelineType",
@@ -713,6 +715,7 @@ GlobalConfigurationLowFramerateInputsType = Literal["DISABLED", "ENABLED"]
 GlobalConfigurationOutputLockingModeType = Literal["DISABLED", "EPOCH_LOCKING", "PIPELINE_LOCKING"]
 GlobalConfigurationOutputTimingSourceType = Literal["INPUT_CLOCK", "SYSTEM_CLOCK"]
 H264AdaptiveQuantizationType = Literal["AUTO", "HIGH", "HIGHER", "LOW", "MAX", "MEDIUM", "OFF"]
+H264AllowExplicitWeightedPredictionType = Literal["DISABLED", "ENABLED"]
 H264ColorMetadataType = Literal["IGNORE", "INSERT"]
 H264EntropyEncodingType = Literal["CABAC", "CAVLC"]
 H264FlickerAqType = Literal["DISABLED", "ENABLED"]
@@ -1024,6 +1027,7 @@ OfferingTypeType = Literal["NO_UPFRONT"]
 OutputUsageType = Literal[
     "MULTIVIEW_EQUAL_SIZE_VIEW", "MULTIVIEW_PRIMARY_VIEW", "MULTIVIEW_SECONDARY_VIEW"
 ]
+PerceptualFilterStrengthType = Literal["STRENGTH_1", "STRENGTH_2"]
 PipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 PipelineLockingMethodType = Literal["SOURCE_TIMECODE", "VIDEO_ALIGNMENT"]
 PreferredChannelPipelineType = Literal["CURRENTLY_ACTIVE", "PIPELINE_0", "PIPELINE_1"]
@@ -1258,6 +1262,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -1309,8 +1314,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -1513,6 +1516,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1563,7 +1567,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

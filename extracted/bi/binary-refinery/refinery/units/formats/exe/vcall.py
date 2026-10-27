@@ -6,16 +6,14 @@ import struct
 
 from argparse import ArgumentTypeError
 from dataclasses import dataclass
-from typing import TypeVar
 
 from refinery.lib.argformats import DelayedArgument, multibin, number
-from refinery.lib.emulator import CC, Emulator, EmulationTimeout, Hook
+from refinery.lib.emulator import CC, EmulationTimeout, Emulator, Hook
 from refinery.lib.structures import StructReader
-from refinery.lib.types import buf, Param
+from refinery.lib.tools import mixed_class
+from refinery.lib.types import Param, buf
 from refinery.units import Arg, Chunk
 from refinery.units.formats.exe import Arch, EmulatingUnit, Engine
-
-T = TypeVar('T', bound=type[Emulator])
 
 
 @dataclass(frozen=True)
@@ -521,23 +519,24 @@ class Evaluator:
         return values[0] if len(values) == 1 else list(values)
 
 
-def _show_disassembly(base: T) -> T:
-    class VCallEmulator(base):
-        def disassemble(self, address: int):
-            try:
-                return self.disassemble_instruction(address)
-            except Exception:
-                return None
+class _DisassemblingEmulator(Emulator):
+    """
+    Logs each instruction that the emulator executes; the unit adds it to an emulator backend when
+    asked to show the disassembly.
+    """
+    def disassemble(self, address: int):
+        try:
+            return self.disassemble_instruction(address)
+        except Exception:
+            return None
 
-        def hook_code_execute(self, emu, address: int, size: int, state=None):
-            instruction = self.disassemble(address)
-            if instruction:
-                vcall.log_always(F'0x{address:08X} {instruction.mnemonic} {instruction.op_str}')
-            else:
-                self.halt()
-            return False
-
-    return VCallEmulator # type:ignore
+    def hook_code_execute(self, emu, address: int, size: int, state=None):
+        instruction = self.disassemble(address)
+        if instruction:
+            vcall.log_always(F'0x{address:08X} {instruction.mnemonic} {instruction.op_str}')
+        else:
+            self.halt()
+        return False
 
 
 class vcall(EmulatingUnit):
@@ -618,7 +617,7 @@ class vcall(EmulatingUnit):
         hook = Hook.Errors
 
         if self.log_info():
-            engine = _show_disassembly(engine)
+            engine = mixed_class(_DisassemblingEmulator, engine, F'Disassembling{engine.__name__}')
             hook |= Hook.CodeExecute
 
         emu = engine(data, self.args.base, self.args.arch, hook).reset()

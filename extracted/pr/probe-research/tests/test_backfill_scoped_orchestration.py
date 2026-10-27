@@ -144,6 +144,9 @@ class Harness:
                 "name": name,
                 "customer_id": tenant,
                 "workspace_id": kw["workspace_id"],
+                # The server stores a create's metadata, which is how a
+                # resumed import recognises a project whose answer was lost.
+                "metadata": dict(kw.get("metadata") or {}),
             }
             self.projects[project["id"]] = project
             self.created.append(project)

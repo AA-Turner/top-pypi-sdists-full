@@ -246,6 +246,7 @@ class CfnAutomationRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -339,7 +340,7 @@ class CfnAutomationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__12432e1def54ab4a8f04be84e5c6032d7e4e0a9729dd56c51d2a540eba8e288f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="recommendedActionTypes")
@@ -352,7 +353,7 @@ class CfnAutomationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a69f6615b451a52d4025f39af3ea110a1c305a7cdf1975b5123db464c9ffcf3f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recommendedActionTypes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recommendedActionTypes", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleType")
@@ -365,7 +366,7 @@ class CfnAutomationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4c023ccc3b14f458b3a26d5ffc7c47fd30417efe1fe064fd6fd8bfd72e6d5e36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleType", value)
 
     @builtins.property
     @jsii.member(jsii_name="schedule")
@@ -382,7 +383,7 @@ class CfnAutomationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6cefdf23808a2bdd45df2cf7fdfa0ed6c8e067eb54cff24649619ea00c07799a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schedule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "schedule", value)
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -395,7 +396,7 @@ class CfnAutomationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5587f4f44ca9843d0dc165c34e813a55d83d5f5c1836a85325aaad770147bdf6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
     @builtins.property
     @jsii.member(jsii_name="criteria")
@@ -412,7 +413,7 @@ class CfnAutomationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__289c65c0a5bac1427b11926c90763f1770bba7a367f702daa76bf305c29df78e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "criteria", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "criteria", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -425,7 +426,7 @@ class CfnAutomationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ee341245a5bb3d3bb5f3425b715d93b07153893d5c394f7062a07979fa20b91)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="organizationConfiguration")
@@ -442,7 +443,7 @@ class CfnAutomationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8693308b84990e1940e6d8125c64fb152e7c9a52301f3933e9018615cc0c821b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "organizationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "organizationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="priority")
@@ -455,7 +456,7 @@ class CfnAutomationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__68a0a555e99d5fd4d7f6532a47a52406a7b848025f50626d6fb58f632c8e83e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "priority", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -471,7 +472,7 @@ class CfnAutomationRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1fd58f76e153d14a2da3d1d4038d7af1ef5ef2e85cee2b7eff1735fa6050e261)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_computeoptimizer.CfnAutomationRule.CriteriaProperty",

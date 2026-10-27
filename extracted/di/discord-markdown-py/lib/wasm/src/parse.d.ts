@@ -1,0 +1,54 @@
+import type { Block, LosslessNode, SyntaxFlags } from "@discord/markdown-types";
+
+export { Syntax, type SyntaxFlags } from "@discord/markdown-types";
+
+/**
+ * Compile and instantiate the wasm.
+ *
+ * Only needed outside Node, where the bytes cannot be read without awaiting: Node initialises
+ * itself on the first {@link parse} or {@link unparse}. Repeat calls are a no-op.
+ *
+ * This module has no top-level await, so importing it never makes the graph async.
+ */
+export function init(): Promise<void>;
+
+/**
+ * Instantiate from wasm you already hold, e.g. a module your bundler or host handed you.
+ *
+ * Prefer a `WebAssembly.Module`. Browsers refuse to compile buffers over 4KB synchronously on
+ * the main thread, so passing bytes there throws.
+ */
+export function initSync(wasmModule: WebAssembly.Module | BufferSource): void;
+
+/**
+ * Parse markdown into an AST. `flags` picks the syntax to parse, as a bitwise OR of `Syntax`
+ * members, and defaults to `Syntax.ALL`, which `0` also means.
+ *
+ * Throws if the wasm is not initialised. See {@link init}.
+ */
+export function parse(content: string, flags?: SyntaxFlags | null): Block[];
+
+/**
+ * Parse markdown into the lossless tree, for rich text: nodes for what the markdown means, and
+ * tokens holding every character of `content` in order, so joining their `text` gives it back
+ * exactly. Every span is in UTF-16 code units, so it indexes `content` directly. `flags` is as
+ * for {@link parse}.
+ *
+ * Throws if the wasm is not initialised. See {@link init}.
+ */
+export function parseLossless(
+	content: string,
+	flags?: SyntaxFlags | null,
+): LosslessNode;
+
+/**
+ * Turn an AST back into markdown. Throws if the AST is malformed.
+ *
+ * Not byte-exact for everything: text is not re-escaped, italics always come back as `_`, and
+ * unordered lists always as `* `, and a link written without a scheme comes back with `https://`.
+ * Everything else round trips exactly -- including mentions, which are stored as a parsed id and
+ * so cannot be rebuilt any other way.
+ *
+ * Throws if the wasm is not initialised. See {@link init}.
+ */
+export function unparse(nodes: Block[]): string;

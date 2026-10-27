@@ -17,6 +17,7 @@
 from uuid import UUID
 
 from ..models.cost_center import (
+    CostCenterBudgetSummary,
     CostCenterResponse,
     CreateCostCenterRequest,
     PaginatedCostCenterListResponse,
@@ -102,5 +103,26 @@ class CostCenterService:
             "/v1/admin/cost-centers",
             response_model=PaginatedCostCenterListResponse,
             params=params,
+            wrap_response=False,
+        )
+
+    def get_budget_rollup(self, cost_center_id: UUID) -> CostCenterBudgetSummary:
+        """Get the budget rollup across the projects linked to a cost center (admin-only).
+
+        Sums the budgets of every linked project per category and overall.
+
+        Args:
+            cost_center_id: UUID of the cost center
+
+        Returns:
+            CostCenterBudgetSummary with overall spending, limit and percentage plus
+            a per-category breakdown
+
+        Raises:
+            HTTPError: If the request fails
+        """
+        return self._api.get(
+            f"/v1/admin/cost-centers/{cost_center_id}/budget-rollup",
+            response_model=CostCenterBudgetSummary,
             wrap_response=False,
         )

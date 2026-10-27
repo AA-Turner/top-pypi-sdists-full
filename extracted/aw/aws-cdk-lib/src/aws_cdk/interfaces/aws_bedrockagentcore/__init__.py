@@ -374,6 +374,55 @@ class ConfigurationBundleReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ConsentPortalReference",
+    jsii_struct_bases=[],
+    name_mapping={"consent_portal_arn": "consentPortalArn"},
+)
+class ConsentPortalReference:
+    def __init__(self, *, consent_portal_arn: builtins.str) -> None:
+        '''A reference to a ConsentPortal resource.
+
+        :param consent_portal_arn: The ConsentPortalArn of the ConsentPortal resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            consent_portal_reference = interfaces_bedrockagentcore.ConsentPortalReference(
+                consent_portal_arn="consentPortalArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__748da381ea90eae6430b2e2e527fceca8518024f781c9e6b74d5c921ed684417)
+            check_type(argname="argument consent_portal_arn", value=consent_portal_arn, expected_type=type_hints["consent_portal_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "consent_portal_arn": consent_portal_arn,
+        }
+
+    @builtins.property
+    def consent_portal_arn(self) -> builtins.str:
+        '''The ConsentPortalArn of the ConsentPortal resource.'''
+        result = self._values.get("consent_portal_arn")
+        assert result is not None, "Required property 'consent_portal_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConsentPortalReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.DatasetReference",
     jsii_struct_bases=[],
     name_mapping={"dataset_arn": "datasetArn"},
@@ -1115,6 +1164,53 @@ class _IConfigurationBundleRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IConfigurationBundleRef).__jsii_proxy_class__ = lambda : _IConfigurationBundleRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IConsentPortalRef"
+)
+class IConsentPortalRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConsentPortal.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="consentPortalRef")
+    def consent_portal_ref(self) -> "ConsentPortalReference":
+        '''(experimental) A reference to a ConsentPortal resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConsentPortalRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConsentPortal.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IConsentPortalRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="consentPortalRef")
+    def consent_portal_ref(self) -> "ConsentPortalReference":
+        '''(experimental) A reference to a ConsentPortal resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConsentPortalReference", jsii.get(self, "consentPortalRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConsentPortalRef).__jsii_proxy_class__ = lambda : _IConsentPortalRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IDatasetRef")
@@ -2676,6 +2772,7 @@ __all__ = [
     "CapacityProviderReference",
     "CodeInterpreterCustomReference",
     "ConfigurationBundleReference",
+    "ConsentPortalReference",
     "DatasetReference",
     "EvaluatorReference",
     "GatewayRateLimitReference",
@@ -2690,6 +2787,7 @@ __all__ = [
     "ICapacityProviderRef",
     "ICodeInterpreterCustomRef",
     "IConfigurationBundleRef",
+    "IConsentPortalRef",
     "IDatasetRef",
     "IEvaluatorRef",
     "IGatewayRateLimitRef",
@@ -2767,6 +2865,13 @@ def _typecheckingstub__31803efaee1e805b6555da7f5c0c2c409540346b67d7cb412b9f78fbe
 def _typecheckingstub__d4077e99ca28fc73499ed58a9874ac2a75db28beeb6d2aac12da2d1d3b026668(
     *,
     bundle_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__748da381ea90eae6430b2e2e527fceca8518024f781c9e6b74d5c921ed684417(
+    *,
+    consent_portal_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2917,5 +3022,5 @@ def _typecheckingstub__f4c87d0628ada636c999bb25ecf8067b788ff440bac34ff64b11d374d
     """Type checking stubs"""
     pass
 
-for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, ICapacityProviderRef, ICodeInterpreterCustomRef, IConfigurationBundleRef, IDatasetRef, IEvaluatorRef, IGatewayRateLimitRef, IGatewayRef, IGatewayRuleRef, IGatewayTargetRef, IHarnessEndpointRef, IHarnessRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPaymentConnectorRef, IPaymentCredentialProviderRef, IPaymentManagerRef, IPolicyEngineRef, IPolicyRef, IResourcePolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
+for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, ICapacityProviderRef, ICodeInterpreterCustomRef, IConfigurationBundleRef, IConsentPortalRef, IDatasetRef, IEvaluatorRef, IGatewayRateLimitRef, IGatewayRef, IGatewayRuleRef, IGatewayTargetRef, IHarnessEndpointRef, IHarnessRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPaymentConnectorRef, IPaymentCredentialProviderRef, IPaymentManagerRef, IPolicyEngineRef, IPolicyRef, IResourcePolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

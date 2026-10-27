@@ -8,7 +8,7 @@ Example:
 
     config = AgenticStarAuthConfig(
         base_url="https://auth.example.com",
-        api_key="your-api-key",
+        api_key="your-bearer-token",
     )
 
     async with AgenticStarAuthClient(config) as client:

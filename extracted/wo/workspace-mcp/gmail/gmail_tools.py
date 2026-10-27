@@ -78,6 +78,7 @@ from gmail.gmail_helpers import (
     _fetch_with_retry,
     _format_id_list,
     _get_send_as_identity_and_signature,
+    _html_signature_separator,
     _http_error_status,
     _inherit_reply_subject,
     _is_email_reaction,
@@ -90,7 +91,10 @@ from gmail.gmail_helpers import (
     _wrap_signature_html,
     apply_gmail_filter_to_existing,
     build_label_color,
+    decode_part_body,
+    fetch_attachment_backed_bodies,
     format_filter_apply_result,
+    format_html_links,
     format_thread_label_outcomes,
     html_newlines_to_br,
     html_to_text_preserving_breaks,
@@ -114,6 +118,10 @@ DIRECTION_DESCRIPTION = (
     "Base text direction of the body. 'auto' (default) takes it from the first "
     "strong character (a right-to-left script gives 'rtl', anything else 'ltr'); "
     "'ltr'/'rtl' force it. On a forward it orients the note."
+)
+INCLUDE_LINKS_DESCRIPTION = (
+    "When True, append a LINKS section listing the http(s) URLs from the HTML "
+    "body that the text output omits. Only applies to body_format='text'."
 )
 
 # Keep ``None`` valid at runtime without publishing it as an ``anyOf`` branch.
@@ -207,13 +215,10 @@ def _extract_message_bodies(payload):
     while part_queue:
         part = part_queue.pop(0)
         mime_type = part.get("mimeType", "")
-        body_data = part.get("body", {}).get("data")
 
-        if body_data:
+        if part.get("body", {}).get("data"):
             try:
-                decoded_data = base64.urlsafe_b64decode(body_data).decode(
-                    "utf-8", errors="ignore"
-                )
+                decoded_data = decode_part_body(part)
                 if mime_type == "text/plain" and not text_body:
                     text_body = decoded_data
                 elif mime_type == "text/html" and not html_body:
@@ -228,9 +233,7 @@ def _extract_message_bodies(payload):
     # Check the main payload if it has body data directly
     if payload.get("body", {}).get("data"):
         try:
-            decoded_data = base64.urlsafe_b64decode(payload["body"]["data"]).decode(
-                "utf-8", errors="ignore"
-            )
+            decoded_data = decode_part_body(payload)
             mime_type = payload.get("mimeType", "")
             if mime_type == "text/plain" and not text_body:
                 text_body = decoded_data
@@ -246,6 +249,7 @@ def _format_body_content(
     text_body: str,
     html_body: str,
     body_format: Literal["text", "html"] = "text",
+    include_links: bool = False,
 ) -> str:
     """
     Helper function to format message body content with HTML fallback and truncation.
@@ -256,6 +260,7 @@ def _format_body_content(
         html_body: HTML body content
         body_format: Output format - "text" converts HTML to plaintext (default),
                      "html" returns raw HTML body as-is
+        include_links: In text mode, append the HTML body's http(s) links missing from the text
 
     Returns:
         Formatted body content string
@@ -297,14 +302,14 @@ def _format_body_content(
     )
 
     if use_html:
-        content = html_text
-        if len(content) > HTML_BODY_TRUNCATE_LIMIT:
-            content = content[:HTML_BODY_TRUNCATE_LIMIT] + "\n\n[Content truncated...]"
-        return content
+        content = _truncate_content(html_text, HTML_BODY_TRUNCATE_LIMIT)
     elif text_stripped:
-        return text_body
+        content = text_body
     else:
-        return "[No readable content found]"
+        content = "[No readable content found]"
+    if include_links:
+        content += format_html_links(html_stripped, content, HTML_BODY_TRUNCATE_LIMIT)
+    return content
 
 
 def _truncate_content(content: str, limit: int) -> str:
@@ -388,6 +393,8 @@ async def _export_full_message(
     headers: Dict[str, str],
     body_format: Literal["text", "html", "raw"],
     declared_size: Optional[int] = None,
+    include_headers: bool = True,
+    include_links: bool = False,
 ) -> str:
     """
     Return a message's complete, untruncated content: saved to storage and
@@ -406,12 +413,14 @@ async def _export_full_message(
         headers: Already-fetched message headers, used for the summary and filename.
         body_format: "raw" saves the byte-exact RFC 5322 message as .eml,
             "html" saves the raw HTML body, "text" saves the plaintext body.
+        include_headers: When False, omit the header summary and name the file
+            after the message ID instead of the subject.
 
     Returns:
         str: Header summary plus the saved file's URL or path (or the inline body in
             stateless mode), or an "Error:" string.
     """
-    subject = headers.get("Subject", "message") or "message"
+    file_stem = (headers.get("Subject") if include_headers else message_id) or "message"
     notes: List[str] = []
 
     # Gmail's full/raw endpoints return their payload as one JSON response, so
@@ -420,7 +429,7 @@ async def _export_full_message(
     try:
         ensure_within_file_size_limit(
             declared_size,
-            file_name=subject,
+            file_name=file_stem,
             file_id=message_id,
             kind="message export",
         )
@@ -451,6 +460,7 @@ async def _export_full_message(
             .get(userId="me", id=message_id, format="full")
             .execute
         )
+        await fetch_attachment_backed_bodies(service, [message_full])
         bodies = _extract_message_bodies(message_full.get("payload", {}))
         # Preserve the body exactly — the export must be complete — so use .strip()
         # only to test for emptiness, never to trim the content that gets saved.
@@ -481,6 +491,8 @@ async def _export_full_message(
                 content_str = _html_to_text(html_body)
             else:
                 content_str = ""
+            if include_links:
+                content_str += format_html_links(html_body, content_str)
             mime_type = "text/plain"
             extension = ".txt"
 
@@ -493,7 +505,7 @@ async def _export_full_message(
     try:
         ensure_within_file_size_limit(
             len(content_bytes),
-            file_name=subject,
+            file_name=file_stem,
             file_id=message_id,
             kind="message export",
         )
@@ -512,7 +524,7 @@ async def _export_full_message(
 
     size_bytes = len(content_bytes)
     size_kb = size_bytes / 1024
-    result_lines = _format_message_header_lines(headers)
+    result_lines = _format_message_header_lines(headers) if include_headers else []
     result_lines.append(
         "\n--- FULL MESSAGE ---" if stateless else "\n--- FULL MESSAGE EXPORT ---"
     )
@@ -544,7 +556,7 @@ async def _export_full_message(
     def _save_export():
         return storage.save_attachment_bytes(
             file_bytes=content_bytes,
-            filename=f"{subject[:80]}{extension}",
+            filename=f"{file_stem[:80]}{extension}",
             mime_type=mime_type,
         )
 
@@ -667,7 +679,7 @@ def _append_signature_to_body(
         return body
 
     if body_format == "html":
-        separator = "<br><br>" if body.strip() else ""
+        separator = _html_signature_separator(body)
         return f"{body}{separator}{_wrap_signature_html(signature_html)}"
 
     signature_text = _signature_html_to_text(signature_html).strip()
@@ -702,10 +714,7 @@ def _build_quoted_reply_body(
         attribution = f"{sender} wrote:"
 
     if body_format == "html":
-        # Signature
-        sig_block = ""
-        if signature_html and signature_html.strip():
-            sig_block = f"<br><br>{_wrap_signature_html(signature_html)}"
+        signed_body = _append_signature_to_body(reply_body, "html", signature_html)
 
         # Quoted original
         orig_html = original.get("html_body") or ""
@@ -720,7 +729,7 @@ def _build_quoted_reply_body(
             f"{orig_html}"
             "</blockquote></div>"
         )
-        return f"{reply_body}{sig_block}{quote_block}"
+        return f"{signed_body}{quote_block}"
 
     # Plain text path
     sig_block = ""
@@ -860,7 +869,10 @@ ATTACHED_MESSAGE_HEADER_LIMIT = 1000
 
 
 def _render_attached_messages(
-    payload: dict, body_format: Literal["text", "html"] = "text"
+    payload: dict,
+    body_format: Literal["text", "html"] = "text",
+    include_headers: bool = True,
+    include_links: bool = False,
 ) -> str:
     """Render emails wrapped inside this one (message/rfc822 parts) as text.
 
@@ -873,7 +885,7 @@ def _render_attached_messages(
     """
     blocks: List[str] = []
     counts = {"shown": 0, "over_limit": 0, "too_deep": 0}
-    names = ["From", "To", "Cc", "Subject", "Date"]
+    names = ["From", "To", "Cc", "Subject", "Date"] if include_headers else []
 
     # Depth counts attached messages only; ordinary MIME nesting uses the stack.
     pending = [(child, 1) for child in reversed(payload.get("parts") or [])]
@@ -892,9 +904,13 @@ def _render_attached_messages(
             # Fall back to the rfc822 part's headers if the inner root lacks them.
             headers = _extract_headers(inner, names) or _extract_headers(child, names)
             bodies = _extract_message_bodies(inner)
-            body = _format_body_content(
-                bodies.get("text", ""), bodies.get("html", ""), body_format
+            html_body = bodies.get("html", "")
+            body = _truncate_content(
+                _format_body_content(bodies.get("text", ""), html_body, body_format),
+                HTML_BODY_TRUNCATE_LIMIT,
             )
+            if include_links and body_format == "text":
+                body += format_html_links(html_body, body, HTML_BODY_TRUNCATE_LIMIT)
             lines = [
                 f"--- ATTACHED MESSAGE {counts['shown']} (headers as claimed "
                 "by the attachment, unverified) ---"
@@ -905,7 +921,7 @@ def _render_attached_messages(
                     if len(value) > ATTACHED_MESSAGE_HEADER_LIMIT:
                         value = value[:ATTACHED_MESSAGE_HEADER_LIMIT] + " [truncated]"
                     lines.append(f"{name}: {value}")
-            lines += ["", _truncate_content(body, HTML_BODY_TRUNCATE_LIMIT)]
+            lines += ["", body]
             blocks.append("\n".join(lines))
             child = inner
             depth += 1
@@ -1031,10 +1047,6 @@ async def _fetch_thread_reply_context(
             "cc": headers.get("Cc", ""),
             "date": headers.get("Date", ""),
         }
-        if include_bodies:
-            bodies = _extract_message_bodies(payload)
-            context["text_body"] = bodies.get("text", "")
-            context["html_body"] = bodies.get("html", "")
         message_contexts.append(context)
         # Automatic selection only considers actual sent or received messages.
         # Gmail web renders a reaction as a chip on its parent, so a reply
@@ -1057,6 +1069,15 @@ async def _fetch_thread_reply_context(
                 break
     elif eligible_contexts:
         target = eligible_contexts[-1]
+
+    if include_bodies and target:
+        target_msg = next(
+            msg for msg, context in zip(messages, message_contexts) if context is target
+        )
+        await fetch_attachment_backed_bodies(service, [target_msg])
+        bodies = _extract_message_bodies(target_msg.get("payload", {}))
+        target["text_body"] = bodies.get("text", "")
+        target["html_body"] = bodies.get("html", "")
 
     return {
         "messages": eligible_contexts,
@@ -1888,6 +1909,10 @@ async def get_gmail_message_content(
         ),
     ] = False,
     format: Literal["full", "metadata"] = "full",
+    include_headers: bool = True,
+    include_links: Annotated[
+        bool, Field(description=INCLUDE_LINKS_DESCRIPTION)
+    ] = False,
 ) -> str:
     """
     Retrieves the full content (subject, sender, recipients, body) of a specific Gmail message.
@@ -1912,12 +1937,17 @@ async def get_gmail_message_content(
             return its URL/path instead of the body. body_format selects the exported
             file type: "raw" saves the byte-exact RFC 5322 message as .eml, "html"
             saves the raw HTML body, "text" saves the plaintext body. The "html"/"text"
-            exports decode as UTF-8 and drop undecodable bytes, so prefer "raw" when
+            exports are re-encoded as UTF-8 from the declared charset, so prefer "raw" when
             byte-exact fidelity matters. In stateless mode without GCS staging there is
             no storage to write to, so the untruncated content is returned inline
             instead; with GCS staging it is saved and returned as a signed URL.
         format (Literal["full", "metadata"]): Message format. "full" (default) includes
             the body and attachments, "metadata" only headers.
+        include_headers (bool): When False, omit the Subject/From/To/Date header
+            summary (attached messages' too), and with full=True name the export
+            after the message ID. Requires format='full'; body_format='raw' is only
+            allowed when the raw message is exported to a file.
+        include_links (bool): Append the HTML body's http(s) links missing from the text output.
 
     Returns:
         str: The message details including subject, sender, date, Message-ID, recipients
@@ -1933,6 +1963,17 @@ async def get_gmail_message_content(
     _validate_message_format_options(format, body_format)
     if format == "metadata" and full:
         raise UserInputError("full=True requires format='full'.")
+    if format == "metadata" and not include_headers:
+        raise UserInputError("include_headers=False requires format='full'.")
+    if (
+        not include_headers
+        and body_format == "raw"
+        and (not full or (is_stateless_mode() and not gcs_files_enabled()))
+    ):
+        raise UserInputError(
+            "include_headers=False cannot hide the headers in inline raw MIME; "
+            "use body_format='text' or a full=True file export."
+        )
 
     # Fetch message metadata first to get headers
     message_metadata = await asyncio.to_thread(
@@ -1951,8 +1992,9 @@ async def get_gmail_message_content(
         message_metadata.get("payload", {}), GMAIL_METADATA_HEADERS
     )
 
+    content_lines = _format_message_header_lines(headers) if include_headers else []
     if format == "metadata":
-        return "\n".join(_format_message_header_lines(headers))
+        return "\n".join(content_lines)
 
     # Full export: hand back a file reference instead of the (truncated) body.
     if full:
@@ -1962,6 +2004,8 @@ async def get_gmail_message_content(
             headers,
             body_format,
             declared_size=message_metadata.get("sizeEstimate"),
+            include_headers=include_headers,
+            include_links=include_links,
         )
 
     # Handle raw format separately - fetch with format="raw" and return decoded MIME
@@ -1974,7 +2018,6 @@ async def get_gmail_message_content(
         )
         decoded_raw = _decode_raw_mime_content(message_raw.get("raw", ""))
 
-        content_lines = _format_message_header_lines(headers)
         content_lines.append(f"\n--- RAW MIME ---\n{decoded_raw}")
         return "\n".join(content_lines)
 
@@ -1991,21 +2034,25 @@ async def get_gmail_message_content(
     )
 
     # Extract both text and HTML bodies using enhanced helper function
+    await fetch_attachment_backed_bodies(service, [message_full])
     payload = message_full.get("payload", {})
     bodies = _extract_message_bodies(payload)
     text_body = bodies.get("text", "")
     html_body = bodies.get("html", "")
 
     # Format body content with HTML fallback
-    body_data = _format_body_content(text_body, html_body, body_format=body_format)
+    body_data = _format_body_content(
+        text_body, html_body, body_format=body_format, include_links=include_links
+    )
 
     # Extract attachment metadata
     attachments = _extract_attachments(payload)
 
-    content_lines = _format_message_header_lines(headers)
+    attached = _render_attached_messages(
+        payload, body_format, include_headers, include_links
+    )
     content_lines.append(
-        f"\n--- BODY ---\n{body_data or '[No text/plain body found]'}"
-        f"{_render_attached_messages(payload, body_format)}"
+        f"\n--- BODY ---\n{body_data or '[No text/plain body found]'}{attached}"
     )
 
     # Add attachment information if present
@@ -2052,6 +2099,9 @@ async def get_gmail_messages_content_batch(
             ),
         ),
     ] = "text",
+    include_links: Annotated[
+        bool, Field(description=INCLUDE_LINKS_DESCRIPTION)
+    ] = False,
 ) -> str:
     """
     Retrieves the content of multiple Gmail messages in a single batch request.
@@ -2065,6 +2115,7 @@ async def get_gmail_messages_content_batch(
             "text" (default) returns plaintext (HTML converted to text as fallback).
             "html" returns the raw HTML body as-is without conversion.
             "raw" fetches the full raw MIME message and returns the base64url-decoded content.
+        include_links (bool): Append the HTML body's http(s) links missing from the text output.
 
     Returns:
         str: A formatted list of message contents including subject, sender, date, Message-ID, recipients (To, Cc), and body (if full format).
@@ -2195,12 +2246,18 @@ async def get_gmail_messages_content_batch(
                         body_label = "RAW MIME"
                     else:
                         # Full format - extract body too
+                        await fetch_attachment_backed_bodies(service, [message])
                         bodies = _extract_message_bodies(payload)
                         text_body = bodies.get("text", "")
                         html_body = bodies.get("html", "")
                         body_data = _format_body_content(
-                            text_body, html_body, body_format=body_format
-                        ) + _render_attached_messages(payload, body_format)
+                            text_body,
+                            html_body,
+                            body_format=body_format,
+                            include_links=include_links,
+                        ) + _render_attached_messages(
+                            payload, body_format, include_links=include_links
+                        )
                         body_label = "BODY"
 
                     attachments = _extract_attachments(payload)
@@ -3047,6 +3104,11 @@ async def _forward_gmail_message_impl(
         .get(userId="me", id=message_id, format="full")
         .execute
     )
+    body_errors = await fetch_attachment_backed_bodies(service, [original_message])
+    if body_errors:
+        raise ToolExecutionError(
+            "Failed to include the original message body: " + "; ".join(body_errors)
+        )
 
     payload = original_message.get("payload", {})
 
@@ -3627,6 +3689,7 @@ def _format_thread_content(
     thread_id: str,
     body_format: Literal["text", "html", "raw"] = "text",
     raw_contents: Optional[Dict[str, str]] = None,
+    include_links: bool = False,
 ) -> str:
     """
     Helper function to format thread content from Gmail API response.
@@ -3636,6 +3699,7 @@ def _format_thread_content(
         thread_id (str): Thread ID for display
         body_format: Output format - "text" (default), "html", or "raw"
         raw_contents: Optional mapping of message IDs to decoded raw MIME content
+        include_links: In text mode, append each body's http(s) links missing from the text
 
     Returns:
         str: Formatted thread content
@@ -3686,8 +3750,13 @@ def _format_thread_content(
 
             # Format body content with HTML fallback
             body_data = _format_body_content(
-                text_body, html_body, body_format=body_format
-            ) + _render_attached_messages(payload, body_format)
+                text_body,
+                html_body,
+                body_format=body_format,
+                include_links=include_links,
+            ) + _render_attached_messages(
+                payload, body_format, include_links=include_links
+            )
             body_label = "BODY"
 
         # Extract attachment metadata for this message
@@ -3787,6 +3856,9 @@ async def get_gmail_thread_content(
             ),
         ),
     ] = False,
+    include_links: Annotated[
+        bool, Field(description=INCLUDE_LINKS_DESCRIPTION)
+    ] = False,
 ) -> "str | Dict[str, Any]":
     """
     Retrieves the complete content of a Gmail conversation thread, including all messages.
@@ -3806,6 +3878,7 @@ async def get_gmail_thread_content(
             formatted thread content and structured ownership analysis. When
             False (default), returns the formatted content string (existing
             behavior, unchanged).
+        include_links (bool): Append the HTML body's http(s) links missing from the text output.
 
     Returns:
         str: When `include_analysis=False` (default). The complete thread
@@ -3835,12 +3908,17 @@ async def get_gmail_thread_content(
         raw_contents = await _fetch_raw_message_contents(
             service, message_ids, log_prefix="get_gmail_thread_content"
         )
+    else:
+        await fetch_attachment_backed_bodies(
+            service, thread_response.get("messages", [])
+        )
 
     content = _format_thread_content(
         thread_response,
         thread_id,
         body_format=body_format,
         raw_contents=raw_contents,
+        include_links=include_links,
     )
 
     if not include_analysis:
@@ -3878,6 +3956,9 @@ async def get_gmail_threads_content_batch(
             ),
         ),
     ] = "text",
+    include_links: Annotated[
+        bool, Field(description=INCLUDE_LINKS_DESCRIPTION)
+    ] = False,
 ) -> str:
     """
     Retrieves the content of multiple Gmail threads in a single batch request.
@@ -3890,6 +3971,7 @@ async def get_gmail_threads_content_batch(
             "text" (default) returns plaintext (HTML converted to text as fallback).
             "html" returns the raw HTML body as-is without conversion.
             "raw" fetches each message's full raw MIME content and returns the base64url-decoded body.
+        include_links (bool): Append the HTML body's http(s) links missing from the text output.
 
     Returns:
         str: A formatted list of thread contents with separators.
@@ -3988,6 +4070,10 @@ async def get_gmail_threads_content_batch(
                         message_ids,
                         log_prefix="get_gmail_threads_content_batch",
                     )
+                else:
+                    await fetch_attachment_backed_bodies(
+                        service, thread.get("messages", [])
+                    )
 
                 output_threads.append(
                     _format_thread_content(
@@ -3995,6 +4081,7 @@ async def get_gmail_threads_content_batch(
                         tid,
                         body_format=body_format,
                         raw_contents=raw_contents,
+                        include_links=include_links,
                     )
                 )
 

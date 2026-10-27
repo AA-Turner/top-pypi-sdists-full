@@ -79,7 +79,7 @@ def test_the_prompt_asks_for_notes_only_never_rows():
     """The upload list is code's: the model cannot drop a file by copying its
     path wrong, because it never writes one."""
     text = bp.import_unit(root="/drive", project="p", paths=["a.py"], work_dir="/tmp")
-    assert "THEY ARE ALREADY ON THE UPLOAD LIST" in text
+    assert "being\nimported into the project p whatever you do" in text
     assert "probe-backfill-plan note" in text
     assert "Write JSONL to" not in text and "exactly as listed" not in text
 

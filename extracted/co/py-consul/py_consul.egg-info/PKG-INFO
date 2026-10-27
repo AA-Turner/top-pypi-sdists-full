@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: py-consul
-Version: 1.7.1
+Version: 1.8.0
 Summary: Python client for Consul (http://www.consul.io/)
-Home-page: https://github.com/criteo-forks/py-consul
+Home-page: https://github.com/criteo/py-consul
 Author: Criteo
 Author-email: github@criteo.com
 License: MIT
+Project-URL: Changelog, https://github.com/criteo/py-consul/releases
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -28,12 +29,13 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
+Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-# py-consul [![PyPi version](https://img.shields.io/pypi/v/py-consul.svg)](https://pypi.python.org/pypi/py-consul/) [![Python version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/) ![Status](https://img.shields.io/badge/status-maintained-green.svg)
+# py-consul [![PyPi version](https://img.shields.io/pypi/v/py-consul.svg)](https://pypi.python.org/pypi/py-consul/) [![Python version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/) ![Status](https://img.shields.io/badge/status-maintained-green.svg) [![Documentation](https://img.shields.io/badge/docs-github%20pages-blue)](https://criteo.github.io/py-consul/)
 
 Status
 -----------
@@ -101,7 +103,7 @@ When you create a PR please ensure:
 
 # Change log
 
-Since version 1.5.6, please refer to [Releases](https://github.com/criteo-forks/py-consul/releases)
+Since version 1.5.6, please refer to [Releases](https://github.com/criteo/py-consul/releases)
 
 ## 1.5.5
 

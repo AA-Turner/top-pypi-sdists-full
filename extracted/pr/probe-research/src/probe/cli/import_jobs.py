@@ -40,6 +40,10 @@ from ..sdk.durable import file_lock, now_iso, write_text_atomic
 #: stall. Ten minutes keeps an overnight disconnection to a readable handful of
 #: events while still bounding how long a new stall stays invisible.
 STALL_REPORT_INTERVAL_S = 600.0
+#: How long a worker waits for its connection before the first stall report.
+#: A blip that one or two retries ride out is not a stall; without this every
+#: transient 5xx paged #usage with "Import stuck" for an import that finished.
+STALL_GRACE_S = 300.0
 ACTIVITY_LINES = 200
 ACTIVITY_LINE_CHARS = 2000
 
@@ -139,6 +143,15 @@ def remember_prepared_approval(digest: str) -> None:
     """A missing plan after this marker is an error, never permission to replan."""
     if _active_job is not None:
         _update(_active_job, prepared_approval=digest)
+
+
+def remember_skipped(summary: dict) -> None:
+    """What a folder worker's walk skipped by rule (`backfill.Census.skipped_json`),
+    on the job record the desktop reads. Counts and root-relative folder names
+    only; a foreground import has no active job and records nothing."""
+    if _active_job is not None:
+        _check_payload(summary)
+        _update(_active_job, skipped=summary)
 
 
 def default_dir() -> Path:
@@ -1279,15 +1292,16 @@ def run_worker(job_id: str, *, directory: Path | None = None) -> int:
                             unit_retries = 0
                             waited = 0.0
                             # A disconnected laptop retries forever, so the
-                            # stall is a LEVEL and not an edge. Report the
-                            # entry into it, then at most once per
-                            # STALL_REPORT_INTERVAL_S of continued waiting:
+                            # stall is a LEVEL and not an edge. Report it once
+                            # the wait passes STALL_GRACE_S, then at most once
+                            # per STALL_REPORT_INTERVAL_S of continued waiting:
                             # an event per retry would turn one bad afternoon
                             # into hundreds.
-                            reported = 0.0
+                            reported = None
                             while True:
                                 if _read(folder).get("cancel_requested"):
                                     raise _Interrupted
+                                attempt_started = time.monotonic()
                                 try:
                                     result = _dispatch(job["kind"], job["payload"], progress)
                                     break
@@ -1308,13 +1322,19 @@ def run_worker(job_id: str, *, directory: Path | None = None) -> int:
                                         )
                                         time.sleep(retry_delay)
                                         continue
+                                    if retries:
+                                        # A retry that times out is waiting
+                                        # time too, not only the sleep after it.
+                                        waited += time.monotonic() - attempt_started
                                     retries += 1
                                     progress(
                                         f"Waiting for connection. Retrying in {retry_delay}s. {_clean(exc)}",
                                         waiting_for_connection=True,
                                         retry_in=retry_delay, network_retries=retries,
                                     )
-                                    if retries == 1 or waited - reported >= STALL_REPORT_INTERVAL_S:
+                                    if waited >= STALL_GRACE_S and (
+                                        reported is None or waited - reported >= STALL_REPORT_INTERVAL_S
+                                    ):
                                         reported = waited
                                         _emit_stalled(
                                             _read(folder), "waiting_for_connection", tel=tel,

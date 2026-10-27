@@ -385,6 +385,7 @@ class CfnAgent(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -511,7 +512,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__89c19306b2dfaafb18e03ff6cb134d14ba6e0563e4a2c79c53886ba8207714cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "agentName", value)
 
     @builtins.property
     @jsii.member(jsii_name="actionGroups")
@@ -529,7 +530,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f670733e4a574d57292a648f4a8ad68ef64492d8f6667729aee160997a190e16)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actionGroups", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actionGroups", value)
 
     @builtins.property
     @jsii.member(jsii_name="agentCollaboration")
@@ -542,7 +543,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f72731f646fedd7539af4983fabc50f2c79adcf5dcc355889ab876a9fd11ec84)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentCollaboration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "agentCollaboration", value)
 
     @builtins.property
     @jsii.member(jsii_name="agentCollaborators")
@@ -560,7 +561,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__beaf0ac8c454f4f172dbcf09f365797fb7a54df60711cb70b40118abac7f58e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentCollaborators", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "agentCollaborators", value)
 
     @builtins.property
     @jsii.member(jsii_name="agentResourceRoleArn")
@@ -573,7 +574,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__36b021046f759c8bbfbfb02bceb7d337926c83d3e866d3dcd420bb7819e254ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentResourceRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "agentResourceRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoPrepare")
@@ -591,7 +592,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8dc98d7cbd7435359b362ef11a9b384386d54f878814d4c596d3dfa290281e67)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoPrepare", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoPrepare", value)
 
     @builtins.property
     @jsii.member(jsii_name="customerEncryptionKeyArn")
@@ -604,7 +605,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ea763219d3fed10a3841f0a137399ddf8f575abf9b1691273415e66f4f0763c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customerEncryptionKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customerEncryptionKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="customOrchestration")
@@ -622,7 +623,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7bb692aac81267c6a096be6d5432d60a3b62015a610ff438f037460627f13be6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customOrchestration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customOrchestration", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -635,7 +636,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0bd6874957339badfe5e02e7733947f3ba0b1fdc8c597003bfe10fc7ff96c537)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="foundationModel")
@@ -648,7 +649,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__75110aa6cf6cc2a463a78a36e9a6327c59875b1ef94d53da3047b8ec62c79fd4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "foundationModel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "foundationModel", value)
 
     @builtins.property
     @jsii.member(jsii_name="guardrailConfiguration")
@@ -666,7 +667,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2a943d3334097d01594a34df767861ec6709d99cd525e60d2d4b88bcabd8de9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "guardrailConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "guardrailConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="idleSessionTtlInSeconds")
@@ -679,7 +680,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e29f42af6a8bf7aee6adb6b35e7809da69175082446368854bd402491896a71f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "idleSessionTtlInSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "idleSessionTtlInSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="instruction")
@@ -692,7 +693,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__51c531a159f9cc0e23a07b5bc12cf53006e4207dd460e3ce580c57fa76109e86)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instruction", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "instruction", value)
 
     @builtins.property
     @jsii.member(jsii_name="knowledgeBases")
@@ -710,7 +711,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8842d93181ada69f14f22e8ff6855e528b858dd0baf705a1ae228b3d96ef38d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "knowledgeBases", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "knowledgeBases", value)
 
     @builtins.property
     @jsii.member(jsii_name="memoryConfiguration")
@@ -728,7 +729,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9dcb39dfb48769eecfe69ce4ba13939ca98bab37df34c9552a9c60b22b526b0e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "memoryConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "memoryConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="orchestrationType")
@@ -741,7 +742,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b83053d356c226028b8355aa1c0c7019f211c5e848e3b71a72e98d30697ffe6a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "orchestrationType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "orchestrationType", value)
 
     @builtins.property
     @jsii.member(jsii_name="promptOverrideConfiguration")
@@ -759,7 +760,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0d115c78c31e0cc4b4828b953c3afd44f4b9271c4e3aaad46777846216d6e9b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "promptOverrideConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "promptOverrideConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="skipResourceInUseCheckOnDelete")
@@ -777,7 +778,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b8f4401bf1c7d6b30870233c265d99a973b05e80ad9e53ab7945a82208a3bf49)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "skipResourceInUseCheckOnDelete", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "skipResourceInUseCheckOnDelete", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -796,7 +797,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f9e79489cae3525b40539f62fddb8a1f8b194bc0b1d166146c12f85a52d978be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="testAliasTags")
@@ -817,7 +818,7 @@ class CfnAgent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0adf24775a3a1362c3b4eeb79adc26cdf461e3c52ade9a1522d271295bf0d775)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "testAliasTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "testAliasTags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnAgent.APISchemaProperty",
@@ -2698,6 +2699,7 @@ class CfnAgentAlias(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2798,7 +2800,7 @@ class CfnAgentAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4929f9d1fe1c750108b588135fd2420ee93abad44713bd60a4f90bf0bab64e78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentAliasName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "agentAliasName", value)
 
     @builtins.property
     @jsii.member(jsii_name="agentId")
@@ -2811,7 +2813,7 @@ class CfnAgentAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b10c310fa33a8cb7b52c456850e88b42ea1b312acb49b915241cc6f52ef15136)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "agentId", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2824,7 +2826,7 @@ class CfnAgentAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__57ab6386ae765e3eaf37d16d7a5314cdca1d8b60ea095a4fa303d13c84722e78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="routingConfiguration")
@@ -2842,7 +2844,7 @@ class CfnAgentAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca75abf30c6951a069bde3673588677ff723ad86067bf5365bb584482bed50a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routingConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2861,7 +2863,7 @@ class CfnAgentAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cf90503b3b2050ab4f0f6ba0bf057a037193369214d4f027b567d3062bda19b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnAgentAlias.AgentAliasHistoryEventProperty",
@@ -3747,6 +3749,7 @@ class CfnApplicationInferenceProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3863,7 +3866,7 @@ class CfnApplicationInferenceProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6aae972c3170b196c6e4fa5bf8d0dd4b8b0b49a1c0f56c506e744e0442f85c7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inferenceProfileName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "inferenceProfileName", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -3876,7 +3879,7 @@ class CfnApplicationInferenceProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2c6572f5531b0a792b64f808b10a21a42b92c9f7be81c2527cca65319dc19869)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="modelSource")
@@ -3894,7 +3897,7 @@ class CfnApplicationInferenceProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2237f6f7b3816378634fc620ae2448fa846fa47396f09bc7c0b5e8a0902d65ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modelSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "modelSource", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3910,7 +3913,7 @@ class CfnApplicationInferenceProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e13f50624dfcb2d9c61a18114e7992a8def4ddd2f6f340c352ac98a5668d7eea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnApplicationInferenceProfile.InferenceProfileModelProperty",
@@ -4277,6 +4280,7 @@ class CfnAutomatedReasoningPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4379,7 +4383,7 @@ class CfnAutomatedReasoningPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3c8290b4050352cfcdb4ab8976b9d781978c34ee46609d3318cdb7a4f1b613f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -4392,7 +4396,7 @@ class CfnAutomatedReasoningPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__00e436a5261e5477ed7789ba76a3abf0b3ea73f32ebc0124a5a11c8eceb1753e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="forceDelete")
@@ -4410,7 +4414,7 @@ class CfnAutomatedReasoningPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a841fc7482952745304436317d3c12a3dc32fd59463854c8a8891a28eb419a6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "forceDelete", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "forceDelete", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -4423,7 +4427,7 @@ class CfnAutomatedReasoningPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c1e245899b7326d62c83cb0e0dfc321d733dd3d77e8e0f472db1bd2f56125924)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyDefinition")
@@ -4441,7 +4445,7 @@ class CfnAutomatedReasoningPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d8ff8046b0a2e743393c59b3ad2e1a92082657522f4cabbd1ee4fb71d94444c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDefinition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDefinition", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4457,7 +4461,7 @@ class CfnAutomatedReasoningPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca4464b2048b122005e6f9796a6bdf93da3b8b1dd15d6e68063dad6c8cf3e1d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnAutomatedReasoningPolicy.PolicyDefinitionProperty",
@@ -5221,6 +5225,7 @@ class CfnAutomatedReasoningPolicyVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5323,7 +5328,7 @@ class CfnAutomatedReasoningPolicyVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6281ba36e05d83a0e3ef064625c15e957bd5d3e09519a667c2bfb83c1a598a36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="lastUpdatedDefinitionHash")
@@ -5339,7 +5344,7 @@ class CfnAutomatedReasoningPolicyVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee122c4a5f07fbfeac391064a3628421e70e09529847a606678ed4371d9e7b02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lastUpdatedDefinitionHash", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lastUpdatedDefinitionHash", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5355,7 +5360,7 @@ class CfnAutomatedReasoningPolicyVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bbfd4db5100e6181e9a990e0416f2608cff6f667b284d927780fa1b079f72a19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -5583,6 +5588,7 @@ class CfnBlueprint(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5656,7 +5662,7 @@ class CfnBlueprint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d8d16209c1f5c024594eca807940727054ad1e26101113a8f1d50e6e15a5694)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "blueprintName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "blueprintName", value)
 
     @builtins.property
     @jsii.member(jsii_name="schema")
@@ -5669,7 +5675,7 @@ class CfnBlueprint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__81e5d05d97dfb4480ecd4b06050ecd6d2148e3990b1dd1d0dfe9964f2963cb88)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schema", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "schema", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -5682,7 +5688,7 @@ class CfnBlueprint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ef42e216fb09846368bece5ce6a3e9545529525ae50a99d9652a067c46c68ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsEncryptionContext")
@@ -5700,7 +5706,7 @@ class CfnBlueprint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9dd7c2213aa68308e06ad8faf37f220972d3cc98e87609fbab559134d8803b82)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsEncryptionContext", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsEncryptionContext", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -5713,7 +5719,7 @@ class CfnBlueprint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ebfd046b9ca03d7ae283da6715642f11589872c91f5d95bbd3cddd393ce3534e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5729,7 +5735,7 @@ class CfnBlueprint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__886a403dedf81403e658ca68ff545b86f110fb792ac74080f77b3e5f75ff1205)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -5992,6 +5998,7 @@ class CfnDataAutomationLibrary(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6067,7 +6074,7 @@ class CfnDataAutomationLibrary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4d1bc69dff3dbab9eda171b820e1690e6d2f111f825af58ff1502b186fa32fb0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "libraryName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "libraryName", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfiguration")
@@ -6085,7 +6092,7 @@ class CfnDataAutomationLibrary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__22241b01cb4a00096309ba8fb3b1d81f1b4061a3b27cf0b2f125ef0ccdffd6cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="libraryDescription")
@@ -6098,7 +6105,7 @@ class CfnDataAutomationLibrary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__332cec7fd677523f2481a99278707b2db02f187b9f4cb362ec689420372087be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "libraryDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "libraryDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6114,7 +6121,7 @@ class CfnDataAutomationLibrary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fd33ae85bf209eaf2e7bc2035cfed7aefe8a3f6cca8cb17a780f7e0b1b42b12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationLibrary.EncryptionConfigurationProperty",
@@ -6680,6 +6687,7 @@ class CfnDataAutomationProject(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6764,7 +6772,7 @@ class CfnDataAutomationProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__44ebcab2ea1db454660f0efca5cbb1689c2e2e383bab8ac13160ded31828fddd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "projectName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "projectName", value)
 
     @builtins.property
     @jsii.member(jsii_name="customOutputConfiguration")
@@ -6782,7 +6790,7 @@ class CfnDataAutomationProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1ab9fb9a4352d579b68cf610175f94c8aa52cfdbbf49f7714af576697d17844)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customOutputConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customOutputConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsEncryptionContext")
@@ -6800,7 +6808,7 @@ class CfnDataAutomationProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6cd36375cf66df3f91af57cca5986cf0e1e2e1d92450af01f6598a0f70704eda)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsEncryptionContext", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsEncryptionContext", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -6813,7 +6821,7 @@ class CfnDataAutomationProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0b87c4142ac53f03ce6c5b48f72b8974482a859683fea89c79268bb107879366)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="overrideConfiguration")
@@ -6831,7 +6839,7 @@ class CfnDataAutomationProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__63214c23c1024f1e68bafcf83c39b09dcd7139f0c84e281682c8622de9336e74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "overrideConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "overrideConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="projectDescription")
@@ -6844,7 +6852,7 @@ class CfnDataAutomationProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66994affd3d7455a04b67bd84c11b22239237bd8483bb056b944d0895b576b11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "projectDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "projectDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="projectType")
@@ -6857,7 +6865,7 @@ class CfnDataAutomationProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5c85af68db4f3f78e2b0a5f811d1ca35ea9b2fa54af0c06ec65742efe0968075)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "projectType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "projectType", value)
 
     @builtins.property
     @jsii.member(jsii_name="standardOutputConfiguration")
@@ -6875,7 +6883,7 @@ class CfnDataAutomationProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__58c4ae46198661b93f5957013f1db0f24086f81fb07595882186ae75392677a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "standardOutputConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "standardOutputConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6891,7 +6899,7 @@ class CfnDataAutomationProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c8adc93c3ad061e5a2be17a8fdad5d0761d30eeec1c7a815fcdef93e3acd3cd1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProject.AudioExtractionCategoryProperty",
@@ -10909,6 +10917,7 @@ class CfnDataSource(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -11006,7 +11015,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a387108ccda2b96813f79478d4429abb297f766ce080c3bf9b77d03af3db534c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataSourceConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataSourceConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="knowledgeBaseId")
@@ -11019,7 +11028,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__62d585d364d6684899cbce3ae80a62858e2f256e166c889705e2ecb2040e935d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "knowledgeBaseId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "knowledgeBaseId", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -11032,7 +11041,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__99613771dd63beb77d047c2f17b9362e99ec38dd6fb89ec0c78f690f7847fc0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataDeletionPolicy")
@@ -11045,7 +11054,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13070c256fb6cad53f284f3bdd82c32491d75ab72033b19aa76e3daf539a2b8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataDeletionPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataDeletionPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -11058,7 +11067,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7fc31b7620f239d59ff8a40cb711119c09cf659e115e22ba5d86a3d2a36aa17b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="serverSideEncryptionConfiguration")
@@ -11076,7 +11085,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1fe19aafcbb9637979bddaf7a230433b26f791bb09744dabcf0e95496322565d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serverSideEncryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serverSideEncryptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="vectorIngestionConfiguration")
@@ -11094,7 +11103,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__033990e14b671fe96b02a12658cd4beadf8bae975b4e0c94984d3e41913522c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vectorIngestionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vectorIngestionConfiguration", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataSource.AudioExtractionConfigurationProperty",
@@ -16009,6 +16018,7 @@ class CfnEnforcedGuardrailConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -16114,7 +16124,7 @@ class CfnEnforcedGuardrailConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1d7a43095585500261fed40fc13627075dc6241c47bac711f09c1aed1addfde4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "guardrailIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "guardrailIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="guardrailVersion")
@@ -16127,7 +16137,7 @@ class CfnEnforcedGuardrailConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2ceb8f4645d767c6e105b0c1ec745e6279ea2b1cdccfc7ee53f18acd4a404b46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "guardrailVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "guardrailVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="modelEnforcement")
@@ -16145,7 +16155,7 @@ class CfnEnforcedGuardrailConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f5ba0dd6a676b4b3d27d620aa7ec7f85b8218bc570c2baa58be965e8b226c80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modelEnforcement", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "modelEnforcement", value)
 
     @builtins.property
     @jsii.member(jsii_name="selectiveContentGuarding")
@@ -16163,7 +16173,7 @@ class CfnEnforcedGuardrailConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e98c4f498a4d4a8659ef23b03508d975cf5a2d959a8bb68d7ea96d15ae78ee50)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "selectiveContentGuarding", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "selectiveContentGuarding", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnEnforcedGuardrailConfiguration.ModelEnforcementProperty",
@@ -16796,6 +16806,7 @@ class CfnFlow(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -16901,7 +16912,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ced6deb90295eabf196b6ada4e8d987db7eeb74378cacdafc998cd5624e0b0fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -16914,7 +16925,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ee04f94b9ba27ecbb092c04e1407a9f49851186ac60849eb9a2b502870e6d1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="customerEncryptionKeyArn")
@@ -16927,7 +16938,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aa845c7cbe71441f89a12cd66601294a3af83142648889f26de31b6b333331cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customerEncryptionKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customerEncryptionKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="definition")
@@ -16945,7 +16956,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c2c15de597c18bdf1cfd80b3544262ec255a2eb266848edd42a70afb0018fcec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "definition", value)
 
     @builtins.property
     @jsii.member(jsii_name="definitionS3Location")
@@ -16963,7 +16974,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__562b099489964ba014f8624b070d1781f2feaeebe40d9388399fc7ae66dff9c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definitionS3Location", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "definitionS3Location", value)
 
     @builtins.property
     @jsii.member(jsii_name="definitionString")
@@ -16976,7 +16987,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__58ac2e2c1626b12db3fe6e46ef64157358fd21ea0518a77674fd75522b27b8d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definitionString", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "definitionString", value)
 
     @builtins.property
     @jsii.member(jsii_name="definitionSubstitutions")
@@ -16994,7 +17005,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__665f20040e8cdbcc235b9965731830ae44c7f9d50bfdd4c03665e9aba78547c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definitionSubstitutions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "definitionSubstitutions", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -17007,7 +17018,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b2df04d9d27600a49c8dc9726bf078edbf14dccccbdf53efbf100dea82058ee6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -17026,7 +17037,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__00fc718d7b494a828bea538bc7c10f721679354bb6555d8e15e32b2169ffe891)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="testAliasTags")
@@ -17044,7 +17055,7 @@ class CfnFlow(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c8f573e426abfd3b90c4d9ff9fecb4f008835544cca9591251c138795f9dac1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "testAliasTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "testAliasTags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.AgentFlowNodeConfigurationProperty",
@@ -21946,6 +21957,7 @@ class CfnFlowAlias(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -22028,7 +22040,7 @@ class CfnFlowAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2864acfd6282b8fcfb02ad890bc2e2dbc5dc68753bc1c8fa61e9f1d22698a5e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flowArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -22041,7 +22053,7 @@ class CfnFlowAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4536ddcb8d056cdb19ccc22267dff11ec2ae20d66e372a842cbf08dcc153098d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="routingConfiguration")
@@ -22059,7 +22071,7 @@ class CfnFlowAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25332829430f5e80beb4046dfc1518084a8e57996d1c7754f19340851fe7e209)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routingConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="concurrencyConfiguration")
@@ -22077,7 +22089,7 @@ class CfnFlowAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1393cd9413cb4ef94a25c11eb3585c147e33097b8e29294d9317dbd1d69de9ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "concurrencyConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "concurrencyConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -22090,7 +22102,7 @@ class CfnFlowAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9669636b705c78a8d145d7a1d469c787fd21070582cc73345805622ba2f9ecc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -22109,7 +22121,7 @@ class CfnFlowAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c3491b1fef915af541cbc09b268c90d18ce0d02ff0917da6521a009344a4af3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowAlias.FlowAliasConcurrencyConfigurationProperty",
@@ -22935,6 +22947,7 @@ class CfnFlowVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -23040,7 +23053,7 @@ class CfnFlowVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6683eaab0093c03edd8f27520bee97a77a0510e45f6636980bfec6a332e24977)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flowArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -23053,7 +23066,7 @@ class CfnFlowVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7f982c06560684269ac07c3dc57223c48225800eaacbc87f08a51a55eafb0d69)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.AgentFlowNodeConfigurationProperty",
@@ -27868,6 +27881,7 @@ class CfnGuardrail(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -27983,7 +27997,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b8a2f9687ff4e81f4953a900999b03337df14ba54044290009f92b978479aa71)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "blockedInputMessaging", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "blockedInputMessaging", value)
 
     @builtins.property
     @jsii.member(jsii_name="blockedOutputsMessaging")
@@ -27996,7 +28010,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__59377d273ba1076fa0e7fa7b325e1080a042838c62e3d653e7e2d9fbfd37b757)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "blockedOutputsMessaging", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "blockedOutputsMessaging", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -28009,7 +28023,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4214430bb449bbe8c35bffe05d8f030f2f1e4d9bf03e87e52eaf3920fcd73539)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="automatedReasoningPolicyConfig")
@@ -28027,7 +28041,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f7e988f8aa9a49e9c7d18479b2e890b8fe801c669022cbb74dafe4a3a01f399)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "automatedReasoningPolicyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "automatedReasoningPolicyConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="contentPolicyConfig")
@@ -28045,7 +28059,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a2352c360e9d740d982528265b1e13ef0cbbc639f4ce7a9811f5347cf9c39343)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contentPolicyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contentPolicyConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="contextualGroundingPolicyConfig")
@@ -28063,7 +28077,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__29a839fbc0601b618610155b48ee9218004ce69e661c5a6ece3134c2d842f2c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contextualGroundingPolicyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contextualGroundingPolicyConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="crossRegionConfig")
@@ -28081,7 +28095,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__738f62e02da692a490500cccb2eda020a67df3595057e975d05d96eddbe0a385)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "crossRegionConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "crossRegionConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -28094,7 +28108,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__885f2a8f4b710e0b2b1255d6f0514f5b0e080398bf5941c4b2830331855b81ae)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
@@ -28107,7 +28121,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fbc1d4225a1496cd036d97ea54283afa42f857e546f96fed46866f7df1c2a712)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="sensitiveInformationPolicyConfig")
@@ -28125,7 +28139,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__279893b9f82164ec1f1485986bfd2950340b836fafb5d6299d2c28b1d4277f9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sensitiveInformationPolicyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sensitiveInformationPolicyConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -28141,7 +28155,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d2d4316cf506347b6f9939e84461c5f14a0501165f7128ebaec15ea06b2fc68a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="topicPolicyConfig")
@@ -28159,7 +28173,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__853c4d50370da0c19067d3356726317d2cb9cfdd5405344e1ded902c29bb30d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "topicPolicyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "topicPolicyConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="wordPolicyConfig")
@@ -28177,7 +28191,7 @@ class CfnGuardrail(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8db61eded81d93fbd03b059a0415cd544498a84333ec2ae6cb76fed58dc07062)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "wordPolicyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "wordPolicyConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrail.AutomatedReasoningPolicyConfigProperty",
@@ -30508,6 +30522,7 @@ class CfnGuardrailVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -30568,7 +30583,7 @@ class CfnGuardrailVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb6556b800cb75d7323d4ca6bf95fd228006a7d0d24d63a8932fa69b21daba2b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "guardrailIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "guardrailIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -30581,7 +30596,7 @@ class CfnGuardrailVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ecd63b9edc18f82131a7dcf70341b28d62ff84b82ce14e7e0b84d6b927a52a49)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
 
 @jsii.data_type(
@@ -30779,6 +30794,7 @@ class CfnIntelligentPromptRouter(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -30868,7 +30884,7 @@ class CfnIntelligentPromptRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd80df76a813246a8e4277e3bc440f0bd9af1683df43577473a9071026d3b6bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fallbackModel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fallbackModel", value)
 
     @builtins.property
     @jsii.member(jsii_name="models")
@@ -30886,7 +30902,7 @@ class CfnIntelligentPromptRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a25f72fc5023b70494fc722f22f88047d6a2c0242e2e3e9faf9709606670791a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "models", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "models", value)
 
     @builtins.property
     @jsii.member(jsii_name="promptRouterName")
@@ -30899,7 +30915,7 @@ class CfnIntelligentPromptRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec21107d1eca7e309bcd9f3df4a7749c2b99c2f6c11a70183255fce541a6087f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "promptRouterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "promptRouterName", value)
 
     @builtins.property
     @jsii.member(jsii_name="routingCriteria")
@@ -30917,7 +30933,7 @@ class CfnIntelligentPromptRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__803bc18993ea7d90a900939d6578f087141fb630c6e5d87b74ad4e7fa6b91af8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "routingCriteria", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "routingCriteria", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -30930,7 +30946,7 @@ class CfnIntelligentPromptRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__08709ed1bc4a3037160cec605e0b1bd4113b22ec101704d31096b5c625a9d9cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -30946,7 +30962,7 @@ class CfnIntelligentPromptRouter(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c6153dd14f4fef3c8f916f48185faa26c1372a89eb9c48120b46b15741ed8d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnIntelligentPromptRouter.PromptRouterTargetModelProperty",
@@ -31389,6 +31405,7 @@ class CfnKnowledgeBase(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -31485,7 +31502,7 @@ class CfnKnowledgeBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cc53309d6eb9442404b7a33330dfd3740f0c9d24afff9f19814de1a0a0e51d32)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "knowledgeBaseConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "knowledgeBaseConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -31498,7 +31515,7 @@ class CfnKnowledgeBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__98ce011ed3a47084236afba28b5e5d0da34db483b792c0f0dd621b409474b6fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -31511,7 +31528,7 @@ class CfnKnowledgeBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e6281f2d1ed9a2f71b02754159fe6b2d8c70d3527e97d2d060434dc3483f2ad5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -31524,7 +31541,7 @@ class CfnKnowledgeBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f9fef7f262d2bad58c7f37c90b8756dd028b772a93aa036a4caf0c9565a7fff1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageConfiguration")
@@ -31542,7 +31559,7 @@ class CfnKnowledgeBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9c3409dc5fcb9799e2f638dda4e66d2391cf6984b3e10eb29b36e85981cfc59b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -31561,7 +31578,7 @@ class CfnKnowledgeBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3aaa5f9544be44cbc2ddb7d96026222438266e370aa05113a01af8f251b7286f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnKnowledgeBase.AudioConfigurationProperty",
@@ -35984,6 +36001,7 @@ class CfnKnowledgeBasePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -36026,7 +36044,7 @@ class CfnKnowledgeBasePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__38f19d0f5797e23b8660883dc0112f4001bef670b458cada5ddaf0b5c351f468)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "knowledgeBaseId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "knowledgeBaseId", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -36039,7 +36057,7 @@ class CfnKnowledgeBasePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b8848fa58953bcbec316e9df9407e53a424de9c08d9068cdf25cb3301348edc1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDocument", value)
 
 
 @jsii.data_type(
@@ -36491,6 +36509,7 @@ class CfnPrompt(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -36573,7 +36592,7 @@ class CfnPrompt(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e04db711f3afcb16dd2e231780e8226ba78d8e321384d76fc7ee59833394a67d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="customerEncryptionKeyArn")
@@ -36586,7 +36605,7 @@ class CfnPrompt(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d8a07083131dcb93ffa53aa97c2dfaa14c72540c51238a4ae3a5a3564d56c239)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customerEncryptionKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customerEncryptionKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="defaultVariant")
@@ -36599,7 +36618,7 @@ class CfnPrompt(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f9c08b508dbd064cb4ae66ff6081b66111f31df53d9fa99ce16891a0c0bfbb6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultVariant", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "defaultVariant", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -36612,7 +36631,7 @@ class CfnPrompt(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b98f37f7d5f94c7394bb9c10f298229bc0cee4ebf810a1e6751628fdfef3d4a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -36631,7 +36650,7 @@ class CfnPrompt(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3e549a3547d1d4f88b7c34b207d6d016177186eb55d382715117153fd96426c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="variants")
@@ -36649,7 +36668,7 @@ class CfnPrompt(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b92123c0073f901a0741c026473098ec639beea3bd80ea47a9b53798eb73cfde)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "variants", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "variants", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnPrompt.CachePointBlockProperty",
@@ -38979,6 +38998,7 @@ class CfnPromptVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -39099,7 +39119,7 @@ class CfnPromptVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c1a2e151c8d7f5b907997b8687dc467b3c97ceda3cfa1eace95b5e57a544f0e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "promptArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "promptArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -39112,7 +39132,7 @@ class CfnPromptVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec4abcbc329aa78e1da7b3e9657d097c8f6506ef57c7cd0271a70014e8cf0848)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -39128,7 +39148,7 @@ class CfnPromptVersion(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9272c7a9663761c48d9f2dd784a0dea11f8f35dbce40fb938036091fd8cf57a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnPromptVersion.CachePointBlockProperty",
@@ -41169,6 +41189,7 @@ class CfnResourcePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -41200,7 +41221,7 @@ class CfnResourcePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ceba89db065b81779d957e2e19775bc8ce839ef832c5061547e56181fc2fcb95)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDocument", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceArn")
@@ -41213,7 +41234,7 @@ class CfnResourcePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c439b02ebe9d7f969e5c7e760a3e8cc2e1cd07d61ff59ca5b5a2a5856e0aed7a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceArn", value)
 
 
 @jsii.data_type(
@@ -41402,6 +41423,7 @@ class CfnSession(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -41484,7 +41506,7 @@ class CfnSession(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a583364518b6f445034417721dc019686a05a2ff47fce88d5f133ca74e18e53f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="sessionMetadata")
@@ -41502,7 +41524,7 @@ class CfnSession(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8c9fee24f1b4cbabbc3e5fb36372d3afc2f6e5c2bd1866f6313e85b257bbb522)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sessionMetadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sessionMetadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -41518,7 +41540,7 @@ class CfnSession(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9904f6c9c076a3e4c9b610d3316dfbf0b2988692b7f844d437a1e327d579cc94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -41662,6 +41684,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AI21_J2_GRANDE_INSTRUCT")
+    @builtins.classmethod
     def AI21_J2_GRANDE_INSTRUCT(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "ai21.j2-grande-instruct".
 
@@ -41673,12 +41696,14 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AI21_J2_JAMBA_INSTRUCT_V1_0")
+    @builtins.classmethod
     def AI21_J2_JAMBA_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "ai21.jamba-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_J2_JAMBA_INSTRUCT_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AI21_J2_JUMBO_INSTRUCT")
+    @builtins.classmethod
     def AI21_J2_JUMBO_INSTRUCT(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "ai21.j2-jumbo-instruct".
 
@@ -41690,6 +41715,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AI21_J2_MID")
+    @builtins.classmethod
     def AI21_J2_MID(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "ai21.j2-mid".
 
@@ -41701,6 +41727,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AI21_J2_ULTRA")
+    @builtins.classmethod
     def AI21_J2_ULTRA(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "ai21.j2-ultra".
 
@@ -41712,18 +41739,21 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AI21_JAMBA_1_5_LARGE_V_1_0")
+    @builtins.classmethod
     def AI21_JAMBA_1_5_LARGE_V_1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "ai21.jamba-1-5-large-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_JAMBA_1_5_LARGE_V_1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AI21_JAMBA_1_5_MINI_V_1_0")
+    @builtins.classmethod
     def AI21_JAMBA_1_5_MINI_V_1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "ai21.jamba-1-5-mini-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AI21_JAMBA_1_5_MINI_V_1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AI21_LABS_JURASSIC_2_MID_V1")
+    @builtins.classmethod
     def AI21_LABS_JURASSIC_2_MID_V1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "ai21.j2-mid-v1".
 
@@ -41735,6 +41765,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AI21_LABS_JURASSIC_2_ULTRA_V1")
+    @builtins.classmethod
     def AI21_LABS_JURASSIC_2_ULTRA_V1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "ai21.j2-ultra-v1".
 
@@ -41746,6 +41777,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AI21_LABS_JURASSIC_2_ULTRA_V1_0_8K")
+    @builtins.classmethod
     def AI21_LABS_JURASSIC_2_ULTRA_V1_0_8_K(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "ai21.j2-ultra-v1:0:8k".
 
@@ -41757,198 +41789,231 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_2_MULTIMODAL_EMBEDDINGS_V1_0")
+    @builtins.classmethod
     def AMAZON_NOVA_2_MULTIMODAL_EMBEDDINGS_V1_0(cls) -> "FoundationModelIdentifier":
         '''amazon.nova-2-multimodal-embeddings-v1:0.'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_2_MULTIMODAL_EMBEDDINGS_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_CANVAS_V1_0")
+    @builtins.classmethod
     def AMAZON_NOVA_CANVAS_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-canvas-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_CANVAS_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_LITE_V1_0")
+    @builtins.classmethod
     def AMAZON_NOVA_LITE_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-lite-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_LITE_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_LITE_V1_0_300_K")
+    @builtins.classmethod
     def AMAZON_NOVA_LITE_V1_0_300_K(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-lite-v1:0:300k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_LITE_V1_0_300_K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_MICRO_V1_0")
+    @builtins.classmethod
     def AMAZON_NOVA_MICRO_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-micro-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_MICRO_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_MICRO_V1_0_128_K")
+    @builtins.classmethod
     def AMAZON_NOVA_MICRO_V1_0_128_K(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-micro-v1:0:128k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_MICRO_V1_0_128_K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_PREMIER_V1_0")
+    @builtins.classmethod
     def AMAZON_NOVA_PREMIER_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-premier-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_PREMIER_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_PRO_V1_0")
+    @builtins.classmethod
     def AMAZON_NOVA_PRO_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-pro-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_PRO_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_PRO_V1_0_300_K")
+    @builtins.classmethod
     def AMAZON_NOVA_PRO_V1_0_300_K(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-pro-v1:0:300k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_PRO_V1_0_300_K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_REEL_V1_0")
+    @builtins.classmethod
     def AMAZON_NOVA_REEL_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-reel-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_REEL_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_REEL_V1_1")
+    @builtins.classmethod
     def AMAZON_NOVA_REEL_V1_1(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-reel-v1:1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_REEL_V1_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_SONIC_V1_0")
+    @builtins.classmethod
     def AMAZON_NOVA_SONIC_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-sonic-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_SONIC_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_RERANK_V1")
+    @builtins.classmethod
     def AMAZON_RERANK_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.rerank-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_RERANK_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_EMBED_G1_TEXT_02")
+    @builtins.classmethod
     def AMAZON_TITAN_EMBED_G1_TEXT_02(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-embed-g1-text-02".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_G1_TEXT_02"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_EMBED_IMAGE_V1_0")
+    @builtins.classmethod
     def AMAZON_TITAN_EMBED_IMAGE_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-embed-image-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_IMAGE_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_EMBED_TEXT_V1_2_8K")
+    @builtins.classmethod
     def AMAZON_TITAN_EMBED_TEXT_V1_2_8_K(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-embed-text-v1:2:8k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_TEXT_V1_2_8K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_EMBED_TEXT_V2_0")
+    @builtins.classmethod
     def AMAZON_TITAN_EMBED_TEXT_V2_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-embed-text-v2:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_TEXT_V2_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_EMBED_TEXT_V2_0_8K")
+    @builtins.classmethod
     def AMAZON_TITAN_EMBED_TEXT_V2_0_8_K(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-embed-text-v2:0:8k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBED_TEXT_V2_0_8K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_EMBEDDINGS_G1_TEXT_V1")
+    @builtins.classmethod
     def AMAZON_TITAN_EMBEDDINGS_G1_TEXT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-embed-text-v1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_EMBEDDINGS_G1_TEXT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_IMAGE_GENERATOR_G1_V1")
+    @builtins.classmethod
     def AMAZON_TITAN_IMAGE_GENERATOR_G1_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-image-generator-v1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_IMAGE_GENERATOR_G1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_IMAGE_GENERATOR_V1_0")
+    @builtins.classmethod
     def AMAZON_TITAN_IMAGE_GENERATOR_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-image-generator-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_IMAGE_GENERATOR_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_IMAGE_GENERATOR_V2_0")
+    @builtins.classmethod
     def AMAZON_TITAN_IMAGE_GENERATOR_V2_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-image-generator-v2:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_IMAGE_GENERATOR_V2_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_MULTIMODAL_EMBEDDINGS_G1_V1")
+    @builtins.classmethod
     def AMAZON_TITAN_MULTIMODAL_EMBEDDINGS_G1_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-embed-image-v1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_MULTIMODAL_EMBEDDINGS_G1_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_TEXT_EXPRESS_V1_0_8K")
+    @builtins.classmethod
     def AMAZON_TITAN_TEXT_EXPRESS_V1_0_8_K(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-text-express-v1:0:8k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_EXPRESS_V1_0_8K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_TEXT_G1_EXPRESS_V1")
+    @builtins.classmethod
     def AMAZON_TITAN_TEXT_G1_EXPRESS_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-text-express-v1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_G1_EXPRESS_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_TEXT_G1_LITE_V1")
+    @builtins.classmethod
     def AMAZON_TITAN_TEXT_G1_LITE_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-text-lite-v1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_G1_LITE_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_TEXT_LITE_V1")
+    @builtins.classmethod
     def AMAZON_TITAN_TEXT_LITE_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-text-lite-v1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_LITE_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_TEXT_LITE_V1_0_4K")
+    @builtins.classmethod
     def AMAZON_TITAN_TEXT_LITE_V1_0_4_K(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-text-lite-v1:0:4k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_LITE_V1_0_4K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_TEXT_PREMIER_V1")
+    @builtins.classmethod
     def AMAZON_TITAN_TEXT_PREMIER_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-text-premier-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TEXT_PREMIER_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_TITAN_TG1_LARGE")
+    @builtins.classmethod
     def AMAZON_TITAN_TG1_LARGE(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.titan-tg1-large".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_TITAN_TG1_LARGE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-5-haiku-20241022-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_HAIKU_20241022_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-5-sonnet-20240620-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_18K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_18_K(
         cls,
     ) -> "FoundationModelIdentifier":
@@ -41957,6 +42022,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_200K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_200_K(
         cls,
     ) -> "FoundationModelIdentifier":
@@ -41965,6 +42031,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_51K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_5_SONNET_20240620_V1_0_51_K(
         cls,
     ) -> "FoundationModelIdentifier":
@@ -41973,12 +42040,14 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-5-sonnet-20241022-v2:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_18K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_18_K(
         cls,
     ) -> "FoundationModelIdentifier":
@@ -41987,6 +42056,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_200K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_200_K(
         cls,
     ) -> "FoundationModelIdentifier":
@@ -41995,6 +42065,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_51K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_5_SONNET_20241022_V2_0_51_K(
         cls,
     ) -> "FoundationModelIdentifier":
@@ -42003,18 +42074,21 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_7_SONNET_20250219_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_7_SONNET_20250219_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-7-sonnet-20250219-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_7_SONNET_20250219_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-haiku-20240307-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_200K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_200_K(
         cls,
     ) -> "FoundationModelIdentifier":
@@ -42023,42 +42097,49 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_48K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_48_K(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-haiku-20240307-v1:0:48k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_HAIKU_20240307_V1_0_48K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-opus-20240229-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_12K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_12_K(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-opus-20240229-v1:0:12k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_12K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_200K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_200_K(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-opus-20240229-v1:0:200k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_200K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_28K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_28_K(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-opus-20240229-v1:0:28k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_OPUS_20240229_V1_0_28K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-3-sonnet-20240229-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_200K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_200_K(
         cls,
     ) -> "FoundationModelIdentifier":
@@ -42067,6 +42148,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_28K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_3_SONNET_20240229_V1_0_28_K(
         cls,
     ) -> "FoundationModelIdentifier":
@@ -42075,30 +42157,35 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_FABLE_5")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_FABLE_5(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-fable-5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_FABLE_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_FABLE_5_1")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_FABLE_5_1(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-fable-5-1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_FABLE_5_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_HAIKU_4_5_20251001_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_HAIKU_4_5_20251001_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-haiku-4-5-20251001-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_HAIKU_4_5_20251001_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_HAIKU_5_5")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_HAIKU_5_5(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-haiku-5-5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_HAIKU_5_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_INSTANT_V1")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_INSTANT_V1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "anthropic.claude-instant-v1".
 
@@ -42110,6 +42197,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_INSTANT_V1_2_100K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_INSTANT_V1_2_100_K(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "anthropic.claude-instant-v1:2:100k".
 
@@ -42121,90 +42209,105 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_MYTHOS_5")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_MYTHOS_5(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-mythos-5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_MYTHOS_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-opus-4-1-20250805-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-opus-4-20250514-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_5_20251101_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_OPUS_4_5_20251101_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-opus-4-5-20251101-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_5_20251101_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_6_V1")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_OPUS_4_6_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-opus-4-6-v1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_6_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_7")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_OPUS_4_7(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-opus-4-7".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_8")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_OPUS_4_8(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-opus-4-8".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_5")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_OPUS_5(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-opus-5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_5_5")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_OPUS_5_5(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-opus-5-5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_5_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-sonnet-4-20250514-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_4_20250514_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_5_20250929_V1_0")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_SONNET_4_5_20250929_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-sonnet-4-5-20250929-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_4_5_20250929_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_4_6")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_SONNET_4_6(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-sonnet-4-6".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_4_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_5")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_SONNET_5(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-sonnet-5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_SONNET_5_5")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_SONNET_5_5(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-sonnet-5-5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_SONNET_5_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V1")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_V1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "anthropic.claude-v1".
 
@@ -42216,6 +42319,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_V2(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "anthropic.claude-v2".
 
@@ -42227,6 +42331,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_0_100K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_V2_0_100_K(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "anthropic.claude-v2:0:100k".
 
@@ -42238,6 +42343,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_0_18K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_V2_0_18_K(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "anthropic.claude-v2:0:18k".
 
@@ -42249,6 +42355,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_1")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_V2_1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "anthropic.claude-v2:1".
 
@@ -42260,6 +42367,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_1_18K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_V2_1_18_K(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "anthropic.claude-v2:1:18k".
 
@@ -42271,6 +42379,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_V2_1_200K")
+    @builtins.classmethod
     def ANTHROPIC_CLAUDE_V2_1_200_K(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "anthropic.claude-v2:1:200k".
 
@@ -42282,96 +42391,112 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_COMMAND_LIGHT_TEXT_V14_7_4K")
+    @builtins.classmethod
     def COHERE_COMMAND_LIGHT_TEXT_V14_7_4_K(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.command-light-text-v14:7:4k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_LIGHT_TEXT_V14_7_4K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_COMMAND_LIGHT_V14")
+    @builtins.classmethod
     def COHERE_COMMAND_LIGHT_V14(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.command-light-text-v14".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_LIGHT_V14"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_COMMAND_R_PLUS_V1")
+    @builtins.classmethod
     def COHERE_COMMAND_R_PLUS_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.command-r-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_R_PLUS_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_COMMAND_R_V1")
+    @builtins.classmethod
     def COHERE_COMMAND_R_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.command-r-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_R_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_COMMAND_TEXT_V14_7_4K")
+    @builtins.classmethod
     def COHERE_COMMAND_TEXT_V14_7_4_K(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.command-text-v14:7:4k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_TEXT_V14_7_4K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_COMMAND_V14")
+    @builtins.classmethod
     def COHERE_COMMAND_V14(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.command-text-v14".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_COMMAND_V14"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_EMBED_ENGLISH_V3")
+    @builtins.classmethod
     def COHERE_EMBED_ENGLISH_V3(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.embed-english-v3".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_ENGLISH_V3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_EMBED_ENGLISH_V3_0_512")
+    @builtins.classmethod
     def COHERE_EMBED_ENGLISH_V3_0_512(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.embed-english-v3:0:512".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_ENGLISH_V3_0_512"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_EMBED_MULTILINGUAL_V3")
+    @builtins.classmethod
     def COHERE_EMBED_MULTILINGUAL_V3(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.embed-multilingual-v3".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_MULTILINGUAL_V3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_EMBED_MULTILINGUAL_V3_0_512")
+    @builtins.classmethod
     def COHERE_EMBED_MULTILINGUAL_V3_0_512(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.embed-multilingual-v3:0:512".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_MULTILINGUAL_V3_0_512"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_EMBED_V4")
+    @builtins.classmethod
     def COHERE_EMBED_V4(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.embed-v4:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_EMBED_V4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="COHERE_RERANK_V3_5")
+    @builtins.classmethod
     def COHERE_RERANK_V3_5(cls) -> "FoundationModelIdentifier":
         '''Base model "cohere.rerank-v3-5:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "COHERE_RERANK_V3_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEEP_SEEK_R1_V1_0")
+    @builtins.classmethod
     def DEEP_SEEK_R1_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "deepseek.r1-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "DEEP_SEEK_R1_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEEP_SEEK_V3_V1_0")
+    @builtins.classmethod
     def DEEP_SEEK_V3_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "deepseek.v3-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "DEEP_SEEK_V3_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LUMA_RAY_V2_0")
+    @builtins.classmethod
     def LUMA_RAY_V2_0(cls) -> "FoundationModelIdentifier":
         '''Base model "luma.ray-v2:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "LUMA_RAY_V2_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_2_13B_CHAT_V1_0_4K")
+    @builtins.classmethod
     def META_LLAMA_2_13_B_CHAT_V1_0_4_K(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "meta.llama2-13b-chat-v1:0:4k".
 
@@ -42383,6 +42508,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_2_13B_V1")
+    @builtins.classmethod
     def META_LLAMA_2_13_B_V1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "meta.llama2-13b-v1".
 
@@ -42394,6 +42520,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_2_13B_V1_0_4K")
+    @builtins.classmethod
     def META_LLAMA_2_13_B_V1_0_4_K(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "meta.llama2-13b-v1:0:4k".
 
@@ -42405,6 +42532,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_2_70B_CHAT_V1_0_4K")
+    @builtins.classmethod
     def META_LLAMA_2_70_B_CHAT_V1_0_4_K(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "meta.llama2-70b-chat-v1:0:4k".
 
@@ -42416,6 +42544,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_2_70B_V1")
+    @builtins.classmethod
     def META_LLAMA_2_70_B_V1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "meta.llama2-70b-v1".
 
@@ -42427,6 +42556,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_2_70B_V1_0_4K")
+    @builtins.classmethod
     def META_LLAMA_2_70_B_V1_0_4_K(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "meta.llama2-70b-v1:0:4k".
 
@@ -42438,6 +42568,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_2_CHAT_13B_V1")
+    @builtins.classmethod
     def META_LLAMA_2_CHAT_13_B_V1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "meta.llama2-13b-chat-v1".
 
@@ -42449,6 +42580,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_2_CHAT_70B_V1")
+    @builtins.classmethod
     def META_LLAMA_2_CHAT_70_B_V1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "meta.llama2-70b-chat-v1".
 
@@ -42460,270 +42592,315 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_1_405_INSTRUCT_V1")
+    @builtins.classmethod
     def META_LLAMA_3_1_405_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-1-405b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_405_INSTRUCT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_1_70_INSTRUCT_V1")
+    @builtins.classmethod
     def META_LLAMA_3_1_70_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-1-70b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_70_INSTRUCT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_1_70_INSTRUCT_V1_128K")
+    @builtins.classmethod
     def META_LLAMA_3_1_70_INSTRUCT_V1_128_K(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-1-70b-instruct-v1:0:128k".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_70_INSTRUCT_V1_128K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_1_8B_INSTRUCT_V_128K")
+    @builtins.classmethod
     def META_LLAMA_3_1_8_B_INSTRUCT_V_128_K(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-1-8b-instruct-v1:0:128".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_8B_INSTRUCT_V_128K"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_1_8B_INSTRUCT_V1")
+    @builtins.classmethod
     def META_LLAMA_3_1_8_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-1-8b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_1_8B_INSTRUCT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_2_11B_INSTRUCT_V1")
+    @builtins.classmethod
     def META_LLAMA_3_2_11_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-2-11b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_11B_INSTRUCT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_2_1B_INSTRUCT_V1")
+    @builtins.classmethod
     def META_LLAMA_3_2_1_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-2-1b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_1B_INSTRUCT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_2_3B_INSTRUCT_V1")
+    @builtins.classmethod
     def META_LLAMA_3_2_3_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-2-3b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_3B_INSTRUCT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_2_90B_INSTRUCT_V1")
+    @builtins.classmethod
     def META_LLAMA_3_2_90_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-2-90b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_2_90B_INSTRUCT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_3_70B_INSTRUCT_V1")
+    @builtins.classmethod
     def META_LLAMA_3_3_70_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-3-70b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_3_70B_INSTRUCT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_70_INSTRUCT_V1")
+    @builtins.classmethod
     def META_LLAMA_3_70_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-70b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_70_INSTRUCT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_3_8B_INSTRUCT_V1")
+    @builtins.classmethod
     def META_LLAMA_3_8_B_INSTRUCT_V1(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama3-8b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_8B_INSTRUCT_V1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_4_MAVERICK_17B_INSTRUCT_V1_0")
+    @builtins.classmethod
     def META_LLAMA_4_MAVERICK_17_B_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama4-maverick-17b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_4_MAVERICK_17B_INSTRUCT_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="META_LLAMA_4_SCOUT_17B_INSTRUCT_V1_0")
+    @builtins.classmethod
     def META_LLAMA_4_SCOUT_17_B_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "meta.llama4-scout-17b-instruct-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_4_SCOUT_17B_INSTRUCT_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MINIMAX_MINIMAX_M2")
+    @builtins.classmethod
     def MINIMAX_MINIMAX_M2(cls) -> "FoundationModelIdentifier":
         '''Base model "minimax.minimax-m2".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MINIMAX_MINIMAX_M2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MINIMAX_MINIMAX_M2_1")
+    @builtins.classmethod
     def MINIMAX_MINIMAX_M2_1(cls) -> "FoundationModelIdentifier":
         '''Base model "minimax.minimax-m2.1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MINIMAX_MINIMAX_M2_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MINIMAX_MINIMAX_M2_5")
+    @builtins.classmethod
     def MINIMAX_MINIMAX_M2_5(cls) -> "FoundationModelIdentifier":
         '''Base model "minimax.minimax-m2.5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MINIMAX_MINIMAX_M2_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MISTRAL_LARGE_2_V0_1")
+    @builtins.classmethod
     def MISTRAL_LARGE_2_V0_1(cls) -> "FoundationModelIdentifier":
         '''Base model "mistral.mistral-large-2407-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_LARGE_2_V0_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MISTRAL_LARGE_V0_1")
+    @builtins.classmethod
     def MISTRAL_LARGE_V0_1(cls) -> "FoundationModelIdentifier":
         '''Base model "mistral.mistral-large-2402-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_LARGE_V0_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MISTRAL_MISTRAL_7B_INSTRUCT_V0_2")
+    @builtins.classmethod
     def MISTRAL_MISTRAL_7_B_INSTRUCT_V0_2(cls) -> "FoundationModelIdentifier":
         '''Base model "mistral.mistral-7b-instruct-v0:2".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_MISTRAL_7B_INSTRUCT_V0_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MISTRAL_MIXTRAL_8X7B_INSTRUCT_V0_1")
+    @builtins.classmethod
     def MISTRAL_MIXTRAL_8_X7_B_INSTRUCT_V0_1(cls) -> "FoundationModelIdentifier":
         '''Base model "mistral.mixtral-8x7b-instruct-v0:1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_MIXTRAL_8X7B_INSTRUCT_V0_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MISTRAL_PIXTRAL_LARGE_2502_V1_0")
+    @builtins.classmethod
     def MISTRAL_PIXTRAL_LARGE_2502_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "mistral.pixtral-large-2502-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_PIXTRAL_LARGE_2502_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MISTRAL_SMALL_V0_1")
+    @builtins.classmethod
     def MISTRAL_SMALL_V0_1(cls) -> "FoundationModelIdentifier":
         '''Base model "mistral.mistral-small-2402-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_SMALL_V0_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_5_4")
+    @builtins.classmethod
     def OPENAI_GPT_5_4(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-5.4".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_5_5")
+    @builtins.classmethod
     def OPENAI_GPT_5_5(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-5.5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_5_6_CYBER")
+    @builtins.classmethod
     def OPENAI_GPT_5_6_CYBER(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-5.6-cyber".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_6_CYBER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_5_6_LUNA")
+    @builtins.classmethod
     def OPENAI_GPT_5_6_LUNA(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-5.6-luna".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_6_LUNA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_5_6_SOL")
+    @builtins.classmethod
     def OPENAI_GPT_5_6_SOL(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-5.6-sol".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_6_SOL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_5_6_TERRA")
+    @builtins.classmethod
     def OPENAI_GPT_5_6_TERRA(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-5.6-terra".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_6_TERRA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_6_1_SOL")
+    @builtins.classmethod
     def OPENAI_GPT_6_1_SOL(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-6.1-sol".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_6_1_SOL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_6_ASTRA")
+    @builtins.classmethod
     def OPENAI_GPT_6_ASTRA(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-6-astra".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_6_ASTRA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_6_LUNA")
+    @builtins.classmethod
     def OPENAI_GPT_6_LUNA(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-6-luna".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_6_LUNA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_6_SOL")
+    @builtins.classmethod
     def OPENAI_GPT_6_SOL(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-6-sol".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_6_SOL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_DAYBREAK_BLUE_5_6_SOL")
+    @builtins.classmethod
     def OPENAI_GPT_DAYBREAK_BLUE_5_6_SOL(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-daybreak-blue-5.6-sol".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_DAYBREAK_BLUE_5_6_SOL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_OSS_120B_1")
+    @builtins.classmethod
     def OPENAI_GPT_OSS_120_B_1(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-oss-120b-1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_120B_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_OSS_20B_1")
+    @builtins.classmethod
     def OPENAI_GPT_OSS_20_B_1(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-oss-20b-1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_20B_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_OSS_SAFEGUARD_120B")
+    @builtins.classmethod
     def OPENAI_GPT_OSS_SAFEGUARD_120_B(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-oss-safeguard-120b".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_SAFEGUARD_120B"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_OSS_SAFEGUARD_20B")
+    @builtins.classmethod
     def OPENAI_GPT_OSS_SAFEGUARD_20_B(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-oss-safeguard-20b".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_SAFEGUARD_20B"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="QWEN_QWEN3_235B_A22B_2507_V1_0")
+    @builtins.classmethod
     def QWEN_QWEN3_235_B_A22_B_2507_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base Model "qwen.qwen3-235b-a22b-2507-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "QWEN_QWEN3_235B_A22B_2507_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="QWEN_QWEN3_32B_V1_0")
+    @builtins.classmethod
     def QWEN_QWEN3_32_B_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base Model "qwen.qwen3-32b-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "QWEN_QWEN3_32B_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="QWEN_QWEN3_CODER_30B_A3B_V1_0")
+    @builtins.classmethod
     def QWEN_QWEN3_CODER_30_B_A3_B_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base Model "qwen.qwen3-coder-30b-a3b-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "QWEN_QWEN3_CODER_30B_A3B_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="QWEN_QWEN3_CODER_480B_A35B_V1_0")
+    @builtins.classmethod
     def QWEN_QWEN3_CODER_480_B_A35_B_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base Model "qwen.qwen3-coder-480b-a35b-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "QWEN_QWEN3_CODER_480B_A35B_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_SD3_5_LARGE_V1_0")
+    @builtins.classmethod
     def STABILITY_SD3_5_LARGE_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "stability.sd3-5-large-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_SD3_5_LARGE_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_SD3_LARGE_V1_0")
+    @builtins.classmethod
     def STABILITY_SD3_LARGE_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "stability.sd3-large-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_SD3_LARGE_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL")
+    @builtins.classmethod
     def STABILITY_STABLE_DIFFUSION_XL(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "stability.stable-diffusion-xl".
 
@@ -42735,6 +42912,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL_V0")
+    @builtins.classmethod
     def STABILITY_STABLE_DIFFUSION_XL_V0(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "stability.stable-diffusion-xl-v0".
 
@@ -42746,6 +42924,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL_V1")
+    @builtins.classmethod
     def STABILITY_STABLE_DIFFUSION_XL_V1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "stability.stable-diffusion-xl-v1".
 
@@ -42757,6 +42936,7 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_STABLE_DIFFUSION_XL_V1_0")
+    @builtins.classmethod
     def STABILITY_STABLE_DIFFUSION_XL_V1_0(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "stability.stable-diffusion-xl-v1:0".
 
@@ -42768,72 +42948,84 @@ class FoundationModelIdentifier(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_CORE_V1_0")
+    @builtins.classmethod
     def STABILITY_STABLE_IMAGE_CORE_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "stability.stable-image-core-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_CORE_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_CORE_V1_1")
+    @builtins.classmethod
     def STABILITY_STABLE_IMAGE_CORE_V1_1(cls) -> "FoundationModelIdentifier":
         '''Base model "stability.stable-image-core-v1:1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_CORE_V1_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_ULTRA_V1_0")
+    @builtins.classmethod
     def STABILITY_STABLE_IMAGE_ULTRA_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "stability.stable-image-ultra-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_ULTRA_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_STABLE_IMAGE_ULTRA_V1_1")
+    @builtins.classmethod
     def STABILITY_STABLE_IMAGE_ULTRA_V1_1(cls) -> "FoundationModelIdentifier":
         '''Base model "stability.stable-image-ultra-v1:1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_ULTRA_V1_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TWELVELABS_MARENGO_EMBED_2_7_V1_0")
+    @builtins.classmethod
     def TWELVELABS_MARENGO_EMBED_2_7_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "twelvelabs.marengo-embed-2-7-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "TWELVELABS_MARENGO_EMBED_2_7_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TWELVELABS_MARENGO_EMBED_3_0_V1_0")
+    @builtins.classmethod
     def TWELVELABS_MARENGO_EMBED_3_0_V1_0(cls) -> "FoundationModelIdentifier":
         '''Basic model "twelvelabs.marengo-embed-3-0-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "TWELVELABS_MARENGO_EMBED_3_0_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TWELVELABS_PEGASUS_1_2_V1_0")
+    @builtins.classmethod
     def TWELVELABS_PEGASUS_1_2_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "twelvelabs.pegasus-1-2-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "TWELVELABS_PEGASUS_1_2_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WRITER_PALMYRA_X4_V1_0")
+    @builtins.classmethod
     def WRITER_PALMYRA_X4_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "writer.palmyra-x4-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "WRITER_PALMYRA_X4_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WRITER_PALMYRA_X5_V1_0")
+    @builtins.classmethod
     def WRITER_PALMYRA_X5_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "writer.palmyra-x5-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "WRITER_PALMYRA_X5_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ZAI_GLM_4_7")
+    @builtins.classmethod
     def ZAI_GLM_4_7(cls) -> "FoundationModelIdentifier":
         '''Base model "zai.glm-4.7".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ZAI_GLM_4_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ZAI_GLM_4_7_FLASH")
+    @builtins.classmethod
     def ZAI_GLM_4_7_FLASH(cls) -> "FoundationModelIdentifier":
         '''Base model "zai.glm-4.7-flash".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ZAI_GLM_4_7_FLASH"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ZAI_GLM_5")
+    @builtins.classmethod
     def ZAI_GLM_5(cls) -> "FoundationModelIdentifier":
         '''Base model "zai.glm-5".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ZAI_GLM_5"))

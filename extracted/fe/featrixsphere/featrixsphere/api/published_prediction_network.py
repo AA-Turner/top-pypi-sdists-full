@@ -16,17 +16,18 @@ docs/internal/plans/2026-07-prediction-networks.md in the main repo for
 the full design.
 
 This mirrors PublishedPredictor's shape deliberately — same dataclass
-fields, same _clean_record handling, same base_url default — but takes
+fields, same clean_record handling (record_utils), same base_url default — but takes
 its own base_url separately (not shared with PublishedPredictor's) so
 that pointing PredictionNetwork calls at a different host later (e.g.
 if this feature moves off sphere-api to its own service) is a config
 change, not an API-shape change.
 """
 
-import math
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
+from .record_utils import clean_record
 
 if TYPE_CHECKING:
     from .http_client import ClientContext
@@ -96,9 +97,9 @@ class PublishedPredictionNetwork:
 
     Usage:
         network = client.published_prediction_network(
-            org="alph",
+            org="acme",
             name="carrier-qualification",
-            api_key="sk_alph_xxx",
+            api_key="fx_your_api_key",
         )
 
         # Register/update the chain (nodes reference your own published models)
@@ -181,7 +182,7 @@ class PublishedPredictionNetwork:
         """
         import requests
 
-        cleaned_record = self._clean_record(record)
+        cleaned_record = clean_record(record)
         headers = {"X-API-Key": self.api_key, "Content-Type": "application/json"}
         response = requests.post(
             self.endpoint_url,
@@ -192,18 +193,6 @@ class PublishedPredictionNetwork:
         if response.status_code != 200:
             raise RuntimeError(self._error_message(response))
         return PredictionNetworkResult.from_dict(response.json())
-
-    def _clean_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean a record for API submission — mirrors PublishedPredictor._clean_record."""
-        cleaned = {}
-        for key, value in record.items():
-            if isinstance(value, float):
-                if math.isnan(value) or math.isinf(value):
-                    value = None
-            if hasattr(value, 'item'):
-                value = value.item()
-            cleaned[key] = value
-        return cleaned
 
     def _error_message(self, response) -> str:
         try:

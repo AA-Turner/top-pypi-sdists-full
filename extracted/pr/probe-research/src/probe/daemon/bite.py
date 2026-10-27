@@ -35,6 +35,7 @@ plain code already scanned them in full. Everything older is one
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import site
@@ -46,7 +47,7 @@ from pathlib import Path
 
 from probe.daemon import toolset
 from probe.daemon.events import PEER_TOOL, READER_SOURCE, REQUEST_SOURCE, Kind
-from probe.daemon.store import BEFORE_DAEMON_BITE, StoredEvent, Store
+from probe.daemon.store import BEFORE_DAEMON_BITE, StoredEvent, Store, write_target
 
 CHARS_PER_TOKEN = 4
 WINDOW_TOKENS = 50_000
@@ -187,6 +188,20 @@ MORE_LINES = ("{head} · {n:,} more lines: session op=open event_id={id}",
 NOT_SHOWN = ("not shown. `session` reaches them.", "not shown. `probe daemon session` reaches them.")
 LAST_WRITES = ("# Your last writes (older: `session` op=logbook)",
                "# Your last writes (older: `probe daemon session logbook \"<words>\"`)")
+#: The block plain code appends after each compaction summary (`landed_block`):
+#: the landed writes from the logbook, so no id or slug in it passed through the
+#: model. Wording NEW (fixtures/daemon_prompts/compaction/landed-writes.NEW.md).
+LANDED_HEAD = "## Landed writes (from your logbook, not the summary)"
+LANDED_INTRO = ("Newest first, one line per command, target and id. Older: `session` op=logbook. Failed or waiting: "
+                "`session` op=status.",
+                "Newest first, one line per command, target and id. Older: `probe daemon session logbook \"<words>\"`. "
+                "Failed or waiting: `probe daemon session status`.")
+#: At most this many lines; the rest are counted.
+LANDED_LINES = 100
+#: The newest this many landed writes are read (as `Store.filed` does); past it
+#: the count of older lines is a floor ("N+").
+LANDED_SCAN = 5000
+_UUID_FIRST = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
 TURN_CUT = ("session op=open turn={turn} pages through them; op=search finds words in them ...]",
             "probe daemon session open --turn {turn} pages through them; probe daemon session search finds words "
             "in them ...]")
@@ -415,6 +430,80 @@ def build(store: Store, *, trigger: str, context_line: str, pending_lines: list[
         parts.append(memory)
     return Bite(first_seq=first_seq, last_seq=last_seq, trigger=trigger, instructions=instructions_for(context_line),
                 prompt="\n\n".join(parts), window_first_turn=first_turn)
+
+
+def _landed_ref(output: str) -> tuple[str | None, str | None]:
+    """`(id, slug)` Probe answered a write with: its JSON's own `id` and `slug`,
+    or an answer that opens with a uuid (`run end`: "<uuid> -> completed")."""
+    text = (output or "").lstrip()
+    found = _UUID_FIRST.match(text)
+    if found:
+        return found.group(0), None
+    try:
+        answer, _ = json.JSONDecoder().raw_decode(text)
+    except ValueError:
+        return None, None
+    if not isinstance(answer, dict):
+        return None, None
+    ident, slug = answer.get("id"), answer.get("slug")
+    return (ident if isinstance(ident, str) else None), (slug if isinstance(slug, str) else None)
+
+
+def _one_line(text: str, limit: int = 120) -> str:
+    """`text` on one line, at most `limit` characters: nothing in it can start a
+    line of its own in the block."""
+    return " ".join(text.split())[:limit]
+
+
+def landed_lines(store: Store) -> tuple[list[str], int, bool]:
+    """The landed `probe` writes in the logbook, newest first, one line per
+    command, target and id: the kind (the command), the slug Probe answered with
+    (else the target the command named), the id it answered with, and the events
+    the run that made it covered. At most LANDED_LINES; how many more there are;
+    and whether the logbook holds more than LANDED_SCAN writes (the count is a floor).
+    `--help` and reads are not writes; a shell command is not a Probe write."""
+    from probe.sdk import session_marker
+
+    seen: set[tuple[str, str, str]] = set()
+    lines: list[str] = []
+    more = 0
+    rows = store.landed_writes(LANDED_SCAN)
+    for row in rows:
+        try:
+            argv = [str(a) for a in json.loads(row["argv"])]
+        except (TypeError, ValueError):
+            continue
+        if argv[:1] != ["probe"] or "--help" in argv or "-h" in argv:
+            continue
+        kind, matched = session_marker.classify_probe_args(argv[1:])
+        if kind != "write":
+            continue
+        head = matched.removeprefix("probe ")
+        ident, slug = _landed_ref(row["output"] or "")
+        ident = _one_line(ident or "")
+        target = _one_line(slug or write_target(head, argv))
+        key = (head, target, ident)
+        if key in seen:
+            continue
+        seen.add(key)
+        if len(lines) >= LANDED_LINES:
+            more += 1
+            continue
+        line = f"- {head}" + (f" {target}" if target else "") + (f" · id {ident}" if ident else "")
+        first, last = row["first_event"], row["last_event"]
+        if first:
+            line += f" · events {first}" + (f" to {last}" if last and last != first else "")
+        lines.append(line)
+    return lines, more, len(rows) >= LANDED_SCAN
+
+
+def landed_block(store: Store) -> str:
+    """The landed writes as the block appended after a compaction summary."""
+    lines, more, floor = landed_lines(store)
+    body = lines or ["- nothing yet"]
+    if more or floor:
+        body.append(f"- {more:,}{'+' if floor else ''} older not shown")
+    return "\n".join([LANDED_HEAD, toolset.pick(*LANDED_INTRO), *body])
 
 
 def skills_root() -> Path | None:

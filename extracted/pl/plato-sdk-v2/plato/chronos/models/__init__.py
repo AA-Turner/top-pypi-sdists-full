@@ -5067,3 +5067,59 @@ class LoginVaultImportResult(BaseModel):
     )
     dry_run: Annotated[bool, Field(title="Dry Run")]
     tables: Annotated[list[LoginVaultImportTable], Field(title="Tables")]
+
+
+class ClientAuth(Enum):
+    client_secret_basic = "client_secret_basic"
+    client_secret_post = "client_secret_post"
+    none = "none"
+
+
+class GrantState(Enum):
+    paused = "paused"
+    active = "active"
+    dead = "dead"
+
+
+class LoginVaultGrant(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    login_key: Annotated[str, Field(title="Login Key")]
+    account: Annotated[str, Field(title="Account")]
+    kind: Annotated[str, Field(title="Kind")]
+    state: GrantState
+    state_reason: Annotated[str | None, Field(title="State Reason")] = None
+    generation: Annotated[int, Field(title="Generation")]
+    client_id: Annotated[str, Field(title="Client Id")]
+    client_auth: ClientAuth
+    token_url: Annotated[str, Field(title="Token Url")]
+    resource: Annotated[str | None, Field(title="Resource")] = None
+    redirect_uri: Annotated[str | None, Field(title="Redirect Uri")] = None
+    scopes: Annotated[list[str], Field(title="Scopes")]
+    has_client_secret: Annotated[bool, Field(title="Has Client Secret")]
+    has_refresh_token: Annotated[bool, Field(title="Has Refresh Token")]
+    has_access_token: Annotated[bool, Field(title="Has Access Token")]
+    expires_at: Annotated[datetime | None, Field(title="Expires At")] = None
+    user_id: Annotated[str | None, Field(title="User Id")] = None
+    team_id: Annotated[str | None, Field(title="Team Id")] = None
+    consent_email: Annotated[str | None, Field(title="Consent Email")] = None
+    env_name: Annotated[str | None, Field(title="Env Name")] = None
+    refresh_started_at: Annotated[datetime | None, Field(title="Refresh Started At")] = None
+    last_rotated_at: Annotated[datetime | None, Field(title="Last Rotated At")] = None
+    created_by: Annotated[str | None, Field(title="Created By")] = None
+    updated_by: Annotated[str | None, Field(title="Updated By")] = None
+    created_at: Annotated[datetime, Field(title="Created At")]
+    updated_at: Annotated[datetime, Field(title="Updated At")]
+    env_error: Annotated[str | None, Field(title="Env Error")] = None
+
+
+class LoginVaultGrantToken(BaseModel):
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    access_token: Annotated[str, Field(title="Access Token")]
+    expires_at: Annotated[datetime | None, Field(title="Expires At")] = None
+    generation: Annotated[int, Field(title="Generation")]
+    refreshed: Annotated[bool | None, Field(title="Refreshed")] = False
+    env_error: Annotated[str | None, Field(title="Env Error")] = None

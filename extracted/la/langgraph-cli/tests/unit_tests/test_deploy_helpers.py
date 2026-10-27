@@ -33,6 +33,7 @@ from langgraph_cli.deploy import (
     _Emitter,
     _env_without_deployment_name,
     _parse_env_from_config,
+    _print_deployment_result,
     _resolve_env_path,
     _resolve_pushed_image_digest,
     _resource_spec,
@@ -534,6 +535,39 @@ class TestEmitterTextMode:
         lines = [line.strip() for line in captured.out.splitlines() if line.strip()]
         assert "Deployment successful!" in lines
         assert "URL: https://app.test" in lines
+
+
+@pytest.mark.parametrize(
+    ("deployment", "expected_url_lines"),
+    [
+        pytest.param(
+            {
+                "id": "dep-1",
+                "source_config": {"custom_url": "https://agent.example.com"},
+            },
+            ["URL: https://agent.example.com"],
+            id="custom_url_is_printed",
+        ),
+        pytest.param(
+            {"id": "dep-1", "source_config": {}}, [], id="no_custom_url_no_line"
+        ),
+    ],
+)
+def test_a_deployed_result_prints_the_deployment_url(
+    capsys, monkeypatch, deployment, expected_url_lines
+):
+    class FakeClient:
+        def get_deployment(self, deployment_id: str) -> dict:
+            return deployment
+
+    monkeypatch.setattr(deploy_mod, "_emitter", None)
+
+    _print_deployment_result(
+        FakeClient(), "dep-1", "DEPLOYED", dashboard_label="Deployment dashboard"
+    )
+
+    lines = [line.strip() for line in capsys.readouterr().out.splitlines()]
+    assert [line for line in lines if line.startswith("URL:")] == expected_url_lines
 
 
 # ---------------------------------------------------------------------------
@@ -1210,6 +1244,7 @@ def test_finding_a_deployment_by_name_narrows_the_search_for_every_server_versio
         "name": "agent",
         "name_contains": "agent",
         "limit": "100",
+        "offset": "0",
     }
     assert found == ExistingDeployment("dep-1", "github")
 
@@ -1237,20 +1272,29 @@ def test_a_server_that_ignores_the_exact_name_filter_never_matches_another_deplo
     assert find_deployment_by_name(client, "brand-new-agent") is None
 
 
-def test_a_full_page_without_a_match_refuses_to_claim_the_name_is_free():
-    page = [
-        {"id": f"dep-{index}", "name": f"other-agent-{index}"} for index in range(100)
-    ]
-    client = HostBackendClient(
-        "https://api.example.com",
-        "key",
-        transport=httpx.MockTransport(
-            lambda req: httpx.Response(200, json={"resources": page})
+def test_a_deployment_beyond_the_first_page_is_found_by_name():
+    deployments = [
+        *(
+            {"id": f"dep-{index}", "name": f"other-agent-{index}"}
+            for index in range(100)
         ),
+        {"id": "dep-target", "name": "agent", "source": "external_docker"},
+    ]
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        offset = int(req.url.params["offset"])
+        limit = int(req.url.params["limit"])
+        return httpx.Response(
+            200, json={"resources": deployments[offset : offset + limit]}
+        )
+
+    client = HostBackendClient(
+        "https://api.example.com", "key", transport=httpx.MockTransport(handler)
     )
 
-    with pytest.raises(click.ClickException, match="--deployment-id"):
-        find_deployment_by_name(client, "brand-new-agent")
+    assert find_deployment_by_name(client, "agent") == ExistingDeployment(
+        "dep-target", "external_docker"
+    )
 
 
 def test_a_partial_page_without_a_match_means_the_name_is_free():
@@ -1414,3 +1458,59 @@ class TestPlacementOnAKnownListener:
     def test_refuses_and_names_the_namespaces(self, request_, listener, message):
         with pytest.raises(click.UsageError, match=message):
             request_.on(listener)
+
+
+DEFAULT_UPLOAD_HEADERS = {
+    "content-type": "application/gzip",
+    "content-length": "7",
+    "x-goog-content-length-range": "0,209715200",
+}
+
+
+@pytest.mark.parametrize(
+    ("upload_headers", "expected"),
+    [
+        pytest.param(None, DEFAULT_UPLOAD_HEADERS, id="missing_sends_defaults"),
+        pytest.param({}, DEFAULT_UPLOAD_HEADERS, id="empty_sends_defaults"),
+        pytest.param(
+            {
+                "content-type": "application/x-gzip",
+                "x-ms-blob-type": "BlockBlob",
+                "content-length": "1",
+            },
+            {
+                "content-type": "application/x-gzip",
+                "x-ms-blob-type": "BlockBlob",
+                "content-length": "7",
+            },
+            id="returned_headers_replace_defaults",
+        ),
+        pytest.param(
+            {"x-ms-blob-type": "BlockBlob"},
+            {
+                "content-type": "application/gzip",
+                "x-ms-blob-type": "BlockBlob",
+                "content-length": "7",
+            },
+            id="returned_headers_keep_a_content_type",
+        ),
+    ],
+)
+def test_source_upload_sends_the_headers_the_signed_url_requires(
+    tmp_path, mocker, upload_headers, expected
+):
+    archive = tmp_path / "source.tar.gz"
+    archive.write_bytes(b"tarball")
+    sent = []
+    mocker.patch(
+        "langgraph_cli.deploy._get_emitter", return_value=MagicMock(json_mode=True)
+    )
+    mocker.patch(
+        "urllib.request.urlopen", side_effect=lambda req, timeout: sent.append(req)
+    )
+
+    deploy_mod._upload_source_tarball(
+        "https://storage.example/signed", str(archive), 7, upload_headers
+    )
+
+    assert {name.lower(): value for name, value in sent[0].header_items()} == expected

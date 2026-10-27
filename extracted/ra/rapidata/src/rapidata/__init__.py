@@ -6,7 +6,7 @@ it in the project). Check authentication with
 ``python -m rapidata status`` and log the user in with ``python -m rapidata login``.
 """
 
-__version__ = "3.27.0"
+__version__ = "3.27.1"
 
 from ._agent_hint import print_agent_hint as _print_agent_hint
 
@@ -25,6 +25,7 @@ from .rapidata_client import (
     RapidataJobManager,
     CostEstimate,
     JobProgress,
+    RevisionInfo,
     RapidataSignal,
     RapidataSignalManager,
     RapidataFlow,
@@ -94,6 +95,7 @@ from .rapidata_client import (
     ContextManager,
     FailedUploadException,
     FailedUpload,
+    RevisionConflictError,
     SampleUpload,
     rapidata_config,
     logger,

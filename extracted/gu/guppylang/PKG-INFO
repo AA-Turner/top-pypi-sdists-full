@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: guppylang
-Version: 1.1.4
+Version: 1.2.0
 Summary: Pythonic quantum-classical programming language
 Project-URL: homepage, https://github.com/quantinuum/guppylang
 Project-URL: repository, https://github.com/quantinuum/guppylang
@@ -219,13 +219,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Compilers
 Requires-Python: <4,>=3.12
-Requires-Dist: guppylang-internals==1.1.4
+Requires-Dist: guppylang-internals==1.2.0
 Requires-Dist: numpy<3,>=2.2.6
 Requires-Dist: pytket>=2.7.0
-Requires-Dist: selene-hugr-qis-compiler~=0.5.0
+Requires-Dist: selene-hugr-qis-compiler~=0.5.1
 Requires-Dist: selene-sim~=0.3.1
 Requires-Dist: tqdm>=4.70.0
-Requires-Dist: types-tqdm>=4.70.0.20260805
 Description-Content-Type: text/markdown
 
 ![](https://raw.githubusercontent.com/quantinuum/guppylang/refs/heads/main/assets/guppy_logo.svg)
@@ -284,7 +283,7 @@ teleport.check()
 
 ## Install
 
-Guppy can be installed via `pip`. Requires Python >= 3.10.
+Guppy can be installed via `pip`. Requires Python >= 3.12.
 
 ```sh
 pip install guppylang

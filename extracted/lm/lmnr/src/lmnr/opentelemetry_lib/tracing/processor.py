@@ -1,7 +1,7 @@
 import logging
 import threading
 import uuid
-from typing import Any, cast
+from typing import cast
 
 from opentelemetry.context import Context, get_value
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
@@ -13,6 +13,10 @@ from opentelemetry.sdk.trace.export import (
 from opentelemetry.util.types import AttributeValue
 from typing_extensions import override
 
+from lmnr.opentelemetry_lib.tracing.anthropic_native import (
+    is_anthropic_native_scope,
+    native_spans_requested,
+)
 from lmnr.opentelemetry_lib.tracing.attributes import (
     ASSOCIATION_PROPERTIES,
     PARENT_SPAN_IDS_PATH,
@@ -116,6 +120,17 @@ class LaminarSpanProcessor(SpanProcessor):
 
     @override
     def on_start(self, span: Span, parent_context: Context | None = None):
+        # Not every `Span` handed to a processor is an SDK span.
+        scope = getattr(span, "instrumentation_scope", None)
+        if (
+            scope is not None
+            and is_anthropic_native_scope(scope.name)
+            and not native_spans_requested()
+        ):
+            # Our anthropic wrapper records this call; see `anthropic_native.py`.
+            span.set_attribute("lmnr.internal.disabled", True)
+            return
+
         is_disabled = (from_env("LMNR_DISABLE_TRACING") or "false").lower().strip() == "true"
 
         if is_disabled:
@@ -194,11 +209,6 @@ class LaminarSpanProcessor(SpanProcessor):
                             else json_dumps(value)
                         ),
                     )
-
-        if span.name == "LangGraph.workflow":
-            graph_context = cast(dict[Any, Any], get_value("lmnr.langgraph.graph")) or {}
-            for key, value in graph_context.items():
-                span.set_attribute(f"lmnr.association.properties.{key}", value)
 
         with self._instance_lock:
             self.instance.on_start(span, parent_context)

@@ -4,50 +4,70 @@ use crate::collection::glob_match_any;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 use std::thread;
 use tempfile::TempDir;
 use walkdir::WalkDir;
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct TestResult {
-    pub nodeid: String,
-    pub outcome: String,
-    pub duration_ms: f64,
-    #[serde(default)]
-    pub stdout: String,
-    #[serde(default)]
-    pub stderr: String,
-    pub error: Option<ErrorInfo>,
-    #[serde(default)]
-    pub error_type: Option<String>,
+#[derive(Debug, Deserialize)]
+struct TestResult {
+    nodeid: String,
+    duration_ms: f64,
+    #[serde(flatten)]
+    outcome: TestOutcome,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct ErrorInfo {
-    #[serde(default)]
-    pub traceback: Option<String>,
-    #[serde(default)]
-    pub reason: Option<String>,
+/// Each outcome owns exactly the diagnostics that can accompany it.
+#[derive(Debug, Deserialize)]
+#[serde(tag = "outcome", rename_all = "lowercase")]
+enum TestOutcome {
+    Passed,
+    Failed(FailureInfo),
+    Error(FailureInfo),
+    Skipped,
+}
+
+#[derive(Debug, Deserialize)]
+struct FailureInfo {
+    error: TracebackInfo,
+    // Deserialized even though only Python consumers currently display the type.
+    #[serde(rename = "error_type")]
+    _error_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TracebackInfo {
+    traceback: String,
+}
+
+#[derive(Debug)]
+struct FailedTest {
+    nodeid: String,
+    info: FailureInfo,
 }
 
 #[derive(Debug, Default)]
-pub struct AggregatedResults {
-    pub passed: usize,
-    pub failed: usize,
-    pub error: usize,
-    pub skipped: usize,
-    pub total: usize,
-    pub total_duration_ms: f64,
-    pub failures: Vec<TestResult>,
-    pub errors: Vec<TestResult>,
+struct AggregatedResults {
+    passed: usize,
+    skipped: usize,
+    total_duration_ms: f64,
+    failures: Vec<FailedTest>,
+    errors: Vec<FailedTest>,
+    worker_errors: Vec<String>,
+}
+
+impl AggregatedResults {
+    fn has_failures(&self) -> bool {
+        !self.failures.is_empty() || !self.errors.is_empty() || !self.worker_errors.is_empty()
+    }
 }
 
 pub struct NativeRunnerConfig {
     pub python_executable: String,
     pub root_path: PathBuf,
-    pub num_workers: usize,
+    pub num_workers: NonZeroUsize,
     pub python_files: Vec<String>,
     pub python_classes: Vec<String>,
     pub python_functions: Vec<String>,
@@ -66,21 +86,6 @@ pub fn default_python_classes() -> Vec<String> {
 /// Default pytest python_functions patterns
 pub fn default_python_functions() -> Vec<String> {
     vec!["test*".into()]
-}
-
-fn shard_files(files: Vec<PathBuf>, num_workers: usize) -> Vec<Vec<PathBuf>> {
-    if num_workers == 0 || files.is_empty() {
-        return vec![];
-    }
-
-    let actual_workers = num_workers.min(files.len());
-    let mut shards: Vec<Vec<PathBuf>> = (0..actual_workers).map(|_| Vec::new()).collect();
-
-    for (i, file) in files.into_iter().enumerate() {
-        shards[i % actual_workers].push(file);
-    }
-
-    shards.into_iter().filter(|s| !s.is_empty()).collect()
 }
 
 fn parse_results_file(path: &Path) -> Result<Vec<TestResult>, String> {
@@ -106,44 +111,27 @@ fn parse_results_file(path: &Path) -> Result<Vec<TestResult>, String> {
     Ok(results)
 }
 
-fn aggregate_results(all_results: Vec<Vec<TestResult>>) -> AggregatedResults {
-    let mut aggregated = AggregatedResults::default();
-
-    for results in all_results {
+impl Extend<TestResult> for AggregatedResults {
+    fn extend<T: IntoIterator<Item = TestResult>>(&mut self, results: T) {
         for result in results {
-            aggregated.total += 1;
-            aggregated.total_duration_ms += result.duration_ms;
-
-            match result.outcome.as_str() {
-                "passed" => aggregated.passed += 1,
-                "failed" => {
-                    aggregated.failed += 1;
-                    aggregated.failures.push(result);
-                }
-                "error" => {
-                    aggregated.error += 1;
-                    aggregated.errors.push(result);
-                }
-                "skipped" => aggregated.skipped += 1,
-                _ => aggregated.error += 1,
+            self.total_duration_ms += result.duration_ms;
+            match result.outcome {
+                TestOutcome::Passed => self.passed += 1,
+                TestOutcome::Failed(info) => self.failures.push(FailedTest {
+                    nodeid: result.nodeid,
+                    info,
+                }),
+                TestOutcome::Error(info) => self.errors.push(FailedTest {
+                    nodeid: result.nodeid,
+                    info,
+                }),
+                TestOutcome::Skipped => self.skipped += 1,
             }
         }
     }
-
-    aggregated
 }
 
-fn print_error_info(error: &ErrorInfo) {
-    if let Some(traceback) = &error.traceback {
-        for line in traceback.lines() {
-            println!("    {}", line);
-        }
-    } else if let Some(reason) = &error.reason {
-        println!("    {}", reason);
-    }
-}
-
-fn print_test_results(label: &str, results: &[TestResult]) {
+fn print_test_results(label: &str, results: &[FailedTest]) {
     if results.is_empty() {
         return;
     }
@@ -151,8 +139,8 @@ fn print_test_results(label: &str, results: &[TestResult]) {
     println!("{}:", label);
     for result in results {
         println!("  {}", result.nodeid);
-        if let Some(error) = &result.error {
-            print_error_info(error);
+        for line in result.info.error.traceback.lines() {
+            println!("    {}", line);
         }
     }
 }
@@ -163,25 +151,26 @@ fn print_summary(results: &AggregatedResults) {
 
     print_test_results("FAILURES", &results.failures);
     print_test_results("ERRORS", &results.errors);
+    for error in &results.worker_errors {
+        eprintln!("{error}");
+    }
 
     println!();
     let duration_secs = results.total_duration_ms / 1000.0;
 
-    let mut parts = Vec::new();
-    if results.passed > 0 {
-        parts.push(format!("{} passed", results.passed));
-    }
-    if results.failed > 0 {
-        parts.push(format!("{} failed", results.failed));
-    }
-    if results.error > 0 {
-        parts.push(format!("{} error", results.error));
-    }
-    if results.skipped > 0 {
-        parts.push(format!("{} skipped", results.skipped));
-    }
+    let parts: Vec<String> = [
+        (results.passed, "passed"),
+        (results.failures.len(), "failed"),
+        (results.errors.len(), "error"),
+        (results.worker_errors.len(), "worker error"),
+        (results.skipped, "skipped"),
+    ]
+    .into_iter()
+    .filter(|(count, _)| *count > 0)
+    .map(|(count, label)| format!("{count} {label}"))
+    .collect();
 
-    let status = if results.failed > 0 || results.error > 0 {
+    let status = if results.has_failures() {
         "FAILED"
     } else {
         "PASSED"
@@ -203,7 +192,7 @@ fn run_worker(
     files: &[PathBuf],
     python_classes: &[String],
     python_functions: &[String],
-) -> Result<(), String> {
+) -> Result<Vec<TestResult>, String> {
     let mut cmd = Command::new(python);
     cmd.arg("-m")
         .arg("rtest.worker")
@@ -212,54 +201,37 @@ fn run_worker(
         .arg("--out")
         .arg(output_file);
 
-    if !python_classes.is_empty() {
-        cmd.arg("--python-classes");
-        for pattern in python_classes {
-            cmd.arg(pattern);
-        }
-    }
-
-    if !python_functions.is_empty() {
-        cmd.arg("--python-functions");
-        for pattern in python_functions {
-            cmd.arg(pattern);
+    for (flag, patterns) in [
+        ("--python-classes", python_classes),
+        ("--python-functions", python_functions),
+    ] {
+        if !patterns.is_empty() {
+            cmd.arg(flag).args(patterns);
         }
     }
 
     // Use -- to separate options from positional file arguments
-    cmd.arg("--");
-    for file in files {
-        cmd.arg(file);
-    }
-
-    cmd.current_dir(root)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    cmd.arg("--").args(files);
 
     let output = cmd
+        .current_dir(root)
         .output()
         .map_err(|e| format!("Worker {} failed to start: {}", worker_id, e))?;
 
-    // Check worker exit code - non-zero indicates test failures or errors
-    if !output.status.success() {
-        let exit_code = output.status.code().unwrap_or(-1);
-        // Exit code 1 is expected when tests fail, only report unexpected codes
-        if exit_code != 1 {
-            // Print stderr only for unexpected failures
-            if !output.stderr.is_empty() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                if !stderr.trim().is_empty() {
-                    eprintln!("Worker {} stderr:\n{}", worker_id, stderr);
-                }
-            }
-            return Err(format!(
-                "Worker {} crashed with exit code {} (expected 0 or 1)",
-                worker_id, exit_code
-            ));
+    let exit_code = output.status.code();
+    // Exit code 1 is expected when tests fail, only report unexpected codes.
+    if !matches!(exit_code, Some(0 | 1)) {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.trim().is_empty() {
+            eprintln!("Worker {} stderr:\n{}", worker_id, stderr);
         }
+        return Err(format!(
+            "Worker {} exited with {} (expected exit code 0 or 1)",
+            worker_id, output.status
+        ));
     }
 
-    Ok(())
+    parse_results_file(output_file)
 }
 
 pub fn execute_native(config: &NativeRunnerConfig, test_files: Vec<PathBuf>) -> i32 {
@@ -268,7 +240,7 @@ pub fn execute_native(config: &NativeRunnerConfig, test_files: Vec<PathBuf>) -> 
         return 0;
     }
 
-    let num_workers = config.num_workers.max(1);
+    let num_workers = config.num_workers;
     println!(
         "Running {} test file(s) with {} worker(s)",
         test_files.len(),
@@ -283,16 +255,12 @@ pub fn execute_native(config: &NativeRunnerConfig, test_files: Vec<PathBuf>) -> 
         }
     };
 
-    let shards = shard_files(test_files, num_workers);
-    let output_files: Vec<PathBuf> = (0..shards.len())
-        .map(|i| temp_dir.path().join(format!("worker-{}.jsonl", i)))
-        .collect();
-
+    let shards = crate::scheduler::distribute_round_robin(test_files, num_workers);
     let mut handles = Vec::new();
-    for (i, (shard, output_file)) in shards.into_iter().zip(output_files.iter()).enumerate() {
+    for (i, shard) in shards.into_iter().enumerate() {
+        let output_file = temp_dir.path().join(format!("worker-{}.jsonl", i));
         let python = config.python_executable.clone();
         let root = config.root_path.clone();
-        let output_file = output_file.clone();
         let python_classes = config.python_classes.clone();
         let python_functions = config.python_functions.clone();
         let handle = thread::spawn(move || {
@@ -309,39 +277,24 @@ pub fn execute_native(config: &NativeRunnerConfig, test_files: Vec<PathBuf>) -> 
         handles.push(handle);
     }
 
-    let mut worker_errors = Vec::new();
+    let mut aggregated = AggregatedResults::default();
     for (i, handle) in handles.into_iter().enumerate() {
         match handle.join() {
-            Ok(Ok(())) => {}
-            Ok(Err(e)) => worker_errors.push(format!("Worker {}: {}", i, e)),
-            Err(_) => worker_errors.push(format!("Worker {} panicked", i)),
+            Ok(Ok(results)) => aggregated.extend(results),
+            Ok(Err(e)) => aggregated
+                .worker_errors
+                .push(format!("Worker {}: {}", i, e)),
+            Err(_) => aggregated
+                .worker_errors
+                .push(format!("Worker {} panicked", i)),
         }
     }
 
-    for error in &worker_errors {
-        eprintln!("{}", error);
-    }
-
-    let mut all_results = Vec::new();
-    for output_file in &output_files {
-        if output_file.exists() {
-            match parse_results_file(output_file) {
-                Ok(results) => all_results.push(results),
-                Err(e) => eprintln!("Warning: {}", e),
-            }
-        }
-    }
-
-    let aggregated = aggregate_results(all_results);
     print_summary(&aggregated);
 
     // TempDir is automatically cleaned up when dropped
 
-    if aggregated.failed > 0 || aggregated.error > 0 || !worker_errors.is_empty() {
-        1
-    } else {
-        0
-    }
+    i32::from(aggregated.has_failures())
 }
 
 fn is_hidden_or_ignored(name: &str) -> bool {
@@ -359,46 +312,33 @@ fn is_test_file(path: &Path, patterns: &[String]) -> bool {
     glob_match_any(patterns, file_name)
 }
 
-fn collect_test_files_in_dir(dir: &Path, patterns: &[String]) -> Vec<PathBuf> {
-    WalkDir::new(dir)
-        .into_iter()
-        .filter_entry(|e| {
-            e.file_name()
-                .to_str()
-                .map(|n| !is_hidden_or_ignored(n))
-                .unwrap_or(false)
-        })
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file() && is_test_file(e.path(), patterns))
-        .map(|e| e.into_path())
-        .collect()
-}
-
 pub fn collect_test_files(root: &Path, paths: &[String], patterns: &[String]) -> Vec<PathBuf> {
-    let mut test_files = if paths.is_empty() {
-        collect_test_files_in_dir(root, patterns)
+    let search_paths = if paths.is_empty() {
+        vec![root.to_path_buf()]
     } else {
-        paths
-            .iter()
-            .flat_map(|path_str| {
-                let path = Path::new(path_str);
-                let full_path = if path.is_absolute() {
-                    path.to_path_buf()
-                } else {
-                    root.join(path)
-                };
-
-                if full_path.is_file() && is_test_file(&full_path, patterns) {
-                    vec![full_path]
-                } else if full_path.is_dir() {
-                    collect_test_files_in_dir(&full_path, patterns)
-                } else {
-                    vec![]
-                }
-            })
-            .collect()
+        paths.iter().map(|path| root.join(path)).collect()
     };
 
+    let mut test_files: Vec<PathBuf> = search_paths
+        .into_iter()
+        .flat_map(|path| {
+            // Explicit files include hidden names and symlinks; directory walks do not.
+            let explicit_file = !paths.is_empty() && path.is_file();
+            WalkDir::new(path)
+                .follow_links(explicit_file)
+                .into_iter()
+                .filter_entry(move |entry| {
+                    explicit_file
+                        || entry
+                            .file_name()
+                            .to_str()
+                            .is_some_and(|name| !is_hidden_or_ignored(name))
+                })
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_type().is_file() && is_test_file(entry.path(), patterns))
+                .map(|entry| entry.into_path())
+        })
+        .collect();
     test_files.sort();
     test_files
 }
@@ -408,142 +348,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_shard_files_empty() {
-        let result = shard_files(vec![], 4);
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn test_shard_files_zero_workers() {
-        let files = vec![PathBuf::from("a.py"), PathBuf::from("b.py")];
-        let result = shard_files(files, 0);
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn test_shard_files_single_worker() {
-        let files = vec![
-            PathBuf::from("a.py"),
-            PathBuf::from("b.py"),
-            PathBuf::from("c.py"),
-        ];
-        let result = shard_files(files.clone(), 1);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0], files);
-    }
-
-    #[test]
-    fn test_shard_files_round_robin() {
-        let files = vec![
-            PathBuf::from("a.py"),
-            PathBuf::from("b.py"),
-            PathBuf::from("c.py"),
-            PathBuf::from("d.py"),
-            PathBuf::from("e.py"),
-        ];
-        let result = shard_files(files, 3);
-
-        assert_eq!(result.len(), 3);
-        assert_eq!(
-            result[0],
-            vec![PathBuf::from("a.py"), PathBuf::from("d.py")]
-        );
-        assert_eq!(
-            result[1],
-            vec![PathBuf::from("b.py"), PathBuf::from("e.py")]
-        );
-        assert_eq!(result[2], vec![PathBuf::from("c.py")]);
-    }
-
-    #[test]
-    fn test_shard_files_more_workers_than_files() {
-        let files = vec![PathBuf::from("a.py"), PathBuf::from("b.py")];
-        let result = shard_files(files, 5);
-
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0], vec![PathBuf::from("a.py")]);
-        assert_eq!(result[1], vec![PathBuf::from("b.py")]);
-    }
-
-    #[test]
-    fn test_is_test_file() {
-        let default_patterns = default_python_files();
-        assert!(is_test_file(Path::new("test_foo.py"), &default_patterns));
-        assert!(is_test_file(Path::new("foo_test.py"), &default_patterns));
-        assert!(is_test_file(
-            Path::new("path/to/test_bar.py"),
-            &default_patterns
-        ));
-        assert!(!is_test_file(Path::new("foo.py"), &default_patterns));
-        assert!(!is_test_file(Path::new("conftest.py"), &default_patterns));
-        assert!(!is_test_file(Path::new("test_foo.txt"), &default_patterns));
-    }
-
-    #[test]
-    fn test_is_test_file_custom_patterns() {
-        let patterns = vec!["check_*.py".into(), "*_spec.py".into()];
-        assert!(is_test_file(Path::new("check_validation.py"), &patterns));
-        assert!(is_test_file(Path::new("user_spec.py"), &patterns));
-        assert!(!is_test_file(Path::new("test_foo.py"), &patterns));
-        assert!(!is_test_file(Path::new("foo_test.py"), &patterns));
-    }
-
-    #[test]
-    fn test_aggregate_results() {
-        let results = vec![
-            vec![
-                TestResult {
-                    nodeid: "test1".into(),
-                    outcome: "passed".into(),
-                    duration_ms: 10.0,
-                    stdout: String::new(),
-                    stderr: String::new(),
-                    error: None,
-                    error_type: None,
-                },
-                TestResult {
-                    nodeid: "test2".into(),
-                    outcome: "failed".into(),
-                    duration_ms: 20.0,
-                    stdout: String::new(),
-                    stderr: String::new(),
-                    error: Some(ErrorInfo {
-                        traceback: Some("AssertionError".into()),
-                        reason: None,
-                    }),
-                    error_type: Some("AssertionError".into()),
-                },
-            ],
-            vec![TestResult {
-                nodeid: "test3".into(),
-                outcome: "skipped".into(),
-                duration_ms: 0.0,
-                stdout: String::new(),
-                stderr: String::new(),
-                error: Some(ErrorInfo {
-                    traceback: None,
-                    reason: Some("WIP".into()),
-                }),
-                error_type: None,
-            }],
-        ];
-
-        let aggregated = aggregate_results(results);
-        assert_eq!(aggregated.total, 3);
-        assert_eq!(aggregated.passed, 1);
-        assert_eq!(aggregated.failed, 1);
-        assert_eq!(aggregated.skipped, 1);
-        assert_eq!(aggregated.failures.len(), 1);
-        assert_eq!(aggregated.total_duration_ms, 30.0);
-    }
-
-    #[test]
     fn test_parse_results_json() {
         // Test deserializing JSON
         let json = r#"{"nodeid":"test::foo","outcome":"passed","duration_ms":1.5,"stdout":"","stderr":"","error":null}"#;
         let result: TestResult = serde_json::from_str(json).unwrap();
         assert_eq!(result.nodeid, "test::foo");
-        assert_eq!(result.outcome, "passed");
+        assert!(matches!(result.outcome, TestOutcome::Passed));
         assert_eq!(result.duration_ms, 1.5);
+    }
+
+    #[test]
+    fn rejects_invalid_worker_json_at_the_protocol_boundary() {
+        for json in [
+            r#"{"nodeid":"test::foo","outcome":"unknown","duration_ms":0}"#,
+            r#"{"nodeid":"test::foo","outcome":"failed","duration_ms":0}"#,
+            r#"{"nodeid":"test::foo","outcome":"error","duration_ms":0,"error":{"reason":"skip"},"error_type":"ValueError"}"#,
+        ] {
+            assert!(serde_json::from_str::<TestResult>(json).is_err());
+        }
+    }
+
+    #[test]
+    fn aggregates_worker_outcomes_with_their_diagnostics() {
+        let results = [
+            r#"{"nodeid":"passed","outcome":"passed","duration_ms":1}"#,
+            r#"{"nodeid":"skipped","outcome":"skipped","duration_ms":0,"error":{"reason":"later"}}"#,
+            r#"{"nodeid":"failed","outcome":"failed","duration_ms":2,"error":{"traceback":"assertion"},"error_type":"AssertionError"}"#,
+            r#"{"nodeid":"error","outcome":"error","duration_ms":3,"error":{"traceback":"exception"},"error_type":"ValueError"}"#,
+        ].into_iter().map(|json| serde_json::from_str(json).expect("valid worker JSON"));
+        let mut summary = AggregatedResults::default();
+        summary.extend(results);
+        assert_eq!(summary.passed, 1);
+        assert_eq!(summary.skipped, 1);
+        assert_eq!(summary.total_duration_ms, 6.0);
+        assert_eq!(summary.failures[0].info.error.traceback, "assertion");
+        assert_eq!(summary.errors[0].info.error.traceback, "exception");
+        assert!(summary.has_failures());
     }
 }

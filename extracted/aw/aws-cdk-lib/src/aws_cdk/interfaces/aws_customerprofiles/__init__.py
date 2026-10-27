@@ -699,6 +699,53 @@ typing.cast(typing.Any, IObjectTypeRef).__jsii_proxy_class__ = lambda : _IObject
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.IRecommenderFilterRef"
+)
+class IRecommenderFilterRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RecommenderFilter.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderFilterRef")
+    def recommender_filter_ref(self) -> "RecommenderFilterReference":
+        '''(experimental) A reference to a RecommenderFilter resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRecommenderFilterRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RecommenderFilter.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_customerprofiles.IRecommenderFilterRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderFilterRef")
+    def recommender_filter_ref(self) -> "RecommenderFilterReference":
+        '''(experimental) A reference to a RecommenderFilter resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RecommenderFilterReference", jsii.get(self, "recommenderFilterRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRecommenderFilterRef).__jsii_proxy_class__ = lambda : _IRecommenderFilterRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.IRecommenderRef"
 )
 class IRecommenderRef(
@@ -965,6 +1012,55 @@ class ObjectTypeReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.RecommenderFilterReference",
+    jsii_struct_bases=[],
+    name_mapping={"recommender_filter_arn": "recommenderFilterArn"},
+)
+class RecommenderFilterReference:
+    def __init__(self, *, recommender_filter_arn: builtins.str) -> None:
+        '''A reference to a RecommenderFilter resource.
+
+        :param recommender_filter_arn: The RecommenderFilterArn of the RecommenderFilter resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_customerprofiles as interfaces_customerprofiles
+            
+            recommender_filter_reference = interfaces_customerprofiles.RecommenderFilterReference(
+                recommender_filter_arn="recommenderFilterArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7d1422e0b636d2f0044ebd825d9ea1b767be94d0be9fdad33c1d8ee13bb84270)
+            check_type(argname="argument recommender_filter_arn", value=recommender_filter_arn, expected_type=type_hints["recommender_filter_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "recommender_filter_arn": recommender_filter_arn,
+        }
+
+    @builtins.property
+    def recommender_filter_arn(self) -> builtins.str:
+        '''The RecommenderFilterArn of the RecommenderFilter resource.'''
+        result = self._values.get("recommender_filter_arn")
+        assert result is not None, "Required property 'recommender_filter_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RecommenderFilterReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_customerprofiles.RecommenderReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -1188,11 +1284,13 @@ __all__ = [
     "IEventTriggerRef",
     "IIntegrationRef",
     "IObjectTypeRef",
+    "IRecommenderFilterRef",
     "IRecommenderRef",
     "IRecommenderSchemaRef",
     "ISegmentDefinitionRef",
     "IntegrationReference",
     "ObjectTypeReference",
+    "RecommenderFilterReference",
     "RecommenderReference",
     "RecommenderSchemaReference",
     "SegmentDefinitionReference",
@@ -1256,6 +1354,13 @@ def _typecheckingstub__dcdfa1e22cd22dc7400da7632968be09334b8baeadcbbfcdcedf890b2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7d1422e0b636d2f0044ebd825d9ea1b767be94d0be9fdad33c1d8ee13bb84270(
+    *,
+    recommender_filter_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__880f1b8ece67b6b9b370ab6527bad59ca1de36c60efe95075558badcc1b3c919(
     *,
     domain_name: builtins.str,
@@ -1281,5 +1386,5 @@ def _typecheckingstub__5e30c09a37c8a79e5b1574fa33f089f6b93ba58323998bc89f415eb9d
     """Type checking stubs"""
     pass
 
-for cls in [ICalculatedAttributeDefinitionRef, IDomainObjectTypeRef, IDomainRef, IEventStreamRef, IEventTriggerRef, IIntegrationRef, IObjectTypeRef, IRecommenderRef, IRecommenderSchemaRef, ISegmentDefinitionRef]:
+for cls in [ICalculatedAttributeDefinitionRef, IDomainObjectTypeRef, IDomainRef, IEventStreamRef, IEventTriggerRef, IIntegrationRef, IObjectTypeRef, IRecommenderFilterRef, IRecommenderRef, IRecommenderSchemaRef, ISegmentDefinitionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

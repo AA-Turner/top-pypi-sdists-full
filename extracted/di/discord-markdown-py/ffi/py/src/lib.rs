@@ -8,6 +8,7 @@
 use ::discord_markdown::{
 	DEFAULT_FUEL, Options,
 	error::Error,
+	lossless::Unit,
 	node::Blocks,
 	syntax::{Syntax, SyntaxSet},
 };
@@ -55,6 +56,44 @@ fn parse<'py>(py: Python<'py>, data: &str, flags: u32, fuel: u32) -> PyResult<Bo
 	Ok(pythonize(py, &result)?)
 }
 
+/// Parse markdown content into the lossless tree: nodes for what it means, and tokens holding
+/// every character of `data` in order, so joining their `text` gives it back exactly.
+///
+/// Every span counts code points, so it indexes `data` as a `str`. `flags` and `fuel` are as for
+/// `parse`.
+#[pyfunction]
+#[pyo3(signature = (data, *, flags=Options::ALL_FLAGS, fuel=DEFAULT_FUEL))]
+fn parse_lossless<'py>(
+	py: Python<'py>,
+	data: &str,
+	flags: u32,
+	fuel: u32,
+) -> PyResult<Bound<'py, PyAny>> {
+	create_exception!(py.module, OutOfFuelException, PyException);
+
+	let data = data.to_owned();
+
+	let result = py
+		.allow_threads(|| {
+			let mut node = ::discord_markdown::parse_lossless::<Error<'_>>(
+				data.as_str(),
+				Options::from_flags(flags, fuel),
+			)?;
+			node.convert_spans(&data, Unit::CodePoint);
+			Ok(node)
+		})
+		.map_err(|err: Error<'_>| {
+			let msg = err.to_string();
+
+			match err {
+				Error::OutOfFuel => OutOfFuelException::new_err(msg),
+				Error::Parse(_) => PyException::new_err(msg),
+			}
+		})?;
+
+	Ok(pythonize(py, &result)?)
+}
+
 /// Turn an AST back into markdown.
 ///
 /// Takes the value `parse` returned. The AST cannot reconstruct everything exactly: text is not
@@ -69,6 +108,7 @@ fn unparse(py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<String> {
 #[pymodule]
 fn discord_markdown(m: &Bound<'_, PyModule>) -> PyResult<()> {
 	m.add_function(wrap_pyfunction!(parse, m)?)?;
+	m.add_function(wrap_pyfunction!(parse_lossless, m)?)?;
 	m.add_function(wrap_pyfunction!(unparse, m)?)?;
 	m.add("DEFAULT_FUEL", DEFAULT_FUEL)?;
 	m.add("Syntax", syntax_flag(m.py())?)?;

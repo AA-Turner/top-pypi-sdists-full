@@ -51,6 +51,7 @@ from chalk.ml.model_handler import model_handler
 from chalk.ml.model_reference import ModelReference
 from chalk.operators import StaticOperator, scan_parquet
 from chalk.prompts import Prompt, completion
+from chalk.queries.feature_subset import FeatureSubset
 from chalk.queries.materialized_feature_view import MaterializedFeatureView
 from chalk.queries.named_query import NamedQuery
 from chalk.queries.query_context import ChalkContext
@@ -95,6 +96,7 @@ __all__ = (
     "Duration",
     "EnvironmentId",
     "Environments",
+    "FeatureSubset",
     "FeatureTime",
     "Features",
     "IncrementalConfig",

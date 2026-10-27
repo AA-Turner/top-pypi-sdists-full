@@ -344,12 +344,25 @@ for line in sys.stdin:
 '''
 
 
+def _interpreter_binary() -> str:
+    """The interpreter's own binary, for a link named `claude` to run as `claude`.
+    A macOS framework build's `bin/python3.x` is a launcher that re-executes
+    `Resources/Python.app/Contents/MacOS/Python` with argv[0] replaced, so a link
+    to it runs as `Python`, which `caller.agent_like` rightly takes for no agent
+    (agent-ci service-macos: the remembered daemon owner was never remembered)."""
+    app = Path(sys.base_prefix) / "Resources" / "Python.app" / "Contents" / "MacOS" / "Python"
+    return str(app) if sys.platform == "darwin" and app.is_file() else os.path.realpath(sys.executable)
+
+
 class _Agent:
     """A coding agent as the service sees one (the kernel names it `claude`),
     whose shell runs what this test hands it: its children are under it."""
 
     def __init__(self, tmp_path: Path) -> None:
-        self.proc = _named_agent(tmp_path, "-c", _AGENT_DRIVER, sys.executable, program=os.path.realpath(sys.executable))
+        self.proc = _named_agent(tmp_path, "-c", _AGENT_DRIVER, sys.executable, program=_interpreter_binary())
+        from probe.service import caller
+
+        assert caller.agent_like(self.proc.pid), "the stand-in must look like an agent, or nothing here is tested"
         assert self.proc.stdout.readline().strip() == "ready", self.proc.stderr.read()
         self.owner = _owner(self.proc)
 

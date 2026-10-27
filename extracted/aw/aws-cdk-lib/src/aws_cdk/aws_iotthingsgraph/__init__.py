@@ -160,6 +160,7 @@ class CfnFlowTemplate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -203,7 +204,7 @@ class CfnFlowTemplate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3d77d08462d8eb61965d76c3c2dd11f46f35cba1f68eb28985b929707f6e006)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "definition", value)
 
     @builtins.property
     @jsii.member(jsii_name="compatibleNamespaceVersion")
@@ -215,7 +216,7 @@ class CfnFlowTemplate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf41bb1c7d5fc4a60abda4fc58b349bff85cd0e06e67f6c86842adc92cd2a759)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "compatibleNamespaceVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "compatibleNamespaceVersion", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_iotthingsgraph.CfnFlowTemplate.DefinitionDocumentProperty",

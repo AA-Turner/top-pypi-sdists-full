@@ -205,6 +205,7 @@ class CfnHypervisor(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -253,7 +254,7 @@ class CfnHypervisor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__234675d8ca91dba01c1c315060e69648fc33228f4d948219054c844c1a448278)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "host", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "host", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
@@ -266,7 +267,7 @@ class CfnHypervisor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d7a3fd728ca2a0e447ba4104f46d934d4ef2f36042f47c6c805ca7d2aef9e0c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="logGroupArn")
@@ -279,7 +280,7 @@ class CfnHypervisor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eb3a1f75ab544a4984880a35146647b1fbea41c82c952a898424f032faf628d7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logGroupArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logGroupArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -292,7 +293,7 @@ class CfnHypervisor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__51f6b5d4a83eac793b06bc0d84230f8b875839fa833e3f5956b48c16cc7cf3df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="password")
@@ -305,7 +306,7 @@ class CfnHypervisor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__be7fefb32999b7ee6037c16d74b63fc90b2f8978a74f5952e3aa18ad16bedca1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "password", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -321,7 +322,7 @@ class CfnHypervisor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dde24d2859009b6347e276635d0a0359b4dcc8299b84c2afd330e475d26093c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="username")
@@ -334,7 +335,7 @@ class CfnHypervisor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__01da04068d13529ca3507c1adc48f01d03eb0ade1021a50f92b12c74e46c8b5d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "username", value)
 
 
 @jsii.data_type(

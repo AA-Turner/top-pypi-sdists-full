@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: logfire
-Version: 5.3.0
+Version: 5.4.0
 Summary: Pydantic Logfire Python SDK and command-line interface
 Project-URL: Homepage, https://pydantic.dev/logfire
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -32,67 +32,69 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: logfire-sdk==5.3.0
+Requires-Dist: logfire-sdk==5.4.0
+Provides-Extra: agent-sandboxes
+Requires-Dist: logfire-sdk[agent-sandboxes]==5.4.0; extra == 'agent-sandboxes'
 Provides-Extra: aiohttp
-Requires-Dist: logfire-sdk[aiohttp]==5.3.0; extra == 'aiohttp'
+Requires-Dist: logfire-sdk[aiohttp]==5.4.0; extra == 'aiohttp'
 Provides-Extra: aiohttp-client
-Requires-Dist: logfire-sdk[aiohttp-client]==5.3.0; extra == 'aiohttp-client'
+Requires-Dist: logfire-sdk[aiohttp-client]==5.4.0; extra == 'aiohttp-client'
 Provides-Extra: aiohttp-server
-Requires-Dist: logfire-sdk[aiohttp-server]==5.3.0; extra == 'aiohttp-server'
+Requires-Dist: logfire-sdk[aiohttp-server]==5.4.0; extra == 'aiohttp-server'
 Provides-Extra: asgi
-Requires-Dist: logfire-sdk[asgi]==5.3.0; extra == 'asgi'
+Requires-Dist: logfire-sdk[asgi]==5.4.0; extra == 'asgi'
 Provides-Extra: asyncpg
-Requires-Dist: logfire-sdk[asyncpg]==5.3.0; extra == 'asyncpg'
+Requires-Dist: logfire-sdk[asyncpg]==5.4.0; extra == 'asyncpg'
 Provides-Extra: aws-lambda
-Requires-Dist: logfire-sdk[aws-lambda]==5.3.0; extra == 'aws-lambda'
+Requires-Dist: logfire-sdk[aws-lambda]==5.4.0; extra == 'aws-lambda'
 Provides-Extra: celery
-Requires-Dist: logfire-sdk[celery]==5.3.0; extra == 'celery'
+Requires-Dist: logfire-sdk[celery]==5.4.0; extra == 'celery'
 Provides-Extra: datasets
-Requires-Dist: logfire-sdk[datasets]==5.3.0; extra == 'datasets'
+Requires-Dist: logfire-sdk[datasets]==5.4.0; extra == 'datasets'
 Provides-Extra: django
-Requires-Dist: logfire-sdk[django]==5.3.0; extra == 'django'
+Requires-Dist: logfire-sdk[django]==5.4.0; extra == 'django'
 Provides-Extra: dspy
-Requires-Dist: logfire-sdk[dspy]==5.3.0; extra == 'dspy'
+Requires-Dist: logfire-sdk[dspy]==5.4.0; extra == 'dspy'
 Provides-Extra: fastapi
-Requires-Dist: logfire-sdk[fastapi]==5.3.0; extra == 'fastapi'
+Requires-Dist: logfire-sdk[fastapi]==5.4.0; extra == 'fastapi'
 Provides-Extra: flask
-Requires-Dist: logfire-sdk[flask]==5.3.0; extra == 'flask'
+Requires-Dist: logfire-sdk[flask]==5.4.0; extra == 'flask'
 Provides-Extra: gateway
-Requires-Dist: logfire-sdk[gateway]==5.3.0; extra == 'gateway'
+Requires-Dist: logfire-sdk[gateway]==5.4.0; extra == 'gateway'
 Provides-Extra: google-genai
-Requires-Dist: logfire-sdk[google-genai]==5.3.0; extra == 'google-genai'
+Requires-Dist: logfire-sdk[google-genai]==5.4.0; extra == 'google-genai'
 Provides-Extra: httpx
-Requires-Dist: logfire-sdk[httpx]==5.3.0; extra == 'httpx'
+Requires-Dist: logfire-sdk[httpx]==5.4.0; extra == 'httpx'
 Provides-Extra: litellm
-Requires-Dist: logfire-sdk[litellm]==5.3.0; extra == 'litellm'
+Requires-Dist: logfire-sdk[litellm]==5.4.0; extra == 'litellm'
 Provides-Extra: litestar
-Requires-Dist: logfire-sdk[litestar]==5.3.0; extra == 'litestar'
+Requires-Dist: logfire-sdk[litestar]==5.4.0; extra == 'litestar'
 Provides-Extra: mysql
-Requires-Dist: logfire-sdk[mysql]==5.3.0; extra == 'mysql'
+Requires-Dist: logfire-sdk[mysql]==5.4.0; extra == 'mysql'
 Provides-Extra: psycopg
-Requires-Dist: logfire-sdk[psycopg]==5.3.0; extra == 'psycopg'
+Requires-Dist: logfire-sdk[psycopg]==5.4.0; extra == 'psycopg'
 Provides-Extra: psycopg2
-Requires-Dist: logfire-sdk[psycopg2]==5.3.0; extra == 'psycopg2'
+Requires-Dist: logfire-sdk[psycopg2]==5.4.0; extra == 'psycopg2'
 Provides-Extra: pymongo
-Requires-Dist: logfire-sdk[pymongo]==5.3.0; extra == 'pymongo'
+Requires-Dist: logfire-sdk[pymongo]==5.4.0; extra == 'pymongo'
 Provides-Extra: redis
-Requires-Dist: logfire-sdk[redis]==5.3.0; extra == 'redis'
+Requires-Dist: logfire-sdk[redis]==5.4.0; extra == 'redis'
 Provides-Extra: requests
-Requires-Dist: logfire-sdk[requests]==5.3.0; extra == 'requests'
+Requires-Dist: logfire-sdk[requests]==5.4.0; extra == 'requests'
 Provides-Extra: sqlalchemy
-Requires-Dist: logfire-sdk[sqlalchemy]==5.3.0; extra == 'sqlalchemy'
+Requires-Dist: logfire-sdk[sqlalchemy]==5.4.0; extra == 'sqlalchemy'
 Provides-Extra: sqlite3
-Requires-Dist: logfire-sdk[sqlite3]==5.3.0; extra == 'sqlite3'
+Requires-Dist: logfire-sdk[sqlite3]==5.4.0; extra == 'sqlite3'
 Provides-Extra: starlette
-Requires-Dist: logfire-sdk[starlette]==5.3.0; extra == 'starlette'
+Requires-Dist: logfire-sdk[starlette]==5.4.0; extra == 'starlette'
 Provides-Extra: system-metrics
-Requires-Dist: logfire-sdk[system-metrics]==5.3.0; extra == 'system-metrics'
+Requires-Dist: logfire-sdk[system-metrics]==5.4.0; extra == 'system-metrics'
 Provides-Extra: urllib
-Requires-Dist: logfire-sdk[urllib]==5.3.0; extra == 'urllib'
+Requires-Dist: logfire-sdk[urllib]==5.4.0; extra == 'urllib'
 Provides-Extra: variables
-Requires-Dist: logfire-sdk[variables]==5.3.0; extra == 'variables'
+Requires-Dist: logfire-sdk[variables]==5.4.0; extra == 'variables'
 Provides-Extra: wsgi
-Requires-Dist: logfire-sdk[wsgi]==5.3.0; extra == 'wsgi'
+Requires-Dist: logfire-sdk[wsgi]==5.4.0; extra == 'wsgi'
 Description-Content-Type: text/markdown
 
 # Pydantic Logfire

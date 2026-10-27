@@ -16,6 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering",
 ]
 license = "MIT"
@@ -37,7 +38,7 @@ dependencies = [
     "pyvisa>=1.12.0, <1.17.0",
     "ruamel.yaml>=0.16.0,!=0.16.6",
     "tabulate>=0.9.0",
-    "typing_extensions>=4.6.0",
+    "typing_extensions>=4.12.0",
     "tqdm>=4.59.0",
     "uncertainties>=3.2.0",
     "versioningit>=2.2.1",
@@ -86,7 +87,7 @@ test = [
     "types-tqdm>=4.64.6",
     "types_pywin32>=305.0.0.7",
     "qcodes_loop>=0.1.1",
-    "zhinst.qcodes>=0.5", # typecheck zhinst driver alias
+    "zhinst.qcodes>=0.5; python_version < '3.15'", # typecheck zhinst driver alias. zhinst-core has no Python 3.15 wheels yet
     "libcst>=1.2.0", # refactor tests
 ]
 docs = [
@@ -162,7 +163,6 @@ strict_equality = true
 module = [
     "tests.*",
     "qcodes.instrument_drivers.Harvard.*",
-    "qcodes.instrument_drivers.Keysight.keysightb1500.message_builder.*",
 ]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
@@ -180,6 +180,13 @@ module = [
 ]
 ignore_missing_imports = true
 
+# zhinst-qcodes is not installable on all Python versions we test
+# (no Python 3.15 wheels for zhinst-core yet). When it is installed,
+# the Zurich Instruments driver aliases are still typechecked against it.
+[[tool.mypy.overrides]]
+module = ["zhinst.*"]
+ignore_missing_imports = true
+
 [tool.pyright]
 include = ["src","tests"]
 ignore = [
@@ -194,7 +201,6 @@ reportPrivateUsage = "none"
 reportUnknownMemberType = "none"
 reportUnknownParameterType = "none"
 reportMissingTypeArgument = "none"
-reportMissingParameterType = "none"
 reportUnknownArgumentType = "none"
 reportUnusedFunction = "none"
 reportUnusedImport = "none"
@@ -210,6 +216,13 @@ reportUnnecessaryTypeIgnoreComment = "none"
 # but not type ignore comments since mypy already checks if type ignores are necessary
 reportUnnecessaryContains = "none"
 
+executionEnvironments = [
+  # zhinst-qcodes is not installable on all Python versions we test
+  # (no Python 3.15 wheels for zhinst-core yet). When it is installed,
+  # the Zurich Instruments driver aliases are still typechecked against it.
+  { root = "src/qcodes/instrument_drivers/zurich_instruments", reportMissingImports = "none" },
+]
+
 [tool.pytest.ini_options]
 minversion = "7.2"
 testpaths = "tests"
@@ -222,7 +235,9 @@ markers = "serial"
 # and error on all other warnings
 filterwarnings = [
     'error',
-    'ignore:unclosed database in:ResourceWarning', # internal should be fixed
+    # DataSet, Experiment and the load_* functions open connections that
+    # they never close, so these are only closed when garbage collected
+    'ignore:unclosed database in:ResourceWarning',
     'ignore:unclosed\ <socket\.socket:ResourceWarning', # not clear from where this is coming
 ]
 

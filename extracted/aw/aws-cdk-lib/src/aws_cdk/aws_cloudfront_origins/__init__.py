@@ -959,24 +959,53 @@ Lambda requires both `lambda:InvokeFunctionUrl` and `lambda:InvokeFunction` for 
 
 ## From a Lambda Web Function
 
-An [AWS Lambda Web Function](https://docs.aws.amazon.com/lambda/latest/dg/web-functions.html) endpoint with the `IamAuth` authentication type can be a CloudFront origin protected by origin access control. Web Function origins support only the `always-amz-auth` signing behavior, which signs every origin request and passes the viewer's `Authorization` header to the function unchanged. For a regional endpoint, use `Signing.SIGV4_ALWAYS_AMZ_AUTH`:
+To protect an [AWS Lambda Web Function](https://docs.aws.amazon.com/lambda/latest/dg/web-functions.html) origin with Origin Access Control (OAC), set the endpoint's auth type to `IamAuth`.
+
+For a regional endpoint, use `Signing.SIGV4_ALWAYS_AMZ_AUTH`:
 
 ```python
+# regional_endpoint_domain_name: str
+
+
 oac = cloudfront.FunctionUrlOriginAccessControl(self, "WebFunctionOAC",
     signing=cloudfront.Signing.SIGV4_ALWAYS_AMZ_AUTH
 )
 
 cloudfront.Distribution(self, "MyDistribution",
     default_behavior=cloudfront.BehaviorOptions(
-        origin=origins.HttpOrigin("bcdfghjklmnpqrst.b7t.lambda-web.us-east-1.on.aws",
+        origin=origins.HttpOrigin(regional_endpoint_domain_name,
             origin_access_control_id=oac.origin_access_control_id
-        ),
-        origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
+        )
     )
 )
 ```
 
-Web Function endpoints return HTTP 404 if the `Host` header isn't the endpoint domain name, so don't forward the viewer's `Host` header. You must also attach a resource-based policy to the Web Function that allows `cloudfront.amazonaws.com` to call `lambda:InvokeWebFunctionEndpoint`. See [Restrict access to an AWS Lambda Web Function origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-lambda-web.html).
+For a global endpoint, use `Signing.SIGV4A_ALWAYS_AMZ_AUTH`:
+
+```python
+# global_endpoint_domain_name: str
+
+
+oac = cloudfront.FunctionUrlOriginAccessControl(self, "GlobalWebFunctionOAC",
+    signing=cloudfront.Signing.SIGV4A_ALWAYS_AMZ_AUTH
+)
+
+cloudfront.Distribution(self, "MyGlobalDistribution",
+    default_behavior=cloudfront.BehaviorOptions(
+        origin=origins.HttpOrigin(global_endpoint_domain_name,
+            origin_access_control_id=oac.origin_access_control_id
+        )
+    )
+)
+```
+
+If you add an origin request policy, choose one that doesn't forward the viewer's `Host` header, such as `OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER`.
+
+CloudFront forwards the viewer's `Authorization` header on GET and HEAD requests only when it's in the cache policy. If your function reads it, include it in the cache policy. See [Restrict access to an AWS Lambda Web Function origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-lambda-web.html).
+
+### Web Function permissions
+
+Lambda requires `lambda:InvokeWebFunctionEndpoint` for CloudFront to call a Web Function endpoint through OAC. Grant it to `cloudfront.amazonaws.com` in the Web Function's resource-based policy, scoped to your distribution. See [Restrict access to an AWS Lambda Web Function origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-lambda-web.html).
 '''
 from __future__ import annotations
 
@@ -1954,16 +1983,18 @@ class HttpOrigin(
 
     Example::
 
+        # regional_endpoint_domain_name: str
+        
+        
         oac = cloudfront.FunctionUrlOriginAccessControl(self, "WebFunctionOAC",
             signing=cloudfront.Signing.SIGV4_ALWAYS_AMZ_AUTH
         )
         
         cloudfront.Distribution(self, "MyDistribution",
             default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.HttpOrigin("bcdfghjklmnpqrst.b7t.lambda-web.us-east-1.on.aws",
+                origin=origins.HttpOrigin(regional_endpoint_domain_name,
                     origin_access_control_id=oac.origin_access_control_id
-                ),
-                origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
+                )
             )
         )
     '''
@@ -5296,7 +5327,7 @@ class VpcOrigin(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1d0218fc5ea8fbca94cbaeda39ab353fe5c35e197d6d8d60852fb576332785ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcOrigin", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcOrigin", value)
 
 
 class _VpcOriginProxy(

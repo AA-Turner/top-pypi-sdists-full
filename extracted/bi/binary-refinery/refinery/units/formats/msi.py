@@ -12,10 +12,11 @@ from typing import NamedTuple
 from refinery.lib import chunks, json
 from refinery.lib.cab import Cabinet
 from refinery.lib.id import buffer_offset, is_likely_msi, is_likely_pe
+from refinery.lib.ole.file import DirectoryEntry, OleFile
 from refinery.lib.structures import StructReader
 from refinery.lib.types import Param, buf
 from refinery.units import Arg
-from refinery.units.formats.office.xtdoc import UnpackResult, xtdoc
+from refinery.units.formats.office.xtdoc import UnpackResult, msi_table_stream_name, xtdoc
 
 
 class MsiType(enum.IntEnum):
@@ -85,6 +86,80 @@ class MSITableColumnInfo(NamedTuple):
 
 
 _NEGATED_MSI_SIGNATURE = B'\x2F\x30\xEE\x1F\x5E\x4E\xE5\x1E'
+
+
+class _ScriptItem(NamedTuple):
+    row_index: int
+    extension: str | None
+
+
+def _formatted_name(
+    name: str,
+    properties: dict[str, str],
+    files: dict[str, str],
+    components: dict[str, str],
+) -> str:
+    """
+    The value of a bracketed name in a string of the type Formatted.
+    """
+    if not name or name[0] in '~\\' or '{' in name or '}' in name:
+        return F'[{name}]'
+    prefix, key = name[0], name[1:]
+    if prefix not in '%$!#' or not key:
+        return properties.get(name, '')
+    if prefix == '%':
+        key = key.rstrip('%').upper()
+        return F'%{key}%'
+    if prefix == '$':
+        return components.get(key, '')
+    return files.get(key, '')
+
+
+def _formatting_tables(
+    tables: dict[str, list[dict[str, str]]],
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    """
+    The values of the properties, files, and components that bracketed names in a string of the
+    type Formatted refer to, from the Property, File, and Component tables. A file is given by its
+    name, a component by a variable for its directory.
+    """
+    def columns(table: str):
+        return (list(row.values()) for row in tables.get(table, ()))
+
+    properties = {row[0]: row[1] for row in columns('Property')}
+    files = {row[0]: row[2] for row in columns('File')}
+    components = {row[0]: F'%{row[2]}%' for row in columns('Component')}
+    return properties, files, components
+
+
+def _format(
+    string: str,
+    properties: dict[str, str],
+    files: dict[str, str],
+    components: dict[str, str],
+) -> str:
+    """
+    Formats a string of the type Formatted like Windows Installer: Each bracketed name is replaced
+    by its value, the innermost first. A value that was substituted is not formatted again, so a
+    value that names a property stays as it is.
+    """
+    stack: list[list[str]] = [[]]
+    for token in re.finditer(r'\[\\(.)\]|\[~\]|\[|\]|[^\[\]]+', string, re.DOTALL):
+        if (escaped := token[1]) is not None:
+            stack[-1].append(escaped)
+        elif (text := token[0]) == '[~]':
+            stack[-1].append('\0')
+        elif text == '[':
+            stack.append([])
+        elif text == ']' and len(stack) > 1:
+            name = ''.join(stack.pop())
+            stack[-1].append(_formatted_name(name, properties, files, components))
+        else:
+            stack[-1].append(text)
+    while len(stack) > 1:
+        rest = ''.join(stack.pop())
+        stack[-1].append(F'[{rest}')
+    return ''.join(stack[0])
 
 
 class MSIStringData:
@@ -177,13 +252,29 @@ class xtmsi(xtdoc, docs=(
         super().__init__(*paths, nocab=nocab, **keywords)
 
     def unpack(self, data: buf):
-        streams = {
-            result.path: result
-            for result in super().unpack(self._get_msi_from_overlay(data))
-        }
+        document = OleFile(self._get_msi_from_overlay(data))
+        streams: list[UnpackResult] = []
+        streams_by_entry: dict[DirectoryEntry, UnpackResult] = {}
+        read: set[UnpackResult] = set()
 
-        def stream(name: str):
-            return streams.pop(name).get_data()
+        for entry, result in self._streams(document):
+            streams.append(result)
+            streams_by_entry[entry] = result
+
+        def table_stream(table: str) -> UnpackResult | None:
+            if (entry := document.find(msi_table_stream_name(table))) is None:
+                return None
+            if (result := streams_by_entry.get(entry)) is None or result in read:
+                return None
+            return result
+
+        def stream(table: str):
+            if (result := table_stream(table)) is None:
+                raise KeyError(F'table stream not found: {table}')
+            read.add(result)
+            content = result.get_data()
+            result.release()
+            return content
 
         def column_formats(table: dict[str, MSITableColumnInfo]) -> str:
             return ''.join(v.struct_format for v in table.values())
@@ -197,14 +288,14 @@ class xtmsi(xtdoc, docs=(
                 yield [int(c[i]) for c in columns]
 
         tables: dict[str, dict[str, MSITableColumnInfo]] = collections.defaultdict(collections.OrderedDict)
-        strings = MSIStringData(stream('!_StringData'), stream('!_StringPool'))
+        strings = MSIStringData(stream('_StringData'), stream('_StringPool'))
 
-        for tbl_name_id, col_number, col_name_id, col_attributes in stream_to_rows(stream('!_Columns'), 'HHHH'):
+        for tbl_name_id, col_number, col_name_id, col_attributes in stream_to_rows(stream('_Columns'), 'HHHH'):
             tbl_name = strings.ref(tbl_name_id)
             col_name = strings.ref(col_name_id)
             tables[tbl_name][col_name] = MSITableColumnInfo(col_number, col_attributes)
 
-        table_names_given = {strings.ref(k) for k in chunks.unpack(stream('!_Tables'), 2, False)}
+        table_names_given = {strings.ref(k) for k in chunks.unpack(stream('_Tables'), 2, False)}
         table_names_known = set(tables)
 
         for name in table_names_known - table_names_given:
@@ -212,51 +303,11 @@ class xtmsi(xtdoc, docs=(
         for name in table_names_given - table_names_known:
             self.log_warn(F'table name given but not known: {name}')
 
-        class ScriptItem(NamedTuple):
-            row_index: int
-            extension: str | None
-
         processed_table_data: dict[str, list[dict[str, str]]] = {}
-        tbl_properties: dict[str, str] = {}
-        tbl_files: dict[str, str] = {}
-        tbl_components: dict[str, str] = {}
-        postprocessing: list[ScriptItem] = []
-
-        def format_string(string: str):
-            # https://learn.microsoft.com/en-us/windows/win32/msi/formatted
-            def _replace(match: re.Match[str]):
-                nonlocal _replace_done
-                _replace_done = False
-                prefix, name = match.groups()
-                if not prefix:
-                    tbl = tbl_properties
-                elif prefix in '%':
-                    name = name.rstrip('%').upper()
-                    return F'%{name}%'
-                elif prefix in '!#':
-                    tbl = tbl_files
-                elif prefix in '$':
-                    tbl = tbl_components
-                else:
-                    raise ValueError
-                return tbl.get(name, '')
-            while True:
-                _replace_done = True
-                string = re.sub(R'''(?x)
-                    \[             # open square bracket
-                      (?![~\\])    # not followed by escapes
-                      ([%$!#]?)    # any of the valid prefix characters
-                      ([^[\]{}]+)  # no brackets or braces
-                    \]''', _replace, string)
-                if _replace_done:
-                    break
-            string = re.sub(r'\[\\(.)\]', r'\1', string)
-            string = string.replace('[~]', '\0')
-            return string
+        postprocessing: list[_ScriptItem] = []
 
         for table_name, table in tables.items():
-            stream_name = F'!{table_name}'
-            if stream_name not in streams:
+            if table_stream(table_name) is None:
                 continue
             processed = []
             info = list(table.values())
@@ -264,7 +315,7 @@ class xtmsi(xtdoc, docs=(
             temp = [k.strip('_') for k in keys]
             if len(set(keys)) == len(set(temp)):
                 keys = temp
-            for r, row in enumerate(stream_to_rows(stream(stream_name), column_formats(table))):
+            for r, row in enumerate(stream_to_rows(stream(table_name), column_formats(table))):
                 values = []
                 for index, value in enumerate(row):
                     vt = info[index].type
@@ -279,12 +330,6 @@ class xtmsi(xtdoc, docs=(
                     elif not info[index].is_integer:
                         value = ''
                     values.append(value)
-                if table_name == 'Property':
-                    tbl_properties[values[0]] = values[1]
-                if table_name == 'File':
-                    tbl_properties[values[0]] = values[2]
-                if table_name == 'Component':
-                    tbl_properties[values[0]] = F'%{values[2]}%'
                 entry = dict(zip(keys, values))
                 einfo = {t: i for t, i in zip(keys, info)}
                 if table_name == 'MsiFileHash':
@@ -304,12 +349,15 @@ class xtmsi(xtdoc, docs=(
                     t = einfo.get('Target')
                     c = {0x25: 'js', 0x26: 'vbs', 0x33: None}
                     if code in c and t and not t.is_integer:
-                        postprocessing.append(ScriptItem(r, c[code]))
+                        postprocessing.append(_ScriptItem(r, c[code]))
                 processed.append(entry)
             if processed:
                 processed_table_data[table_name] = processed
 
+        streams = [result for result in streams if result not in read]
+
         if ca := processed_table_data.get('CustomAction'):
+            properties, files, components = _formatting_tables(processed_table_data)
             for item in postprocessing:
                 entry = ca[item.row_index]
                 try:
@@ -320,9 +368,9 @@ class xtmsi(xtdoc, docs=(
                 root = F'Action/{action}'
                 if item.extension:
                     action = F'{root}.{item.extension}'
-                    streams[action] = UnpackResult(action, target.encode(self.codec))
+                    streams.append(UnpackResult(action, target.encode(self.codec)))
                     continue
-                target = format_string(target)
+                target = _format(target, properties, files, components)
                 parts = [part.partition('\x02') for part in target.split('\x01')]
                 if not all(part[1] == '\x02' for part in parts):
                     continue
@@ -332,7 +380,7 @@ class xtmsi(xtdoc, docs=(
                     if not script:
                         continue
                     action = F'{root}.{name}'
-                    streams[action] = UnpackResult(action, script.encode(self.codec))
+                    streams.append(UnpackResult(action, script.encode(self.codec)))
 
         for ignored_stream in [
             'SummaryInformation',
@@ -340,9 +388,12 @@ class xtmsi(xtdoc, docs=(
             'DigitalSignature',
             'MsiDigitalSignatureEx'
         ]:
-            if r := streams.pop(F'[5]{ignored_stream}', None):
-                r.path = F'Meta/{ignored_stream}'
-                yield r
+            path = F'[5]{ignored_stream}'
+            summary = [result for result in streams if result.path == path]
+            streams = [result for result in streams if result.path != path]
+            for result in summary:
+                result.path = F'Meta/{ignored_stream}'
+                yield result
 
         inconsistencies = 0
         w1 = len(str(len(strings)))
@@ -362,15 +413,14 @@ class xtmsi(xtdoc, docs=(
             return path
 
         if self.args.nocab:
-            cabs = {}
+            cabs: list[UnpackResult] = []
         else:
             def _iscab(path):
                 return media_info and any(item.get('Cabinet', '') == F'#{path}' for item in media_info)
             media_info = processed_table_data.get('Media', [])
-            cabs: dict[str, UnpackResult] = {
-                path: item for path, item in streams.items() if _iscab(path)}
+            cabs = [item for item in streams if _iscab(item.path)]
             for cab in cabs:
-                self.log_info(F'found cab file: {cab}')
+                self.log_info(F'found cab file: {cab.path}')
         if cabs:
             file_names: dict[str, str] = {}
 
@@ -384,7 +434,8 @@ class xtmsi(xtdoc, docs=(
                 dst_name = long or dst_name
                 file_names[src_name] = dst_name
 
-            for path, cab in cabs.items():
+            for cab in cabs:
+                path = cab.path
                 try:
                     _cabinet = Cabinet(memoryview(cab.get_data()))
                     unpacked = _cabinet.process().get_files()
@@ -395,17 +446,16 @@ class xtmsi(xtdoc, docs=(
                 if dot == '.' and ext.lower() == 'cab':
                     path = base
                 else:
-                    del streams[path]
                     cab.path = F'{path}.cab'
-                    streams[cab.path] = cab
                 for result in unpacked:
                     sub_path = file_names.get(result.name, result.name)
                     sub_path = self._get_path_separator().join((path, sub_path))
-                    streams[sub_path] = UnpackResult(sub_path, lambda r=result: r.decompress())
+                    streams.append(UnpackResult(sub_path, result.extractor()))
 
-        streams = {fix_msi_path(path): item for path, item in streams.items()}
+        for item in streams:
+            item.path = fix_msi_path(item.path)
         ds = UnpackResult(self._SYNTHETIC_STREAMS_FILENAME, json.dumps(processed_table_data))
-        streams[ds.path] = ds
+        streams.append(ds)
 
         from refinery.units.formats.csv import json_to_csv
 
@@ -417,11 +467,10 @@ class xtmsi(xtdoc, docs=(
                 tbl = UnpackResult(F'{self._SYNTHETIC_STREAMS_TOPLEVEL}/{key}.csv', json_to_csv(jd))
             except Exception:
                 continue
-            streams[tbl.path] = tbl
+            streams.append(tbl)
 
-        for path in sorted(streams):
-            streams[path].path = path
-            yield streams[path]
+        streams.sort(key=lambda item: item.path)
+        yield from streams
 
     @classmethod
     def _get_msi_from_overlay(cls, data: buf) -> buf:

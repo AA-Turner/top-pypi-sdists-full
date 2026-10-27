@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import codecs
 import math
+import weakref
 
 from dataclasses import dataclass, field
-from functools import cached_property
-from typing import ClassVar
+from functools import cached_property, partial
+from typing import Callable, ClassVar, Iterator
 from uuid import UUID
 
 from refinery.lib.lcid import DEFAULT_CODEPAGE, LCID
 from refinery.lib.seven.lzx import LzxDecoder
+from refinery.lib.solid import SolidStream, SolidStreamTruncated
 from refinery.lib.structures import Struct, StructReader
+from refinery.lib.types import buf
 
 _LZX_HLP = UUID('0a9007c6-4076-11d3-8789-0000f8105754')
 _LZX_CHM = UUID('7fc28940-9d31-11d0-9b27-00a0c91e9c7c')
@@ -20,6 +23,10 @@ class SectionHeader(Struct):
     def __init__(self, reader: StructReader[memoryview]):
         self.offset = reader.u64()
         self.length = reader.u64()
+
+
+def _caseless(name: str) -> bytes:
+    return name.encode('utf8').lower()
 
 
 class LanguageMixin:
@@ -157,7 +164,14 @@ class IndexChunk(Chunk):
     Magic = B'PMGI'
 
     def __init__(self, reader: StructReader, density: int):
+        end = reader.tell() + reader.remaining_bytes
         super().__init__(reader, density)
+        end -= self.extra_size
+        self.entries: list[tuple[str, int]] = []
+        while reader.tell() < end:
+            ns = reader.read_7bit_encoded_int(64, bigendian=True)
+            name = reader.read_bytes(ns).decode('utf8')
+            self.entries.append((name, reader.read_7bit_encoded_int(64, bigendian=True)))
         self._quick_refs(reader, density)
 
 
@@ -258,48 +272,120 @@ class ContentSection:
 
 class CHM(Struct):
 
-    def read_section(self, index: int) -> memoryview:
-        try:
-            return self.section_data[index]
-        except KeyError:
-            cs = self.sections[index]
+    def _stored(self, index: int) -> memoryview:
+        cs = self.sections[index]
         if cs.base_section is None:
             with self.reader.detour(cs.offset):
-                data = self.reader.read(cs.length)
-        else:
-            data = self.read_section(cs.base_section)[cs.offset:][:cs.length]
-        if cs.window_size and cs.block_offsets:
-            lzx = LzxDecoder()
-            out = bytearray()
-            lzx.set_params_and_alloc(cs.window_size)
-            for nr, offset in enumerate(cs.block_offsets):
-                if nr % cs.reset_interval == 0:
-                    lzx.keep_history = False
-                if nr < len(cs.block_offsets) - 1:
-                    length = cs.block_offsets[nr + 1] - offset
-                else:
-                    length = len(data) - offset
-                out.extend(lzx.decompress(data[offset:][:length], cs.block_size))
-                lzx.keep_history = True
-            data = memoryview(out)
-        self.section_data[index] = data
-        return data
+                return self.reader.read(cs.length)
+        return self._stored(cs.base_section)[cs.offset:][:cs.length]
 
-    def read(self, entry: DirectoryListingEntry):
-        data = self.read_section(entry.section_index)
-        return data[entry.offset:][:entry.length]
+    def _restart(self, index: int, offset: int) -> int:
+        cs = self.sections[index]
+        block = offset // cs.block_size
+        return (block - block % cs.reset_interval) * cs.block_size
+
+    def _decode(self, index: int, origin: int) -> Iterator[tuple[int, buf]]:
+        cs = self.sections[index]
+        data = self._stored(index)
+        lzx = LzxDecoder()
+        lzx.set_params_and_alloc(cs.window_size)
+        offsets = cs.block_offsets
+        for nr in range(origin // cs.block_size, len(offsets)):
+            lzx.keep_history = nr % cs.reset_interval != 0
+            start = offsets[nr]
+            end = offsets[nr + 1] if nr + 1 < len(offsets) else len(data)
+            yield nr * cs.block_size, lzx.decompress(data[start:end], cs.block_size)
+
+    def extractor(self, entry: DirectoryListingEntry) -> Callable[[], buf]:
+        """
+        Return a function that returns the data of the given entry. A compressed section is
+        decompressed as far as necessary; it keeps the data of other entries only while the
+        functions returned for them are alive. Data that the section does not contain is missing
+        from the result.
+        """
+        if (index := entry.section_index) >= len(self.sections):
+            return partial(self._missing_section, index)
+        cs = self.sections[index]
+        if not cs.window_size or not cs.block_offsets:
+            return lambda: self._stored(index)[entry.offset:][:entry.length]
+        if (stream := self._streams.get(index)) is None:
+            stream = self._streams[index] = SolidStream(
+                partial(self._decode, index),
+                partial(self._restart, index),
+                volatile=True,
+            )
+        claim = stream.claim(entry.offset, entry.length)
+
+        def extract() -> buf:
+            try:
+                return claim()
+            except SolidStreamTruncated as truncated:
+                return truncated.partial
+
+        return extract
+
+    def _missing_section(self, index: int) -> buf:
+        raise IndexError(F'The archive has no section {index}.')
+
+    def read(self, entry: DirectoryListingEntry) -> buf:
+        """
+        Return the data of the given entry; see `refinery.lib.chm.CHM.extractor`.
+        """
+        return self.extractor(entry)()
 
     def seekto(self, reader: StructReader, path: str):
-        if content := self.filesystem.get(path):
+        if content := self.find(path):
             reader.seekset(self.sections[content.section_index].offset + content.offset)
             return True
         else:
             return False
 
+    @property
+    def listing(self) -> list[ListingChunk]:
+        """
+        The listing chunks of the directory in the order of the file.
+        """
+        return [chunk for chunk in self.chunks if isinstance(chunk, ListingChunk)]
+
+    def entries(self) -> Iterator[DirectoryListingEntry]:
+        """
+        Generates every entry of the directory in the order of the file, also when two entries
+        have the same name.
+        """
+        for chunk in self.listing:
+            yield from chunk.entries
+
+    def find(self, name: str) -> DirectoryListingEntry | None:
+        """
+        Find the directory entry with the given name through the directory index: starting at the
+        root of the index, every index chunk leads to the chunk of its last entry whose name is not
+        greater than the given one, and the first entry with the given name in the listing chunk
+        reached this way is returned. Names are compared ignoring the case of ASCII letters. Without
+        an index, only the first listing chunk is searched.
+        """
+        key = _caseless(name)
+        number = self.directory.root_chunk
+        if number >= len(self.chunks):
+            number = self.directory.listing1st
+        visited: set[int] = set()
+        while 0 <= number < len(self.chunks) and number not in visited:
+            visited.add(number)
+            chunk = self.chunks[number]
+            if isinstance(chunk, ListingChunk):
+                for entry in chunk.entries:
+                    if _caseless(entry.name) == key:
+                        return entry
+                return None
+            number = -1
+            for lower_bound, target in chunk.entries:
+                if _caseless(lower_bound) > key:
+                    break
+                number = target
+        return None
+
     def __init__(self, reader: StructReader[memoryview], *args, **kwargs):
-        self.filesystem: dict[str, DirectoryListingEntry] = {}
         self.sections: list[ContentSection] = []
-        self.section_data: dict[int, memoryview] = {}
+        self._streams: weakref.WeakValueDictionary[int, SolidStream] = weakref.WeakValueDictionary()
 
         self.reader = reader
         self.header = header = ChmHeader(reader)
@@ -309,28 +395,20 @@ class CHM(Struct):
 
         with reader.detour_absolute(header.section_directory.offset):
             self.directory = dh = DirectoryHeader(reader)
-            self.index = []
+            self.chunks: list[IndexChunk | ListingChunk] = []
 
             d = dh.density
             m = dh.chunk_size
 
-            self.listing: list[ListingChunk] = []
-
             for k in range(dh.total_chunks):
                 body = reader.read_exactly(m)
                 if body[:4] == IndexChunk.Magic:
-                    self.index.append(IndexChunk.Parse(body, d))
+                    self.chunks.append(IndexChunk.Parse(body, d))
                     continue
                 if body[:4] == ListingChunk.Magic:
                     if not (dh.listing1st <= k <= dh.listingLst):
                         raise ValueError(F'Chunk {k} has magic {ListingChunk.Magic.decode()} but is out of listing range.')
-                    chunk = ListingChunk.Parse(body, d)
-                    for entry in chunk.entries:
-                        name = entry.name
-                        if name.startswith('/#') or name.startswith('/$'):
-                            name = F'/$CHM{name}'
-                        self.filesystem[name] = entry
-                    self.listing.append(chunk)
+                    self.chunks.append(ListingChunk.Parse(body, d))
                     continue
                 raise ValueError(F'Unknown chunk magic: {body[:4].hex(":")}')
 
@@ -339,17 +417,17 @@ class CHM(Struct):
 
         reader.seekset(co)
         total_size = reader.remaining_bytes
-        reader.seekset(co + self.filesystem['::DataSpace/NameList'].offset)
+        if (names := self.find('::DataSpace/NameList')) is None:
+            raise LookupError('could not find the list of content sections')
+        reader.seekset(co + names.offset)
         self.content_sections = ContentSections(reader)
 
         for section in self.content_sections.sections:
             if section.name.lower() == 'uncompressed':
                 self.sections.append(ContentSection(co, total_size))
                 continue
-            try:
-                content = self.filesystem[section.path_content]
-            except KeyError as KE:
-                raise LookupError(F'could not find content file for section {section.name}') from KE
+            if (content := self.find(section.path_content)) is None:
+                raise LookupError(F'could not find content file for section {section.name}')
 
             cs = ContentSection(content.offset, content.length)
             cs.base_section = s = content.section_index

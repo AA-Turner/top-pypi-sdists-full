@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "tensorstore/internal/http/http_header.h"
 #include "tensorstore/internal/http/http_response.h"
@@ -95,6 +96,21 @@ TEST(XmlSearchTest, GetNodeValues) {
       ::testing::Optional(::testing::Eq(absl::FromUnixSeconds(1688830015))));
 }
 
+TEST(XmlSearchTest, GetNodeTextPreservesEntitiesCdataAndWhitespace) {
+  tinyxml2::XMLDocument doc(true, tinyxml2::PEDANTIC_WHITESPACE);
+  ASSERT_EQ(doc.Parse("<Root>"
+                      "<Key1>  a&apos;b &amp;apos;c  </Key1>"
+                      "<Key2>   </Key2>"
+                      "<Key3><![CDATA[raw &apos; <text>]]></Key3>"
+                      "</Root>"),
+            tinyxml2::XML_SUCCESS);
+  auto* root = doc.FirstChildElement("Root");
+  ASSERT_NE(root, nullptr);
+  EXPECT_EQ("  a'b &apos;c  ", GetNodeText(root->FirstChildElement("Key1")));
+  EXPECT_EQ("   ", GetNodeText(root->FirstChildElement("Key2")));
+  EXPECT_EQ("raw &apos; <text>", GetNodeText(root->FirstChildElement("Key3")));
+}
+
 TEST(S3MetadataTest, AwsHttpResponseToStatus) {
   HttpResponse response;
   // No header, no payload.
@@ -163,6 +179,42 @@ TEST(S3MetadataTest, AwsHttpResponseToStatus) {
     bool retryable = false;
     EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
                 StatusIs(absl::StatusCode::kInvalidArgument));
+    EXPECT_TRUE(retryable);
+  }
+
+  // Smithy awsJson1_1 error type formats (':' suffix and '#' prefix).
+  for (const char* header_value : {
+           "SlowDown:http://internal.amazon.com/coral/"
+           "com.amazon.coral.validate/",
+           "smithy.example#SlowDown",
+           "smithy.example#SlowDown:http://internal.amazon.com/coral/",
+       }) {
+    response.status_code = 400;
+    response.payload.Clear();
+    response.headers = HeaderMap{{"x-amzn-errortype", header_value}};
+    bool retryable = false;
+    EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
+                StatusIs(absl::StatusCode::kInvalidArgument, "SlowDown"));
+    EXPECT_TRUE(retryable);
+
+    retryable = false;
+    response.headers = HeaderMap{};
+    response.payload = absl::Cord(
+        absl::StrFormat("<Error><Code>%s</Code></Error>", header_value));
+    EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
+                StatusIs(absl::StatusCode::kInvalidArgument, "SlowDown"));
+    EXPECT_TRUE(retryable);
+  }
+
+  // Retryable HTTP status code with unlisted XML error code.
+  {
+    response.status_code = 503;
+    response.headers = HeaderMap{};
+    response.payload =
+        absl::Cord("<Error><Code>OperationAborted</Code></Error>");
+    bool retryable = false;
+    EXPECT_THAT(AwsHttpResponseToStatus(response, retryable),
+                StatusIs(absl::StatusCode::kUnavailable));
     EXPECT_TRUE(retryable);
   }
 }

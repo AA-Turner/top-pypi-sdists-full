@@ -12,10 +12,15 @@ import hashlib
 import inspect
 import os
 from collections.abc import Callable, Generator
-from typing import Any
+from typing import Any, TypeVar, overload
 
 import numba as nb
 from numba.core import caching
+
+# the decorated function is a dispatcher that keeps the signature of its
+# python function - the overloads below hand that signature through
+# ``njit_stable`` for the type checker, the way ``nb.njit`` does
+_FuncT = TypeVar("_FuncT", bound=Callable[..., Any])
 
 # windows has no flock - the name is an Optional so the no-op fallback below is
 # an honest annotation and not a type error
@@ -34,7 +39,7 @@ except ImportError:  # pragma: no cover - windows
 # AttributeError on the dangling global.  Bumping the revision renames every
 # cache file of this package, orphaning the stale indexes (they keep lying
 # around, numba never reads them again).
-_cache_revision = "8"
+_cache_revision = "9"
 
 
 @contextlib.contextmanager
@@ -92,6 +97,12 @@ class _ProcessSafeCacheFile(caching.IndexDataCacheFile):
             return super().flush()  # type: ignore[no-any-return]  # numba leaves caching.py unannotated
 
 
+@overload
+def njit_stable(py_func: _FuncT, cache: bool = True, name: str | None = None, **options: Any) -> _FuncT: ...
+@overload
+def njit_stable(
+    py_func: None = None, cache: bool = True, name: str | None = None, **options: Any
+) -> Callable[[_FuncT], _FuncT]: ...
 def njit_stable(
     py_func: Callable[..., Any] | None = None,
     cache: bool = True,
@@ -172,12 +183,12 @@ def njit_stable(
             # versions of one function differing only in a constant (which
             # lives in co_consts, not co_code) would otherwise share an index
             # and could load each other's compiled artifacts.
-            impl = disp._cache._impl
-            impl._filename_base = f"{impl._filename_base}-r{_cache_revision}-{uuid}"
+            cache_impl = disp._cache._impl
+            cache_impl._filename_base = f"{cache_impl._filename_base}-r{_cache_revision}-{uuid}"
             disp._cache._cache_file = _ProcessSafeCacheFile(
                 cache_path=disp._cache._cache_path,
-                filename_base=impl.filename_base,
-                source_stamp=impl.locator.get_source_stamp(),
+                filename_base=cache_impl.filename_base,
+                source_stamp=cache_impl.locator.get_source_stamp(),
             )
         except Exception:  # noqa: BLE001 - any numba internals change must degrade to no caching
             # numba internals changed: without a stable uuid the closure

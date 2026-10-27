@@ -30,8 +30,8 @@ class UnregisteredAgentsSummary(BaseModel):
     Fleet-scale totals for the unregistered agents in scope, independent of any page of the list.
     """ # noqa: E501
     counts: UnregisteredAgentsHeroCounts = Field(description="The hero line.")
-    classes: List[CoverageClassSummary] = Field(description="One entry per coverage class, in grid order: otel, cloud, siem, endpoint, network_gateway.")
-    blind_spots: List[CoverageBlindSpot] = Field(description="Classes and sources with no sensor reporting. Network & Gateway is always here. Gaps derived from sources are listed only when the caller can list discovery sources.")
+    classes: List[CoverageClassSummary] = Field(description="One entry per coverage class, in grid order: otel, cloud, siem, endpoint, network.")
+    blind_spots: List[CoverageBlindSpot] = Field(description="Classes and sources with no sensor reporting. Every gap is derived from sources, so it is listed only when the caller can list discovery sources.")
     can_list_sources: StrictBool = Field(description="Whether the caller can list the organization's discovery sources. When false, classes[].sources is null and source-derived blind spots are left out; the agent counts are unaffected.")
     __properties: ClassVar[List[str]] = ["counts", "classes", "blind_spots", "can_list_sources"]
 

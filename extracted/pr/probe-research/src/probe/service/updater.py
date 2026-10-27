@@ -4,11 +4,14 @@
              never was one); then every CHECK_EVERY_S while the service runs;
              on `update.check_now` (the CLI and the plugin hook, instead of
              spawning an updater of their own); never while automatic updates
-             are off (`autoupdate.json` `enabled`, the wizard's setting)
+             are off (`autoupdate.json` `enabled`, the wizard's setting: on
+             for the managed CLI unless a person turned it off, C2)
     cycle    update.started
              1 cli_and_plugins  only on a quiet machine (X1): no run holds a
                                 run lock or a `run.hold` (a `probe exec`'s,
-                                `runholds.py`), no wizard holds wizard.lock, no
+                                `runholds.py`), no wizard holds wizard.lock (nor,
+                                for an update that moves the CLI's files, waits
+                                at its menu: `setup_marks`), no
                                 action of ours runs. Daemon workers do not wait for
                                 their sessions to end (D7): when the manifest
                                 names a newer CLI, new worker starts are held
@@ -39,11 +42,14 @@
                                 a retry when a session ends or at the next cycle.
                                 Deferred continuously for DEFER_LIMIT_S (24 h)
                                 by workers that would not stop, a run or an
-                                action -- each reason its own 24 h -- the next
+                                action -- each reason its own 24 h -- or by a
+                                setup that has held wizard.lock that long (its
+                                holder's record says since when, C1), the next
                                 cycle updates anyway, in place (the child told,
-                                PROBE_UPDATE_FORCED, when that is past a run),
-                                as the updater before the service always did
-                                (D7, D33): a machine that is never quiet still
+                                PROBE_UPDATE_FORCED, when that is past a run or
+                                a setup), as the updater before the service
+                                always did (D7, D33): a machine that is never
+                                quiet, or a wizard menu left open, still
                                 updates within a day.
                                 Locks are looked for in the default state
                                 folder and in every live session's own, which
@@ -91,7 +97,10 @@
                                 exits. The next `ensure` (a tap re-registering,
                                 the app reconnecting) starts the new code.
              update.done
-    hold     a running cycle keeps the service alive, at most HOLD_S (R3)
+    hold     a running cycle keeps the service alive (R3): HOLD_S, and while
+             its update child runs, as long as that child may (its time
+             limit and stop grace), then HOLD_S again for the rest (B2: a
+             keeper-started cycle has no session to keep the service up)
     imports  everything the cycle needs is imported before step 1 replaces
              the files it would import from (R2)
 
@@ -143,7 +152,9 @@ CHECK_EVERY_S = 6 * 3600
 #: CHECK_EVERY_S: a failure retried six hours later left a machine on the old
 #: CLI for most of a day (live test C, 2026-10-24).
 FAILED_RETRY_S = 3600
-#: How long a running cycle may keep an otherwise idle service alive (plan R3).
+#: How long a running cycle may keep an otherwise idle service alive (plan R3),
+#: outside its update child's run (which holds it for as long as the child may
+#: run: `update_timeout_s` + `update_stop_grace_s`, `_hold_for_child`).
 HOLD_S = 10 * 60
 #: `update.check_now` within this of a finished cycle answers `recent`: the
 #: manifest cache's own TTL, and the bound on a sweep of runs each ending
@@ -172,12 +183,14 @@ WORKER_STOP_S = 10 * 60
 #: (the worker trusts only one younger than 10 s: `worker.HANDOVER_FRESH_S`).
 HANDOVER_TOUCH_S = 2.0
 WORKER_POLL_S = 0.25
-#: Deferred this long without a break by workers, a run or an action: the next
-#: cycle updates anyway (D7, D33).
+#: Deferred this long without a break by workers, a run or an action, or a
+#: setup holding wizard.lock this long: the next cycle updates anyway (D7, D33, C1).
 DEFER_LIMIT_S = 24 * 3600
-#: Told to the update child when DEFER_LIMIT_S ran out (its reason): the child
-#: then updates past a live run too (`probe.cli.upgrading.FORCED_ENV`), as
-#: this cycle decided, instead of deferring again by itself (D33).
+#: Told to the update child when DEFER_LIMIT_S ran out: the reasons it updates
+#: past that the child would otherwise defer on again by itself, comma
+#: separated (`CHILD_FORCED`): a live run (D33), a setup holding wizard.lock
+#: (C1). The child then goes on as this cycle decided
+#: (`probe.cli.upgrading.forced_past`).
 FORCED_ENV = "PROBE_UPDATE_FORCED"
 #: Told to the update child when the CLI is current and daemon workers run
 #: from its env: plugins only (`probe.cli.upgrading.SKIP_CLI_ENV`, D7).
@@ -191,7 +204,7 @@ SIDE_BY_SIDE_ENV = "PROBE_UPDATE_SIDE_BY_SIDE"
 #: to its process group, SIGKILL after UPDATE_STOP_GRACE_S) and the step is
 #: failed, so the next cycle can run: a child that never returned used to keep
 #: the cycle in progress for good, every `update.check_now` answering
-#: `running`, and the next service deferring on its `wizard.lock` (never
+#: `running`, and the next service deferring on its `wizard.lock` (then never
 #: overridden) for good. What a normal update takes: 11-28 s for each of the 19
 #: cycles in one devbox's service.log (2026-10-22/23); 24 s from start to report
 #: for the last update of a machine that then ran none for 29 h. The longest
@@ -230,12 +243,26 @@ WIZARD_LOCK_NAME = "wizard.lock"
 #: `probe.cli.wizard_lock.BUSY_EXIT_CODE`: the update child found a setup running.
 WIZARD_BUSY_EXIT = 75
 
-#: The deferrals DEFER_LIMIT_S ends. A setup (`wizard.lock`) is never overridden:
-#: the update child takes that lock itself and would only find it held. (An
-#: update child a service before this one started, still running past
-#: UPDATE_TIMEOUT_S, is stopped first: `overrun_update`. That is the one holder
-#: of the lock ever ended, and only once it is proven to be that child.)
-LIMITED = frozenset({DeferReason.DAEMON_RECORDING, DeferReason.RUN_IN_FLIGHT, DeferReason.ACTION_RUNNING})
+#: The deferrals DEFER_LIMIT_S ends. A setup is one since C1 (owner,
+#: 2026-10-26: nothing a person leaves open blocks updates for more than a day):
+#: wizard.lock held, or a `probe wizard` menu waiting on a person
+#: (`setup_marks.MENU_PREFIX`), which counts only for an update that moves the
+#: files that menu runs from (in place, or the first switch): a side-by-side
+#: switch goes on beside it. Its time is how long the lock has been held, or
+#: the menu has waited, from its record (`setup_marks.holder`), else (a holder
+#: from before the record) how long this service has deferred on it. Past it
+#: the update goes on and never stops the setup: the child is told
+#: (FORCED_ENV) and runs without the lock. (An update child a service before
+#: this one started, still running past UPDATE_TIMEOUT_S, is stopped first:
+#: `overrun_update`. That is the one holder of the lock ever ended, and only
+#: once it is proven to be that child.)
+LIMITED = frozenset({
+    DeferReason.DAEMON_RECORDING, DeferReason.RUN_IN_FLIGHT, DeferReason.ACTION_RUNNING,
+    DeferReason.SETUP_RUNNING,
+})
+#: The LIMITED reasons the update child checks again by itself, so is told it
+#: was forced past (FORCED_ENV): its run check, and its own wizard.lock.
+CHILD_FORCED = (DeferReason.RUN_IN_FLIGHT, DeferReason.SETUP_RUNNING)
 
 #: The app step's record when the service installed a closed app's update
 #: itself (`Updater._install_closed`), not the app's own updater.
@@ -529,7 +556,25 @@ class Busy:
     #: Running workers (stoppable when every one has a pid), or None: unknown.
     workers: list | None = field(default_factory=list)
     run: bool = False
+    #: A setup holds wizard.lock ...
     setup: bool = False
+    #: ... since then (the latest of their records), or None: not known.
+    setup_since: float | None = None
+    #: A `probe wizard` menu waits on a person (`setup_marks.menu_waiting`): a
+    #: setup only for an update that moves the files it runs from (not side by
+    #: side: the cycle clears it then) ...
+    menu: bool = False
+    #: ... since then, or None: not known.
+    menu_since: float | None = None
+
+    def setup_time(self) -> float | None:
+        """Since when the setups found (`setup`, `menu`) have held the device:
+        the latest, as every one must be past the limit; None when one's time
+        cannot be told, or none was found."""
+        times = ([self.setup_since] if self.setup else []) + ([self.menu_since] if self.menu else [])
+        if not times or None in times:
+            return None
+        return max(times)
 
     def blocking(self) -> str | None:
         """Why nothing may update, live sessions' workers aside (they are asked
@@ -540,7 +585,7 @@ class Busy:
             return DeferReason.DAEMON_RECORDING
         if self.run:
             return DeferReason.RUN_IN_FLIGHT
-        if self.setup:
+        if self.setup or self.menu:
             return DeferReason.SETUP_RUNNING
         return None
 
@@ -563,7 +608,7 @@ class Busy:
             out.append(DeferReason.DAEMON_RECORDING)
         if self.run:
             out.append(DeferReason.RUN_IN_FLIGHT)
-        if self.setup:
+        if self.setup or self.menu:
             out.append(DeferReason.SETUP_RUNNING)
         return out
 
@@ -582,12 +627,16 @@ def look(
     unseen_daemon: bool = False,
     extra_dirs: set | frozenset = frozenset(),
     run_held: bool = False,
+    exclude_pid: int | None = None,
 ) -> Busy:
     """The quiet check (X1), in the default state folder and every live
     session's own (D13). `run_held`: a `probe exec` holds a run here
     (`run.hold`); the run locks are still looked for, for the runs no hold
     names (the SDK's, a `probe exec` from before the hold, or one that found
-    no service)."""
+    no service). `exclude_pid`: a process looking for itself's sake (an
+    update a wizard menu started, in the same process after the hand-off's
+    exec): its own menu marker, and a wizard.lock its record says it holds,
+    are no setup to wait for."""
     dirs = state_dirs(extra_dirs)
     busy = Busy(action=action_running, unseen_daemon=unseen_daemon, workers=live_workers(dirs))
     if run_held:
@@ -599,8 +648,59 @@ def look(
             busy.run = any(run_lock.any_live(state / run_lock.RUNS_DIRNAME) for state in dirs)
         except Exception:  # noqa: BLE001 -- unknown reads as a live run, as run_lock itself does
             busy.run = True
-    busy.setup = any(_flock_held(state / WIZARD_LOCK_NAME) for state in dirs)
+    held = [
+        state / WIZARD_LOCK_NAME for state in dirs
+        if _flock_held(state / WIZARD_LOCK_NAME) and not _held_by(state / WIZARD_LOCK_NAME, exclude_pid)
+    ]
+    busy.setup = bool(held)
+    if held:
+        since = [setup_held_since(lock) for lock in held]
+        busy.setup_since = None if None in since else max(since)
+    menus = [menu for menu in (_menu_waiting(state, exclude_pid) for state in dirs) if menu[0]]
+    busy.menu = bool(menus)
+    if menus:
+        since = [at for _, at in menus]
+        busy.menu_since = None if None in since else max(since)
     return busy
+
+
+def setup_held_since(lock: Path) -> float | None:
+    """When the setup holding `lock` (a wizard.lock found held) took it: the
+    record its holder wrote (`setup_marks.holder`), while that exact process
+    (pid and start time) still runs. None when it cannot be told: a holder from
+    before the record (the file then holds nothing, or a record whose writer is
+    gone), a record dated ahead of the clock, or one that does not read."""
+    try:
+        from probe._shared import setup_marks
+
+        state, at, _pid = setup_marks.holder(lock)
+    except Exception:  # noqa: BLE001 -- cannot be told
+        return None
+    return at if state == setup_marks.ALIVE else None
+
+
+def _held_by(lock: Path, pid: int | None) -> bool:
+    """Does `lock`'s holder record name `pid`, its writer still running?"""
+    if pid is None:
+        return False
+    try:
+        from probe._shared import setup_marks
+
+        state, _at, holder_pid = setup_marks.holder(lock)
+    except Exception:  # noqa: BLE001
+        return False
+    return state == setup_marks.ALIVE and holder_pid == pid
+
+
+def _menu_waiting(state: Path, exclude_pid: int | None = None) -> tuple[bool, float | None]:
+    """`setup_marks.menu_waiting` for one state folder; one that cannot be
+    read is no menu (the lock still guards every write the menu makes)."""
+    try:
+        from probe._shared import setup_marks
+
+        return setup_marks.menu_waiting(state, exclude_pid=exclude_pid)
+    except Exception:  # noqa: BLE001
+        return False, None
 
 
 def side_by_side() -> bool:
@@ -624,6 +724,33 @@ def _switched() -> bool:
         from probe._shared import installs
 
         return installs.active() is not None
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _resolved(prefix: str) -> Path:
+    try:
+        return Path(prefix).resolve()
+    except OSError:
+        return Path(prefix)
+
+
+#: The env this process loaded its code from, resolved once at its start: a
+#: service started through the tool path's link reads the link's NEW target
+#: after a switch, while its code is still the old env's.
+STARTED_ENV = _resolved(sys.prefix)
+
+
+def _env_moved(started: Path | None = None) -> bool:
+    """Does the tool path name another env than the one this service started
+    from (`STARTED_ENV`), at the same version (a broken env rebuilt in a folder
+    of its own, `<v>+g<N>`: plan R-T3)? Then this service is the old one, as
+    after a version change, and restarts onto it."""
+    try:
+        from probe._shared import installs
+
+        active = installs.active()
+        return active is not None and (started or STARTED_ENV) != active
     except Exception:  # noqa: BLE001
         return False
 
@@ -680,13 +807,18 @@ def _guard_record() -> dict | None:
         return None
 
 
-def auto_update_enabled() -> bool:
-    """The wizard's setting (`autoupdate.json`), read the way every updater reads it."""
+def auto_update_enabled(extra_dirs=()) -> bool:
+    """The wizard's setting (`autoupdate.json`), read the way every updater
+    reads it: on unless a person turned it off, for the managed CLI this
+    service runs from; opt-in for any other install (`version_policy.autoupdate_state`, C2).
+    A `false` in any state folder this service knows of is off: its own, and
+    every live session's (`extra_dirs`, D13), where a person who runs with
+    XDG_STATE_HOME saved it."""
     try:
         from probe import version_policy
 
-        return version_policy.autoupdate_enabled()
-    except Exception:  # noqa: BLE001 -- unreadable reads as off, as version_policy itself does
+        return version_policy.autoupdate_enabled(extra_dirs=extra_dirs)
+    except Exception:  # noqa: BLE001 -- version_policy never raises; a broken import updates nothing
         return False
 
 
@@ -931,6 +1063,10 @@ class Updater:
         self.guard_pending: str | None = None
         self.worker_stop_s = _env_seconds(WORKER_STOP_ENV, WORKER_STOP_S)
         self.defer_limit_s = _env_seconds(DEFER_LIMIT_ENV, DEFER_LIMIT_S)
+        #: What the last look found (`_look`): the setup's own time, where it
+        #: can be told (`Busy.setup_time`), after the cycle cleared what does
+        #: not hold its kind of update off (a menu, side by side).
+        self.last_busy: Busy | None = None
         self.app_result_timeout_s = _env_seconds(APP_RESULT_TIMEOUT_ENV, APP_RESULT_TIMEOUT_S)
         self.update_timeout_s = _env_seconds(UPDATE_TIMEOUT_ENV, UPDATE_TIMEOUT_S)
         self.update_stop_grace_s = _env_seconds(UPDATE_STOP_GRACE_ENV, UPDATE_STOP_GRACE_S)
@@ -1058,15 +1194,37 @@ class Updater:
     def due(self, now: float | None = None) -> bool:
         last = self.last_check
         now = time.time() if now is None else now
-        return last is None or now - last >= self.interval() or now < last
+        return last is None or now - last >= self.interval() or now < last or self.moved_back()
+
+    def installed_now(self) -> str | None:
+        """The CLI version installed now: the one the CLI last recorded at its
+        start (`runtime.json`'s `cli_version`, which a person's own `uv tool
+        install` changes too), else this service's."""
+        try:
+            data = json.loads(paths.runtime_path().read_text(encoding="utf-8"))
+            found = data.get("cli_version") if isinstance(data, dict) else None
+        except (OSError, ValueError):
+            found = None
+        return found if isinstance(found, str) and found else self.version
+
+    def moved_back(self) -> bool:
+        """Did the CLI go BACK since the last check (`checked_cli`, the version
+        installed when it ended)? A person's `uv tool uninstall` then an older
+        `uv tool install` (plan R3): the last check is no answer for this
+        install, so a check is due now and no ask waits out the cooldown. It
+        took up to CHECK_EVERY_S (6 h) to reach the newest again."""
+        checked = self.state.get("checked_cli")
+        return isinstance(checked, str) and behind(self.installed_now(), checked) is True
 
     def _look(self) -> Busy:
-        return look(
+        busy = look(
             action_running=self.action_running(),
             unseen_daemon=self.daemon_session(),
             extra_dirs=self.session_state_dirs(),
             run_held=self.run_held(),
         )
+        self.last_busy = busy
+        return busy
 
     async def _look_off_loop(self) -> Busy:
         """`_look`, with the registry and the run holds read here on the loop
@@ -1081,6 +1239,7 @@ class Updater:
         # again, after the last await (`_apply` spawns with no await after it).
         if self.run_held():
             busy.run = True
+        self.last_busy = busy
         return busy
 
     def _streaks(self) -> dict:
@@ -1091,6 +1250,12 @@ class Updater:
         return {k: float(v) for k, v in value.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
 
     def _deferred_since(self, reason: str | None = None) -> float | None:
+        held = self.last_busy.setup_time() if self.last_busy is not None else None
+        if reason == DeferReason.SETUP_RUNNING and held is not None:
+            # How long the lock has been held (or the menu has waited), not how
+            # long this service has deferred on it (C1): a wizard left open for
+            # days before this service started is past the limit at its first look.
+            return held
         streaks = self._streaks()
         if reason is not None:
             return streaks.get(reason)
@@ -1155,13 +1320,25 @@ class Updater:
         return None
 
     def holding(self) -> bool:
-        """Does a running cycle keep the service alive (at most HOLD_S, R3)?"""
+        """Does a running cycle keep the service alive (its hold, R3)?"""
         return self.in_progress() and time.monotonic() < self.hold_until
+
+    def _hold(self, seconds: float) -> None:
+        """Hold the service for `seconds` from now; then it looks again at what holds it."""
+        self.hold_until = time.monotonic() + seconds
+        if self._hold_end is not None:
+            self._hold_end.cancel()
+        self._hold_end = self._loop.call_later(seconds + 0.05, self.changed)
+
+    def _hold_for_child(self) -> float:
+        """The longest an update child runs: its time limit, then the stop's
+        grace (a hard cap: past it the child is killed, `children.run_events`)."""
+        return self.update_timeout_s + self.update_stop_grace_s
 
     def public(self) -> dict:
         """`service.status`'s `update`, and `update.status`."""
         return {
-            "enabled": auto_update_enabled(),
+            "enabled": auto_update_enabled(self.session_state_dirs()),
             "last_check": self.last_check,
             "last_result": self.state.get("last_result"),
             "next_check": self.next_check(),
@@ -1212,7 +1389,7 @@ class Updater:
             return {"due": False, "reason": AppCheckReason.IN_PROGRESS}
         if force:
             return {"due": True, "reason": AppCheckReason.FORCED}
-        if not auto_update_enabled():
+        if not auto_update_enabled(self.session_state_dirs()):
             return {"due": False, "reason": AppCheckReason.AUTO_UPDATE_OFF}
         last = self._number("last_app_check")
         if last is None:
@@ -1484,7 +1661,7 @@ class Updater:
             task.add_done_callback(self._side_tasks.discard)
         if requested is not None:
             self.check_now(requested)
-        elif auto_update_enabled() and (self.due() or self.pending is not None):
+        elif auto_update_enabled(self.session_state_dirs()) and (self.due() or self.pending is not None):
             self.start(self.pending or CheckTrigger.SCHEDULE)
         self._arm()
 
@@ -1502,7 +1679,7 @@ class Updater:
 
     def _tick(self) -> None:
         self._timer = None
-        if not self.in_progress() and auto_update_enabled() and (self.due() or self.pending is not None):
+        if not self.in_progress() and auto_update_enabled(self.session_state_dirs()) and (self.due() or self.pending is not None):
             self.start(self.pending or CheckTrigger.SCHEDULE)
         self._arm()
 
@@ -1526,11 +1703,11 @@ class Updater:
             return {"outcome": CheckOutcome.SCHEDULED}
         if self.in_progress():
             return {"outcome": CheckOutcome.RUNNING, "cycle_id": self.cycle_id}
-        if not auto_update_enabled():
+        if not auto_update_enabled(self.session_state_dirs()):
             self.emit(Topic.UPDATE_DEFERRED, {"cycle_id": None, "reason": DeferReason.AUTO_UPDATE_OFF, "trigger": trigger})
             return {"outcome": CheckOutcome.DEFERRED, "reason": DeferReason.AUTO_UPDATE_OFF}
         last = self.last_check
-        if last is not None and 0 <= time.time() - last < CHECK_NOW_COOLDOWN_S:
+        if last is not None and 0 <= time.time() - last < CHECK_NOW_COOLDOWN_S and not self.moved_back():
             return {"outcome": CheckOutcome.RECENT, "last_check": last}
         return {"outcome": CheckOutcome.STARTED, "cycle_id": self.start(trigger)}
 
@@ -1545,7 +1722,7 @@ class Updater:
     def _retry_pending(self, delay: float = SESSION_END_RETRY_S) -> None:
         self._retry = None
         trigger = self.pending
-        if trigger is None or self.in_progress() or not auto_update_enabled():
+        if trigger is None or self.in_progress() or not auto_update_enabled(self.session_state_dirs()):
             return
         busy = self._look()
         if self._forced(busy.reasons()) is not None:
@@ -1562,11 +1739,7 @@ class Updater:
         cycle_id = secrets.token_hex(6)
         self.cycle_id = cycle_id
         self.slot = True
-        self.hold_until = time.monotonic() + HOLD_S
-        if self._hold_end is not None:
-            self._hold_end.cancel()
-        # When the hold runs out, the service looks again at what holds it.
-        self._hold_end = self._loop.call_later(HOLD_S + 0.05, self.changed)
+        self._hold(HOLD_S)
         self.task = self._loop.create_task(self._cycle(cycle_id, trigger))
         self.changed()
         return cycle_id
@@ -1644,6 +1817,11 @@ class Updater:
         if deferred is None:
             self.state["last_check"] = now
             self.state["last_result"] = result
+            # What that check left installed: a later move BACK (`moved_back`)
+            # makes the next check due at once.
+            self_step = steps.get(UpdateStep.SELF)
+            checked = self_step.get("to_version") if isinstance(self_step, dict) else None
+            self.state["checked_cli"] = checked if isinstance(checked, str) and checked else self.installed_now()
             # Cycles in a row that ended not ok, online: the watch's `update_failed` (plan B2).
             streak = self.state.get("failed_in_a_row")
             streak = streak if isinstance(streak, int) else 0
@@ -1774,7 +1952,8 @@ class Updater:
         """Before the quiet check: the update child a service before this one
         left running, past `update_timeout_s` (`overrun_update`), is stopped
         as this service stops its own at the limit (its `wizard.lock` would
-        otherwise defer every cycle for good: a setup is never overridden).
+        otherwise defer every cycle for a day, and a second update would then
+        run beside it).
         What was done, for the step's record, or None (no such child)."""
         found = await asyncio.to_thread(overrun_update, self.update_timeout_s)
         if found is None:
@@ -1811,6 +1990,9 @@ class Updater:
             busy.run = False
             busy.workers = [] if busy.workers is not None else None
             busy.unseen_daemon = False
+            # Nor the files a waiting wizard menu runs from (C1): only its
+            # lock, held while an action writes, holds a switch off.
+            busy.menu = False
         reasons = busy.reasons()
         forced = self._forced(reasons)
         if forced is None:
@@ -1895,6 +2077,11 @@ class Updater:
             # child runs even if this service stops under it (a signal, the end
             # of its hold), and goes stale once the child is gone.
             child.append(process)
+            # Held while it runs, however long it may (plan B2): a cycle the
+            # keeper asked for has no session to keep the service up, and a
+            # service stopped idle under its child left the update to finish
+            # with nothing watching its time limit.
+            self._hold(self._hold_for_child())
             with contextlib.suppress(OSError):
                 barrier.raise_barrier(token, pid=process.pid, replaces_cli=replaces_cli)
 
@@ -1903,7 +2090,7 @@ class Updater:
             await asyncio.sleep(BARRIER_SETTLE_S)
             again = await self._look_off_loop()
             if self.beside:
-                again.run, again.unseen_daemon = False, False
+                again.run, again.unseen_daemon, again.menu = False, False, False
                 again.workers = [] if again.workers is not None else None
             seen = again.reasons()
             if not (skip_cli or held) and any(not w.draining for w in again.workers or []):
@@ -1923,6 +2110,7 @@ class Updater:
                 hours = (time.time() - since) / 3600
                 log(f"updating although {label} (deferred {hours:.1f} h, past the {self.defer_limit_s / 3600:.0f} h limit)")
             self._step(cycle_id, step, StepState.STARTED, **({"forced": label} if forced else {}))
+            told = [reason for reason in CHILD_FORCED if reason in forced]
             done: dict = {}
 
             def on_event(event: dict) -> None:
@@ -1950,7 +2138,8 @@ class Updater:
                         barrier.TOKEN_ENV: token,
                         # Only a run past its own limit lets the child skip its
                         # run check: a run that just started never is (D33).
-                        **({FORCED_ENV: DeferReason.RUN_IN_FLIGHT} if DeferReason.RUN_IN_FLIGHT in forced else {}),
+                        # Likewise a setup holding wizard.lock (C1).
+                        **({FORCED_ENV: ",".join(told)} if told else {}),
                         **({SKIP_CLI_ENV: "1"} if skip_cli else {}),
                         **({SIDE_BY_SIDE_ENV: "1"} if self.beside else {}),
                     },
@@ -1975,6 +2164,9 @@ class Updater:
                 # limit, when the next service stops it (`overrun_update`).
                 lower = not child or child[0].poll() is not None
                 raise
+            # The child is done: the rest of the cycle (the app's step, the
+            # version read) holds the service HOLD_S, as before the child.
+            self._hold(HOLD_S)
         finally:
             self.applying = False
             if lower:
@@ -2284,7 +2476,8 @@ class Updater:
             log(f"version check after the update action could not start: {exc}")
             return
         installed = value.get("cli_version") if isinstance(value, dict) else None
-        moved = code == 0 and isinstance(installed, str) and bool(installed) and installed != self.version
+        moved = code == 0 and isinstance(installed, str) and bool(installed) and (
+            installed != self.version or await asyncio.to_thread(_env_moved))
         if moved:
             self.mark_followup(None)
         try:
@@ -2320,6 +2513,7 @@ class Updater:
                     log("no guard: no version to switch back to")
                     return
                 python = str(installs.env_python(prior))
+            to_env = installs.active()
             import subprocess
 
             log_fd = os.open(paths.log_path(), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
@@ -2327,7 +2521,8 @@ class Updater:
                 subprocess.Popen(  # noqa: S603 -- the previous version's interpreter, our own module
                     [python, "-I", "-m", "probe.service.guard", "--from", self.version,
                      "--to", to_version, "--old-python", python, "--old-pid", str(os.getpid()),
-                     "--old-start", procid.start_time(os.getpid()) or ""],
+                     "--old-start", procid.start_time(os.getpid()) or "",
+                     *(["--to-env", str(to_env)] if to_env is not None else [])],
                     stdin=subprocess.DEVNULL,
                     stdout=log_fd,
                     stderr=log_fd,
@@ -2354,7 +2549,7 @@ class Updater:
         if code != 0 or not isinstance(installed, str) or not installed:
             self._step(cycle_id, step, StepState.FAILED, detail="could not read the installed CLI version")
             return {"state": StepState.FAILED, "detail": "could not read the installed CLI version"}, False
-        restart = installed != self.version
+        restart = installed != self.version or await asyncio.to_thread(_env_moved)
         detail = {"from_version": self.version, "to_version": installed, "restart": restart}
         self._step(cycle_id, step, StepState.DONE, **detail)
         return {"state": StepState.DONE, **detail}, restart

@@ -155,6 +155,7 @@ class CfnAccountAlias(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -197,7 +198,7 @@ class CfnAccountAlias(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fde9ac7f5be17538e97741bfe840be954079267e66852796867becf705e946c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountAlias", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accountAlias", value)
 
 
 @jsii.data_type(
@@ -380,6 +381,7 @@ class CfnSlackChannelConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -413,7 +415,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ffe28b2d0eb8b11fbc4a2c27fcd61a83f5a100fe03c0ab639b4c6e4b3e33ad97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelId", value)
 
     @builtins.property
     @jsii.member(jsii_name="channelRoleArn")
@@ -426,7 +428,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f715a6c77d680fa338c311c1d85f10785a34855a6418e2e273d0601b721ae55a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="notifyOnCaseSeverity")
@@ -439,7 +441,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__43889d99461b4eb354d3cda7eac0e70aa64aa695099d6d58aea1b4450edcce73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notifyOnCaseSeverity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notifyOnCaseSeverity", value)
 
     @builtins.property
     @jsii.member(jsii_name="teamId")
@@ -452,7 +454,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b0c8b06d535fec4288c5729f7abbd4b628bc6d95a8d237291be707222bb4dfa5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "teamId", value)
 
     @builtins.property
     @jsii.member(jsii_name="channelName")
@@ -465,7 +467,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3ee993d7f3cacc21f7ddb4348e334d9d7988e68e53fe09ce2a5c9584d0eece64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelName", value)
 
     @builtins.property
     @jsii.member(jsii_name="notifyOnAddCorrespondenceToCase")
@@ -483,7 +485,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b8cd4cea2b5fb7897f3ab091e75cdd4a5ca0265e070b473a358a38c910b33c90)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notifyOnAddCorrespondenceToCase", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notifyOnAddCorrespondenceToCase", value)
 
     @builtins.property
     @jsii.member(jsii_name="notifyOnCreateOrReopenCase")
@@ -501,7 +503,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__921399ffc2d54516aa2373e50e1a3e13600afdf675d89510f94d97c081fd7154)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notifyOnCreateOrReopenCase", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notifyOnCreateOrReopenCase", value)
 
     @builtins.property
     @jsii.member(jsii_name="notifyOnResolveCase")
@@ -519,7 +521,7 @@ class CfnSlackChannelConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bdf168cfdf59423abb532004d6218672a01d6693597b0f69fecd68f3be197540)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notifyOnResolveCase", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notifyOnResolveCase", value)
 
 
 @jsii.data_type(
@@ -812,6 +814,7 @@ class CfnSlackWorkspaceConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -845,7 +848,7 @@ class CfnSlackWorkspaceConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a96287eac0dcd1b969ed2409312a0160a9263ba631a67ad99c2e8535a2d29da0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "teamId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "teamId", value)
 
     @builtins.property
     @jsii.member(jsii_name="versionId")
@@ -858,7 +861,7 @@ class CfnSlackWorkspaceConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1f10519eb1d45ed1305e842ac3665885bde5d1c65940455981356edc1d9e295e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "versionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "versionId", value)
 
 
 @jsii.data_type(

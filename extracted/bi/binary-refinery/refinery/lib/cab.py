@@ -3,16 +3,21 @@ Parsing of CAB archives.
 """
 from __future__ import annotations
 
+import weakref
 import zlib
 
 from datetime import date, datetime, time
 from enum import IntEnum, IntFlag
-from typing import Iterable, NamedTuple
+from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NamedTuple
 
 from refinery.lib.fast.cab import cab_data_checksum
 from refinery.lib.seven.lzx import LzxDecoder
 from refinery.lib.seven.quantum import QuantumDecoder
+from refinery.lib.solid import SolidStream, SolidStreamTruncated
 from refinery.lib.structures import Struct, StructReader
+
+if TYPE_CHECKING:
+    from refinery.lib.types import buf
 
 
 class CabVolumeMissing(LookupError):
@@ -84,44 +89,66 @@ class CabFolder(Struct):
         self.compression = CabMethod(self.method[0] & 0xF)
         reader.seekrel(parent.skip_per_fldr)
         with reader.detour(start):
-            self.blocks = [CabCompressedBlock(reader, parent, compute_checksums) for _ in range(count)]
-        self.decompressed = None
+            self.blocks = [CabCompressedBlock(reader, parent) for _ in range(count)]
+        self.verify_checksums = compute_checksums
+        self._stream: weakref.ref[SolidStream] | None = None
 
     def __repr__(self):
         return F'<fldr:{self.compression.name}({self.method[1]}):{len(self.blocks)}>'
 
     def iter_block_data(self):
-        it = iter(self.blocks)
-        for block in it:
+        """
+        Generate the decompressed size and the compressed data of every block, where a block that
+        continues on the next disk is merged with its remainder. A block whose data does not match
+        its checksum raises `refinery.lib.cab.CabVolumeCorrupt` when it is reached.
+        """
+        it = enumerate(self.blocks)
+        for k, block in it:
+            self._verify(k, block)
             if size := block.decompressed_size:
                 yield size, block.data
                 continue
             merged = bytearray(block.data)
             while not size:
                 try:
-                    tail = next(it)
+                    k, tail = next(it)
                 except StopIteration as E:
                     raise EOFError from E
+                self._verify(k, tail)
                 merged.extend(tail.data)
                 size = tail.decompressed_size
             yield size, memoryview(merged)
 
-    def decompress(self):
-        if self.decompressed is not None:
-            return memoryview(self.decompressed)
+    def _verify(self, index: int, block: CabCompressedBlock):
+        if self.verify_checksums and not block.intact:
+            raise CabVolumeCorrupt(
+                F'Data block {index} of the folder fails its checksum; provided value was '
+                F'{block.provided_checksum:08X}, computed value {block.computed_checksum:08X}.')
 
+    def stream(self) -> SolidStream:
+        """
+        The decompressed folder as a stream from which the files in it are read. The folder keeps
+        the stream only while a claim on it is alive.
+        """
+        if (ref := self._stream) is None or (stream := ref()) is None:
+            volatile = self.compression in (CabMethod.LZX, CabMethod.Quantum)
+            stream = SolidStream(self._pieces, volatile=volatile)
+            self._stream = weakref.ref(stream)
+        return stream
+
+    def _pieces(self, origin: int) -> Iterator[tuple[int, buf]]:
         cm = self.compression
-        dst = bytearray(sum(block.decompressed_size for block in self.blocks))
         pos = 0
-
         if cm == CabMethod.Nothing:
-            for block in self.blocks:
-                chunk = block.data
-                pos += len(chunk)
-                dst[pos - len(chunk):pos] = chunk
-        elif cm == CabMethod.Deflate:
-            zdict = B''
             for _, data in self.iter_block_data():
+                yield pos, data
+                pos += len(data)
+            return
+        if cm == CabMethod.Deflate:
+            zdict = B''
+
+            def decompress(data: memoryview, size: int, k: int) -> buf:
+                nonlocal zdict
                 if data[:2] != B'CK':
                     raise ValueError('Corrupted MSZip block with invalid header.')
                 try:
@@ -129,29 +156,30 @@ class CabFolder(Struct):
                     zdict = inflate.decompress(data[2:]) + inflate.flush()
                 except zlib.error:
                     raise RuntimeError('Failed to inflate CAB data block.')
-                pos += len(zdict)
-                dst[pos - len(zdict):pos] = zdict
+                return zdict
         elif cm == CabMethod.LZX:
             lzx = LzxDecoder(False)
             lzx.set_params_and_alloc(self.method[1])
-            for size, data in self.iter_block_data():
-                out = lzx.decompress(data, size)
-                pos += len(out)
-                dst[pos - len(out):pos] = out
-                lzx.keep_history = True
+
+            def decompress(data: memoryview, size: int, k: int) -> buf:
+                lzx.keep_history = k > 0
+                return lzx.decompress(data, size)
         elif cm == CabMethod.Quantum:
             qd = QuantumDecoder(self.method[1] & 0x1F)
-            for k, (size, data) in enumerate(self.iter_block_data()):
-                out = qd.decompress(data, size, keep_history=k > 0)
-                pos += len(out)
-                dst[pos - len(out):pos] = out
+
+            def decompress(data: memoryview, size: int, k: int) -> buf:
+                return qd.decompress(data, size, keep_history=k > 0)
         else:
             raise ValueError(F'Unknown decompression method: {cm!r}')
-
-        if pos != len(dst):
-            dst = dst[:pos]
-        self.decompressed = dst
-        return memoryview(dst)
+        for k, (size, data) in enumerate(self.iter_block_data()):
+            out = decompress(data, size, k)
+            if len(out) != size:
+                raise RuntimeError(
+                    F'Data block {k} of the folder decompressed to {len(out)} bytes, but its header '
+                    F'states {size} bytes.'
+                )
+            yield pos, out
+            pos += len(out)
 
 
 class CabFile(Struct):
@@ -200,15 +228,31 @@ class CabFile(Struct):
         t = t.isoformat('seconds') if (t := self.time) else '??:??:??'
         return F'<file:{index}:{d}T{t}:{self.name}>'
 
-    def decompress(self):
-        folder = self.folder
-        if folder is None:
-            raise RuntimeError(F'CAB file entry is missing a link to its folder: {self!r}')
-        folder_data = folder.decompress()
-        data = folder_data[self.offset:self.end]
-        if len(data) != self.size:
-            raise RuntimeError(F'The extracted file does not have the correct size: {self!r}')
-        return data
+    def extractor(self) -> Callable[[], buf]:
+        """
+        Return a function that returns the data of this file. The folder is decompressed when the
+        function is first called; it keeps the data of other files only while the functions returned
+        for them are alive.
+        """
+        if (folder := self.folder) is None:
+            return self._missing_folder
+        claim = folder.stream().claim(self.offset, self.size)
+
+        def extract() -> buf:
+            try:
+                return claim()
+            except SolidStreamTruncated:
+                raise RuntimeError(
+                    F'The extracted file does not have the correct size: {self!r}'
+                ) from None
+
+        return extract
+
+    def decompress(self) -> buf:
+        return self.extractor()()
+
+    def _missing_folder(self) -> buf:
+        raise RuntimeError(F'CAB file entry is missing a link to its folder: {self!r}')
 
     @property
     def codec(self):
@@ -232,22 +276,27 @@ class CabFile(Struct):
 
 class CabCompressedBlock(Struct):
 
-    def __init__(self, reader: StructReader[memoryview], parent: CabDisk, compute_checksums: bool):
+    def __init__(self, reader: StructReader[memoryview], parent: CabDisk):
         self.provided_checksum = reader.u32()
-        seed = reader.u32(peek=True)
+        self._seed = reader.u32(peek=True)
         size = reader.u16()
         self.decompressed_size = reader.u16()
         reader.seekrel(parent.skip_per_data)
-        self.data = data = reader.read_exactly(size)
-        self.computed_checksum = cab_data_checksum(data, seed) if compute_checksums else None
+        self.data = reader.read_exactly(size)
+
+    @property
+    def computed_checksum(self) -> int:
+        return cab_data_checksum(self.data, self._seed)
+
+    @property
+    def intact(self) -> bool:
+        """
+        Whether the data matches the checksum of the block; a block with checksum zero has none.
+        """
+        return not (provided := self.provided_checksum) or provided == self.computed_checksum
 
     def __repr__(self):
-        if self.computed_checksum == self.provided_checksum:
-            checksum = 'OK'
-        elif self.computed_checksum is None:
-            checksum = '??'
-        else:
-            checksum = '!!'
+        checksum = 'OK' if self.intact else '!!'
         return F'<block:{len(self.data):04X}->{self.decompressed_size:04X}:{checksum}>'
 
 
@@ -391,13 +440,17 @@ class Cabinet:
         if not self.disks:
             return True
         try:
-            self.check(checksums=False)
+            self.check()
         except CabVolumeMissing:
             return True
         else:
             return False
 
-    def check(self, checksums: bool = True):
+    def check(self):
+        """
+        Check that every disk of every cabinet is present and that the disks are in sequence. The
+        checksums of data blocks are verified when the blocks are decompressed.
+        """
         for disks in self.disks.values():
             for k, disk in enumerate(disks):
                 if disk.index != k:
@@ -411,19 +464,3 @@ class Cabinet:
             for k, (prev, next) in enumerate(zip(prev_list[2:], next_list[:-2]), 2):
                 if prev != next:
                     raise CabSequenceMismatch(k, prev, next)
-            if not checksums:
-                continue
-            for disk in disks:
-                for f, folder in enumerate(disk.folders):
-                    for b, block in enumerate(folder.blocks):
-                        if block.computed_checksum is None:
-                            continue
-                        p = block.provided_checksum
-                        if p == 0:
-                            continue
-                        c = block.computed_checksum
-                        if p == c:
-                            continue
-                        raise CabVolumeCorrupt(
-                            F'Incorrect checksum in Disk {disk.index}, folder {f}, block {b}; '
-                            F'provided value was {p:08X}, computed value {c:08X}.')

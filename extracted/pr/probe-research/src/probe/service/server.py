@@ -638,6 +638,9 @@ class Service:
         self.discovery_s = discovery_s
         self.expected_uid = (os.getuid() if hasattr(os, "getuid") else None) if expected_uid is None else expected_uid
         self.version = _version()
+        #: The env this service's code came from, resolved at its start (a
+        #: rebuild of the same version is another folder, `<v>+g<N>`).
+        self.env = str(updater_mod.STARTED_ENV)
         self.pid = os.getpid()
         self.started_at = time.time()
         self.state = State.DISCOVERING
@@ -741,7 +744,7 @@ class Service:
         )
         self.updater = Updater(
             version=self.version,
-            emit=self._emit,
+            emit=self._updater_emit,
             changed=self._cycle_changed,
             stop=self._restart_for_update,
             # A desktop request's change imports from the CLI's env like an action.
@@ -1478,6 +1481,15 @@ class Service:
             if topic in conn.topics and (not scoped or not conn.sessions or payload.get("sid") in conn.sessions):
                 conn.send_nowait(message)
 
+    def _updater_emit(self, topic: str, payload: dict) -> None:
+        """The updater's events; at a cycle's end, the lifeboat's part (plan
+        fool-proof-updates B1, B5): its `current/` copy becomes known-good
+        when this cycle proved it, and what it did is reported."""
+        self._emit(topic, payload)
+        if topic == Topic.UPDATE_DONE and self._loop is not None:
+            self._loop.run_in_executor(None, _lifeboat_after, dict(payload))
+            self.statepost.look_for_acted()
+
     def _app_connections(self) -> list:
         """The desktop app's open connections (`service.hello` client `app`)."""
         return [c for c in self.connections if c.hello and c.client == Client.APP]
@@ -1672,6 +1684,9 @@ class Service:
             "started_at": self.started_at,
             "state": self.state,
             "caps": sorted(CAPS),
+            # The env it runs from: a rebuild of the same version lives in a
+            # folder of its own (`<v>+g<N>`), which the guard tells apart by it.
+            "env": self.env,
         }
 
     def _status(self, conn: Connection, params: dict) -> dict:
@@ -2856,9 +2871,24 @@ def _keep() -> None:
     with contextlib.suppress(Exception):
         from . import keeper
 
-        outcome = keeper.install()
+        # The lifeboat first (`lifeboat.install`), then the units that run it;
+        # env.json with the login shell's index settings (never this clean env's).
+        login = None
+        if keeper.wanted():
+            from . import lifeboat
+
+            login = lifeboat.login_env()
+        outcome = keeper.install(login)
         if outcome not in ("current", "not wanted"):
             log(f"keeper: {outcome}")
+
+
+def _lifeboat_after(result: dict) -> None:
+    with contextlib.suppress(Exception):
+        from . import lifeboat
+
+        if lifeboat.after_cycle(result):
+            log("lifeboat: current/ proved itself and is the known-good copy now")
 
 
 #: How often the service looks for an outbox pause that no longer holds: one stat.

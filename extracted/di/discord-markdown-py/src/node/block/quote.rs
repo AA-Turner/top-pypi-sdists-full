@@ -4,16 +4,17 @@ use nom::{
 	bytes::complete::tag,
 	character::complete::one_of,
 	combinator::{opt, peek},
-	sequence::{preceded, terminated},
+	sequence::preceded,
 };
 
 use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
+	lossless::TokenKind,
 	node::{Blocks, Elements},
 	scope::Scope,
-	span::Span,
+	span::{Span, WithToken},
 	unparse::Unparse,
 };
 
@@ -53,10 +54,14 @@ where
 {
 	// As with `> `, exactly one space belongs to the prefix so that indentation on the first line
 	// survives into the content.
-	preceded(
-		(tag(REST_PREFIX), one_of(" \t")),
+	(
+		(tag(REST_PREFIX), one_of(" \t")).token::<S>(TokenKind::QuotePrefix),
 		block(context.with_scope(Scope::QuoteRest)),
 	)
+		.map(|(prefix, mut content): (_, Elements<'data, S>)| {
+			content.span.attach(prefix);
+			content
+		})
 }
 
 /// Parse a quote whose every line begins with [`LINE_PREFIX`].
@@ -76,11 +81,15 @@ where
 	// loop backtracks over because no block content follows it.
 	preceded(
 		peek(Scope::Quote.line_prefix()),
-		terminated(
+		(
 			block(context.with_scope(Scope::Quote)),
-			opt(Scope::Quote.line_prefix()),
+			opt(Scope::Quote.line_prefix()).token::<S>(TokenKind::QuotePrefix),
 		),
 	)
+	.map(|(mut content, prefix): (Elements<'data, S>, _)| {
+		content.span.attach(prefix);
+		content
+	})
 }
 
 /// Parse a quote block.

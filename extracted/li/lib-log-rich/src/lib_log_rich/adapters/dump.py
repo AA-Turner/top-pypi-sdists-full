@@ -30,53 +30,32 @@ Output formats and templates align with the behaviour described in
 from __future__ import annotations
 
 import html
-from functools import cache, lru_cache
+from functools import lru_cache
 from io import StringIO
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 
-import orjson
 from rich.console import Console
 from rich.text import Text
 
 from lib_log_rich.application.ports.dump import DumpPort
+from lib_log_rich.domain import json_codec
 from lib_log_rich.domain.dump import DumpFormat
+from lib_log_rich.domain.enums import ConsoleTheme, FormatPreset
 from lib_log_rich.domain.levels import LogLevel
+from lib_log_rich.domain.palettes import CONSOLE_STYLE_THEMES
 
-from ._formatting import build_format_payload
+from ._formatting import build_format_payload, format_process_chain
 from ._schemas import LogEventPayload
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    from collections.abc import Mapping, Sequence
     from pathlib import Path
 
-    from lib_log_rich.domain.dump_filter import DumpFilter
     from lib_log_rich.domain.events import LogEvent
 
 # Invisible marker character for ANSI style extraction
 # Used as a placeholder to capture Rich's ANSI prefix/suffix sequences
 _STYLE_EXTRACTION_MARKER: str = "\u0000"
-
-
-@cache
-def _load_console_themes() -> dict[str, dict[str, str]]:
-    """Load console themes from the domain palette module (cached).
-
-    Returns
-    -------
-    dict[str, dict[str, str]]
-        Mapping of theme names to level->style dictionaries (uppercase levels).
-
-    Examples
-    --------
-    >>> isinstance(_load_console_themes(), dict)
-    True
-
-    """
-    try:  # pragma: no cover - defensive import guard
-        from lib_log_rich.domain.palettes import CONSOLE_STYLE_THEMES  # noqa: PLC0415 - guarded against early-bootstrap ImportError
-    except ImportError:  # pragma: no cover - happens during early bootstrap
-        return {}
-    return {name.lower(): {level.upper(): style for level, style in palette.items()} for name, palette in CONSOLE_STYLE_THEMES.items()}
 
 
 def _create_rich_console_for_dump() -> Console:
@@ -110,11 +89,45 @@ def _create_style_wrapper(rich_console: Console, style: str) -> tuple[str, str]:
     return (prefix, suffix)
 
 
+def _event_theme(event: LogEvent) -> ConsoleTheme | None:
+    """Return the palette an event's ``theme`` extra names, if it names one.
+
+    Example:
+        >>> from datetime import datetime, timezone
+        >>> from lib_log_rich.domain.context import LogContext
+        >>> from lib_log_rich.domain.events import LogEvent
+        >>> ctx = LogContext(service='svc', environment='env', job_id='job')
+        >>> def make(theme):
+        ...     return LogEvent('1', datetime.now(timezone.utc), 'x', LogLevel.INFO, 'm', ctx, extra={'theme': theme})
+        >>> _event_theme(make(' Neon ')) is ConsoleTheme.NEON
+        True
+        >>> _event_theme(make('nope')) is None, _event_theme(make(7)) is None
+        (True, True)
+
+    """
+    value = event.extra.get("theme")
+    if not isinstance(value, str):
+        return None
+    try:
+        return ConsoleTheme.from_str(value)
+    except ValueError:
+        # Extras are free-form caller data, not configuration: a name that is
+        # no palette just leaves the dump's own theme in charge, because one
+        # odd event must never fail the whole dump.
+        return None
+
+
+def _event_palette(event: LogEvent, theme_styles: Mapping[str, str]) -> Mapping[str, str]:
+    """Return the palette the event's own ``theme`` extra names, else ``theme_styles``."""
+    event_theme = _event_theme(event)
+    return theme_styles if event_theme is None else CONSOLE_STYLE_THEMES[event_theme]
+
+
 def _resolve_event_style(
     event: LogEvent,
     *,
     resolved_styles: dict[str, str],
-    theme_styles: dict[str, str],
+    theme_styles: Mapping[str, str],
 ) -> str | None:
     """Determine the Rich style string for an event based on level and theme.
 
@@ -138,21 +151,7 @@ def _resolve_event_style(
     if style_name is not None:
         return style_name
 
-    # Check event-specific theme override
-    event_theme = None
-    try:
-        event_theme = event.extra.get("theme")
-    except AttributeError:
-        event_theme = None
-
-    # Resolve palette (event theme > default theme)
-    palette = _resolve_theme_styles(event_theme) or theme_styles if isinstance(event_theme, str) else theme_styles
-
-    # Lookup level in palette
-    if palette:
-        return palette.get(event.level.name)
-
-    return None
+    return _event_palette(event, theme_styles).get(event.level.name)
 
 
 def _apply_fallback_ansi_color(line: str, level: LogLevel) -> str:
@@ -218,30 +217,37 @@ def _normalise_styles(styles: Mapping[str, str] | None) -> dict[str, str]:
     return normalised
 
 
-@lru_cache(maxsize=8)
-def _resolve_theme_styles(theme: str | None) -> dict[str, str]:
-    """Fetch style overrides for the selected theme (if any).
+def _resolve_theme_styles(theme: ConsoleTheme | None) -> Mapping[str, str]:
+    """Return the palette for ``theme``, keyed by uppercase level name.
 
-    Parameters
-    ----------
-    theme:
-        Theme name; case-insensitive.
+    Args:
+        theme: Palette to use; ``None`` for none.
 
-    Returns
-    -------
-    dict[str, str]
-        Palette mapping or empty dict when theme is ``None`` or unknown.
+    Returns:
+        The palette, or an empty mapping when ``theme`` is ``None``.
 
-    Examples
-    --------
-    >>> isinstance(_resolve_theme_styles(None), dict)
-    True
+    Raises:
+        ValueError: If ``theme`` names no palette.
+
+    Examples:
+        >>> _resolve_theme_styles(ConsoleTheme.CLASSIC)['INFO']
+        'cyan'
+        >>> _resolve_theme_styles(None)
+        {}
+        >>> _resolve_theme_styles('nope')  # an untyped caller's plain string
+        Traceback (most recent call last):
+        ...
+        ValueError: Unknown console theme: 'nope'
 
     """
-    if not theme:
+    if theme is None:
         return {}
-    palette = _load_console_themes().get(theme.strip().lower())
-    return dict(palette) if palette else {}
+    try:
+        return CONSOLE_STYLE_THEMES[theme]
+    except KeyError as exc:
+        # str() rather than .value, as in _resolve_preset: an untyped caller's
+        # plain string then gets this ValueError instead of an AttributeError.
+        raise ValueError(f"Unknown console theme: {str(theme)!r}") from exc
 
 
 #: Fallback colour styles used when neither theme nor explicit styles provide mappings.
@@ -253,23 +259,24 @@ _FALLBACK_HTML_STYLES: dict[LogLevel, str] = {
     LogLevel.CRITICAL: "magenta",
 }
 
-#: Named text presets mirrored in CLI documentation for predictable dumps.
-_TEXT_PRESETS: dict[str, str] = {
-    "full": "{timestamp} {LEVEL:<8} {logger_name} {event_id} {message}{context_fields}",
-    "short": "{hh}:{mm}:{ss}|{level_code}|{logger_name}: {message}",
-    "full_loc": "{timestamp_loc} {LEVEL:<8} {logger_name} {event_id} {message}{context_fields}",
-    "short_loc": "{hh_loc}:{mm_loc}:{ss_loc}|{level_code}|{logger_name}: {message}",
+#: Text dump template per preset. ``SHORT_LOC_ICON`` is absent on purpose: its
+#: icon needs a terminal, so a text dump refuses it rather than guessing a glyph.
+_TEXT_PRESETS: dict[FormatPreset, str] = {
+    FormatPreset.FULL: "{timestamp} {LEVEL:<8} {logger_name} {event_id} {message}{context_fields}",
+    FormatPreset.SHORT: "{hh}:{mm}:{ss}|{level_code}|{logger_name}: {message}",
+    FormatPreset.FULL_LOC: "{timestamp_loc} {LEVEL:<8} {logger_name} {event_id} {message}{context_fields}",
+    FormatPreset.SHORT_LOC: "{hh_loc}:{mm_loc}:{ss_loc}|{level_code}|{logger_name}: {message}",
 }
 
 
 @lru_cache(maxsize=8)
-def _resolve_preset(preset: str) -> str:
+def _resolve_preset(preset: FormatPreset) -> str:
     """Return the template string associated with a named preset.
 
     Parameters
     ----------
     preset:
-        Preset name such as ``"full"`` or ``"short"`` (case-insensitive).
+        Preset such as :attr:`FormatPreset.FULL` or :attr:`FormatPreset.SHORT`.
 
     Returns
     -------
@@ -279,19 +286,24 @@ def _resolve_preset(preset: str) -> str:
     Raises
     ------
     ValueError
-        If ``preset`` is unknown.
+        If ``preset`` has no text dump template (``SHORT_LOC_ICON``).
 
     Examples
     --------
-    >>> _resolve_preset('full').startswith('{timestamp}')
+    >>> _resolve_preset(FormatPreset.FULL).startswith('{timestamp}')
     True
+    >>> _resolve_preset(FormatPreset.SHORT_LOC_ICON)
+    Traceback (most recent call last):
+    ...
+    ValueError: Unknown text dump preset: 'short_loc_icon'
 
     """
-    key = preset.lower()
     try:
-        return _TEXT_PRESETS[key]
+        return _TEXT_PRESETS[preset]
     except KeyError as exc:
-        raise ValueError(f"Unknown text dump preset: {preset!r}") from exc
+        # str() rather than .value: an untyped caller's plain string then gets
+        # this ValueError instead of an AttributeError.
+        raise ValueError(f"Unknown text dump preset: {str(preset)!r}") from exc
 
 
 class DumpAdapter(DumpPort):
@@ -305,12 +317,11 @@ class DumpAdapter(DumpPort):
         return [event for event in events if event.level >= min_level]
 
     @staticmethod
-    def _resolve_template(format_preset: str | None, format_template: str | None, text_template: str | None) -> str | None:
-        """Resolve template from preset or explicit template (text_template for backwards compat)."""
-        template = format_template or text_template
-        if format_preset and not template:
+    def _resolve_template(format_preset: FormatPreset | None, format_template: str | None) -> str | None:
+        """Return the explicit template, else the preset's template, else ``None``."""
+        if format_preset is not None and not format_template:
             return _resolve_preset(format_preset)
-        return template
+        return format_template
 
     def _render_by_format(
         self,
@@ -319,7 +330,7 @@ class DumpAdapter(DumpPort):
         dump_format: DumpFormat,
         template: str | None,
         colorize: bool,
-        theme: str | None,
+        theme: ConsoleTheme | None,
         console_styles: Mapping[str, str] | None,
     ) -> str:
         """Dispatch to appropriate renderer based on dump_format."""
@@ -331,7 +342,7 @@ class DumpAdapter(DumpPort):
             return self._render_html_table(events)
         if dump_format is DumpFormat.HTML_TXT:
             return self._render_html_text(events, template=template, colorize=colorize, theme=theme, console_styles=console_styles)
-        raise ValueError(f"Unsupported dump format: {dump_format}")
+        raise ValueError(f"Unsupported dump format: {dump_format.value}")
 
     @staticmethod
     def _write_to_path(path: Path, content: str) -> None:
@@ -348,19 +359,15 @@ class DumpAdapter(DumpPort):
         dump_format: DumpFormat,
         path: Path | None = None,
         min_level: LogLevel | None = None,
-        format_preset: str | None = None,
+        format_preset: FormatPreset | None = None,
         format_template: str | None = None,
-        text_template: str | None = None,
-        theme: str | None = None,
+        theme: ConsoleTheme | None = None,
         console_styles: Mapping[str, str] | None = None,
-        filters: DumpFilter | None = None,
         colorize: bool = False,
     ) -> str:
-        """Render events according to dump_format and optional filters."""
-        _ = filters  # keep signature parity; filtering happens in the use case
-
+        """Render events according to dump_format; the use case has already applied any filter."""
         filtered = self._filter_by_level(events, min_level)
-        template = self._resolve_template(format_preset, format_template, text_template)
+        template = self._resolve_template(format_preset, format_template)
         content = self._render_by_format(filtered, dump_format=dump_format, template=template, colorize=colorize, theme=theme, console_styles=console_styles)
 
         if path is not None:
@@ -387,7 +394,7 @@ class DumpAdapter(DumpPort):
         rich_console: Console,
         style_wrappers: dict[str, tuple[str, str]],
         resolved_styles: dict[str, str],
-        theme_styles: dict[str, str],
+        theme_styles: Mapping[str, str],
     ) -> str:
         """Apply colorization to a line using Rich styles or ANSI fallback."""
         style_name = _resolve_event_style(event, resolved_styles=resolved_styles, theme_styles=theme_styles)
@@ -407,7 +414,7 @@ class DumpAdapter(DumpPort):
         *,
         template: str | None,
         colorize: bool,
-        theme: str | None = None,
+        theme: ConsoleTheme | None = None,
         console_styles: Mapping[str, str] | None = None,
     ) -> str:
         """Render text dumps honouring templates and optional colour."""
@@ -434,53 +441,37 @@ class DumpAdapter(DumpPort):
         return "\n".join(lines)
 
     @staticmethod
-    def _get_event_theme(event: LogEvent) -> str | None:
-        """Extract theme from event extra if present."""
-        try:
-            theme = event.extra.get("theme")
-            return theme if isinstance(theme, str) else None
-        except AttributeError:
-            return None
-
-    @staticmethod
-    def _resolve_palette(event_theme: str | None, theme_styles: dict[str, str]) -> dict[str, str]:
-        """Resolve the palette to use based on event theme or default."""
-        if event_theme:
-            return _resolve_theme_styles(event_theme) or theme_styles
-        return theme_styles
-
-    @staticmethod
     def _resolve_html_style(
         event: LogEvent,
         *,
         colorize: bool,
         resolved_styles: dict[str, str],
-        theme_styles: dict[str, str],
+        theme_styles: Mapping[str, str],
     ) -> str | None:
         """Resolve Rich style for HTML rendering."""
         if not colorize:
             return None
-        # Check explicit style overrides first
+        # Unlike the text path, an empty explicit style falls through to the palette here.
         style_name = resolved_styles.get(event.level.name)
         if style_name:
             return style_name
-        # Resolve palette from event or default theme
-        palette = DumpAdapter._resolve_palette(DumpAdapter._get_event_theme(event), theme_styles)
-        if palette:
-            style_name = palette.get(event.level.name)
-            if style_name:
-                return style_name
-        return _FALLBACK_HTML_STYLES.get(event.level)
+        return _event_palette(event, theme_styles).get(event.level.name) or _FALLBACK_HTML_STYLES.get(event.level)
 
     @staticmethod
     def _create_html_console() -> Console:
-        """Create Rich console configured for HTML export."""
+        """Create Rich console configured for HTML export.
+
+        ``soft_wrap`` keeps each event on one line: the StringIO has no width,
+        and Rich's default of 80 columns would split long events inside the
+        ``<pre>`` block.
+        """
         return Console(
             file=StringIO(),
             record=True,
             force_terminal=True,
             legacy_windows=False,
             color_system="truecolor",
+            soft_wrap=True,
         )
 
     @staticmethod
@@ -489,7 +480,7 @@ class DumpAdapter(DumpPort):
         *,
         template: str | None,
         colorize: bool,
-        theme: str | None = None,
+        theme: ConsoleTheme | None = None,
         console_styles: Mapping[str, str] | None = None,
     ) -> str:
         """Render HTML preformatted text, optionally colourised via Rich styles."""
@@ -536,19 +527,7 @@ class DumpAdapter(DumpPort):
 
         """
         payload = [LogEventPayload.from_event(event).model_dump(mode="json") for event in events]
-        return orjson.dumps(payload, option=orjson.OPT_INDENT_2).decode()
-
-    @staticmethod
-    def _format_process_chain_html(chain_raw: Any) -> str:
-        """Format process ID chain for HTML table display."""
-        if isinstance(chain_raw, (list, tuple)):
-            chain_iter = cast("Iterable[object]", chain_raw)
-            chain_parts = [str(part) for part in chain_iter]
-        elif chain_raw:
-            chain_parts = [str(chain_raw)]
-        else:
-            chain_parts = []
-        return ">".join(chain_parts) if chain_parts else ""
+        return json_codec.dumps(payload, indent=True)
 
     @staticmethod
     def _build_html_table_row(event: LogEvent) -> str:
@@ -557,7 +536,7 @@ class DumpAdapter(DumpPort):
         Uses direct attribute access on LogContext dataclass.
         """
         context = event.context
-        chain_str = DumpAdapter._format_process_chain_html(context.process_id_chain)
+        chain_str = format_process_chain(context.process_id_chain)
         return (
             "<tr>"
             f"<td>{html.escape(event.timestamp.isoformat())}</td>"

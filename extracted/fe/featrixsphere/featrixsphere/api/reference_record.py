@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 
+from .record_utils import clean_record
+
 if TYPE_CHECKING:
     from .http_client import ClientContext
     from .foundational_model import FoundationalModel
@@ -177,7 +179,7 @@ class ReferenceRecord:
         if not self._ctx:
             raise ValueError("ReferenceRecord not connected to client")
 
-        cleaned_record = self._clean_record(self.record)
+        cleaned_record = clean_record(self.record)
 
         response = self._ctx.post_json(
             f"/session/{self.session_id}/encode_records",
@@ -199,20 +201,6 @@ class ReferenceRecord:
         self.embedding = None
         self._ctx = None
         self._foundational_model = None
-
-    def _clean_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean a record for API submission."""
-        import math
-
-        cleaned = {}
-        for key, value in record.items():
-            if isinstance(value, float):
-                if math.isnan(value) or math.isinf(value):
-                    value = None
-            if hasattr(value, 'item'):
-                value = value.item()
-            cleaned[key] = value
-        return cleaned
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation."""

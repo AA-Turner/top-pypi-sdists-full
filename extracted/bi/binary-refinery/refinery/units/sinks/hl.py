@@ -9,8 +9,9 @@ if True:
     colorama.init()
 
 from refinery.lib.id import get_text_format
-from refinery.lib.meta import metavars
+from refinery.lib.meta import MV, metavars
 from refinery.lib.scripts.guess import guess_language
+from refinery.lib.tools import mixed_class
 from refinery.lib.types import Param
 from refinery.units import Arg, Unit
 
@@ -18,6 +19,28 @@ if typing.TYPE_CHECKING:
     from io import TextIOBase
 
     from pygments.token import _TokenType as TokenType
+
+
+class _ColoramaFormatting:
+    """
+    The behavior of a pygments formatter that writes each token in the color that a map from token
+    types to colorama codes assigns to it. The unit adds it to the formatter class of pygments,
+    which it imports only when it is needed.
+    """
+    def __init__(self, colors: dict, **options):
+        super().__init__(**options)
+        self.colors = colors
+
+    def format(self, tokensource: list[tuple[TokenType, str]], outfile: TextIOBase):
+        colors = self.colors
+        for tt, value in tokensource:
+            cc = None
+            while tt and cc is None:
+                cc = colors.get(tt)
+                tt = tt.parent
+            outfile.write(cc or colorama.Fore.WHITE)
+            outfile.write(value)
+            outfile.write(colorama.Style.RESET_ALL)
 
 
 class hl(Unit):
@@ -92,7 +115,7 @@ class hl(Unit):
             if format := get_text_format(data):
                 guesses.append(format.extension)
             guesses.append(str(meta['ext']))
-            if path := meta.get('path'):
+            if path := meta.get(MV.PATH):
                 guesses.append(pathlib.Path(str(path)).suffix.lstrip('.'))
             for guess in guesses:
                 try:
@@ -169,18 +192,7 @@ class hl(Unit):
                 t.Error            : R + ST.BRIGHT,
             }
 
-            class ColoramaFormatter(lib.formatter.Formatter):
-                def format(self, tokensource: list[tuple[TokenType, str]], outfile: TextIOBase):
-                    for tt, value in tokensource:
-                        cc = None
-                        while tt and cc is None:
-                            cc = ANSI_MAP.get(tt)
-                            tt = tt.parent
-                        outfile.write(cc or FG.WHITE)
-                        outfile.write(value)
-                        outfile.write(ST.RESET_ALL)
-
-            tf = ColoramaFormatter()
+            tf = mixed_class(_ColoramaFormatting, lib.formatter.Formatter, 'ColoramaFormatter')(ANSI_MAP)
 
         out = lib.highlight(data, lexer, tf)
         out = F'{out}{colorama.Style.RESET_ALL}'

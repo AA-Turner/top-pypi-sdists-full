@@ -12,7 +12,7 @@ __all__ = (
     "cachedmethod",
 )
 
-__version__ = "7.2.5"
+__version__ = "7.2.6"
 
 import collections
 import collections.abc
@@ -193,7 +193,9 @@ class FIFOCache(Cache):
         except StopIteration:
             raise KeyError("%s is empty" % type(self).__name__) from None
         else:
-            return (key, self.pop(key))
+            value = Cache.__getitem__(self, key)
+            del self[key]
+            return (key, value)
 
     def clear(self):
         Cache.clear(self)
@@ -224,7 +226,7 @@ class LFUCache(Cache):
 
     def __getitem__(self, key, cache_getitem=Cache.__getitem__):
         value = cache_getitem(self, key)
-        if key in self:  # __missing__ may not store item
+        if key in self.__links:  # __missing__ may not store item
             self.__touch(key)
         return value
 
@@ -257,7 +259,9 @@ class LFUCache(Cache):
         if curr is root:
             raise KeyError("%s is empty" % type(self).__name__) from None
         key = next(iter(curr.keys))  # remove an arbitrary element
-        return (key, self.pop(key))
+        value = Cache.__getitem__(self, key)
+        del self[key]
+        return (key, value)
 
     def clear(self):
         Cache.clear(self)
@@ -293,8 +297,10 @@ class LRUCache(Cache):
 
     def __getitem__(self, key, cache_getitem=Cache.__getitem__):
         value = cache_getitem(self, key)
-        if key in self:  # __missing__ may not store item
-            self.__touch(key)
+        try:
+            self.__order.move_to_end(key)
+        except KeyError:  # __missing__ may not store item
+            pass
         return value
 
     def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
@@ -312,7 +318,9 @@ class LRUCache(Cache):
         except StopIteration:
             raise KeyError("%s is empty" % type(self).__name__) from None
         else:
-            return (key, self.pop(key))
+            value = Cache.__getitem__(self, key)
+            del self[key]
+            return (key, value)
 
     def clear(self):
         Cache.clear(self)
@@ -361,7 +369,9 @@ class RRCache(Cache):
         if not keys:
             raise KeyError("%s is empty" % type(self).__name__) from None
         key = self.__choice(keys)
-        return (key, self.pop(key))
+        value = Cache.__getitem__(self, key)
+        del self[key]
+        return (key, value)
 
     def clear(self):
         Cache.clear(self)
@@ -482,16 +492,16 @@ class TTLCache(_TimedCache):
             return self.timer() < link.expires
 
     def __getitem__(self, key, cache_getitem=Cache.__getitem__):
+        links = self.__links
         try:
-            link = self.__getlink(key)
+            link = links[key]
         except KeyError:
-            expired = False
-        else:
-            expired = not (self.timer() < link.expires)
-        if expired:
-            return self.__missing__(key)
-        else:
             return cache_getitem(self, key)
+        links.move_to_end(key)
+        if self.timer() < link.expires:
+            return cache_getitem(self, key)
+        else:
+            return self.__missing__(key)
 
     def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
         with self.timer as time:
@@ -575,7 +585,9 @@ class TTLCache(_TimedCache):
             except StopIteration:
                 raise KeyError("%s is empty" % type(self).__name__) from None
             else:
-                return (key, self.pop(key))
+                value = Cache.__getitem__(self, key)
+                del self[key]
+                return (key, value)
 
     def clear(self):
         _TimedCache.clear(self)
@@ -621,16 +633,16 @@ class TLRUCache(_TimedCache):
             return self.timer() < item.expires
 
     def __getitem__(self, key, cache_getitem=Cache.__getitem__):
+        items = self.__items
         try:
-            item = self.__getitem(key)
+            item = items[key]
         except KeyError:
-            expired = False
-        else:
-            expired = not (self.timer() < item.expires)
-        if expired:
-            return self.__missing__(key)
-        else:
             return cache_getitem(self, key)
+        items.move_to_end(key)
+        if self.timer() < item.expires:
+            return cache_getitem(self, key)
+        else:
+            return self.__missing__(key)
 
     def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
         with self.timer as time:
@@ -707,7 +719,9 @@ class TLRUCache(_TimedCache):
             except StopIteration:
                 raise KeyError("%s is empty" % type(self).__name__) from None
             else:
-                return (key, self.pop(key))
+                value = Cache.__getitem__(self, key)
+                del self[key]
+                return (key, value)
 
     def clear(self):
         _TimedCache.clear(self)

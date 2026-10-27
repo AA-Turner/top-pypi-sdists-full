@@ -15,6 +15,7 @@
 #include "tensorstore/kvstore/ocdbt/io/coalesce_kvstore.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <algorithm>
 #include <cassert>
@@ -76,7 +77,8 @@ absl::Cord DeepCopyCord(const absl::Cord& cord) {
 }
 
 absl::Cord MaybeDeepCopyCord(absl::Cord cord) {
-  if (cord.EstimatedMemoryUsage() > (cord.size() * 1.2)) {
+  if (cord.EstimatedMemoryUsage(absl::CordMemoryAccounting::kFairShare) >
+      (cord.size() * 1.2)) {
     return DeepCopyCord(cord);
   }
   return cord;
@@ -279,20 +281,23 @@ void OnReadComplete(MergeValue merge_values,
                     ReadyFuture<kvstore::ReadResult> ready) {
   // If there is no value, or there is a single subread, then forward the
   // ReadResult to all subreads.
-  if (!ready.result().ok() || !ready.value().has_value() ||
-      merge_values.subreads.size() == 1) {
+  if (merge_values.subreads.size() == 1) {
+    merge_values.subreads[0].promise.SetResult(std::move(ready.result()));
+  } else if (!ready.result().ok() || !ready.value().has_value()) {
     for (const auto& e : merge_values.subreads) {
       e.promise.SetResult(ready.result());
     }
   } else {
     /// Otherwise extract the desired range and return that.
-    kvstore::ReadResult result = ready.value();
+    kvstore::ReadResult result = std::move(ready.value());
     absl::Cord value = std::move(result.value);
 
     for (const auto& e : merge_values.subreads) {
       size_t request_start, request_size;
       if (e.byte_range.inclusive_min < 0) {
-        request_start = value.size() + e.byte_range.inclusive_min;
+        request_start = static_cast<size_t>(std::max<int64_t>(
+            0,
+            static_cast<int64_t>(value.size()) + e.byte_range.inclusive_min));
       } else {
         request_start = e.byte_range.inclusive_min -
                         merge_values.options.byte_range.inclusive_min;
@@ -380,9 +385,11 @@ void CoalesceKvStoreDriver::StartNextRead(
       merged = MergeValue{};
       merged.options = e.options;
     } else if (merged.options.byte_range.exclusive_max != -1 &&
-               ((e.options.byte_range.inclusive_min -
-                     merged.options.byte_range.exclusive_max >
-                 threshold_) ||
+               ((e.options.byte_range.inclusive_min >
+                     merged.options.byte_range.exclusive_max &&
+                 static_cast<size_t>(e.options.byte_range.inclusive_min -
+                                     merged.options.byte_range.exclusive_max) >
+                     threshold_) ||
                 (merged_threshold_ > 0 &&
                  merged.options.byte_range.size() > merged_threshold_))) {
       // The distance from the end of the prior read to the beginning of the

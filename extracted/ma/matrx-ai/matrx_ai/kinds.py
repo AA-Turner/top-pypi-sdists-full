@@ -43,7 +43,7 @@ from matrx_graph.contract_kinds import (
     contract_definition,
 )
 from matrx_graph.kind_control_keys import applies_to, with_control_keys
-from matrx_graph.kinds import get_kind
+from matrx_graph.kinds import KindEntry, get_kind
 
 from matrx_ai.config.response_format import (
     OutputSchemaEnvelope,
@@ -99,6 +99,39 @@ def is_bindable_kind(slug: str | None) -> bool:
     screams when a structural kind cannot be made provider-portable.
     """
     return bool(slug) and slug not in GENERIC_KINDS
+
+
+def root_kind_const(output_schema: dict[str, Any] | None) -> str | None:
+    """The ``__kind`` const an output schema pins at its ROOT, or None."""
+    if not isinstance(output_schema, dict):
+        return None
+    schema = output_schema.get("schema")
+    if not isinstance(schema, dict):
+        schema = output_schema
+    marker = (schema.get("properties") or {}).get(KIND_KEY)
+    slug = marker.get("const") if isinstance(marker, dict) else None
+    return slug if isinstance(slug, str) and slug else None
+
+
+async def registered_output_kind(
+    output_schema: dict[str, Any] | None,
+    *,
+    declared: str | None = None,
+) -> KindEntry | None:
+    """The REGISTERED kind a structured answer is in, or None (content-ir rule 28).
+
+    ``declared`` (a bound mandate's ``output_kind``) wins over the schema's root
+    ``__kind.const``. Either is used only when it resolves to a live
+    ``content_ir.kind_definition`` row; an unregistered or generic slug yields
+    None, so nothing downstream ever stamps a kind nobody designed. Never mint
+    one here — machine-contract slugs live in ``content_ir.io_contract`` (rule 6).
+    """
+    for slug in (declared, root_kind_const(output_schema)):
+        if is_bindable_kind(slug):
+            entry = await get_kind(slug)  # type: ignore[arg-type]
+            if entry is not None:
+                return entry
+    return None
 
 
 async def response_format_for_kind(

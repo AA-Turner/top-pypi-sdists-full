@@ -37,7 +37,7 @@ class BitBangDevice(Device):
             when there is a mix of input and output lines
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0917
         self,
         device_id=None,
         direction=ALL_OUTPUTS,

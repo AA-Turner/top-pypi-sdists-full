@@ -14,15 +14,18 @@
 
 #include "tensorstore/transaction.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "tensorstore/internal/thread/thread.h"
 #include "tensorstore/util/future.h"
 #include "tensorstore/util/status_testutil.h"
 
@@ -34,6 +37,7 @@ using ::tensorstore::Transaction;
 using ::tensorstore::TransactionMode;
 using ::tensorstore::internal::AcquireOpenTransactionPtrOrError;
 using ::tensorstore::internal::OpenTransactionNodePtr;
+using ::tensorstore::internal::Thread;
 using ::tensorstore::internal::TransactionState;
 using ::tensorstore::internal::WeakTransactionNodePtr;
 using ::testing::HasSubstr;
@@ -532,6 +536,63 @@ TEST(TransactionTest, DeferredAbort) {
   EXPECT_THAT(txn.future().result(), StatusIs(absl::StatusCode::kCancelled));
 }
 
+TEST(TransactionTest, AutoAbortAfterFutureDiscard) {
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+
+  // Create a TestNode and associate it with the transaction.
+  WeakTransactionNodePtr<TestNode> node(new TestNode(&log, 1));
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    node->SetTransaction(*open_ptr);
+    TENSORSTORE_EXPECT_OK(node->Register());
+  }
+  // Discard the `Transaction` reference. Note that the future is still valid.
+  txn = no_transaction;
+  EXPECT_THAT(log, ::testing::ElementsAre());
+  EXPECT_FALSE(future.ready());
+
+  // Discard the `Future` reference. The transaction should be aborted.
+  future = tensorstore::Future<void>();
+  EXPECT_THAT(log, ::testing::ElementsAre("abort:1"));
+  node->AbortDone();
+}
+
+TEST(TransactionTest, AutoAbortWithLinkError) {
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+
+  // Create a TestNode and associate it with the transaction.
+  WeakTransactionNodePtr<TestNode> node(new TestNode(&log, 1));
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    node->SetTransaction(*open_ptr);
+    TENSORSTORE_EXPECT_OK(node->Register());
+  }
+
+  // Link a `Promise` to the transaction's `Future`.
+  auto [write_promise, write_future] =
+      tensorstore::PromiseFuturePair<void>::Make();
+  auto registration = tensorstore::LinkError(std::move(write_promise), future);
+
+  // Discard the `Transaction` reference. Note that the future is still valid.
+  txn = no_transaction;
+  EXPECT_THAT(log, ::testing::ElementsAre());
+
+  // Discard the `Future` reference.
+  future = {};
+  EXPECT_THAT(log, ::testing::ElementsAre());
+
+  // Discard the `Write Future` reference. The transaction should be aborted.
+  write_future = tensorstore::Future<void>();
+  EXPECT_THAT(log, ::testing::ElementsAre("abort:1"));
+  node->AbortDone();
+}
+
 TEST(TransactionTest, MultiPhaseNode) {
   NodeLog log;
   auto txn = Transaction(tensorstore::isolated);
@@ -776,10 +837,232 @@ TEST(TransactionTest, ReleaseFutureReferencesAfterRequestCommit) {
   weak_node->AbortDone();
 }
 
+TEST(TransactionTest, ReleaseFutureReferencesAfterForceCommit) {
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  TransactionState::WeakPtr weak_txn(TransactionState::get(txn));
+  WeakTransactionNodePtr<TestNode> weak_node(new TestNode(&log, 1));
+  weak_txn->AcquireCommitBlock();
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    weak_node->SetTransaction(*open_ptr);
+    TENSORSTORE_EXPECT_OK(weak_node->Register());
+  }
+  // Request commit by forcing the future, then drop the transaction handle
+  // followed by the future handle while the commit block is still held.
+  auto future = txn.future();
+  future.Force();
+  txn = no_transaction;
+  EXPECT_FALSE(weak_txn->aborted());
+  future = {};
+  EXPECT_TRUE(weak_txn->aborted());
+  weak_txn->ReleaseCommitBlock();
+
+  EXPECT_THAT(log, ::testing::ElementsAre("abort:1"));
+  EXPECT_TRUE(weak_txn->aborted());
+  weak_node->AbortDone();
+
+  // Also verify when the temporary future returned by `txn.future()` is
+  // immediately destroyed after `Force()` before `txn` is reset.
+  auto txn2 = Transaction(tensorstore::isolated);
+  TransactionState::WeakPtr weak_txn2(TransactionState::get(txn2));
+  weak_txn2->AcquireCommitBlock();
+  txn2.future().Force();
+  txn2 = no_transaction;
+  EXPECT_TRUE(weak_txn2->aborted());
+  weak_txn2->ReleaseCommitBlock();
+}
+
+// Tests concurrent multi-phase commit where multiple nodes transition phases
+// and call CommitDone.
+struct MultiPhaseConcurrentTestNode : public TransactionState::Node {
+  MultiPhaseConcurrentTestNode(void* associated_data, size_t num_phases,
+                               int* commit_count = nullptr)
+      : TransactionState::Node(associated_data),
+        num_phases_(num_phases),
+        commit_count_(commit_count) {}
+
+  void PrepareForCommit() override {
+    PrepareDone();
+    ReadyForCommit();
+  }
+
+  void Commit() override {
+    if (commit_count_) ++(*commit_count_);
+    const size_t cur_phase = this->phase();
+    if (cur_phase + 1 < num_phases_) {
+      CommitDone(cur_phase + 1);
+    } else {
+      CommitDone(0);
+    }
+  }
+
+  size_t num_phases_;
+  int* commit_count_;
+};
+
+TEST(TransactionTest, ConcurrentMultiPhaseCommit) {
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+  auto* state = TransactionState::get(txn);
+
+  int dummy1 = 1;
+  int dummy2 = 2;
+  int dummy3 = 3;
+
+  {
+    auto node1_res = state->GetOrCreateMultiPhaseNode(
+        &dummy1, [&] { return new MultiPhaseConcurrentTestNode(&dummy1, 3); });
+    auto node2_res = state->GetOrCreateMultiPhaseNode(
+        &dummy2, [&] { return new MultiPhaseConcurrentTestNode(&dummy2, 3); });
+    auto node3_res = state->GetOrCreateMultiPhaseNode(
+        &dummy3, [&] { return new MultiPhaseConcurrentTestNode(&dummy3, 3); });
+    ASSERT_TRUE(node1_res.ok());
+    ASSERT_TRUE(node2_res.ok());
+    ASSERT_TRUE(node3_res.ok());
+  }
+
+  txn.CommitAsync().IgnoreFuture();
+  txn = no_transaction;
+  ASSERT_TRUE(future.ready());
+  TENSORSTORE_EXPECT_OK(future);
+}
+
+struct AsyncErrorNode : public TransactionState::Node {
+  AsyncErrorNode(void* associated_data, absl::Status error)
+      : TransactionState::Node(associated_data), error_(std::move(error)) {}
+
+  void PrepareForCommit() override {
+    PrepareDone();
+    ReadyForCommit();
+  }
+
+  void Commit() override {
+    Thread::StartDetached({}, [this, error = error_] {
+      SetError(error);
+      CommitDone(0);
+    });
+  }
+
+  absl::Status error_;
+};
+
+TEST(TransactionTest, ConcurrentSetErrorDuringCommit) {
+  for (int iter = 0; iter < 50; ++iter) {
+    auto txn = Transaction(tensorstore::isolated);
+    auto future = txn.future();
+    auto* state = TransactionState::get(txn);
+
+    int dummy1 = 1;
+    int dummy2 = 2;
+
+    {
+      auto node1_res = state->GetOrCreateMultiPhaseNode(&dummy1, [&] {
+        return new AsyncErrorNode(&dummy1, absl::InternalError("error 1"));
+      });
+      auto node2_res = state->GetOrCreateMultiPhaseNode(&dummy2, [&] {
+        return new AsyncErrorNode(&dummy2, absl::InternalError("error 2"));
+      });
+      ASSERT_TRUE(node1_res.ok());
+      ASSERT_TRUE(node2_res.ok());
+    }
+
+    txn.CommitAsync().IgnoreFuture();
+    txn = no_transaction;
+
+    EXPECT_THAT(
+        future.result(),
+        StatusIs(absl::StatusCode::kInternal,
+                 ::testing::AnyOf(HasSubstr("error 1"), HasSubstr("error 2"))));
+  }
+}
+
+TEST(TransactionTest, ToOpenTransactionPtr) {
+  EXPECT_FALSE(tensorstore::internal::ToOpenTransactionPtr(
+      OpenTransactionNodePtr<TestNode>()));
+
+  NodeLog log;
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+  OpenTransactionNodePtr<TestNode> open_node;
+  {
+    WeakTransactionNodePtr<TestNode> node(new TestNode(&log, 1));
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    node->SetTransaction(*open_ptr);
+    open_node.reset(node.get());
+  }
+  // `open_node` now holds the sole reference to the `TestNode` and an open
+  // reference to `txn`.
+  auto converted_open_ptr =
+      tensorstore::internal::ToOpenTransactionPtr(std::move(open_node));
+  ASSERT_TRUE(converted_open_ptr);
+  EXPECT_EQ(TransactionState::get(txn), converted_open_ptr.get());
+
+  // `converted_open_ptr` should keep the transaction open and defer commit.
+  txn.CommitAsync().IgnoreFuture();
+  EXPECT_FALSE(future.ready());
+  converted_open_ptr.reset();
+  ASSERT_TRUE(future.ready());
+  TENSORSTORE_EXPECT_OK(future);
+}
+
 TEST(TransactionTest, AbslStringify) {
   EXPECT_EQ("no_transaction_mode", absl::StrCat(no_transaction));
   EXPECT_EQ("isolated", absl::StrCat(TransactionMode::isolated));
   EXPECT_EQ("atomic_isolated", absl::StrCat(TransactionMode::atomic_isolated));
 }
 
+TEST(TransactionTest, AcquireOpenPtrOrErrorIncludesCommitState) {
+  {
+    auto txn = Transaction(tensorstore::isolated);
+    txn.CommitAsync().IgnoreFuture();
+    EXPECT_THAT(AcquireOpenTransactionPtrOrError(txn),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         AllOf(HasSubstr("Transaction not open"),
+                               HasSubstr("commit"))));
+  }
+  {
+    auto txn = Transaction(tensorstore::isolated);
+    txn.Abort();
+    EXPECT_THAT(AcquireOpenTransactionPtrOrError(txn),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         AllOf(HasSubstr("Transaction not open"),
+                               HasSubstr("aborted"))));
+  }
+}
+
+TEST(TransactionTest, ForcedFutureWithCommitBlockAbortsWhenHandlesDropped) {
+  auto txn = Transaction(tensorstore::isolated);
+  auto future = txn.future();
+  TransactionState::WeakPtr weak_txn(TransactionState::get(txn));
+  weak_txn->AcquireCommitBlock();
+  future.Force();
+  EXPECT_FALSE(future.ready());
+  txn = no_transaction;
+  future = {};
+  EXPECT_TRUE(weak_txn->aborted());
+  weak_txn->ReleaseCommitBlock();
+  EXPECT_TRUE(weak_txn->aborted());
+  EXPECT_FALSE(weak_txn->commit_started());
+}
+
+TEST(TransactionTest, MultiPhaseCommitDuplicateAssociatedData) {
+  auto txn = Transaction(tensorstore::isolated);
+  int dummy = 42;
+  int commits = 0;
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(auto open_ptr,
+                                     AcquireOpenTransactionPtrOrError(txn));
+    for (int i = 0; i < 2; ++i) {
+      WeakTransactionNodePtr<MultiPhaseConcurrentTestNode> node(
+          new MultiPhaseConcurrentTestNode(&dummy, /*num_phases=*/2, &commits));
+      node->SetTransaction(*open_ptr);
+      TENSORSTORE_ASSERT_OK(node->Register());
+    }
+  }
+  TENSORSTORE_EXPECT_OK(txn.CommitAsync());
+  EXPECT_EQ(4, commits);
+}
 }  // namespace

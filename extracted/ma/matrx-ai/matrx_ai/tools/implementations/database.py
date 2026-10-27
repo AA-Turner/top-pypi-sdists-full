@@ -1443,9 +1443,17 @@ async def _resolve_read_target(table: str) -> tuple[str | None, str | None]:
 
 
 async def _sql_query_scoped(
-    inner_args: dict[str, Any], ctx: ToolContext, started_at: float, admin_level: str | None
+    inner_args: dict[str, Any],
+    ctx: ToolContext,
+    started_at: float,
+    admin_level: str | None,
+    *,
+    as_person: bool = False,
 ) -> ToolResult:
-    """Structured read path; non-super admins run under host-provided RLS."""
+    """Structured read path; non-super admins run under host-provided RLS.
+
+    ``as_person=True`` (``db_read``) keeps an admin caller OUT of the admin read lane, so the
+    read is exactly what the person's own row-level security allows."""
     from matrx_ai._ext import get_scoped_query_runner
 
     parsed = DbQueryArgs(**inner_args)
@@ -1472,6 +1480,7 @@ async def _sql_query_scoped(
             order_by=parsed.order_by,
             limit=parsed.limit,
             offset=parsed.offset,
+            **({"use_admin_lane": False} if as_person else {}),
         )
     except Exception as exc:
         message, suggested = await _agent_db_error(exc)
@@ -1497,6 +1506,31 @@ async def _sql_query_scoped(
         call_id=ctx.call_id,
         output_self_capped=True,
     )
+
+
+#: Tables ``db_read`` never reads, whoever asks: credentials and keys. A tool an agent can be
+#: talked into calling must not be able to hand them to the model, even a person's own.
+DB_READ_REFUSED_TABLES: frozenset[str] = frozenset(
+    {"users.user_secrets", "users.credential_items", "iam.api_keys"}
+)
+DB_READ_REFUSED_SCHEMAS: frozenset[str] = frozenset({"vault", "auth", "storage"})
+
+
+async def read_as_person(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """``query`` for the read-only ``db_read`` tool: ALWAYS the host's RLS runner as the
+    caller, and never the admin read lane — an admin reads what any person in their place
+    would. Credential tables are refused outright. Same bounds and errors as ``sql``'s
+    non-super-admin read path."""
+    started_at = time.time()
+    qualified, _ = await _resolve_read_target(str(args.get("table") or ""))
+    schema, _, _name = (qualified or "").partition(".")
+    if qualified in DB_READ_REFUSED_TABLES or schema in DB_READ_REFUSED_SCHEMAS:
+        return _sql_permission_error(
+            f"'{qualified}' holds credentials and is never readable through db_read.",
+            started_at,
+            ctx,
+        )
+    return await _sql_query_scoped(args, ctx, started_at, None, as_person=True)
 
 
 def _write_requires_super_admin(

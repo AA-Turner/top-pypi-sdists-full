@@ -5,8 +5,14 @@ import re
 import string
 
 from refinery.lib.argformats import ParserError, PythonExpression, numseq
-from refinery.lib.meta import STRING_FORMAT_HELP, SizeInt, check_variable_name, metavars
-from refinery.lib.structures import StreamDetour, StructReader
+from refinery.lib.meta import (
+    STRING_FORMAT_HELP,
+    LazyMetaOracle,
+    SizeInt,
+    check_variable_name,
+    metavars,
+)
+from refinery.lib.structures import StructReaderBits
 from refinery.lib.types import Param
 from refinery.units import Arg, Chunk, Unit
 
@@ -16,6 +22,140 @@ def identity(x):
 
 
 _REST_MARKER = '#'
+
+
+class _RecordParser:
+    """
+    Extracts all fields of a single record of structured data, as described by the format
+    specification of a `struct` unit.
+    """
+
+    def __init__(self, unit: struct, reader: StructReaderBits, meta: LazyMetaOracle, byteorder: str):
+        self.unit = unit
+        self.reader = reader
+        self.meta = meta
+        self.byteorder = byteorder
+        self.field_format = unit.args.format
+        self.args: list = []
+        self.field_count = 0
+        self.last: object = None
+
+    def parse(self, spec: str) -> tuple[list, object]:
+        """
+        Parses all fields of one record; returns the list of extracted values and the last byte
+        string field that was read, if any.
+        """
+        for prefix, name, field_spec, conversion in string.Formatter().parse(spec):
+            peek = prefix.endswith(':')
+            if peek:
+                prefix = prefix[:~0]
+            if prefix:
+                self._read_prefix(prefix)
+            if name is not None:
+                self._read_field(name, field_spec, conversion, peek)
+        return self.args, self.last
+
+    def _fixorder(self, spec: str) -> str:
+        if spec[0] not in '<@=!>':
+            spec = self.byteorder + spec
+        return spec
+
+    def _read_prefix(self, prefix: str) -> None:
+        fields = self.reader.read_struct(self._fixorder(prefix))
+        if self.field_format:
+            codes = re.findall('[?cbBhHiIlLqQnNefdspPauwgk]', prefix)
+            if len(codes) != len(fields):
+                codes = 'v' * len(fields)
+            for code, field in zip(codes, fields):
+                code = 'b' if code == '?' else code.lower()
+                variable = self.field_format.format_map({'c': code, 'n': self.field_count})
+                self.meta[variable] = field
+                self.field_count += 1
+        self.args.extend(fields)
+
+    def _read_field(self, name: str, field_spec: str | None, conversion: str | None, peek: bool) -> None:
+        self.field_count += 1
+        if name and not name.isdecimal():
+            check_variable_name(name)
+        alignment = self._parse_conversion(conversion)
+        spec, _, pipeline = (field_spec or '').partition(':')
+        if spec:
+            spec = self._evaluate_spec(spec)
+        if alignment == 0:
+            if not isinstance(spec, int) or spec < 0:
+                raise ValueError(F'The format of the bit field {name} has to specify a number of bits.')
+            value = self.reader.read_integer(spec, peek=peek)
+        else:
+            value = self._read_value(name, spec, peek)
+        if value is None:
+            self.unit.log_debug(F'field {name} was empty, ignoring.')
+            return
+        if pipeline:
+            value = numseq(pipeline, reverse=True, seed=value)
+        self.args.append(value)
+        self._assign(name, value)
+
+    def _parse_conversion(self, conversion: str | None) -> int | None:
+        """
+        Evaluates the conversion as an alignment expression and moves the cursor accordingly; a value
+        of zero requests the field to be read as a bit field.
+        """
+        if not conversion:
+            return None
+        alignment = PythonExpression.Evaluate(conversion, self.meta)
+        if alignment == 0:
+            return 0
+        before = self.reader.tell()
+        self.reader.byte_align(alignment)
+        after = self.reader.tell()
+        if before != after:
+            self.unit.log_info(F'aligned from 0x{before:X} to 0x{after:X}')
+        return alignment
+
+    def _evaluate_spec(self, spec: str) -> str | int:
+        spec = self.meta.format_str(spec, self.unit.codec, self.args)
+        if not spec:
+            return spec
+        try:
+            return PythonExpression.Evaluate(spec, self.meta)
+        except ParserError:
+            return spec
+
+    def _read_value(self, name: str, spec: str | int, peek: bool):
+        """
+        Reads the field data; returns None if the field format produced no data. Whenever the data
+        is a byte string, it also becomes the default output of the record.
+        """
+        if spec == '':
+            self.last = value = self.reader.read(peek=peek)
+        elif isinstance(spec, int):
+            if spec < 0:
+                spec += self.reader.remaining_bytes
+            if spec < 0:
+                raise ValueError(F'The specified negative read offset is {-spec} beyond the cursor.')
+            self.last = value = self.reader.read_bytes(spec, peek=peek)
+        else:
+            value = self.reader.read_struct(self._fixorder(spec), peek=peek)
+            if not value:
+                return None
+            if len(value) > 1:
+                self.unit.log_info(F'parsing field {name} produced {len(value)} items reading a tuple')
+            else:
+                value = value[0]
+        return value
+
+    def _assign(self, name: str, value) -> None:
+        if name == _REST_MARKER:
+            raise ValueError(F'Extracting a field with name {_REST_MARKER} is forbidden.')
+        if name.isdecimal():
+            index = int(name)
+            limit = len(self.args) - 1
+            if index > limit:
+                self.unit.log_warn(F'cannot assign index field {name}, the highest index is {limit}')
+            else:
+                self.args[index] = value
+        elif name:
+            self.meta[name] = value
 
 
 class struct(Unit):
@@ -35,6 +175,7 @@ class struct(Unit):
     - `w` to read decoded, null-terminated UTF16 strings,
     - `g` to read Microsoft GUID values,
     - `E` to read 7-bit encoded integers.
+    - `:` to peek the next value (cursor is not advanced)
 
     For example, the string `LLxxHaa` will read two unsigned 32bit integers, then skip two bytes,
     then read one unsigned 16bit integer, then two null-terminated ASCII strings. The unit defaults
@@ -45,16 +186,20 @@ class struct(Unit):
 
         {name[!alignment]:format}
 
-    The `alignment` parameter is optional. It must be an expression that evaluates to an integer
-    value. If it is specified, the current data pointer is aligned to a multiple of this value
-    before reading the field. The `format` can either be an integer expression specifying a number
-    of bytes to read, or any of the aforementioned format strings. The extracted data is then
-    stored in the meta variable with the given name. For example, `LLxxH{foo:a}{bar:a}` would be
-    parsed in the same way as the previous example, but the two ASCII strings would also be stored
-    in meta variables under the names `foo` and `bar`, respectively. The `format` string of a named
-    field is itself parsed as a foramt string expression, where all the previously parsed fields
-    are already available. For example, `I{:{}}` reads a single 32-bit integer length prefix and
-    then reads as many bytes as that prefix specifies.
+    The `alignment` parameter is optional. It supports the following values:
+
+    - `0`: the format specifies a number of bits to read; the result is always an integer
+    - `a`: the variable `a` must be defined and specifies the alignment
+    - `2`: align cursor to a multiple of 2 bytes (equivalently for any positive digit)
+
+    The `format` can either be an integer expression specifying a number of bytes to read, or any
+    of the aforementioned format strings. The extracted data is then stored in the meta variable
+    with the given name. For example, `LLxxH{foo:a}{bar:a}` would be parsed in the same way as the
+    previous example, but the two ASCII strings would also be stored in meta variables under the
+    names `foo` and `bar`, respectively. The `format` string of a named field is itself parsed as a
+    format string expression, where all the previously parsed fields are already available. For
+    example, `I{:{}}` reads a single 32-bit integer length prefix and then reads as many bytes as
+    that prefix specifies.
 
     (2) Conversely, the standard refinery string formatting is used to specify the output. %s
 
@@ -95,12 +240,8 @@ class struct(Unit):
         super().__init__(spec=spec, outputs=outputs, until=until, format=format, count=count, multi=multi, more=more)
 
     def process(self, data: Chunk):
-        formatter = string.Formatter()
-        field_format: str = self.args.format
         until = self.args.until
         until = until and PythonExpression(until, all_variables_allowed=True)
-        reader = StructReader(memoryview(data))
-        checkpoint = 0
         mainspec = self.args.spec
         byteorder = mainspec[:1]
         count = self.args.count
@@ -110,140 +251,44 @@ class struct(Unit):
         else:
             byteorder = '='
 
-        def fixorder(spec):
-            if spec[0] not in '<@=!>':
-                spec = byteorder + spec
-            return spec
-
+        view = memoryview(data)
+        reader = StructReaderBits(view, bigendian=byteorder in '>!')
         previously_existing_variables = set(metavars(data).variable_names())
 
+        leftover_start = None
+        bit_cursor = 0
         it = itertools.count() if self.args.multi else (0,)
         for index in it:
 
-            field_counter = 0
-            checkpoint = reader.tell()
-
-            if reader.eof:
+            if reader.remaining_bits == 0:
                 break
             if 0 < count <= index:
                 break
 
+            bit_cursor = 8 * reader.tell() - reader.bits_in_buffer
             meta = metavars(data)
             meta.index = index
 
-            args = []
-            last = None
-            self.log_debug(F'starting new read at: 0x{checkpoint:08X}')
+            self.log_debug(F'starting new read at bit 0x{bit_cursor:X}')
 
             try:
-                for prefix, name, spec, conversion in formatter.parse(mainspec):
-                    if prefix:
-                        fields = reader.read_struct(fixorder(prefix))
-                        if field_format:
-                            codes = re.findall('[?cbBhHiIlLqQnNefdspPauwgk]', prefix)
-                            if len(codes) != len(fields):
-                                codes = 'v' * len(fields)
-                            for code, field in zip(codes, fields):
-                                code = 'b' if code == '?' else code.lower()
-                                v = field_format.format_map({'c': code, 'n': field_counter})
-                                meta[v] = field
-                                field_counter += 1
-                        args.extend(fields)
-
-                    if name is None:
-                        continue
-                    if spec is None:
-                        spec = ''
-
-                    assert isinstance(spec, str)
-                    assert isinstance(name, str)
-
-                    field_counter += 1
-
-                    if name and not name.isdecimal():
-                        check_variable_name(name)
-
-                    if not conversion:
-                        peek = False
-                    else:
-                        alignment = PythonExpression.Evaluate(conversion, meta)
-                        if alignment == 0:
-                            peek = True
-                        else:
-                            _aa = reader.tell()
-                            reader.byte_align(alignment)
-                            _ab = reader.tell()
-                            if _aa != _ab:
-                                self.log_info(F'aligned from 0x{_aa:X} to 0x{_ab:X}')
-
-                    spec, _, pipeline = spec.partition(':')
-
-                    if spec:
-                        spec = meta.format_str(spec, self.codec, args)
-
-                    if spec:
-                        try:
-                            _exp = PythonExpression.Evaluate(spec, meta)
-                        except ParserError:
-                            pass
-                        else:
-                            spec = _exp
-
-                    if spec == '':
-                        last = value = reader.read(peek=peek)
-                    elif isinstance(spec, int):
-                        if spec < 0:
-                            spec += reader.remaining_bytes
-                        if spec < 0:
-                            raise ValueError(F'The specified negative read offset is {-spec} beyond the cursor.')
-                        last = value = reader.read_bytes(spec, peek=peek)
-                    else:
-                        value = reader.read_struct(fixorder(spec), peek=peek)
-                        if not value:
-                            self.log_debug(F'field {name} was empty, ignoring.')
-                            continue
-                        if len(value) > 1:
-                            self.log_info(F'parsing field {name} produced {len(value)} items reading a tuple')
-                        else:
-                            value = value[0]
-
-                    if pipeline:
-                        value = numseq(pipeline, reverse=True, seed=value)
-                    args.append(value)
-
-                    if name == _REST_MARKER:
-                        raise ValueError(F'Extracting a field with name {_REST_MARKER} is forbidden.')
-                    elif name.isdecimal():
-                        index = int(name)
-                        limit = len(args) - 1
-                        if index > limit:
-                            self.log_warn(F'cannot assign index field {name}, the highest index is {limit}')
-                        else:
-                            args[index] = value
-                        continue
-                    elif name:
-                        meta[name] = value
+                parser = _RecordParser(self, reader, meta, byteorder)
+                args, last = parser.parse(mainspec)
 
                 if until and until(meta):
                     self.log_info(F'the expression ({until}) evaluated to true; aborting.')
                     break
 
-                with StreamDetour(reader, checkpoint) as detour:
-                    full = reader.read(detour.cursor - checkpoint)
+                end = 8 * reader.tell() - reader.bits_in_buffer
+                if self.args.multi and end == bit_cursor:
+                    raise ValueError('The record did not consume any data.')
+
+                full = view[bit_cursor // 8:(end + 7) // 8]
                 if last is None:
                     last = full
 
-                outputs = []
-                symbols = dict(meta)
-                symbols[_REST_MARKER] = last
-
-                for template in self.args.outputs:
-                    used = set()
-                    outputs.append(meta.format(template, self.codec, [full, *args], symbols, used=used))
-                    for key in used:
-                        if key in previously_existing_variables:
-                            continue
-                        meta.discard(key)
+                outputs = self._format_outputs(
+                    meta, full, args, last, previously_existing_variables)
 
                 for output in outputs:
                     chunk = Chunk(output)
@@ -252,18 +297,44 @@ class struct(Unit):
                     yield chunk
 
             except EOFError:
+                leftover_start = bit_cursor
                 break
 
-        leftover = len(reader) - checkpoint
+        if leftover_start is None:
+            leftover_start = 8 * reader.tell() - reader.bits_in_buffer
+
+        leftover = 8 * len(view) - leftover_start
 
         if not leftover:
             return
         elif self.args.more:
-            reader.seekset(checkpoint)
-            yield reader.read()
+            yield view[leftover_start // 8:]
         else:
-            leftover = repr(SizeInt(leftover)).strip()
+            leftover = repr(SizeInt(-(-leftover // 8))).strip()
             self.log_info(F'discarding {leftover} left in buffer')
+
+    def _format_outputs(
+        self,
+        meta: LazyMetaOracle,
+        full: memoryview,
+        args: list,
+        last: object,
+        protected_variables: set[str],
+    ) -> list:
+        """
+        Renders all output templates for one parsed record; meta variables that occur only in the
+        output templates are discarded afterwards, the protected ones are kept.
+        """
+        outputs = []
+        symbols = dict(meta)
+        symbols[_REST_MARKER] = last
+        for template in self.args.outputs:
+            used = set()
+            outputs.append(meta.format(template, self.codec, [full, *args], symbols, used=used))
+            for key in used:
+                if key not in protected_variables:
+                    meta.discard(key)
+        return outputs
 
 
 if __d := struct.__doc__:

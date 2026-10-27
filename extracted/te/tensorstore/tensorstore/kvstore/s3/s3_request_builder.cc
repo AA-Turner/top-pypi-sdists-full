@@ -36,6 +36,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_replace.h"
 #include "absl/time/time.h"
 #include <openssl/evp.h>  // IWYU pragma: keep
 #include <openssl/hmac.h>
@@ -44,7 +45,6 @@
 #include "tensorstore/internal/http/http_request.h"
 #include "tensorstore/internal/log/verbose_flag.h"
 #include "tensorstore/internal/uri/parse.h"
-#include "tensorstore/kvstore/s3/s3_uri_utils.h"
 
 using ::tensorstore::internal::SHA256Digester;
 using ::tensorstore::internal_aws::AwsCredentials;
@@ -86,8 +86,7 @@ std::string CanonicalRequest(
     std::string_view method, std::string_view path, std::string_view query,
     std::string_view payload_hash,
     const std::vector<std::pair<std::string, std::string_view>>& headers) {
-  std::string canonical =
-      absl::StrCat(method, "\n", S3UriObjectKeyEncode(path), "\n", query, "\n");
+  std::string canonical = absl::StrCat(method, "\n", path, "\n", query, "\n");
 
   // Canonical Headers
   std::vector<std::string_view> signed_headers;
@@ -229,12 +228,13 @@ HttpRequest S3RequestBuilder::BuildRequest(std::string_view host_header,
 
   ABSL_LOG_IF(INFO, s3_logging.Level(1))  //
       << "Canonical Request\n"
-      << canonical_request_  //
+      << (credentials.GetSessionToken().empty()
+              ? canonical_request_
+              : absl::StrReplaceAll(
+                    canonical_request_,
+                    {{credentials.GetSessionToken(), "[REDACTED]"}}))  //
       << "\n\nSigning String\n"
-      << signing_string_      //
-      << "\n\nSigning Key\n"  //
-      << absl::BytesToHexString(std::string_view(
-             reinterpret_cast<char*>(signing_key), kHmacSize))  //
+      << signing_string_  //
       << "\n\nAuthorization Header\n"
       << auth_header;
 

@@ -119,9 +119,44 @@ def test_curlproxy_http_1_0_setopt(curl):
 
 # CURLOPT_SSH_KNOWNHOSTS was introduced in libcurl-7.19.6
 @util.min_libcurl(7, 19, 6)
-@util.guard_unknown_libcurl_option
 def test_ssh_knownhosts_setopt(curl):
-    curl.setopt(curl.SSH_KNOWNHOSTS, "/hello/world")
+    with util.guard_unknown_libcurl_option("SSH_KNOWNHOSTS"):
+        curl.setopt(curl.SSH_KNOWNHOSTS, "/hello/world")
+
+
+@util.min_libcurl(7, 58, 0)
+def test_khtype_constants():
+    assert hasattr(pycurl, "KHTYPE_ECDSA")
+    assert hasattr(pycurl, "KHTYPE_ED25519")
+
+
+@util.min_libcurl(7, 73, 0)
+def test_khstat_fine_replace_constant():
+    assert hasattr(pycurl, "KHSTAT_FINE_REPLACE")
+
+
+@util.min_libcurl(7, 58, 0)
+def test_ssh_auth_gssapi_setopt(curl):
+    with util.guard_unknown_libcurl_option("SSH_AUTH_TYPES"):
+        curl.setopt(curl.SSH_AUTH_TYPES, curl.SSH_AUTH_GSSAPI)
+
+
+@util.min_libcurl(7, 56, 0)
+def test_ssh_compression_setopt(curl):
+    with util.guard_unknown_libcurl_option("SSH_COMPRESSION"):
+        curl.setopt(curl.SSH_COMPRESSION, 1)
+
+
+@util.min_libcurl(7, 80, 0)
+def test_ssh_host_public_key_sha256_setopt(curl):
+    with util.guard_unknown_libcurl_option("SSH_HOST_PUBLIC_KEY_SHA256"):
+        curl.setopt(curl.SSH_HOST_PUBLIC_KEY_SHA256, "NDVhMDNkY2M0ZTY0ZjJhMDFm")
+
+
+@util.min_libcurl(7, 84, 0)
+def test_ssh_hostkeyfunction_setopt(curl):
+    with util.guard_unknown_libcurl_option("SSH_HOSTKEYFUNCTION"):
+        curl.setopt(curl.SSH_HOSTKEYFUNCTION, lambda keytype, key: pycurl.KHMATCH_OK)
 
 
 # CURLOPT_MAIL_FROM was introduced in libcurl-7.20.0
@@ -230,9 +265,9 @@ def test_ssl_enable_npn(curl):
 
 @util.min_libcurl(7, 42, 0)
 @util.only_ssl
-@util.guard_unknown_libcurl_option
 def test_ssl_falsestart(curl):
-    curl.setopt(curl.SSL_FALSESTART, 1)
+    with util.guard_unknown_libcurl_option("SSL_FALSESTART"):
+        curl.setopt(curl.SSL_FALSESTART, 1)
 
 
 def test_ssl_verifyhost(curl):

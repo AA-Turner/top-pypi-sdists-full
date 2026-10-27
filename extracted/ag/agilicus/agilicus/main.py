@@ -7139,6 +7139,8 @@ def add_forwarder(ctx, **kwargs):
 @cli.command(name="list-forwarders")
 @click.option("--org-id", default=None)
 @click.option("--limit", default=500)
+@click.option("--includes-any-label", type=str, multiple=True, default=None)
+@click.option("--has-label", type=bool, default=None)
 @click.pass_context
 def list_forwarders(ctx, **kwargs):
     ids = forwarders.query(ctx, **kwargs)

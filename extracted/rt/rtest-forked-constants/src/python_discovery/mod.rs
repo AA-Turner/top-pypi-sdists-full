@@ -7,19 +7,14 @@
 mod cases;
 mod constant_resolver;
 mod discovery;
-pub mod module_resolver;
+mod module_resolver;
 mod pattern;
-pub mod semantic_analyzer;
+mod semantic_analyzer;
 mod visitor;
 
 // Re-export public API
-pub use cases::{
-    cannot_expand_nodeid_from_message, format_cannot_expand_marker, format_cannot_expand_warning,
-    CannotExpandReason, CasesExpansion, ExpandedCase, CANNOT_EXPAND_MARKER,
-};
+pub use cases::{format_cannot_expand_warning, CannotExpandReason, CasesExpansion, DuplicateIds};
+pub(crate) use discovery::DiscoveryCache;
 pub use discovery::{
-    discover_tests, discover_tests_with_inheritance, test_info_to_functions, TestDiscoveryConfig,
-    TestInfo,
+    discover_tests, discover_tests_with_inheritance, TestDiscoveryConfig, TestInfo,
 };
-pub use module_resolver::{ModuleResolver, ParsedModule};
-pub use semantic_analyzer::{SemanticTestDiscovery, TestClassInfo};

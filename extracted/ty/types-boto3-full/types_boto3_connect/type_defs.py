@@ -1159,6 +1159,7 @@ __all__ = (
     "NotificationSearchFilterTypeDef",
     "NotificationSearchSummaryTypeDef",
     "NotificationTypeDef",
+    "NullableAdditionalRecipientsTypeDef",
     "NumberConditionTypeDef",
     "NumberReferenceTypeDef",
     "NumericQuestionPropertyValueAutomationTypeDef",
@@ -1577,6 +1578,10 @@ __all__ = (
     "UpdateMetricContentRequestTypeDef",
     "UpdateMetricMetadataRequestTypeDef",
     "UpdateNotificationContentRequestTypeDef",
+    "UpdateOutboundEmailContactMessageRequestTypeDef",
+    "UpdateOutboundEmailContactMessageResponseTypeDef",
+    "UpdateOutboundEmailContentTypeDef",
+    "UpdateOutboundRawMessageTypeDef",
     "UpdateParticipantAuthenticationRequestTypeDef",
     "UpdateParticipantRoleConfigChannelInfoTypeDef",
     "UpdateParticipantRoleConfigRequestTypeDef",
@@ -5412,6 +5417,11 @@ class UpdateNotificationContentRequestTypeDef(TypedDict):
     Content: Mapping[LocaleCodeType, str]
 
 
+class UpdateOutboundRawMessageTypeDef(TypedDict):
+    Body: str
+    ContentType: str
+
+
 class UpdateParticipantAuthenticationRequestTypeDef(TypedDict):
     State: str
     InstanceId: str
@@ -6020,6 +6030,11 @@ class UpdateEvaluationFormResponseTypeDef(TypedDict):
     EvaluationFormId: str
     EvaluationFormArn: str
     EvaluationFormVersion: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateOutboundEmailContactMessageResponseTypeDef(TypedDict):
+    ContactId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -7340,6 +7355,10 @@ class GetAttachedFileResponseTypeDef(TypedDict):
 class InboundAdditionalRecipientsTypeDef(TypedDict):
     ToAddresses: NotRequired[Sequence[EmailAddressInfoTypeDef]]
     CcAddresses: NotRequired[Sequence[EmailAddressInfoTypeDef]]
+
+
+class NullableAdditionalRecipientsTypeDef(TypedDict):
+    CcEmailAddresses: NotRequired[Sequence[EmailAddressInfoTypeDef]]
 
 
 class OutboundAdditionalRecipientsTypeDef(TypedDict):
@@ -8688,6 +8707,11 @@ class TranscriptTypeDef(TypedDict):
     MatchType: NotRequired[SearchContactsMatchTypeType]
 
 
+class UpdateOutboundEmailContentTypeDef(TypedDict):
+    MessageSourceType: Literal["RAW"]
+    RawMessage: UpdateOutboundRawMessageTypeDef
+
+
 class ValidationOutputTypeDef(TypedDict):
     MinLength: NotRequired[int]
     MaxLength: NotRequired[int]
@@ -9849,6 +9873,7 @@ class UpdateContactRequestTypeDef(TypedDict):
     UserInfo: NotRequired[UserInfoTypeDef]
     CustomerEndpoint: NotRequired[EndpointTypeDef]
     SystemEndpoint: NotRequired[EndpointTypeDef]
+    AdditionalRecipients: NotRequired[NullableAdditionalRecipientsTypeDef]
 
 
 class GetTrafficDistributionResponseTypeDef(TypedDict):
@@ -9930,6 +9955,12 @@ class UpdateTestCaseRequestTypeDef(TypedDict):
 
 class ContactAnalysisTypeDef(TypedDict):
     Transcript: NotRequired[TranscriptTypeDef]
+
+
+class UpdateOutboundEmailContactMessageRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
+    EmailMessage: UpdateOutboundEmailContentTypeDef
 
 
 class DataTableAttributeTypeDef(TypedDict):

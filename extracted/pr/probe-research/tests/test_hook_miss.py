@@ -51,6 +51,13 @@ KEEPS = {
     "record_keeping": True,
 }
 ROUTES = {"hooks": {"UserPromptSubmit": [{"lane": "prompt", "hooks": [WAITS, KEEPS]}]}}
+#: For a test whose stand-in service ANSWERS `hooks.queue`: the dispatcher's
+#: wait for it (`dispatch.QUEUE_WAIT_ENV`), long enough that a loaded runner
+#: scheduling the stand-in's thread late never turns its answer into no answer
+#: (agent-ci 3.11: `['service.hello']` only, the event queued instead). The
+#: hook still returns the moment the answer comes. Tests of a late or missing
+#: answer keep the real 0.3 s.
+ANSWERED = {"PROBE_HOOK_QUEUE_WAIT_S": "10"}
 
 
 def _plugin(tmp_path: Path, routes: dict = ROUTES) -> Path:
@@ -333,7 +340,7 @@ def test_a_service_that_takes_them_runs_them_and_is_asked_for_a_host(tmp_path, w
     _no_host_asks(root)
     calls = _fake_cli(tmp_path, "9.9.9")
     service = stand_in({"queued": True, "duplicate": False})
-    result = _prompt(root, _env(tmp_path, root), work)
+    result = _prompt(root, _env(tmp_path, root, **ANSWERED), work)
     assert result.returncode == 0 and json.loads(result.stdout) == CONTEXT
     assert _kept(tmp_path) == []
     assert wait_for(lambda: "hooks.host" in service.methods(), 5)
@@ -343,7 +350,7 @@ def test_a_service_that_takes_them_runs_them_and_is_asked_for_a_host(tmp_path, w
     host = [r["params"] for r in service.requests if r["method"] == "hooks.host"][0]
     assert host["root"] == os.path.realpath(root)
     # The ask is marked once made: the next miss within ASK_EVERY_S does not ask again.
-    assert _prompt(root, _env(tmp_path, root), work).returncode == 0
+    assert _prompt(root, _env(tmp_path, root, **ANSWERED), work).returncode == 0
     time.sleep(0.2)
     assert service.methods().count("hooks.host") == 1
     assert not calls.exists(), "a service answered: nothing to start"
@@ -356,7 +363,7 @@ def test_an_older_service_or_a_refusal_runs_them_here(tmp_path, work, stand_in, 
     _fake_cli(tmp_path, __version__)
     _drainer(__version__)
     service = stand_in(answer)
-    result = _prompt(root, _env(tmp_path, root), work)
+    result = _prompt(root, _env(tmp_path, root, **ANSWERED), work)
     assert result.returncode == 0 and json.loads(result.stdout) == CONTEXT
     assert "hooks.queue" in service.methods()
     assert _kept(tmp_path) == [f"from-the-event|{work}||"] and _queued() == []
@@ -563,3 +570,111 @@ def test_an_event_the_service_claimed_first_is_never_run_here(tmp_path, work, st
     result = _prompt(root, _env(tmp_path, root), work)
     assert result.returncode == 0 and json.loads(result.stdout) == CONTEXT
     assert _kept(tmp_path) == [], "the service holds it: never here too"
+
+
+# -- the lifeboat at a session's start (plan fool-proof-updates B4) -------------------
+
+#: A SessionStart route the agent waits on: nothing to say.
+QUIET = {"type": "command", "command": "/bin/bash -c 'cat >/dev/null'", "timeout": 5}
+SESSION_ROUTES = {"hooks": {"SessionStart": [{"lane": "session-start", "hooks": [QUIET]}],
+                            "UserPromptSubmit": [{"lane": "prompt", "hooks": [WAITS]}]}}
+
+
+def _start(root: Path, env: dict, cwd: Path) -> subprocess.CompletedProcess:
+    body = json.dumps({"session_id": SID, "hook_event_name": "SessionStart", "source": "startup"})
+    return subprocess.run(["/bin/bash", str(root / "hooks" / "dispatch.sh"), "session-start"], input=body,
+                          capture_output=True, text=True, env=env, cwd=str(cwd), timeout=30)
+
+
+def _fake_lifeboat(tmp_path: Path) -> Path:
+    """The lifeboat's folder with a wrapper that records how it was started."""
+    from probe.service import lifeboat
+
+    folder = paths.private_dir(lifeboat.root())
+    mark = tmp_path / "lifeboat-ran"
+    wrapper = lifeboat.wrapper_path()
+    wrapper.write_text(f'#!/bin/sh\necho "$* $PPID" >> {mark}\n')
+    assert folder == Path(os.environ["HOME"]) / ".local" / "state" / "probe" / "lifeboat"
+    return mark
+
+
+def _dispatch():
+    sys.path.insert(0, str(HOOKS))
+    try:
+        import dispatch
+    finally:
+        sys.path.pop(0)
+    return dispatch
+
+
+def _ran(mark: Path) -> list:
+    return [line.split()[0] for line in mark.read_text().splitlines()] if mark.exists() else []
+
+
+def test_a_session_start_with_no_keeper_runs_the_lifeboat_detached_at_most_hourly(tmp_path, work):
+    """A pod with no user scheduler: no keeper unit runs the lifeboat, so a
+    session's start does, whatever state the CLI is in."""
+    root = _plugin(tmp_path, SESSION_ROUTES)
+    mark = _fake_lifeboat(tmp_path)
+    env = _env(tmp_path, root)
+    assert _start(root, env, work).returncode == 0
+    assert wait_for(lambda: _ran(mark) == ["session"], 5), "`/bin/sh lifeboat.sh session`"
+    assert _start(root, env, work).returncode == 0
+    assert _prompt(root, env, work).returncode == 0
+    time.sleep(0.5)
+    assert _ran(mark) == ["session"], "once an hour, and only at a session's start"
+    stamp = Path(os.environ["HOME"]) / ".local" / "state" / "probe" / "lifeboat" / "session.stamp"
+    then = time.time() - 3601
+    os.utime(stamp, (then, then))
+    assert _start(root, env, work).returncode == 0
+    assert wait_for(lambda: _ran(mark) == ["session", "session"], 5)
+
+
+def test_a_keeper_unit_and_a_service_that_answered_leave_it_to_the_keeper(tmp_path):
+    dispatch = _dispatch()
+    mark = _fake_lifeboat(tmp_path)
+    timer = Path(os.environ["HOME"]) / ".config" / "systemd" / "user" / "probe-service-keeper.timer"
+    timer.parent.mkdir(parents=True)
+    timer.write_text("[Timer]\n")
+    assert dispatch.keeper_installed()
+    assert dispatch.launch_lifeboat(answered=True) is False
+    assert dispatch.launch_lifeboat(answered=False) is True, "the keeper may not be running: the service is not"
+    assert wait_for(lambda: _ran(mark) == ["session"], 5)
+
+
+def test_a_lifeboat_that_is_missing_or_not_private_is_never_run_and_the_hook_goes_on(tmp_path, work):
+    dispatch = _dispatch()
+    root = _plugin(tmp_path, SESSION_ROUTES)
+    assert _start(root, _env(tmp_path, root), work).returncode == 0
+    assert dispatch.launch_lifeboat(answered=False) is False, "none installed"
+    mark = _fake_lifeboat(tmp_path)
+    folder = Path(os.environ["HOME"]) / ".local" / "state" / "probe" / "lifeboat"
+    folder.chmod(0o777)
+    try:
+        assert dispatch.launch_lifeboat(answered=False) is False, "a folder others can write is not ours to run"
+    finally:
+        folder.chmod(0o700)
+    time.sleep(0.3)
+    assert _ran(mark) == []
+
+
+@pytest.mark.parametrize("value, wait", [(None, 0.3), ("10", 10.0), ("junk", 0.3), ("0", 0.3), ("-2", 0.3)])
+def test_the_queue_wait_is_the_real_one_unless_a_test_says_otherwise(monkeypatch, value, wait):
+    dispatch = _dispatch()
+    if value is None:
+        monkeypatch.delenv(dispatch.QUEUE_WAIT_ENV, raising=False)
+    else:
+        monkeypatch.setenv(dispatch.QUEUE_WAIT_ENV, value)
+    assert dispatch.QUEUE_WAIT_S == 0.3 and dispatch.queue_wait_s() == wait
+
+
+def test_the_dispatcher_names_what_the_service_writes():
+    """It imports nothing of Probe, so the lifeboat's and the keeper's paths are spelled twice."""
+    from probe.service import keeper, lifeboat
+
+    dispatch = _dispatch()
+    home = Path(os.environ["HOME"])
+    assert home.joinpath(*dispatch.LIFEBOAT_DIR) == lifeboat.root()
+    assert dispatch.LIFEBOAT_WRAPPER == lifeboat.WRAPPER_NAME
+    assert dispatch.KEEPER_TIMER[-1] == f"{keeper.NAME}.timer"
+    assert home.joinpath(*dispatch.KEEPER_PLIST) == keeper._plist_path()  # noqa: SLF001

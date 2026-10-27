@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import orjson
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from lib_log_rich.application.use_cases._payload_sanitizer import PayloadSanitizer
+from lib_log_rich.domain import json_codec
 from lib_log_rich.domain.context import LogContext
 from lib_log_rich.runtime import PayloadLimits
 from tests.os_markers import OS_AGNOSTIC
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from hypothesis.strategies import SearchStrategy
 
     from lib_log_rich.application.use_cases._types import DiagnosticPayload
+    from lib_log_rich.domain.enums import DiagnosticEvent
 
 pytestmark = [OS_AGNOSTIC]
 
@@ -39,11 +40,11 @@ def _build_value_strategy() -> SearchStrategy[Any]:
     )
 
 
-def _build_sanitizer(**overrides: Any) -> tuple[PayloadSanitizer, list[tuple[str, DiagnosticPayload]]]:
-    diagnostics: list[tuple[str, DiagnosticPayload]] = []
+def _build_sanitizer(**overrides: Any) -> tuple[PayloadSanitizer, list[tuple[DiagnosticEvent, DiagnosticPayload]]]:
+    diagnostics: list[tuple[DiagnosticEvent, DiagnosticPayload]] = []
     limits = PayloadLimits(**overrides)
 
-    def recorder(event_name: str, payload: DiagnosticPayload) -> None:
+    def recorder(event_name: DiagnosticEvent, payload: DiagnosticPayload) -> None:
         diagnostics.append((event_name, payload))
 
     return PayloadSanitizer(limits, recorder), diagnostics
@@ -83,7 +84,7 @@ def test_sanitize_extra_respects_limits(
     assert stack_info is None or isinstance(stack_info, str)
 
     if extra_max_total_bytes is not None:
-        encoded = len(orjson.dumps(sanitized, default=str))
+        encoded = _emitted_size(sanitized)
         assert encoded <= extra_max_total_bytes
 
     for value in sanitized.values():
@@ -124,3 +125,46 @@ def test_sanitize_context_respects_limits(
 
     if not changed:
         assert updated.extra == context.extra
+
+
+def _emitted_size(payload: dict[str, Any]) -> int:
+    """UTF-8 size of ``payload`` as the active codec emits it, a refused value as its text."""
+    try:
+        return len(json_codec.dumps(payload, default=str).encode())
+    except TypeError:
+        return len(json_codec.dumps({key: str(value) for key, value in payload.items()}).encode())
+
+
+def test_total_bytes_counts_an_unserialisable_value_as_its_json_text() -> None:
+    """A value JSON cannot encode is measured as the escaped text it is emitted as.
+
+    Pinned from a Hypothesis counterexample: bytes nested in an extra were
+    measured by Python's repr of the whole entry (fewer bytes than the JSON
+    output, where each backslash is escaped), so the payload overshot the limit.
+    """
+    extra = {"first": "kept", "blob": {"": [b"\x00" * 18]}}
+    emitted = _emitted_size(extra)
+    sanitizer, diagnostics = _build_sanitizer(extra_max_keys=6, extra_max_depth=2, extra_max_value_chars=200, extra_max_total_bytes=emitted - 1)
+
+    sanitized, _exc_info, _stack_info = sanitizer.sanitize_extra(extra, event_id="evt", logger_name="tests")
+
+    assert _emitted_size(sanitized) <= emitted - 1
+    assert "first" in sanitized
+    assert diagnostics, "trimming for size must be reported"
+
+
+def test_total_bytes_measures_an_int_json_cannot_hold_as_its_text() -> None:
+    """An int beyond 64 bits is measured as the codec emits it.
+
+    orjson refuses it even with a default, so it is measured as its quoted digits;
+    stdlib json (a free-threaded build) writes the digits themselves.
+    """
+    huge = 2**70
+    extra = {"first": "kept", "huge": huge}
+    emitted = _emitted_size(extra)
+    sanitizer, _diagnostics = _build_sanitizer(extra_max_keys=6, extra_max_depth=2, extra_max_value_chars=200, extra_max_total_bytes=emitted - 1)
+
+    sanitized, _exc_info, _stack_info = sanitizer.sanitize_extra(extra, event_id="evt", logger_name="tests")
+
+    assert "huge" not in sanitized
+    assert sanitized["first"] == "kept"

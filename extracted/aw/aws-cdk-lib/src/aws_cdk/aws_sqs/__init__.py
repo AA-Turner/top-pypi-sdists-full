@@ -401,6 +401,7 @@ class CfnQueue(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -469,7 +470,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db0ff171bd6351ca00648941c1a4e2897fef47d7337bb85fe5c4a497a80027e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "redriveAllowPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "redriveAllowPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="redrivePolicy")
@@ -482,7 +483,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b963b86b3da4c35f99da3a5bfe88b50cccb02e5ec2f34a6f0aa7eeed8f72a053)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "redrivePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "redrivePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="contentBasedDeduplication")
@@ -500,7 +501,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3049bb9c4d3214ce412c7c75abae5ce0267cacc5d249bfb1aa4677d8a7828b5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contentBasedDeduplication", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contentBasedDeduplication", value)
 
     @builtins.property
     @jsii.member(jsii_name="deduplicationScope")
@@ -513,7 +514,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0abc4529ef387826e6c0bff9743cc2c96bf5954528897f415976030c126eb284)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deduplicationScope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deduplicationScope", value)
 
     @builtins.property
     @jsii.member(jsii_name="delaySeconds")
@@ -526,7 +527,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72e2c8b4f194e05738d2081420e2d493b602cb18ea0942db2ac39027c5037721)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "delaySeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "delaySeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="fifoQueue")
@@ -544,7 +545,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dc4344270f8a41c838e3e17fb8711c5fac74d3b7bc6afe0c3cc59d729991c462)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fifoQueue", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fifoQueue", value)
 
     @builtins.property
     @jsii.member(jsii_name="fifoThroughputLimit")
@@ -557,7 +558,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0d81525207b63d054bcd4ad3923d013ce7a65791f9a60cd09fcd751ba890a497)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fifoThroughputLimit", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fifoThroughputLimit", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsDataKeyReusePeriodSeconds")
@@ -573,7 +574,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40f27d3914d194bf6b93118da1158c0d806d038253664b21c384b71b0b744cad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsDataKeyReusePeriodSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsDataKeyReusePeriodSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsMasterKeyId")
@@ -586,7 +587,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1edd65cddbda9f734e1f85edbd60c8f32a77bb83366989f21ee37ba463ea4730)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsMasterKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsMasterKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="maximumMessageSize")
@@ -599,7 +600,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0937348e9f5cb274266edef6ef289172f6dbb7546a90caff469f117d34471978)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maximumMessageSize", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maximumMessageSize", value)
 
     @builtins.property
     @jsii.member(jsii_name="messageRetentionPeriod")
@@ -612,7 +613,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__21a661a987567c72d08c78c8144420eba8cbb11eb7636f08fc060fd84e608fce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "messageRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "messageRetentionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="queueName")
@@ -625,7 +626,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__271d59baa6eda03382693b81f2f08123b48af66737983ada2ed68a61dd4da399)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queueName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queueName", value)
 
     @builtins.property
     @jsii.member(jsii_name="receiveMessageWaitTimeSeconds")
@@ -641,7 +642,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__36c40902941bddb77771bd30f9789767280cd44830c59480705de79a17bdb360)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "receiveMessageWaitTimeSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "receiveMessageWaitTimeSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="sqsManagedSseEnabled")
@@ -659,7 +660,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c325e89257312887b80703cae624c0bf91c30392ca66de341ef10a2b3bc33186)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sqsManagedSseEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sqsManagedSseEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -675,7 +676,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ac13d08fe940e7974753ab1f7e2b85edd222dccf01f15a22bc0c94c558436a3b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="visibilityTimeout")
@@ -688,7 +689,7 @@ class CfnQueue(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__48cda16b71aad6d8bf96a8fd88f815146f039d81c6d0d808d2369955e4d3538f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "visibilityTimeout", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "visibilityTimeout", value)
 
 
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_sqs_5e3fc237.IQueueInlinePolicyRef)
@@ -778,6 +779,7 @@ class CfnQueueInlinePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -809,7 +811,7 @@ class CfnQueueInlinePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1aac3822f2f3ec918fc858517bd93cecb6a600209491929c794eccc0e1e537ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDocument", value)
 
     @builtins.property
     @jsii.member(jsii_name="queue")
@@ -822,7 +824,7 @@ class CfnQueueInlinePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c4d8dbba72fafc6156bcfc2049ef09c27ff43a7f9c93d311fda6025b4d38d11b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queue", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queue", value)
 
 
 @jsii.data_type(
@@ -987,6 +989,7 @@ class CfnQueuePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1027,7 +1030,7 @@ class CfnQueuePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__42e8d10aec48d446cb0df11b20417647a2219b036fedc9d262437589b9b0dce5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDocument", value)
 
     @builtins.property
     @jsii.member(jsii_name="queues")
@@ -1040,7 +1043,7 @@ class CfnQueuePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a703d752b481c39c180902f2fc98d5571e053d97b2b774b17987f3bc34ef105d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queues", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queues", value)
 
 
 @jsii.data_type(
@@ -4117,6 +4120,7 @@ class QueuePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -4833,6 +4837,7 @@ class Queue(QueueBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sqs.Q
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

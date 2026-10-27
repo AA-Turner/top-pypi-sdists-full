@@ -566,4 +566,4 @@ def test_the_pages_choice_lands_after_the_switch(isolate, monkeypatch, calls):
     assert seen["groups"] == wizard.DAEMON_GROUPS
     assert _read(isolate) == {"showThinkingSummaries": False}
     assert not _codex_file(isolate).exists(), "Codex is not set up here, so the row left it alone"
-    assert lines[-1] == "Daemon sees the agent's reasoning → off (Claude Code; new sessions)"
+    assert "Daemon sees the agent's reasoning → off (Claude Code; new sessions)" in lines

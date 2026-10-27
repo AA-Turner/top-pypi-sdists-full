@@ -1,0 +1,1 @@
+import"./rolldown-runtime-CM1DJQSe.js";function timedSignal(e,t){if(t===void 0)return{signal:e,release:()=>void 0};let n=new AbortController,r=setTimeout(()=>n.abort(),t);return{signal:e?AbortSignal.any([e,n.signal]):n.signal,release:()=>clearTimeout(r)}}export{timedSignal as t};

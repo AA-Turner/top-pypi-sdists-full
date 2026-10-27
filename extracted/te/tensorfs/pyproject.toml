@@ -6,7 +6,7 @@ backend-path = ["backend"]
 
 [project]
 name = "tensorfs"
-version = "0.16.0"
+version = "0.17.2"
 description = "Load, store and share model weights: a self-describing tensor format, a deduplicating local store and the tfs CLI"
 readme = "README.md"
 license = "MIT"
@@ -32,7 +32,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/cozy-creator/cozy-creator/tree/master/crates/tensorfs-py"
+Homepage = "https://github.com/cozy-creator/cozy-creator/tree/master/crates/tensorfs"
 Documentation = "https://github.com/cozy-creator/cozy-creator/blob/master/crates/tensorfs-py/API.md"
 Repository = "https://github.com/cozy-creator/cozy-creator"
 Issues = "https://github.com/cozy-creator/cozy-creator/issues"

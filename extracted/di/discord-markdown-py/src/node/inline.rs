@@ -9,16 +9,16 @@ use nom::branch::alt;
 use nom::character::complete::{anychar, line_ending};
 use nom::combinator::map;
 use nom::multi::many1;
-use nom::sequence::preceded;
 use tracing::Level;
 
 use crate::{
 	Input,
 	context::{Context, fuel::ApplyFuel},
 	error::ParseError,
+	lossless::TokenKind,
 	range::delim,
 	scope::Scope,
-	span::{Span, TraceOk, TraceParse, WithSpan},
+	span::{Span, Syntax, TraceOk, TraceParse, WithSpan, WithToken, attach},
 	unparse::Unparse,
 };
 
@@ -422,23 +422,38 @@ where
 		)]
 		let result = many1(alt((
 			ctx.matched_pairs()
+				.with_token::<S>(TokenKind::Text)
 				// TODO: this should respect the inner content by outputting a Node (or list of Nodes) rather than Input
-				.map(|seq| Element::<S>::Text(seq.content.into()))
-				.span(),
+				.map(|(seq, syntax)| (Element::<S>::Text(seq.content.into()), syntax))
+				.span()
+				.map(attach),
 			ctx.guard_terminal_sequence(|| {
 				alt((
 					ctx.allowed_inline_syntax(),
 					// resolved into modifiers once the whole message is parsed; see `crate::range`
-					delim::delim(ctx.syntaxes).map(Element::Delim),
-					preceded((line_ending, ctx.line_prefix()), ctx.allowed_block_syntax()),
-					text::text(ctx.clone()).map(|content| Element::Text(Cow::Owned(content))),
+					delim::delim(ctx.syntaxes)
+						.map(|delim| (Element::Delim(delim), S::Syntax::default())),
+					(
+						line_ending.token::<S>(TokenKind::LineEnding),
+						ctx.line_prefix().token::<S>(TokenKind::QuotePrefix),
+						ctx.allowed_block_syntax(),
+					)
+						.map(|(line_ending, prefix, (block, syntax))| {
+							(block, line_ending.join(prefix).join(syntax))
+						}),
+					text::text::<S, E>(ctx.clone())
+						.map(|(content, syntax)| (Element::Text(Cow::Owned(content)), syntax)),
 					// If we failed to capture the current character after stepping through all rules
 					// then we are likely dealing with an unpaired control character, so consume it
 					// and allow the rules to continue.
-					map(anychar, |ch: char| Element::Text(ch.to_string().into())),
+					map(
+						anychar.with_token::<S>(TokenKind::Text),
+						|(ch, syntax): (char, _)| (Element::Text(ch.to_string().into()), syntax),
+					),
 				))
 			})
-			.span(),
+			.span()
+			.map(attach),
 		)))
 		.apply_fuel(self.context.remaining_fuel())
 		.map(|mut pieces| {
@@ -1068,7 +1083,7 @@ mod test {
 		assert_eq!(rem, "");
 		assert_eq!(res.value.len(), 1, "expected one node, got {res:?}");
 		assert!(
-			matches!(res.value[0].value, Element::Link(_)),
+			matches!(res.value[0].value, Element::Link(..)),
 			"expected a link, got {res:?}"
 		);
 	}
@@ -1093,7 +1108,7 @@ mod test {
 			assert_eq!(rem, "", "unexpected input remaining for {s:?}");
 			assert!(
 				res.iter()
-					.any(|node| matches!(node.value, Element::Link(_))),
+					.any(|node| matches!(node.value, Element::Link(..))),
 				"expected a link for {s:?}, got {res:?}"
 			);
 		}
@@ -1112,7 +1127,7 @@ mod test {
 		assert_eq!(rem, "");
 		assert!(
 			res.iter()
-				.any(|node| matches!(node.value, Element::Link(_))),
+				.any(|node| matches!(node.value, Element::Link(..))),
 			"expected a link, got {res:?}"
 		);
 	}

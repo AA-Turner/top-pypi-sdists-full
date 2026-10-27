@@ -1,16 +1,17 @@
 use derive_where::derive_where;
-use nom::{Parser, branch::alt, combinator::map, multi::fold_many0, sequence::preceded};
+use nom::{Parser, branch::alt, character::complete::space1, combinator::map, multi::fold_many0};
 
 use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
+	lossless::TokenKind,
 	node::{
 		Element, Elements, Sequence,
 		block::{inline_block, list::indent},
 	},
 	scope::Scope,
-	span::{Span, WithSpan},
+	span::{Span, Syntax, WithSpan, WithToken, attach},
 	unparse::Unparse,
 };
 
@@ -78,29 +79,36 @@ where
 			map(inline_block(context.clone().with_scope(Scope::Block)), Element::Paragraph).span().parse_complete(data)?;
 
 		fold_many0(
-			preceded(
-				context.clone().line_prefix(),
+			(
+				context
+					.clone()
+					.line_prefix()
+					.token::<S>(TokenKind::QuotePrefix),
 				alt((
 					// first check if the next item is indented enough to be considered a child list
 					map(indented(context.clone(), item_indent), Element::List).span(),
 					// then we can continue parsing current list items
 					map(
-						preceded(
-							indent(item_indent),
+						(
+							indent(item_indent).token::<S>(TokenKind::Indent),
 							inline_block(context.with_scope(Scope::Block)),
 						),
-						Element::Paragraph,
+						|(indent, mut content): (_, Elements<'data, S>)| {
+							content.span.attach(indent);
+							Element::Paragraph(content)
+						},
 					)
 					.span(),
 				)),
 			),
-			move || vec![first_content.clone()],
-			|mut acc, item| {
-				acc.push(item);
-				acc
+			move || (vec![first_content.clone()], S::Syntax::default()),
+			|(mut nodes, syntax), (prefix, node)| {
+				nodes.push(node);
+				(nodes, syntax.join(prefix))
 			},
 		)
 		.span()
+		.map(attach)
 		.parse_complete(data)
 	}
 }
@@ -138,13 +146,16 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	preceded(
-		indent(indent_amount),
-		(
-			parse_type,
-			map(content(context, indent_amount + INDENT_STEP), |content| {
-				Item { content }
-			}),
-		),
+	(
+		indent(indent_amount).token::<S>(TokenKind::Indent),
+		parse_type.with_token::<S>(TokenKind::ListMarker),
+		space1.token::<S>(TokenKind::Whitespace),
+		content(context, indent_amount + INDENT_STEP),
 	)
+		.map(
+			|(indent, (kind, marker), space, mut content): (_, _, _, Elements<'data, S>)| {
+				content.span.attach(indent.join(marker).join(space));
+				(kind, Item { content })
+			},
+		)
 }

@@ -18,6 +18,9 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Iterator, Protocol
 
+from refinery.lib.dt import filetime
+from refinery.lib.types import buf
+
 _FILE_MAGIC = B'FILE'
 
 _ATTR_STANDARD_INFO = 0x10
@@ -48,22 +51,17 @@ _EMPTY_EXTENT = -1
 
 
 class VolumeSource(Protocol):
-    def read(self, offset: int, length: int) -> bytearray:
+    size: int
+
+    def read(self, offset: int, length: int) -> buf:
+        ...
+
+    def stored(self, offset: int, length: int) -> Iterator[tuple[int, int]]:
         ...
 
 
 class NtfsError(ValueError):
     pass
-
-
-def _filetime(value: int) -> datetime.datetime | None:
-    if value == 0:
-        return None
-    try:
-        epoch = datetime.datetime(1601, 1, 1, tzinfo=datetime.timezone.utc)
-        return epoch + datetime.timedelta(microseconds=value // 10)
-    except (ValueError, OverflowError):
-        return None
 
 
 @dataclass
@@ -142,10 +140,12 @@ class NtfsVolume:
     """
     Parses an NTFS volume. The boot sector supplies the cluster geometry and the location of the
     MFT, which is then read as a file in order to enumerate all other records. The `files` method
-    yields all non-system file and directory entries with their full paths.
+    yields all non-system file and directory entries with their full paths. Problems that do not
+    prevent listing the volume are collected in `warnings`.
     """
     def __init__(self, source: VolumeSource):
         self._source = source
+        self.warnings: list[str] = []
         boot = source.read(0, 512)
         if boot[3:11] != B'NTFS    ':
             raise NtfsError('missing NTFS boot sector signature')
@@ -171,7 +171,7 @@ class NtfsVolume:
         self._records: list[_Record | None] = []
         self._load_mft()
 
-    def _read_clusters(self, cluster: int, count: int) -> bytearray:
+    def _read_clusters(self, cluster: int, count: int) -> buf:
         return self._source.read(cluster << self.cluster_size_log, count << self.cluster_size_log)
 
     def _load_mft(self) -> None:
@@ -182,12 +182,21 @@ class NtfsVolume:
         data = self._find_unnamed_data(record)
         if data is None:
             raise NtfsError('the $MFT record has no data attribute')
+        if not self._stores(data.real_size):
+            raise NtfsError('the $MFT is larger than the data stored for the volume')
         mft = self._read_attr_data(data)
         count = len(mft) // self.record_size
         self._records = [None] * count
         for index in range(count):
             chunk = mft[index * self.record_size:(index + 1) * self.record_size]
             self._records[index] = self._parse_record(chunk, index)
+
+    def _stores(self, size: int) -> bool:
+        for lower, upper in self._source.stored(0, self._source.size):
+            size -= upper - lower
+            if size <= 0:
+                break
+        return size <= 0
 
     def _apply_fixups(self, record: bytearray) -> bool:
         usa_offset = int.from_bytes(record[0x04:0x06], 'little')
@@ -205,7 +214,7 @@ class NtfsVolume:
             record[tail:tail + 2] = record[source:source + 2]
         return True
 
-    def _parse_record(self, raw: bytearray, index: int) -> _Record | None:
+    def _parse_record(self, raw: buf, index: int) -> _Record | None:
         record = bytearray(raw)
         if len(record) < self.record_size or record[:4] != _FILE_MAGIC:
             return None
@@ -239,13 +248,13 @@ class NtfsVolume:
                     file_names.append(name)
             elif attr.type == _ATTR_STANDARD_INFO:
                 if len(attr.data) >= 0x24:
-                    created = _filetime(int.from_bytes(attr.data[_SI_CREATED:_SI_CREATED + 8], 'little'))
-                    date = _filetime(int.from_bytes(attr.data[_SI_MODIFIED:_SI_MODIFIED + 8], 'little'))
-                    changed = _filetime(int.from_bytes(attr.data[_SI_CHANGED:_SI_CHANGED + 8], 'little'))
-                    accessed = _filetime(int.from_bytes(attr.data[_SI_ACCESSED:_SI_ACCESSED + 8], 'little'))
+                    created = filetime(int.from_bytes(attr.data[_SI_CREATED:_SI_CREATED + 8], 'little'))
+                    date = filetime(int.from_bytes(attr.data[_SI_MODIFIED:_SI_MODIFIED + 8], 'little'))
+                    changed = filetime(int.from_bytes(attr.data[_SI_CHANGED:_SI_CHANGED + 8], 'little'))
+                    accessed = filetime(int.from_bytes(attr.data[_SI_ACCESSED:_SI_ACCESSED + 8], 'little'))
                     attributes = int.from_bytes(attr.data[_SI_ATTRIBUTES:_SI_ATTRIBUTES + 4], 'little')
                 elif len(attr.data) >= 8:
-                    date = _filetime(int.from_bytes(attr.data[_SI_MODIFIED:_SI_MODIFIED + 8], 'little'))
+                    date = filetime(int.from_bytes(attr.data[_SI_MODIFIED:_SI_MODIFIED + 8], 'little'))
             elif attr.type == _ATTR_DATA:
                 data_attrs.append(attr)
 
@@ -310,10 +319,10 @@ class NtfsVolume:
         if len(data) < 0x42:
             return None
         parent = int.from_bytes(data[0:6], 'little')
-        created = _filetime(int.from_bytes(data[_FN_CREATED:_FN_CREATED + 8], 'little'))
-        modified = _filetime(int.from_bytes(data[_FN_MODIFIED:_FN_MODIFIED + 8], 'little'))
-        changed = _filetime(int.from_bytes(data[_FN_CHANGED:_FN_CHANGED + 8], 'little'))
-        accessed = _filetime(int.from_bytes(data[_FN_ACCESSED:_FN_ACCESSED + 8], 'little'))
+        created = filetime(int.from_bytes(data[_FN_CREATED:_FN_CREATED + 8], 'little'))
+        modified = filetime(int.from_bytes(data[_FN_MODIFIED:_FN_MODIFIED + 8], 'little'))
+        changed = filetime(int.from_bytes(data[_FN_CHANGED:_FN_CHANGED + 8], 'little'))
+        accessed = filetime(int.from_bytes(data[_FN_ACCESSED:_FN_ACCESSED + 8], 'little'))
         attrib = int.from_bytes(data[0x38:0x3C], 'little')
         name_length = data[0x40]
         name_type = data[0x41]
@@ -383,11 +392,14 @@ class NtfsVolume:
             return self._read_compressed(extents, attr)
         out = bytearray()
         for _, lcn, length in extents:
-            size = length << self.cluster_size_log
+            size = min(length << self.cluster_size_log, attr.real_size - len(out))
+            if size <= 0:
+                break
             if lcn == _EMPTY_EXTENT:
                 out.extend(bytes(size))
             else:
-                out.extend(self._read_clusters(lcn, length))
+                count = (size + self.cluster_size - 1) >> self.cluster_size_log
+                out.extend(self._read_clusters(lcn, count))
         del out[attr.real_size:]
         if len(out) < attr.real_size:
             out.extend(bytes(attr.real_size - len(out)))
@@ -398,14 +410,15 @@ class NtfsVolume:
 
     def _read_compressed(self, extents: list[tuple[int, int, int]], attr: _Attr) -> bytearray:
         unit = 1 << attr.compression_unit
+        total_clusters = (attr.real_size + self.cluster_size - 1) >> self.cluster_size_log
+        limit = -(-total_clusters // unit) * unit
         clusters: dict[int, int] = {}
         for vcn, lcn, length in extents:
             if lcn == _EMPTY_EXTENT:
                 continue
-            for offset in range(length):
+            for offset in range(max(0, min(length, limit - vcn))):
                 clusters[vcn + offset] = lcn + offset
         out = bytearray()
-        total_clusters = (attr.real_size + self.cluster_size - 1) >> self.cluster_size_log
         vcn = 0
         while vcn < total_clusters:
             block = [clusters.get(vcn + k) for k in range(unit)]
@@ -624,7 +637,7 @@ def _lznt1_block(block: bytearray, already: int) -> bytearray:
     return out
 
 
-def is_ntfs(data: bytearray) -> bool:
+def is_ntfs(data: buf) -> bool:
     """
     Check whether the start of a volume looks like an NTFS boot sector by testing for the `NTFS`
     OEM identifier and the boot signature.

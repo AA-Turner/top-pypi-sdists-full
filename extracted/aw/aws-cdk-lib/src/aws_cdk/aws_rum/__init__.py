@@ -254,6 +254,7 @@ class CfnAppMonitor(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -300,7 +301,7 @@ class CfnAppMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__28bed8e51b4cd861f00044e721965e61478696f88fa5cf4528fece9faad98be4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="appMonitorConfiguration")
@@ -318,7 +319,7 @@ class CfnAppMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__50034684ba972a040247926397a2abd22cbfe552025aa67e74c062216336d6da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "appMonitorConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "appMonitorConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="customEvents")
@@ -336,7 +337,7 @@ class CfnAppMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__65b3a1fb3e18d745fb1b2892e7cae08e9d46eaf221ccd474f3aaf390ec6e0074)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customEvents", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customEvents", value)
 
     @builtins.property
     @jsii.member(jsii_name="cwLogEnabled")
@@ -354,7 +355,7 @@ class CfnAppMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd674d3834ab7c9a15c2cc3b7dfc188fd561725f3c30ee84200f63547a955eef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cwLogEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cwLogEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="deobfuscationConfiguration")
@@ -372,7 +373,7 @@ class CfnAppMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9f2d704d10058b4d7b134a686b042efc84971acf09b892129589706da314ce17)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deobfuscationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deobfuscationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="domain")
@@ -385,7 +386,7 @@ class CfnAppMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0456aa4886c478c5fc3157398096bfee936719f2df864f6df5d0d99dfb18c0a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domain", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domain", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainList")
@@ -401,7 +402,7 @@ class CfnAppMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f86b0a9a53fb7afe4df111651fb954ae88b1fcdc7037dc764fa0b071918819c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainList", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainList", value)
 
     @builtins.property
     @jsii.member(jsii_name="platform")
@@ -413,7 +414,7 @@ class CfnAppMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c49ccee18d2cf43e0e175570c2535ca63b556d284f2db826f7db6d065136888b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "platform", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "platform", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicy")
@@ -431,7 +432,7 @@ class CfnAppMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02ad50a0bedc842a57f77840ff242508a77c0b4d3a7db3dabb035464285b86fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -447,7 +448,7 @@ class CfnAppMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fd15333478ba004b01e5eeb19cecf4a73325add1db14df013fda84f63d3c4a4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rum.CfnAppMonitor.AppMonitorConfigurationProperty",

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import codecs
 import enum
+import functools
 import re
 
 from typing import Callable, NamedTuple
@@ -115,6 +116,11 @@ MimeByExtension = {
 
 
 class Format:
+    """
+    A format specifier. Objects of this class define a poset; a more general version of a format
+    satisfies a "<=" relation to a more specific one. For example, TEXT <= ASCII_TEXT.
+    """
+
     __slots__ = 'category', 'extension', 'mime', 'mnemonic', 'details'
 
     def __hash__(self):
@@ -122,6 +128,11 @@ class Format:
 
     def __str__(self):
         return self.mnemonic
+
+    def __ge__(self, them):
+        if not isinstance(them, Format):
+            return False
+        return them.__le__(self)
 
     def __le__(self, them):
         if not isinstance(them, Format):
@@ -704,16 +715,44 @@ def get_reg_export_type(data: buf):
         return Fmt.REG_TEXT
 
 
-def _get_control_chars():
-    if not _CONTROL_CHARS:
-        from unicodedata import category as uc
-        _CONTROL_CHARS.update(
-            cp for cp in range(0x10000) if uc(chr(cp)).startswith('C'))
-        _CONTROL_CHARS.difference_update(B'\040\n\r\t')
-    return _CONTROL_CHARS
+_UNICODE_NONTEXT_CATEGORIES = frozenset({'Cc', 'Cn', 'Co', 'Cs'})
+
+# The format category is added to the above for every codec but the Unicode transformation formats
+# below. A zero width joiner inside a word, a bidirectional mark and a soft hyphen are written into
+# text on purpose, and a transformation format spends several bytes to encode one: counting such a
+# character against `utf8` makes a valid document read as mojibake in whatever legacy codec reads
+# its bytes as letters. A legacy codec maps a single byte to a format character instead, and not
+# counting that lets a byte dense blob read as text in whatever legacy codec spells it out.
+_UNICODE_NONTEXT_CATEGORIES_LEGACY = _UNICODE_NONTEXT_CATEGORIES | {'Cf'}
+
+# The codecs under which a format character is a deliberate part of the text rather than a byte
+# that a legacy codec had no better home for.
+_TEXT_FORMAT_CODECS = frozenset({'utf8', 'utf7', 'utf-16le', 'utf-16be', 'utf-32le', 'utf-32be'})
 
 
-_CONTROL_CHARS = set()
+@functools.lru_cache(maxsize=None)
+def _get_nontext_pattern(categories: frozenset[str]) -> re.Pattern[str]:
+    """
+    Compiles the characters of the given Unicode categories into a regular expression that matches
+    exactly those of them that count against a document being text. The pattern covers only the
+    basic multilingual plane; characters above it are always text.
+    """
+    from unicodedata import category as uc
+    chars = {cp for cp in range(0x10000) if uc(chr(cp)) in categories}
+    chars.difference_update(B'\040\n\r\t')
+    ranges: list[list[int]] = []
+    for cp in sorted(chars):
+        if ranges and cp == ranges[-1][1] + 1:
+            ranges[-1][1] = cp
+        else:
+            ranges.append([cp, cp])
+    klass = ''.join(
+        F'\\u{start:04X}' if start == end else F'\\u{start:04X}-\\u{end:04X}'
+        for start, end in ranges
+    )
+    return re.compile(F'[{klass}]')
+
+
 _INVALID_BYTES = bytes(sorted(set(range(256)) - set(range(0x20, 0x80)) - {9, 10, 13}))
 
 
@@ -724,9 +763,113 @@ class TextEncoding(NamedTuple):
     step: int = 1
 
 
+_TEXT_SAMPLE_ESCALATION = 10
+_TEXT_MAX_CHARACTER_SIZE = 4
+_UTF7_RUN_END = re.compile(b'[^A-Za-z0-9+/]')
+
+
+def _window_offsets(length: int, window: int, count: int, step: int) -> list[int]:
+    """
+    The start offsets of the windows through which a buffer of the given length is inspected: the
+    window at the very start of the buffer, and `count` further windows spread evenly over the rest
+    of it. A buffer no longer than the window itself is inspected as a whole. Every offset is
+    aligned to a multiple of `step`, the byte size of one encoded character, so that no window
+    starts in the middle of one. A count higher than the number of positions a window can start at
+    asks for more samples than the buffer holds, and is cut to it.
+    """
+    if count <= 0 or length <= window:
+        return [0]
+    span = length - window
+    count = min(count, span)
+    offsets = [k * span // count for k in range(count + 1)]
+    if step > 1:
+        offsets = [offset - offset % step for offset in offsets]
+    return [*dict.fromkeys(offsets)]  # remove duplicates
+
+
+def _decode_window(view: memoryview, start: int, end: int, codec: str, step: int) -> str | None:
+    """
+    Decodes the window between `start` and `end` in the given codec, returning None when the
+    window does not decode. An error at an edge of the window means that the window cuts into the
+    middle of an encoded character, and the edge is moved until the character is outside of the
+    window; an error further inside is evidence of binary data. The first byte of a buffer is the
+    start of a character, so an error there never cuts one and always rejects; the same holds for
+    the start of a window in a multi-byte codec, whose offsets are aligned to whole characters.
+    A window that ends inside a shifted run of UTF-7 is extended over the rest of the run, for
+    the run has no fixed length and no number of whole characters repairs a cut through one.
+    """
+    # A step size above one means a UTF codec: A document may hold lone surrogate halves, which
+    # count as non-text characters rather than break the decoding, so that only a window which is
+    # not a whole number of characters fails to decode.
+    errors = 'surrogatepass' if step > 1 else 'strict'
+    skipped = extended = 0
+    while True:
+        try:
+            return codecs.decode(view[start:end], codec, errors)
+        except UnicodeDecodeError as error:
+            position = error.start
+            reason = error.reason
+        if reason == 'unterminated shift sequence':
+            run_end = _UTF7_RUN_END.search(view, end)
+            if run_end is None or extended == _TEXT_MAX_CHARACTER_SIZE - 1:
+                return None
+            end = run_end.end()
+            extended += 1
+        elif position < _TEXT_MAX_CHARACTER_SIZE:
+            if start == 0 or step > 1 or skipped == _TEXT_MAX_CHARACTER_SIZE - 1:
+                return None
+            start += step
+            skipped += 1
+        elif position > end - start - _TEXT_MAX_CHARACTER_SIZE:
+            if extended == _TEXT_MAX_CHARACTER_SIZE - 1:
+                return None
+            end += step
+            extended += 1
+        else:
+            return None
+
+
+def _windows_hold_text(
+    view: memoryview,
+    offsets: list[int],
+    window: int,
+    codec: str,
+    step: int,
+    categories: frozenset[str],
+    maxbad: float,
+) -> bool:
+    """
+    Tests whether every window at the given offsets decodes in the given codec, and whether the
+    characters decoded from all of them together hold no more than the fraction `maxbad` of
+    non-text characters. The counting stops as soon as the non-text characters outnumber what any
+    number of characters decoded from the remaining windows could balance.
+    """
+    nontext = _get_nontext_pattern(categories)
+    capacity = (window + _TEXT_MAX_CHARACTER_SIZE) // step
+    total = 0
+    bad = 0
+    for index, offset in enumerate(offsets):
+        decoded = _decode_window(view, offset, offset + window, codec, step)
+        if decoded is None:
+            return False
+        total += len(decoded)
+        bad += sum(1 for _ in nontext.finditer(decoded))
+        if (
+            step > 1
+            and decoded.endswith('\x00')
+            and offset + window >= len(view)
+        ):
+            bad -= 1
+        remaining = len(offsets) - index - 1
+        if bad > int(maxbad * (total + remaining * capacity)):
+            return False
+    return bad <= int(maxbad * total)
+
+
 def guess_text_encoding(
     data: buf,
     window_size: int = 0x1000,
+    sample_count: int = 10,
     ascii_ratio: float = 0.98,
 ) -> TextEncoding | None:
     """
@@ -735,7 +878,18 @@ def guess_text_encoding(
     the offset after the byte order mark (`0` in case there is none), then the offset of the first
     low byte of a character (odd for big endian encodings, even for others) and finally the size of
     each encoded character in bytes.
+
+    A buffer that is longer than `window_size` bytes is not inspected as a whole, but through the
+    window at its start and `sample_count` further windows spread evenly over the rest of it. The
+    buffer counts as text only when every window decodes in the same codec and the characters
+    decoded from all of them together hold no more than the fraction `1 - ascii_ratio` of non-text
+    characters.
     """
+    if window_size < 1:
+        raise ValueError('the window size must be a positive number of bytes')
+    if sample_count < 0:
+        raise ValueError('the sample count must not be negative')
+
     def ascii_count(v: memoryview):
         bv = bytes(v)
         count = len(bv.translate(None, _INVALID_BYTES))
@@ -745,7 +899,6 @@ def guess_text_encoding(
         return count
 
     view = memoryview(data)
-    size = window_size
     step = 1
     maxbad = 1 - ascii_ratio
     bom = 0
@@ -773,11 +926,15 @@ def guess_text_encoding(
         b'\x2B\x2F\x76\x2B',
         b'\x2B\x2F\x76\x2F',
     )):
-        bom = 4
+        # The mark of UTF-7 is a shifted run, closed by a dash when the text after it holds
+        # characters of the ASCII alphabet: the offset has to skip that dash, or a reader of it
+        # decodes a stray one. A run that goes on into the text holds the mark and the text in
+        # the same bytes, and no offset separates them.
+        bom = 5 if data[4:5] == B'-' else 4
         enc = 'utf7'
     elif len(view) % 2 == 0:
-        u16le = (win := view[1:size:2]) and ascii_count(win) / len(win) <= maxbad
-        u16be = (win := view[0:size:2]) and ascii_count(win) / len(win) <= maxbad
+        u16le = (win := view[1:window_size:2]) and ascii_count(win) / len(win) <= maxbad
+        u16be = (win := view[0:window_size:2]) and ascii_count(win) / len(win) <= maxbad
         if u16le:
             if u16be:
                 return None
@@ -787,10 +944,40 @@ def guess_text_encoding(
             enc = 'utf-16be'
             step, lsb = 2, 1
 
-    win = view[lsb:size:step]
+    win = view[lsb:window_size:step]
 
     if len(data) <= bom:
         return None
+
+    window = min(window_size, len(view))
+    if step > 1:
+        window = max(step, window - window % step)
+    offsets = _window_offsets(len(view), window, sample_count, step)
+    span = len(view) - window
+    if sample_count * _TEXT_SAMPLE_ESCALATION * window > span:
+        more = sorted({*range(0, span, window), span})
+    else:
+        more = sorted({
+            *offsets,
+            *_window_offsets(len(view), window, sample_count * _TEXT_SAMPLE_ESCALATION, step),
+        })
+
+    def holds_text(encoding: str, categories: frozenset[str], windows: list[int]) -> bool:
+        return _windows_hold_text(view, windows, window, encoding, step, categories, maxbad)
+
+    def codec_holds_text(encoding: str) -> bool:
+        categories = _UNICODE_NONTEXT_CATEGORIES_LEGACY
+        if encoding in _TEXT_FORMAT_CODECS:
+            categories = _UNICODE_NONTEXT_CATEGORIES
+        if holds_text(encoding, categories, offsets):
+            return True
+        if encoding not in _TEXT_FORMAT_CODECS:
+            return False
+        # A transformation format is retried over a wider sample before the guess falls back to
+        # a legacy codec that spells the very same bytes out as letters: a single window inside
+        # a locally dense run of non-text characters must not decide the verdict over a document
+        # that holds few of them overall.
+        return holds_text(encoding, categories, more)
 
     if step > 1:
         if len(data) % step != 0:
@@ -798,23 +985,12 @@ def guess_text_encoding(
         if bom == 0 and (not win or ascii_count(win) / len(win) < ascii_ratio):
             return None
         assert enc is not None
-        return TextEncoding(enc, bom, lsb, step)
-
-    cc = _get_control_chars()
+        if codec_holds_text(enc):
+            return TextEncoding(enc, bom, lsb, step)
+        return None
 
     for encoding in (enc and [enc] or ENCODINGS):
-        try:
-            decoded = codecs.decode(data, encoding)
-        except UnicodeDecodeError:
-            continue
-        threshold = int(maxbad * len(decoded))
-        bad = 0
-        for c in decoded:
-            if ord(c) not in cc:
-                continue
-            if (bad := bad + 1) > threshold:
-                break
-        else:
+        if codec_holds_text(encoding):
             return TextEncoding(encoding, bom, lsb, step)
 
 
@@ -856,6 +1032,7 @@ def xml_or_html(view: buf):
 def ascii_view(
     data: buf,
     window_size: int = 0x1000,
+    sample_count: int = 10,
     ascii_ratio: float = 0.98,
 ):
     """
@@ -863,7 +1040,12 @@ def ascii_view(
     encoded letter. Otherwise, return None. Whether or not the data looks like text is determined
     using `refinery.lib.id.guess_text_encoding`; all parameters are forwarded to this function.
     """
-    if encoding := guess_text_encoding(data, window_size=window_size, ascii_ratio=ascii_ratio):
+    if encoding := guess_text_encoding(
+        data,
+        window_size=window_size,
+        sample_count=sample_count,
+        ascii_ratio=ascii_ratio,
+    ):
         return memoryview(data)[encoding.lsb:len(data):encoding.step]
 
 
@@ -1372,7 +1554,7 @@ def is_likely_xml(data: buf):
     """
     Checks whether the input data is likely an XML document.
     """
-    if view := ascii_view(data, window_size=0):
+    if view := ascii_view(data):
         return xml_or_html(view) == Fmt.XML
     return False
 
@@ -1381,7 +1563,7 @@ def is_likely_htm(data: buf):
     """
     Checks whether the input data is likely an HTML document.
     """
-    if view := ascii_view(data, window_size=0):
+    if view := ascii_view(data):
         return xml_or_html(view) == Fmt.HTM
     return False
 
@@ -1416,7 +1598,7 @@ def is_likely_plist(data: buf):
     """
     if data[:6] == B'bplist':
         return True
-    if view := ascii_view(data, window_size=0):
+    if view := ascii_view(data):
         if xml_or_html(view) == Fmt.XML and buffer_contains(view[:500], BR'<!DOCTYPE plist'):
             return True
     return False

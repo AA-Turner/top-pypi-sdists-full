@@ -38,6 +38,102 @@ else:
     _interfaces_8ca7e747 = _LazyImport("aws_cdk.interfaces")
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediaconvert.CertificateAssociationReference",
+    jsii_struct_bases=[],
+    name_mapping={"certificate_association_arn": "certificateAssociationArn"},
+)
+class CertificateAssociationReference:
+    def __init__(self, *, certificate_association_arn: builtins.str) -> None:
+        '''A reference to a CertificateAssociation resource.
+
+        :param certificate_association_arn: The Arn of the CertificateAssociation resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_mediaconvert as interfaces_mediaconvert
+            
+            certificate_association_reference = interfaces_mediaconvert.CertificateAssociationReference(
+                certificate_association_arn="certificateAssociationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bea6a3f82f5411e62f77f7958a52fd5aac235fd5e5bbb2b4fda939af77ba9fdf)
+            check_type(argname="argument certificate_association_arn", value=certificate_association_arn, expected_type=type_hints["certificate_association_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "certificate_association_arn": certificate_association_arn,
+        }
+
+    @builtins.property
+    def certificate_association_arn(self) -> builtins.str:
+        '''The Arn of the CertificateAssociation resource.'''
+        result = self._values.get("certificate_association_arn")
+        assert result is not None, "Required property 'certificate_association_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CertificateAssociationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_mediaconvert.ICertificateAssociationRef"
+)
+class ICertificateAssociationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a CertificateAssociation.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAssociationRef")
+    def certificate_association_ref(self) -> "CertificateAssociationReference":
+        '''(experimental) A reference to a CertificateAssociation resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICertificateAssociationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a CertificateAssociation.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_mediaconvert.ICertificateAssociationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateAssociationRef")
+    def certificate_association_ref(self) -> "CertificateAssociationReference":
+        '''(experimental) A reference to a CertificateAssociation resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CertificateAssociationReference", jsii.get(self, "certificateAssociationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICertificateAssociationRef).__jsii_proxy_class__ = lambda : _ICertificateAssociationRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_mediaconvert.IJobTemplateRef")
 class IJobTemplateRef(
     _constructs_77d1e7e8.IConstruct,
@@ -362,6 +458,8 @@ class QueueReference:
 
 
 __all__ = [
+    "CertificateAssociationReference",
+    "ICertificateAssociationRef",
     "IJobTemplateRef",
     "IPresetRef",
     "IQueueRef",
@@ -371,6 +469,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__bea6a3f82f5411e62f77f7958a52fd5aac235fd5e5bbb2b4fda939af77ba9fdf(
+    *,
+    certificate_association_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__7057bf140c0efe97b502c8c81350b25690b2d11402f6434cea5a83600a341d37(
     *,
@@ -396,5 +501,5 @@ def _typecheckingstub__a8d20bb72aaa75880deb41e80cf087e8733dde75baef670e7f1346b59
     """Type checking stubs"""
     pass
 
-for cls in [IJobTemplateRef, IPresetRef, IQueueRef]:
+for cls in [ICertificateAssociationRef, IJobTemplateRef, IPresetRef, IQueueRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

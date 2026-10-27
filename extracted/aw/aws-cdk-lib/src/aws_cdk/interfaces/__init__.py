@@ -346,6 +346,7 @@ __all__ = [
     "aws_lex",
     "aws_licensemanager",
     "aws_licensemanagerlinuxsubscriptions",
+    "aws_licensemanagerusersubscriptions",
     "aws_lightsail",
     "aws_location",
     "aws_logs",
@@ -401,6 +402,7 @@ __all__ = [
     "aws_pinpoint",
     "aws_pinpointemail",
     "aws_pipes",
+    "aws_polly",
     "aws_pricingplanmanager",
     "aws_proton",
     "aws_qbusiness",
@@ -666,6 +668,7 @@ if typing.TYPE_CHECKING:
     from . import aws_lex as aws_lex
     from . import aws_licensemanager as aws_licensemanager
     from . import aws_licensemanagerlinuxsubscriptions as aws_licensemanagerlinuxsubscriptions
+    from . import aws_licensemanagerusersubscriptions as aws_licensemanagerusersubscriptions
     from . import aws_lightsail as aws_lightsail
     from . import aws_location as aws_location
     from . import aws_logs as aws_logs
@@ -721,6 +724,7 @@ if typing.TYPE_CHECKING:
     from . import aws_pinpoint as aws_pinpoint
     from . import aws_pinpointemail as aws_pinpointemail
     from . import aws_pipes as aws_pipes
+    from . import aws_polly as aws_polly
     from . import aws_pricingplanmanager as aws_pricingplanmanager
     from . import aws_proton as aws_proton
     from . import aws_qbusiness as aws_qbusiness
@@ -984,6 +988,7 @@ _SUBMODULES = {
     "aws_lex",
     "aws_licensemanager",
     "aws_licensemanagerlinuxsubscriptions",
+    "aws_licensemanagerusersubscriptions",
     "aws_lightsail",
     "aws_location",
     "aws_logs",
@@ -1039,6 +1044,7 @@ _SUBMODULES = {
     "aws_pinpoint",
     "aws_pinpointemail",
     "aws_pipes",
+    "aws_polly",
     "aws_pricingplanmanager",
     "aws_proton",
     "aws_qbusiness",

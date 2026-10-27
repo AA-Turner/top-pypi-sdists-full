@@ -14,6 +14,7 @@ Usage::
         DescribeImageScanFindingsPaginator,
         DescribeImagesPaginator,
         DescribePullThroughCacheRulesPaginator,
+        DescribeReplicationBackfillResultsPaginator,
         DescribeRepositoriesPaginator,
         DescribeRepositoryCreationTemplatesPaginator,
         ECRClient,
@@ -21,6 +22,7 @@ Usage::
         ImageScanCompleteWaiter,
         LifecyclePolicyPreviewCompleteWaiter,
         ListImagesPaginator,
+        ListReplicationBackfillsPaginator,
     )
 
     session = Session()
@@ -32,10 +34,12 @@ Usage::
     describe_image_scan_findings_paginator: DescribeImageScanFindingsPaginator = client.get_paginator("describe_image_scan_findings")
     describe_images_paginator: DescribeImagesPaginator = client.get_paginator("describe_images")
     describe_pull_through_cache_rules_paginator: DescribePullThroughCacheRulesPaginator = client.get_paginator("describe_pull_through_cache_rules")
+    describe_replication_backfill_results_paginator: DescribeReplicationBackfillResultsPaginator = client.get_paginator("describe_replication_backfill_results")
     describe_repositories_paginator: DescribeRepositoriesPaginator = client.get_paginator("describe_repositories")
     describe_repository_creation_templates_paginator: DescribeRepositoryCreationTemplatesPaginator = client.get_paginator("describe_repository_creation_templates")
     get_lifecycle_policy_preview_paginator: GetLifecyclePolicyPreviewPaginator = client.get_paginator("get_lifecycle_policy_preview")
     list_images_paginator: ListImagesPaginator = client.get_paginator("list_images")
+    list_replication_backfills_paginator: ListReplicationBackfillsPaginator = client.get_paginator("list_replication_backfills")
     ```
 """
 
@@ -44,10 +48,12 @@ from .paginator import (
     DescribeImageScanFindingsPaginator,
     DescribeImagesPaginator,
     DescribePullThroughCacheRulesPaginator,
+    DescribeReplicationBackfillResultsPaginator,
     DescribeRepositoriesPaginator,
     DescribeRepositoryCreationTemplatesPaginator,
     GetLifecyclePolicyPreviewPaginator,
     ListImagesPaginator,
+    ListReplicationBackfillsPaginator,
 )
 from .waiter import ImageScanCompleteWaiter, LifecyclePolicyPreviewCompleteWaiter
 
@@ -58,6 +64,7 @@ __all__ = (
     "DescribeImageScanFindingsPaginator",
     "DescribeImagesPaginator",
     "DescribePullThroughCacheRulesPaginator",
+    "DescribeReplicationBackfillResultsPaginator",
     "DescribeRepositoriesPaginator",
     "DescribeRepositoryCreationTemplatesPaginator",
     "ECRClient",
@@ -65,4 +72,5 @@ __all__ = (
     "ImageScanCompleteWaiter",
     "LifecyclePolicyPreviewCompleteWaiter",
     "ListImagesPaginator",
+    "ListReplicationBackfillsPaginator",
 )

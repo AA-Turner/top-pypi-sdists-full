@@ -38,6 +38,8 @@ from .literals import (
     LifecyclePolicyPreviewStatusType,
     LifecyclePolicyStorageClassType,
     RCTAppliedForType,
+    ReplicationBackfillResultStatusType,
+    ReplicationBackfillStatusType,
     ReplicationStatusType,
     ScanFrequencyType,
     ScanStatusType,
@@ -108,6 +110,9 @@ __all__ = (
     "DescribePullThroughCacheRulesRequestTypeDef",
     "DescribePullThroughCacheRulesResponseTypeDef",
     "DescribeRegistryResponseTypeDef",
+    "DescribeReplicationBackfillResultsRequestPaginateTypeDef",
+    "DescribeReplicationBackfillResultsRequestTypeDef",
+    "DescribeReplicationBackfillResultsResponseTypeDef",
     "DescribeRepositoriesRequestPaginateTypeDef",
     "DescribeRepositoriesRequestTypeDef",
     "DescribeRepositoriesResponseTypeDef",
@@ -164,6 +169,9 @@ __all__ = (
     "ListImagesResponseTypeDef",
     "ListPullTimeUpdateExclusionsRequestTypeDef",
     "ListPullTimeUpdateExclusionsResponseTypeDef",
+    "ListReplicationBackfillsRequestPaginateTypeDef",
+    "ListReplicationBackfillsRequestTypeDef",
+    "ListReplicationBackfillsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "PackageVulnerabilityDetailsTypeDef",
@@ -195,6 +203,9 @@ __all__ = (
     "RegistryScanningRuleTypeDef",
     "RegistryScanningRuleUnionTypeDef",
     "RemediationTypeDef",
+    "ReplicationBackfillProgressTypeDef",
+    "ReplicationBackfillResultTypeDef",
+    "ReplicationBackfillSummaryTypeDef",
     "ReplicationConfigurationOutputTypeDef",
     "ReplicationConfigurationTypeDef",
     "ReplicationConfigurationUnionTypeDef",
@@ -223,6 +234,10 @@ __all__ = (
     "StartImageScanResponseTypeDef",
     "StartLifecyclePolicyPreviewRequestTypeDef",
     "StartLifecyclePolicyPreviewResponseTypeDef",
+    "StartReplicationBackfillRequestTypeDef",
+    "StartReplicationBackfillResponseTypeDef",
+    "StopReplicationBackfillRequestTypeDef",
+    "StopReplicationBackfillResponseTypeDef",
     "SubjectIdentifierTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
@@ -452,6 +467,26 @@ class PullThroughCacheRuleTypeDef(TypedDict):
     updatedAt: NotRequired[datetime]
 
 
+class DescribeReplicationBackfillResultsRequestTypeDef(TypedDict):
+    replicationBackfillId: str
+    registryId: NotRequired[str]
+    resultStatusFilter: NotRequired[ReplicationBackfillResultStatusType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ReplicationBackfillProgressTypeDef(TypedDict):
+    totalReplicationCount: int
+    completedReplicationCount: int
+    failedReplicationCount: int
+    failureCodes: list[str]
+
+
+class ReplicationDestinationTypeDef(TypedDict):
+    region: str
+    registryId: str
+
+
 class DescribeRepositoriesRequestTypeDef(TypedDict):
     registryId: NotRequired[str]
     repositoryNames: NotRequired[Sequence[str]]
@@ -546,6 +581,12 @@ class ListPullTimeUpdateExclusionsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListReplicationBackfillsRequestTypeDef(TypedDict):
+    registryId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
@@ -602,13 +643,6 @@ ScanningRepositoryFilterTypeDef = TypedDict(
         "filterType": Literal["WILDCARD"],
     },
 )
-
-
-class ReplicationDestinationTypeDef(TypedDict):
-    region: str
-    registryId: str
-
-
 RepositoryFilterTypeDef = TypedDict(
     "RepositoryFilterTypeDef",
     {
@@ -638,6 +672,11 @@ class StartLifecyclePolicyPreviewRequestTypeDef(TypedDict):
     repositoryName: str
     registryId: NotRequired[str]
     lifecyclePolicyText: NotRequired[str]
+
+
+class StopReplicationBackfillRequestTypeDef(TypedDict):
+    replicationBackfillId: str
+    registryId: NotRequired[str]
 
 
 class UntagResourceRequestTypeDef(TypedDict):
@@ -905,6 +944,14 @@ class ListImagesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ReplicationBackfillResultTypeDef(TypedDict):
+    repositoryName: str
+    imageId: ImageIdentifierTypeDef
+    status: ReplicationBackfillResultStatusType
+    failureCode: NotRequired[str]
+    subImageFailureCodes: NotRequired[list[str]]
+
+
 class StartImageScanRequestTypeDef(TypedDict):
     repositoryName: str
     imageId: ImageIdentifierTypeDef
@@ -1078,6 +1125,13 @@ class DescribePullThroughCacheRulesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class DescribeReplicationBackfillResultsRequestPaginateTypeDef(TypedDict):
+    replicationBackfillId: str
+    registryId: NotRequired[str]
+    resultStatusFilter: NotRequired[ReplicationBackfillResultStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class DescribeRepositoriesRequestPaginateTypeDef(TypedDict):
     registryId: NotRequired[str]
     repositoryNames: NotRequired[Sequence[str]]
@@ -1086,6 +1140,11 @@ class DescribeRepositoriesRequestPaginateTypeDef(TypedDict):
 
 class DescribeRepositoryCreationTemplatesRequestPaginateTypeDef(TypedDict):
     prefixes: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListReplicationBackfillsRequestPaginateTypeDef(TypedDict):
+    registryId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1141,6 +1200,39 @@ class DescribePullThroughCacheRulesResponseTypeDef(TypedDict):
     pullThroughCacheRules: list[PullThroughCacheRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class ReplicationBackfillSummaryTypeDef(TypedDict):
+    replicationBackfillId: str
+    destination: ReplicationDestinationTypeDef
+    status: ReplicationBackfillStatusType
+    startedAt: datetime
+    failureCode: NotRequired[str]
+    progress: NotRequired[ReplicationBackfillProgressTypeDef]
+    endedAt: NotRequired[datetime]
+
+
+class StartReplicationBackfillRequestTypeDef(TypedDict):
+    destination: ReplicationDestinationTypeDef
+    registryId: NotRequired[str]
+
+
+class StartReplicationBackfillResponseTypeDef(TypedDict):
+    replicationBackfillId: str
+    registryId: str
+    destination: ReplicationDestinationTypeDef
+    status: ReplicationBackfillStatusType
+    startedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StopReplicationBackfillResponseTypeDef(TypedDict):
+    registryId: str
+    replicationBackfillId: str
+    destination: ReplicationDestinationTypeDef
+    status: ReplicationBackfillStatusType
+    startedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 GetLifecyclePolicyPreviewRequestPaginateTypeDef = TypedDict(
@@ -1331,6 +1423,20 @@ class PutImageResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DescribeReplicationBackfillResultsResponseTypeDef(TypedDict):
+    registryId: str
+    replicationBackfillId: str
+    destination: ReplicationDestinationTypeDef
+    status: ReplicationBackfillStatusType
+    failureCode: str
+    progress: ReplicationBackfillProgressTypeDef
+    results: list[ReplicationBackfillResultTypeDef]
+    startedAt: datetime
+    endedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class CreateRepositoryCreationTemplateResponseTypeDef(TypedDict):
     registryId: str
     repositoryCreationTemplate: RepositoryCreationTemplateTypeDef
@@ -1374,6 +1480,13 @@ class DescribeRepositoriesResponseTypeDef(TypedDict):
 
 class ScoreDetailsTypeDef(TypedDict):
     cvss: NotRequired[CvssScoreDetailsTypeDef]
+
+
+class ListReplicationBackfillsResponseTypeDef(TypedDict):
+    registryId: str
+    backfills: list[ReplicationBackfillSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class DescribeImagesResponseTypeDef(TypedDict):

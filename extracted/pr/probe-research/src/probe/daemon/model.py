@@ -37,17 +37,10 @@ LANE_HEADER = "X-Probe-Daemon-Lane"
 LANE_WRITE = "write"
 LANE_READ = "read"
 LANE_AUDIT = "audit"
-#: The reader's gate (daemon cost round 4, D): a cheap model that decides, before
-#: an unasked reader turn, whether the reader should look at all. The server
-#: serves it on its own lane: no refusal fallback, a refusal is an error.
-LANE_GATE = "gate"
-#: The gate's model, per session; unset, the server's `gate` alias picks it.
-ENV_GATE_MODEL = "PROBE_COMPANION_GATE_MODEL"
-GATE_MODEL_ALIAS = "gate"
 #: The writer's event indexer (daemon cost round 5): a cheap model that turns a
 #: run's new events into one line per step with their event ids. The server
-#: serves it like the gate: a 30 s deadline, no refusal fallback; it settles as
-#: the writer.
+#: serves it on its own lane: a 30 s deadline, no refusal fallback (a refusal is
+#: an error); it settles as the writer.
 LANE_INDEX = "index"
 #: The indexer's model, per session; unset, the server's `index` alias picks it.
 ENV_INDEX_MODEL = "PROBE_COMPANION_INDEX_MODEL"
@@ -119,16 +112,6 @@ class WriterEvents(StrEnum):
     INDEX = "index"
 
 
-class GateMode(StrEnum):
-    """The reader gate's mode (`READER_GATE_HEADER`): OFF never calls it; SHADOW
-    calls it and records its verdict, and the reader looks anyway; ON skips the
-    reader's turn when the gate says so."""
-
-    OFF = "off"
-    SHADOW = "shadow"
-    ON = "on"
-
-
 class PromptWake(StrEnum):
     """Whether a researcher prompt wakes the reader (`READER_PROMPT_WAKE_HEADER`)."""
 
@@ -137,13 +120,11 @@ class PromptWake(StrEnum):
 
 
 #: Settings the server sends on every chat answer beside the context sizes
-#: (daemon cost round 4): the reader gate's mode and the writer's least gap in
-#: seconds between two runs. Absent (an older server), OFF and 0 stand. The
-#: environment variables win over the server (the bench and a researcher's own
-#: override).
-READER_GATE_HEADER = "x-probe-reader-gate"
+#: (daemon cost round 4): the writer's least gap in seconds between two runs.
+#: Absent (an older server), 0 stands. The environment variables win over the
+#: server (the bench and a researcher's own override). `x-probe-reader-gate`,
+#: which the server still sends for an older CLI's reader gate, is ignored.
 WRITER_GAP_HEADER = "x-probe-writer-min-gap-s"
-ENV_READER_GATE = "PROBE_DAEMON_READER_GATE"
 ENV_WRITER_GAP = "PROBE_DAEMON_WRITER_GAP_S"
 WRITER_HISTORY_HEADER = "x-probe-writer-history"
 WRITER_EVENTS_HEADER = "x-probe-writer-events"
@@ -230,7 +211,7 @@ def session_headers() -> dict[str, str]:
 
 async def _name_watched_session(request) -> None:
     """Every `/v1/companion/*` request this process's client sends -- the model
-    gateway, the ML gate, the command check -- names the watched session,
+    gateway, the command check -- names the watched session,
     unless the caller named one itself."""
     if ROUTE_PREFIX + "/" not in request.url.path:
         return
@@ -288,12 +269,9 @@ async def _remember_served_model(response) -> None:
 
 
 def remember_pushed_settings(headers: Any) -> None:
-    """Keep the reader gate's mode, the reader's prompt wake, the writer's gap and
-    the writer's layout (history, events) from a chat answer's headers. A
-    missing or malformed value leaves the last good one."""
-    mode = (headers.get(READER_GATE_HEADER) or "").strip().lower()
-    if mode in {m.value for m in GateMode}:
-        _pushed.get()[READER_GATE_HEADER] = GateMode(mode)
+    """Keep the reader's prompt wake, the writer's gap and the writer's layout
+    (history, events) from a chat answer's headers. A missing or malformed value
+    leaves the last good one."""
     wake = (headers.get(READER_PROMPT_WAKE_HEADER) or "").strip().lower()
     if wake in {m.value for m in PromptWake}:
         _pushed.get()[READER_PROMPT_WAKE_HEADER] = PromptWake(wake)
@@ -320,8 +298,8 @@ def remember_pushed_settings(headers: Any) -> None:
 #: process uses the last ones it heard before its first chat answer (review
 #: 10-25: until then F2 and F3 read as off, and a resumed cold conversation was
 #: re-read at the full price).
-PUSHED_KEPT = (READER_GATE_HEADER, WRITER_GAP_HEADER, WRITER_HISTORY_HEADER,
-               WRITER_EVENTS_HEADER, WRITER_PROMPT_WAITS_HEADER, WRITER_COLD_FRESH_HEADER, WRITER_FILE_BURST_HEADER)
+PUSHED_KEPT = (WRITER_GAP_HEADER, WRITER_HISTORY_HEADER, WRITER_EVENTS_HEADER, WRITER_PROMPT_WAITS_HEADER,
+               WRITER_COLD_FRESH_HEADER, WRITER_FILE_BURST_HEADER)
 #: The settings `restore_pushed` took from the store, until this process's first
 #: chat answer: then each one that answer did not carry is dropped, so a server
 #: that never sends it (an older one, a rollback) means off again (review 10-25).
@@ -370,14 +348,6 @@ def _setting(env: str, header: str, cap: int) -> int:
     if number is None:
         number = int(_pushed.get().get(header, 0))  # type: ignore[call-overload]
     return min(number, cap)
-
-
-def reader_gate_mode() -> GateMode:
-    """`PROBE_DAEMON_READER_GATE`, else the server's mode, else OFF."""
-    env = (os.environ.get(ENV_READER_GATE) or "").strip().lower()
-    if env in {m.value for m in GateMode}:
-        return GateMode(env)
-    return _pushed.get().get(READER_GATE_HEADER, GateMode.OFF)  # type: ignore[return-value]
 
 
 def reader_prompt_wake() -> bool:
@@ -602,8 +572,6 @@ def _lane_model(lane: str) -> str:
         return os.environ.get(ENV_READ_MODEL) or "reader"
     if lane == LANE_AUDIT:
         return os.environ.get(ENV_AUDIT_MODEL) or AUDITOR_MODEL_ALIAS
-    if lane == LANE_GATE:
-        return os.environ.get(ENV_GATE_MODEL) or GATE_MODEL_ALIAS
     if lane == LANE_INDEX:
         return os.environ.get(ENV_INDEX_MODEL) or INDEX_MODEL_ALIAS
     return os.environ.get(ENV_MODEL) or "default"

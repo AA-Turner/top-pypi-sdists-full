@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "ApplicationTypeType",
+    "AssociationStatusType",
     "BillingDomainType",
     "BillingFeatureFilterNameType",
     "BillingFeatureType",
@@ -31,16 +32,25 @@ __all__ = (
     "BillingViewStatusReasonType",
     "BillingViewStatusType",
     "BillingViewTypeType",
+    "ContractRestrictionType",
+    "ContractTypeType",
     "CreditSharingTypeType",
     "CreditStatusType",
     "DimensionType",
     "GetCreditAllocationHistoryPaginatorName",
+    "InvestmentAttestationStatusType",
+    "InvestmentTypeType",
     "ListBillingViewSegmentsPaginatorName",
     "ListBillingViewsPaginatorName",
     "ListBusinessSupportAccountChargesPaginatorName",
     "ListBusinessSupportSubscriptionHistoryPaginatorName",
+    "ListContractsPaginatorName",
+    "ListContractualInvestmentAttestationsPaginatorName",
+    "ListContractualInvestmentSummariesPaginatorName",
+    "ListContractualInvestmentsPaginatorName",
     "ListEnterpriseSupportLinkedAccountChargesPaginatorName",
     "ListSourceViewsForBillingViewPaginatorName",
+    "MultiplierTypeType",
     "PaginatorName",
     "PreferenceValueType",
     "ResourceServiceName",
@@ -50,6 +60,7 @@ __all__ = (
 
 
 ApplicationTypeType = Literal["AFTER_DISCOUNTS", "BEFORE_CROSS_SERVICE_DISCOUNTS"]
+AssociationStatusType = Literal["ASSOCIATED", "NOT_ASSOCIATED"]
 BillingDomainType = Literal["BILLABLE", "PRO_FORMA"]
 BillingFeatureFilterNameType = Literal["PREFERENCE_KEY"]
 BillingFeatureType = Literal[
@@ -75,20 +86,38 @@ BillingViewStatusType = Literal["CREATING", "HEALTHY", "UNHEALTHY", "UPDATING"]
 BillingViewTypeType = Literal[
     "BILLING_GROUP", "BILLING_TRANSFER", "BILLING_TRANSFER_SHOWBACK", "CUSTOM", "PRIMARY"
 ]
+ContractRestrictionType = Literal["ATTESTATION_SELF_SERVICE_BLOCKED"]
+ContractTypeType = Literal["Cross-Service", "Other", "Service-Specific"]
 CreditSharingTypeType = Literal["COST_CATEGORY_RULE", "CUSTOM", "DEFAULT", "DISABLED"]
 CreditStatusType = Literal["DISABLED", "ENABLED"]
 DimensionType = Literal["LINKED_ACCOUNT"]
 GetCreditAllocationHistoryPaginatorName = Literal["get_credit_allocation_history"]
+InvestmentAttestationStatusType = Literal[
+    "CANCELLED",
+    "DISBURSED",
+    "PENDING_CANCELLATION",
+    "PENDING_C_LEVEL_APPROVAL",
+    "PENDING_REVIEW",
+    "REJECTED",
+]
+InvestmentTypeType = Literal["MILESTONE_BASED", "OUTCOME_BASED"]
 ListBillingViewSegmentsPaginatorName = Literal["list_billing_view_segments"]
 ListBillingViewsPaginatorName = Literal["list_billing_views"]
 ListBusinessSupportAccountChargesPaginatorName = Literal["list_business_support_account_charges"]
 ListBusinessSupportSubscriptionHistoryPaginatorName = Literal[
     "list_business_support_subscription_history"
 ]
+ListContractsPaginatorName = Literal["list_contracts"]
+ListContractualInvestmentAttestationsPaginatorName = Literal[
+    "list_contractual_investment_attestations"
+]
+ListContractualInvestmentSummariesPaginatorName = Literal["list_contractual_investment_summaries"]
+ListContractualInvestmentsPaginatorName = Literal["list_contractual_investments"]
 ListEnterpriseSupportLinkedAccountChargesPaginatorName = Literal[
     "list_enterprise_support_linked_account_charges"
 ]
 ListSourceViewsForBillingViewPaginatorName = Literal["list_source_views_for_billing_view"]
+MultiplierTypeType = Literal["CURRENCY_AMOUNT", "PERCENTAGE"]
 PreferenceValueType = Literal["DISABLED", "ENABLED"]
 SearchOptionType = Literal["STARTS_WITH"]
 BillingServiceName = Literal["billing"]
@@ -200,6 +229,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -245,13 +275,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -319,6 +348,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -453,6 +483,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -503,7 +534,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -536,6 +566,10 @@ PaginatorName = Literal[
     "list_billing_views",
     "list_business_support_account_charges",
     "list_business_support_subscription_history",
+    "list_contracts",
+    "list_contractual_investment_attestations",
+    "list_contractual_investment_summaries",
+    "list_contractual_investments",
     "list_enterprise_support_linked_account_charges",
     "list_source_views_for_billing_view",
 ]

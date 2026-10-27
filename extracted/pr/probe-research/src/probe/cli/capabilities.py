@@ -203,6 +203,9 @@ class Capabilities:
     #: None when no credential exists or the endpoint could not be reached.
     capture_credential_valid: bool | None = None
     capture_killswitched: bool = False
+    #: The killswitch is a sign-in's pending lock (`capture.AWAITING_CONFIRMATION`),
+    #: which only an Install (or Update's question) lifts, not a deliberate off.
+    capture_awaiting_confirmation: bool = False
     #: What the tap's last SessionStart found instead of a Python 3.11+ to run
     #: on ("python3 3.9.6"), from the `.python-missing` file it leaves beside
     #: `.disabled`; None when it found one (or never ran). With it set nothing
@@ -235,6 +238,9 @@ class Capabilities:
     agent_rules_stale: bool = False
 
     auto_update_enabled: bool = False
+    #: That `auto_update_enabled` is the managed CLI's default, not anyone's
+    #: choice (`version_policy.autoupdate_state`): no evidence of a setup.
+    auto_update_by_default: bool = False
     last_update_attempt: str | None = None
     #: Compact timestamp and status for the wizard; details above stay in doctor.
     last_update_attempt_summary: str | None = None
@@ -336,6 +342,9 @@ class Capabilities:
         fresh would let `probe wizard --yes` silently switch tracking and
         auto-update back on from the defaults. Evidence of installation is the
         right signal, not evidence of anything being enabled.
+
+        Auto-update counts only as someone's choice (`auto_update_chosen`):
+        the managed CLI's default is on before any setup ran.
         """
         return any(
             (
@@ -345,11 +354,17 @@ class Capabilities:
                 self.logged_in_as is not None,
                 bool(self.capture_token_sources),
                 self.capture_killswitched,
-                self.auto_update_enabled,
+                self.auto_update_chosen,
                 self.agent_rules_installed,
                 self.last_update_attempt is not None,
             )
         )
+
+    @property
+    def auto_update_chosen(self) -> bool:
+        """Auto-update is on because someone turned it on, not by the managed
+        CLI's default (`auto_update_by_default`)."""
+        return self.auto_update_enabled and not self.auto_update_by_default
 
     @property
     def agent_configured(self) -> bool:

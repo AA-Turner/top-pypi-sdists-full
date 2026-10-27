@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping
-from typing import Any
+from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from lib_log_rich.adapters.console.rich_console import CONSOLE_PRESETS
 from lib_log_rich.application.ports.console import ConsolePort
 from lib_log_rich.application.use_cases._types import DiagnosticCallback
 from lib_log_rich.domain import LogLevel
-from lib_log_rich.domain.enums import ConsoleStream, GraylogProtocol, QueuePolicy
+from lib_log_rich.domain.enums import ConsoleStream, ConsoleTheme, FormatPreset, GraylogProtocol, QueuePolicy
 
 DiagnosticHook = DiagnosticCallback | None
 
@@ -23,10 +22,32 @@ DiagnosticHook = DiagnosticCallback | None
 ConsoleStylesInput = Mapping[str, str] | Mapping[LogLevel, str] | Mapping[str | LogLevel, str]
 
 
+def _style_key(key: str) -> str:
+    """Return a style key in the spelling the console looks levels up by; blank stays blank."""
+    return key.strip().upper()
+
+
 def coerce_console_styles_input(
     styles: ConsoleStylesInput | None,
 ) -> dict[str, str] | None:
-    """Normalise console style mappings to uppercase string keys."""
+    """Normalise configured console styles to level-name keys, once, on entry.
+
+    This is where a caller's styles enter settings resolution; everything after it
+    (the merge with ``LOG_CONSOLE_STYLES`` and the palette defaults) relies on the
+    keys already being level names.
+
+    Args:
+        styles: Styles keyed by level name in any case and padding, or by
+            :class:`LogLevel`.
+
+    Returns:
+        The styles keyed by uppercase level name, blank keys dropped; ``None``
+        when ``styles`` is empty or ``None``.
+
+    Example:
+        >>> coerce_console_styles_input({LogLevel.INFO: "cyan", " warning ": "yellow"})
+        {'INFO': 'cyan', 'WARNING': 'yellow'}
+    """
     if not styles:
         return None
     normalised: dict[str, str] = {}
@@ -34,7 +55,7 @@ def coerce_console_styles_input(
         if isinstance(key, LogLevel):
             normalised[key.name] = value
         else:
-            candidate = key.strip().upper()
+            candidate = _style_key(key)
             if candidate:
                 normalised[candidate] = value
     return normalised
@@ -82,21 +103,26 @@ class ConsoleAppearance(BaseModel):
 
     force_color: bool = False
     no_color: bool = False
-    theme: str | None = None
+    theme: ConsoleTheme | None = None
     styles: dict[str, str] | None = None
-    format_preset: str | None = None
+    # ``styles`` with the theme's palette filled in renders the console. Dumps need the
+    # user's own styles without that fill, or a dump's theme could never replace it.
+    configured_styles: dict[str, str] | None = None
+    format_preset: FormatPreset | None = None
     format_template: str | None = None
     stream: ConsoleStream = ConsoleStream.STDERR
     stream_target: object | None = None
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-    @field_validator("styles")
+    @field_validator("styles", "configured_styles")
     @classmethod
     def _normalise_styles(cls, value: dict[str, str] | None) -> dict[str, str] | None:
+        # A ConsoleAppearance can be built directly (a custom console factory's
+        # tests do), so it is an entry point of its own and normalises too.
         if value is None:
             return None
-        return {key.strip().upper(): val for key, val in value.items() if key.strip()}
+        return {_style_key(key): val for key, val in value.items() if _style_key(key)}
 
     @model_validator(mode="after")
     def _validate_stream_target(self) -> ConsoleAppearance:
@@ -113,7 +139,7 @@ class ConsoleAppearance(BaseModel):
 class DumpDefaults(BaseModel):
     """Default dump formatting derived from configuration."""
 
-    format_preset: str
+    format_preset: FormatPreset = FormatPreset.FULL
     format_template: str | None = None
 
     model_config = ConfigDict(frozen=True)
@@ -177,7 +203,9 @@ class PayloadLimits(BaseModel):
     context_max_value_chars: int = DEFAULT_CONTEXT_MAX_VALUE_CHARS
     stacktrace_max_frames: int = DEFAULT_STACKTRACE_MAX_FRAMES
 
-    model_config = ConfigDict(frozen=True)
+    # A mapping from a config file reaches this model; a misspelled limit is refused by name
+    # rather than dropped.
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     @field_validator(
         "message_max_chars",
@@ -213,33 +241,78 @@ class RuntimeConfig(BaseModel):
     graylog_level: str | LogLevel = LogLevel.WARNING
     enable_ring_buffer: bool = True
     ring_buffer_size: int = DEFAULT_RING_BUFFER_SIZE
+    ring_buffer_checkpoint: Path | None = None
     enable_journald: bool = False
     enable_eventlog: bool = False
     enable_graylog: bool = False
-    graylog_protocol: str = "tcp"
+    graylog_protocol: GraylogProtocol = GraylogProtocol.TCP
     graylog_tls: bool = False
     queue_enabled: bool = True
     queue_maxsize: int = DEFAULT_QUEUE_MAXSIZE
-    queue_full_policy: str = "block"
+    queue_full_policy: QueuePolicy = QueuePolicy.BLOCK
     queue_put_timeout: float | None = DEFAULT_QUEUE_PUT_TIMEOUT
     queue_stop_timeout: float | None = DEFAULT_QUEUE_STOP_TIMEOUT
     force_color: bool = False
     no_color: bool = False
     console_styles: ConsoleStylesInput | None = None
-    console_theme: str | None = "dark"
-    console_format_preset: str | None = None
+    console_theme: ConsoleTheme | None = ConsoleTheme.DARK
+    console_format_preset: FormatPreset | None = None
     console_format_template: str | None = None
-    console_stream: str = "stderr"
+    console_stream: ConsoleStream = ConsoleStream.STDERR
     console_stream_target: object | None = None
     scrub_patterns: dict[str, str] | None = None
-    dump_format_preset: str | None = None
+    dump_format_preset: FormatPreset | None = None
     dump_format_template: str | None = None
     rate_limit: tuple[int, float] | None = None
-    payload_limits: PayloadLimits | Mapping[str, Any] | None = None
+    payload_limits: PayloadLimits | None = None
     diagnostic_hook: DiagnosticHook = None
     console_adapter_factory: Callable[[ConsoleAppearance], ConsolePort] | None = None
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+    # extra="forbid": a misspelled setting is refused by name instead of being dropped, which
+    # would leave the intended value silently at its default.
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True, extra="forbid")
+
+    # Config files and CLI options spell these in any case ("UDP", "Drop"), which
+    # the plain enum validation would refuse; ``from_str`` also names the valid
+    # values when it refuses one.
+    @field_validator("graylog_protocol", mode="before")
+    @classmethod
+    def _parse_graylog_protocol(cls, value: object) -> object:
+        return GraylogProtocol.from_str(value) if isinstance(value, str) else value
+
+    @field_validator("queue_full_policy", mode="before")
+    @classmethod
+    def _parse_queue_full_policy(cls, value: object) -> object:
+        return QueuePolicy.from_str(value) if isinstance(value, str) else value
+
+    @field_validator("console_stream", mode="before")
+    @classmethod
+    def _parse_console_stream(cls, value: object) -> object:
+        return ConsoleStream.from_str(value) if isinstance(value, str) else value
+
+    @field_validator("ring_buffer_checkpoint", mode="before")
+    @classmethod
+    def _parse_ring_buffer_checkpoint(cls, value: object) -> object:
+        # An empty string is what TOML spells "unset"; Path("") would name the current directory.
+        if isinstance(value, str):
+            return Path(value.strip()) if value.strip() else None
+        return value
+
+    @field_validator("console_format_preset", "dump_format_preset", mode="before")
+    @classmethod
+    def _parse_format_preset(cls, value: object) -> object:
+        # An empty string is what TOML spells "unset", as for the templates below.
+        if isinstance(value, str):
+            return FormatPreset.from_str(value) if value.strip() else None
+        return value
+
+    @field_validator("console_theme", mode="before")
+    @classmethod
+    def _parse_console_theme(cls, value: object) -> object:
+        # An empty string is what TOML spells "unset", as for the presets above.
+        if isinstance(value, str):
+            return ConsoleTheme.from_str(value) if value.strip() else None
+        return value
 
     @field_validator("console_format_template", "dump_format_template", mode="before")
     @classmethod
@@ -270,6 +343,7 @@ class RuntimeSettings(BaseModel):
     backend_level: LogLevel
     graylog_level: LogLevel
     ring_buffer_size: int
+    ring_buffer_checkpoint: Path | None = None
     console: ConsoleAppearance
     dump: DumpDefaults
     graylog: GraylogSettings
@@ -345,17 +419,16 @@ class RuntimeSettings(BaseModel):
     @field_validator("scrub_patterns")
     @classmethod
     def _normalise_patterns(cls, value: dict[str, str]) -> dict[str, str]:
-        patterns = {str(key): str(pattern) for key, pattern in value.items() if str(key)}
+        patterns = {key: pattern for key, pattern in value.items() if key}
         for key, pattern in patterns.items():
             _require_compilable_scrub_pattern(key, pattern)
         return patterns
 
     @model_validator(mode="after")
     def _require_renderable_console(self) -> RuntimeSettings:
-        # A custom console factory decides for itself what a preset or a style key
-        # means, so the built-in console's vocabulary binds only when it is used.
+        # A custom console factory decides for itself what a style key means, so
+        # the built-in console's vocabulary binds only when it is used.
         if self.console_factory is None:
-            _require_known_console_preset(self.console)
             _require_level_style_keys(self.console)
         return self
 
@@ -371,17 +444,6 @@ def _require_compilable_scrub_pattern(key: str, pattern: str) -> None:
         re.compile(pattern)
     except re.error as exc:
         raise ValueError(f"Invalid scrub pattern for '{key}': {exc}") from exc
-
-
-def _require_known_console_preset(console: ConsoleAppearance) -> None:
-    """Refuse a preset name the built-in console does not define.
-
-    A format template replaces the preset entirely, so the preset is then unused.
-    """
-    if console.format_template or not console.format_preset:
-        return
-    if console.format_preset.lower() not in CONSOLE_PRESETS:
-        raise ValueError(f"Unknown console format preset: {console.format_preset!r}")
 
 
 def _require_level_style_keys(console: ConsoleAppearance) -> None:

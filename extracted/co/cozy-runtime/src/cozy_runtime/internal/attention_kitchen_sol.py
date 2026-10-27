@@ -8,9 +8,9 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Unpack
 
 if TYPE_CHECKING:
-    from cozy_runtime.internal.attention_ulysses import PartialOptions
-
     from torch import Tensor
+
+    from cozy_runtime.internal.attention_ulysses import PartialOptions
 
 from cozy_runtime.internal import attention_sol
 from cozy_runtime.internal.attention_ulysses import Local
@@ -38,10 +38,18 @@ def forward(
     *,
     dense: Callable[..., Tensor],
     prefix_dense: Callable[..., Tensor],
+    exact: Callable[..., Tensor] | None = None,
     **options: Unpack[PartialOptions],
 ) -> Tensor:
     return attention_sol._attention(
-        query, key, value, **options, sparse=sparse, dense=dense, prefix_dense=prefix_dense
+        query,
+        key,
+        value,
+        **options,
+        sparse=sparse,
+        dense=dense,
+        prefix_dense=prefix_dense,
+        exact=exact,
     )
 
 

@@ -20,6 +20,7 @@ class Agent:
         self.service = Agent.Service(agent)
         self.check = Agent.Check(agent)
         self.connect = Agent.Connect(agent)
+        self.token = Agent.Token(agent)
 
     def self(self):
         """
@@ -27,7 +28,7 @@ class Agent:
         """
         return self.agent.http.get(CB.json(), "/v1/agent/self")
 
-    def services(self) -> Any:
+    def services(self, filter_expr: str | None = None, token: str | None = None) -> Any:
         """
         Returns all the services that are registered with the local agent.
         These services were either provided through configuration files, or
@@ -37,8 +38,14 @@ class Agent:
         while there is no leader elected. The agent performs active
         anti-entropy, so in most situations everything will be in sync
         within a few seconds.
+        :param filter_expr: Optional bexpr filter expression.
+        :param token: token with node:read,service:read capability
         """
-        return self.agent.http.get(CB.json(), "/v1/agent/services")
+        params: list[tuple[str, Any]] = []
+        if filter_expr:
+            params.append(("filter", filter_expr))
+        headers = self.agent.prepare_headers(token)
+        return self.agent.http.get(CB.json(), "/v1/agent/services", params=params, headers=headers)
 
     def service_definition(self, service_id):
         """
@@ -47,7 +54,7 @@ class Agent:
         """
         return self.agent.http.get(CB.json(), f"/v1/agent/service/{service_id}")
 
-    def checks(self) -> Any:
+    def checks(self, filter_expr: str | None = None, token: str | None = None) -> Any:
         """
         Returns all the checks that are registered with the local agent.
         These checks were either provided through configuration files, or
@@ -57,8 +64,14 @@ class Agent:
         while there is no leader elected. The agent performs active
         anti-entropy, so in most situations everything will be in sync
         within a few seconds.
+        :param filter_expr: Optional bexpr filter expression.
+        :param token: token with node:read,service:read capability
         """
-        return self.agent.http.get(CB.json(), "/v1/agent/checks")
+        params: list[tuple[str, Any]] = []
+        if filter_expr:
+            params.append(("filter", filter_expr))
+        headers = self.agent.prepare_headers(token)
+        return self.agent.http.get(CB.json(), "/v1/agent/checks", params=params, headers=headers)
 
     def members(self, wan: bool = False):
         """
@@ -115,7 +128,7 @@ class Agent:
         headers = self.agent.prepare_headers(token)
         return self.agent.http.put(CB.boolean(), f"/v1/agent/join/{address}", params=params, headers=headers)
 
-    def force_leave(self, node: str, token: str | None = None):
+    def force_leave(self, node: str, prune: bool = False, token: str | None = None):
         """
         This endpoint instructs the agent to force a node into the left
         state. If a node fails unexpectedly, then it will be in a failed
@@ -125,14 +138,144 @@ class Agent:
         entries to be removed.
 
         *node* is the node to change state for.
+
+        *prune* if set to *True* removes the node from the list of members
+        entirely, instead of leaving it in the "left" state. Added in
+        Consul 1.13.
         """
 
+        params: list[tuple[str, Any]] = []
+        if prune:
+            params.append(("prune", "1"))
         headers = self.agent.prepare_headers(token)
-        return self.agent.http.put(CB.boolean(), f"/v1/agent/force-leave/{node}", headers=headers)
+        return self.agent.http.put(CB.boolean(), f"/v1/agent/force-leave/{node}", params=params, headers=headers)
+
+    def leave(self, token: str | None = None):
+        """
+        Triggers a graceful leave and shutdown of the agent. It is used to
+        ensure other nodes see the agent as "left" instead of "failed".
+        Nodes that leave are permanently removed from the cluster's
+        membership until they rejoin. For agents running in server mode,
+        this also removes the node from the Raft peer set in a graceful
+        manner.
+
+        Note that calling this will actually terminate the agent process.
+
+        Requires a token with `agent:write` ACL capability.
+        """
+        headers = self.agent.prepare_headers(token)
+        return self.agent.http.put(CB.boolean(), "/v1/agent/leave", headers=headers)
+
+    def reload(self, token: str | None = None):
+        """
+        Instructs the agent to reload its configuration. Not all
+        configuration options are reloadable, see the "Reloadable
+        Configuration" section of the Consul documentation for the set of
+        options that take effect via reload.
+
+        Requires a token with `agent:write` ACL capability.
+        """
+        headers = self.agent.prepare_headers(token)
+        return self.agent.http.put(CB.boolean(), "/v1/agent/reload", headers=headers)
+
+    def metrics(self, format_prometheus: bool = False, token: str | None = None) -> Any:
+        """
+        Returns the metrics of the local agent for the most recent finished
+        interval. By default, the response is returned as JSON.
+
+        *format_prometheus* if set to *True*, returns the metrics formatted
+        as ``text/plain`` in the Prometheus exposition format instead of
+        JSON. Note that Prometheus output is only populated if the agent
+        was started with a positive
+        `telemetry.prometheus_retention_time` configured; otherwise Consul
+        returns an empty 200 response body (with an `X-Consul-Reason`
+        header explaining why) rather than an error.
+
+        Requires a token with `agent:read` ACL capability.
+        """
+        params = []
+        if format_prometheus:
+            params.append(("format", "prometheus"))
+        headers = self.agent.prepare_headers(token)
+
+        if format_prometheus:
+            # Prometheus output is plain text, not JSON, so CB.json() can't be used here.
+            def cb(response):
+                CB._status(response)  # pylint: disable=protected-access
+                return response.body
+
+            return self.agent.http.get(cb, "/v1/agent/metrics", params=params, headers=headers)
+
+        return self.agent.http.get(CB.json(), "/v1/agent/metrics", params=params, headers=headers)
+
+    def monitor(self, loglevel: str | None = None, logjson: bool = False, token: str | None = None) -> Any:
+        """
+        Streams logs from the local agent until the connection is closed.
+
+        *loglevel* is an optional log level to filter on, e.g. "trace",
+        "debug", "info", "warn", or "err". Defaults to "info" on the
+        Consul side if not supplied.
+
+        *logjson* if set to *True*, outputs each log line as JSON instead
+        of Consul's default plain-text log format.
+
+        Requires a token with `agent:read` ACL capability.
+
+        .. warning::
+            In real Consul this is a chunked/streaming endpoint that keeps
+            the connection open indefinitely, only sending data as new log
+            lines are produced; it does not close the connection on its
+            own. This client implementation is a first pass and does
+            **not** provide true streaming: it makes a single blocking GET
+            request and returns whatever text body has accumulated once
+            the connection ends. The sync client raises a read timeout
+            once no log line has arrived for its *connections_timeout*,
+            but as long as lines keep arriving, and with the async client
+            by default, calling this method against a live,
+            long-running agent can block forever unless the connection is
+            closed by some other means (e.g. the agent shutting down, or a
+            timeout enforced by the caller, such as running this call in a
+            separate thread/task and cancelling it externally). Do not use
+            this method in latency-sensitive or production code paths
+            until true streaming support is added.
+        """
+        params = []
+        if loglevel:
+            params.append(("loglevel", loglevel))
+        if logjson:
+            params.append(("logjson", "true"))
+        headers = self.agent.prepare_headers(token)
+
+        def cb(response):
+            # the response body is plain text log lines (optionally one JSON
+            # object per line if logjson=True), never a single JSON document,
+            # so we can't use CB.json() here.
+            CB._status(response)  # pylint: disable=protected-access
+            return response.body
+
+        return self.agent.http.get(cb, "/v1/agent/monitor", params=params, headers=headers)
 
     class Service:
         def __init__(self, agent) -> None:
             self.agent = agent
+
+        @staticmethod
+        def _gateway_proxy_fields(
+            kind: str | None,
+            proxy: dict[str, Any] | None,
+            socket_path: str | None,
+            locality: dict[str, str] | None,
+        ) -> dict[str, Any]:
+            fields: dict[str, Any] = {}
+            if kind:
+                fields["Kind"] = kind
+            if proxy:
+                fields["Proxy"] = proxy
+            if socket_path:
+                fields["SocketPath"] = socket_path
+            if locality:
+                fields["Locality"] = locality
+            return fields
 
         # pylint: disable=too-many-branches
         def register(
@@ -157,11 +300,15 @@ class Agent:
             replace_existing_checks=False,
             tagged_addresses: dict | None = None,
             connect: dict[str, Any] | None = None,
+            kind: str | None = None,
+            proxy: dict[str, Any] | None = None,
+            socket_path: str | None = None,
+            locality: dict[str, str] | None = None,
         ):
             """
             Add a new service to the local agent. There is more
             documentation on services
-            `here <http://www.consul.io/docs/agent/services.html>`_.
+            `here <https://developer.hashicorp.com/consul/docs/fundamentals/service>`_.
 
             *name* is the name of the service.
 
@@ -191,6 +338,19 @@ class Agent:
 
             *connect* specifies configuration for Connect. Formatted as { "sidecar_service": {} }.
 
+            *kind* identifies this as a proxy/gateway instance rather than a plain
+            service, e.g. "connect-proxy", "mesh-gateway", "terminating-gateway" or
+            "ingress-gateway".
+
+            *proxy* specifies the connect proxy configuration when *kind* is
+            "connect-proxy", e.g. {"DestinationServiceName": "web", "LocalServicePort": 8080}.
+
+            *socket_path* specifies a Unix domain socket path the service listens on,
+            as an alternative to *address*/*port*.
+
+            *locality* specifies the region/zone this service instance is deployed to,
+            e.g. {"Region": "us-west-1", "Zone": "us-west-1a"}.
+
             *script*, *interval*, *ttl*, *http*, and *timeout* arguments
             are deprecated. use *check* instead.
 
@@ -205,7 +365,7 @@ class Agent:
             This option is only for >=v0.6.0 version on both agent and
             servers.
             for more information
-            https://www.consul.io/docs/agent/services.html
+            https://developer.hashicorp.com/consul/docs/fundamentals/service
             """
 
             if extra_checks is None:
@@ -239,6 +399,7 @@ class Agent:
                 payload["tagged_addresses"] = tagged_addresses
             if connect:
                 payload["connect"] = connect
+            payload.update(self._gateway_proxy_fields(kind, proxy, socket_path, locality))
             params = []
             if replace_existing_checks:
                 params.append(("replace-existing-checks", "true"))
@@ -306,7 +467,7 @@ class Agent:
             """
             Register a new check with the local agent. More documentation
             on checks can be found `here
-            <http://www.consul.io/docs/agent/checks.html>`_.
+            <https://developer.hashicorp.com/consul/docs/register/health-check/vm>`_.
 
             *name* is the name of the check.
 
@@ -411,7 +572,7 @@ class Agent:
             Tests whether a connection attempt is authorized between
             two services.
             More information is available
-            `here <https://www.consul.io/api-docs/agent/connect>`_.
+            `here <https://developer.hashicorp.com/consul/api-docs/agent/connect>`_.
 
             *target* is the name of the service that is being requested.
 
@@ -441,3 +602,92 @@ class Agent:
                 headers = self.agent.prepare_headers(token)
 
                 return self.agent.http.get(CB.json(), f"/v1/agent/connect/ca/leaf/{service}", headers=headers)
+
+    class Token:
+        """
+        Used to update the ACL tokens currently in use by the local agent.
+        See `here <https://developer.hashicorp.com/consul/api-docs/agent#update-acl-tokens>`_
+        for more information.
+
+        Tokens set this way are only persisted to disk (surviving an agent
+        restart) if the agent was started with
+        `acl.enable_token_persistence` set to *True*.
+        """
+
+        #: Literal path segments accepted by Consul for `PUT /v1/agent/token/:type`.
+        VALID_TOKEN_TYPES = frozenset({
+            "default",
+            "agent",
+            "agent_recovery",
+            "replication",
+            "config_file_service_registration",
+        })
+
+        def __init__(self, agent) -> None:
+            self.agent = agent
+
+        def set(self, token_type: str, secret: str, token: str | None = None) -> bool:
+            """
+            Sets the ACL token currently in use by the agent for *token_type*.
+
+            *token_type* must be one of "default", "agent", "agent_recovery",
+            "replication" or "config_file_service_registration". Note that
+            "agent_recovery" was named "agent_master" in Consul versions
+            prior to 1.11.
+
+            *secret* is the secret ID of the ACL token to set. Pass an
+            empty string to clear the currently configured token.
+
+            *token* is an optional ACL token to authenticate this request;
+            it requires `agent:write` ACL capability.
+
+            Returns *True* on success.
+            """
+            if token_type not in Agent.Token.VALID_TOKEN_TYPES:
+                raise ValueError(
+                    f"token_type must be one of {sorted(Agent.Token.VALID_TOKEN_TYPES)}, got {token_type!r}"
+                )
+            payload = {"Token": secret}
+            headers = self.agent.prepare_headers(token)
+            return self.agent.http.put(
+                CB.boolean(), f"/v1/agent/token/{token_type}", headers=headers, data=json.dumps(payload)
+            )
+
+        def set_default(self, secret: str, token: str | None = None) -> bool:
+            """
+            Sets the default ACL token used for both client requests and
+            to secure the agent's internal RPCs itself.
+            """
+            return self.set("default", secret, token=token)
+
+        def set_agent(self, secret: str, token: str | None = None) -> bool:
+            """
+            Sets the ACL token used for internal agent operations, such
+            as service/check registration and anti-entropy syncs. Falls
+            back to the "default" token if not set.
+            """
+            return self.set("agent", secret, token=token)
+
+        def set_agent_recovery(self, secret: str, token: str | None = None) -> bool:
+            """
+            Sets the ACL agent recovery token. This token can be used to
+            access agent endpoints even when the servers are unreachable,
+            e.g. for local troubleshooting. It was named "agent_master"
+            in Consul versions prior to 1.11.
+            """
+            return self.set("agent_recovery", secret, token=token)
+
+        def set_replication(self, secret: str, token: str | None = None) -> bool:
+            """
+            Sets the ACL replication token used to replicate ACLs, as
+            well as Connect Certificate Authority state and prepared
+            queries, to non-primary datacenters.
+            """
+            return self.set("replication", secret, token=token)
+
+        def set_config_file_service_registration(self, secret: str, token: str | None = None) -> bool:
+            """
+            Sets the ACL token used for service registrations declared in
+            the agent's local configuration files.
+            """
+            return self.set("config_file_service_registration", secret, token=token)

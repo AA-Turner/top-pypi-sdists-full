@@ -3,236 +3,90 @@ Shared utilities for PowerShell deobfuscation transforms.
 """
 from __future__ import annotations
 
-import enum
-import io
 import math
 import re
 
-from typing import Callable, Generator, NamedTuple, TypeGuard, TypeVar
+from typing import Callable, TypeGuard
 
-from refinery.lib.scripts import Block, Node, Transformer
-from refinery.lib.scripts.ps1.deobfuscation.data import (
-    BUILTIN_VARIABLES,
-    FOREACH_ALIASES,
-    FORMAT_PATTERN,
-    is_type,
+from refinery.lib.scripts import Node, set_value
+from refinery.lib.scripts.ps1.analysis.values import (
+    coerced_text,
+    collect_facts,
+    integer_of,
+    make_string_literal,
 )
+from refinery.lib.scripts.ps1.ast import get_member_name, resolve_command_name, string_value
+from refinery.lib.scripts.ps1.data import FOREACH_ALIASES, FORMAT_PATTERN, is_type
+from refinery.lib.scripts.ps1.deobfuscation.substitution import substitute_field
 from refinery.lib.scripts.ps1.model import (
     Expression,
     Ps1AccessKind,
     Ps1ArrayExpression,
-    Ps1ArrayLiteral,
     Ps1AssignmentExpression,
-    Ps1CastExpression,
-    Ps1Code,
     Ps1CommandArgument,
     Ps1CommandArgumentKind,
     Ps1CommandInvocation,
-    Ps1ExpandableString,
     Ps1ExpressionStatement,
-    Ps1ForEachLoop,
-    Ps1FunctionDefinition,
     Ps1HereString,
-    Ps1IndexExpression,
-    Ps1IntegerLiteral,
     Ps1InvokeMember,
     Ps1MemberAccess,
-    Ps1ParameterDeclaration,
     Ps1ParenExpression,
-    Ps1RealLiteral,
+    Ps1Pipeline,
+    Ps1PipelineElement,
     Ps1ScopeModifier,
     Ps1ScriptBlock,
     Ps1StringLiteral,
     Ps1SubExpression,
     Ps1TypeExpression,
-    Ps1UnaryExpression,
     Ps1Variable,
 )
-from refinery.lib.scripts.ps1.token import BACKTICK_ESCAPE
-
-_T = TypeVar('_T')
 
 
-class MutationKind(enum.Enum):
-    ASSIGN = 'assign'
-    MEMBER_ASSIGN = 'member_assign'
-    FOREACH = 'foreach'
-    INCRDECR = 'incrdecr'
-    PARAM = 'param'
-
-
-class VariableMutation(NamedTuple):
-    variable: Ps1Variable
-    kind: MutationKind
-    node: Node
-
-
-BACKTICK_ENCODE = {v: F'`{k}' for k, v in BACKTICK_ESCAPE.items()}
-NONPRINT_CONTROL = frozenset(BACKTICK_ENCODE) - {'\n'}
-
-
-def string_value(node: Node | None) -> str | None:
-    if isinstance(node, Ps1StringLiteral):
-        return node.value
-    if isinstance(node, Ps1HereString):
-        return node.value
-    if isinstance(node, Ps1ExpandableString):
-        out = io.StringIO()
-        for p in node.parts:
-            if not isinstance(p, Ps1StringLiteral):
-                break
-            out.write(p.value)
-        else:
-            return out.getvalue()
-    if isinstance(node, Ps1SubExpression) and len(node.body) == 1:
-        stmt = node.body[0]
-        if isinstance(stmt, Ps1ExpressionStatement) and stmt.expression is not None:
-            return string_value(stmt.expression)
-    return None
-
-
-def make_string_literal(value: str) -> Ps1StringLiteral | Ps1HereString:
-    has_newline = '\n' in value
-    has_nonprint = any(c in value for c in NONPRINT_CONTROL)
-    # A single-quoted here-string is closed by a line that begins with `'@`; emitting a value that
-    # contains such a line verbatim would terminate the string early and corrupt the script.
-    herestring_safe = not value.startswith("'@") and "\n'@" not in value
-    if has_newline and not has_nonprint and herestring_safe:
-        raw = F"@'\n{value}\n'@"
-        return Ps1HereString(value=value, raw=raw)
-    if has_nonprint or has_newline:
-        escaped = value.replace('`', '``').replace('"', '`"').replace('$', '`$')
-        for ch, esc in BACKTICK_ENCODE.items():
-            escaped = escaped.replace(ch, esc)
-        raw = F'"{escaped}"'
-        return Ps1StringLiteral(value=value, raw=raw)
-    if "'" not in value:
-        raw = F"'{value}'"
-    elif '"' not in value and '$' not in value and '`' not in value:
-        raw = F'"{value}"'
-    else:
-        raw = "'" + value.replace("'", "''") + "'"
-    return Ps1StringLiteral(value=value, raw=raw)
-
-
-def collect_typed_arguments(
-    node: Expression, extract: Callable[[Expression], _T | None],
-) -> list[_T] | None:
-    if isinstance(node, Ps1ArrayLiteral):
-        result: list[_T] = []
-        for elem in node.elements:
-            value = extract(elem)
-            if value is None:
-                return None
-            result.append(value)
-        return result
-    value = extract(node)
-    if value is not None:
-        return [value]
-    return None
-
-
-def collect_string_arguments(node: Expression) -> list[str] | None:
-    return collect_typed_arguments(node, string_value)
-
-
-def extract_format_argument(node: Expression) -> str | int | None:
+def store_dropped_to_value(rhs: Expression) -> Ps1ExpressionStatement:
     """
-    Extract a format-string argument value: integers are returned as `int` so that numeric format
-    specifiers (`X`, `D`, etc.) can be applied; everything else is returned as `str`.
+    The statement an expression becomes when it is lifted out of a position that swallowed its
+    value: a discard of `rhs`, so the swallowing goes but whatever evaluating it does survives.
+
+    The discard wrapper is not decoration. A bare expression statement *emits* its value, so
+    rewriting `$unused = [ordered]@{ a = 1 }` to the hashtable alone makes the deobfuscated script
+    print something the original never printed — and inside a function body, return it. The same
+    holds for a `for` initializer, which PowerShell evaluates in a void context:
+    `for ((Get-Date); $False; ) { }` prints nothing where the bare `(Get-Date)` prints the date.
+    `$Null = ...` keeps the work and emits nothing. It carries `StatementEffect.DISCARD`, so a later
+    pass drops it when the work it wraps is pure.
     """
-    result = unwrap_integer(node)
-    if result is not None:
-        return result.value
-    return string_value(node)
+    discard = Ps1AssignmentExpression(
+        target=Ps1Variable(name='Null'), operator='=', value=rhs)
+    return Ps1ExpressionStatement(expression=discard)
 
 
 def collect_format_arguments(node: Expression) -> list[str | int] | None:
-    return collect_typed_arguments(node, extract_format_argument)
-
-
-def extract_int(node: Expression) -> int | None:
-    return node.value if isinstance(node, Ps1IntegerLiteral) else None
-
-
-def collect_int_arguments(node: Expression) -> list[int] | None:
-    if isinstance(node, Ps1ParenExpression) and node.expression is not None:
-        return collect_int_arguments(node.expression)
-    return collect_typed_arguments(node, extract_int)
-
-
-def collect_byte_array(node: Expression) -> bytes | None:
     """
-    Extract an integer array from `node` and convert to `bytes`. Handles
-    `refinery.lib.scripts.ps1.model.Ps1ArrayLiteral`,
-    `refinery.lib.scripts.ps1.model.Ps1ArrayExpression`, and parenthesized wrappers.
+    The values a `-f` operator's right-hand side hands to the format string, each as the number it
+    names or else as the text it coerces to. The number is what a numeric specifier needs — `'{0:X}'
+    -f 255` is `FF` and the digits of the text would not be — and everything else contributes what
+    `[string]` of it produces, which is what every other string operator does with an operand.
     """
-    array = unwrap_to_array_literal(node)
-    if array is not None:
-        node = array
-    elif isinstance(node, Ps1ArrayExpression):
-        items: list[int] = []
-        for stmt in node.body:
-            if not isinstance(stmt, Ps1ExpressionStatement) or stmt.expression is None:
-                return None
-            value = extract_int(stmt.expression)
-            if value is None:
-                return None
-            items.append(value)
-        try:
-            return bytes(items)
-        except (ValueError, OverflowError):
+    facts = collect_facts(node)
+    if facts is None:
+        return None
+    arguments: list[str | int] = []
+    for fact in facts:
+        number = integer_of(fact)
+        if number is not None:
+            arguments.append(number)
+            continue
+        text = coerced_text(fact)
+        if text is None:
             return None
-    values = collect_int_arguments(node)
-    if values is None:
-        return None
-    try:
-        return bytes(values)
-    except (ValueError, OverflowError):
-        return None
+        arguments.append(text)
+    return arguments
 
 
 def unwrap_single_paren(node: Expression) -> Expression:
     if isinstance(node, Ps1ParenExpression) and node.expression is not None:
         return node.expression
     return node
-
-
-def get_command_name(cmd: Ps1CommandInvocation) -> str | None:
-    if isinstance(cmd.name, Ps1StringLiteral):
-        return cmd.name.value
-    return None
-
-
-def extract_positional_values(
-    cmd: Ps1CommandInvocation,
-) -> list[Expression]:
-    """
-    Collect all positional argument values from a command invocation.
-    """
-    result: list[Expression] = []
-    for arg in cmd.arguments:
-        if isinstance(arg, Ps1CommandArgument):
-            if arg.kind == Ps1CommandArgumentKind.POSITIONAL and arg.value is not None:
-                result.append(arg.value)
-        elif isinstance(arg, Expression):
-            result.append(arg)
-    return result
-
-
-def extract_first_positional_string(
-    cmd: Ps1CommandInvocation,
-) -> str | None:
-    values = extract_positional_values(cmd)
-    if values:
-        return string_value(values[0])
-    return None
-
-
-def get_body(node) -> list | None:
-    if isinstance(node, (Ps1Code, Block, Ps1SubExpression)):
-        return node.body
-    return None
 
 
 def inside_value_producing_context(node) -> bool:
@@ -256,73 +110,12 @@ def inside_value_producing_context(node) -> bool:
     return False
 
 
-def unwrap_parens(node: Node) -> Node:
-    """
-    Unwrap nested `refinery.lib.scripts.ps1.model.Ps1ParenExpression` wrappers and single-statement
-    `refinery.lib.scripts.ps1.model.Ps1SubExpression` wrappers, stopping at an empty wrapper.
-    """
-    while True:
-        if isinstance(node, Ps1ParenExpression) and node.expression is not None:
-            node = node.expression
-            continue
-        if isinstance(node, Ps1SubExpression) and len(node.body) == 1:
-            stmt = node.body[0]
-            if isinstance(stmt, Ps1ExpressionStatement) and stmt.expression is not None:
-                node = stmt.expression
-                continue
-        break
-    return node
-
-
-def unwrap_to_array_literal(node: Node) -> Ps1ArrayLiteral | None:
-    """
-    Unwrap parentheses and array expressions to find an inner
-    `refinery.lib.scripts.ps1.model.Ps1ArrayLiteral`.
-    """
-    node = unwrap_parens(node)
-    if isinstance(node, Ps1ArrayLiteral):
-        return node
-    if isinstance(node, Ps1ArrayExpression) and len(node.body) == 1:
-        stmt = node.body[0]
-        if isinstance(stmt, Ps1ExpressionStatement) and isinstance(stmt.expression, Ps1ArrayLiteral):
-            return stmt.expression
-    return None
-
-
-def get_member_name(member: str | Expression) -> str | None:
-    """
-    Extract a plain member name string from a member that may be a string
-    or a string literal expression.
-    """
-    if isinstance(member, str):
-        return member
-    if isinstance(member, Ps1StringLiteral):
-        return member.value
-    return None
-
-
-def unwrap_integer(node: Node | None) -> Ps1IntegerLiteral | None:
-    """
-    Peel parentheses and unary negation to extract an integer literal, or return `None`.
-    """
-    node = unwrap_parens(node) if isinstance(node, Expression) else node
-    if isinstance(node, Ps1IntegerLiteral):
-        return node
-    if is_builtin_variable(node, {'null'}):
-        return Ps1IntegerLiteral(value=0, raw='0')
-    if isinstance(node, Ps1UnaryExpression) and node.operator == '-':
-        inner = unwrap_parens(node.operand) if isinstance(node.operand, Expression) else node.operand
-        if isinstance(inner, Ps1IntegerLiteral):
-            return Ps1IntegerLiteral(value=-inner.value, raw=str(-inner.value))
-    return None
-
-
 def is_static_type_call(node: Ps1InvokeMember, canonical: str) -> bool:
     if node.access != Ps1AccessKind.STATIC:
         return False
     if not isinstance(node.object, Ps1TypeExpression):
         return False
-    return is_type(normalize_type_expression(node.object.name), canonical)
+    return is_type(node.object.name, canonical)
 
 
 def detect_encoding_chain(node: Ps1InvokeMember) -> str | None:
@@ -340,45 +133,35 @@ def detect_encoding_chain(node: Ps1InvokeMember) -> str | None:
         return None
     if not isinstance(obj.object, Ps1TypeExpression):
         return None
-    if not is_type(normalize_type_expression(obj.object.name), 'system.text.encoding'):
+    if not is_type(obj.object.name, 'System.Text.Encoding'):
         return None
     enc_name = get_member_name(obj.member)
     return enc_name
 
 
-def iter_variable_mutations(
-    root: Node,
-) -> Generator[VariableMutation, None, None]:
+def extract_foreach_scriptblock(
+    expr: Expression,
+    shadowed: frozenset[str] = frozenset(),
+) -> Ps1ScriptBlock | None:
     """
-    Walk the AST and yield a `VariableMutation` for every node that mutates a variable.
+    The script block a `ForEach-Object` invocation runs once per input object, or `None` when
+    *expr* is not one of `%`, `foreach` or `ForEach-Object` carrying a single positional block.
+
+    *shadowed* is the whole-run set of command names the script has taken over
+    (`refinery.lib.scripts.ps1.analysis.world.Ps1TypeWorld.shadowed_names`). The three spellings
+    all resolve to `foreach-object`, and a script that redefines that name runs its own body where
+    the block would otherwise run: measured on 5.1, `function ForEach-Object { 'H' }` makes
+    `1, 2 | % { $_ * 2 }` write `H`, not `2 4`, so a caller that folds the block as the cmdlet's
+    must pass the set and this refuses where the name is in it. The default is empty, so a caller
+    with no world reads the name at face value.
     """
-    for node in root.walk():
-        if isinstance(node, Ps1AssignmentExpression):
-            target = node.target
-            while isinstance(target, (Ps1ParenExpression, Ps1CastExpression)):
-                target = target.expression if isinstance(target, Ps1ParenExpression) else target.operand
-            if isinstance(target, Ps1Variable):
-                yield VariableMutation(target, MutationKind.ASSIGN, node)
-            elif isinstance(target, (Ps1IndexExpression, Ps1MemberAccess)):
-                if isinstance(target.object, Ps1Variable):
-                    yield VariableMutation(target.object, MutationKind.MEMBER_ASSIGN, node)
-        elif isinstance(node, Ps1ForEachLoop):
-            if isinstance(node.variable, Ps1Variable):
-                yield VariableMutation(node.variable, MutationKind.FOREACH, node)
-        elif isinstance(node, Ps1UnaryExpression):
-            if node.operator in ('++', '--') and isinstance(node.operand, Ps1Variable):
-                yield VariableMutation(node.operand, MutationKind.INCRDECR, node)
-        elif isinstance(node, Ps1ParameterDeclaration):
-            if isinstance(node.variable, Ps1Variable):
-                yield VariableMutation(node.variable, MutationKind.PARAM, node)
-
-
-def extract_foreach_scriptblock(expr: Expression) -> Ps1ScriptBlock | None:
     if not isinstance(expr, Ps1CommandInvocation):
         return None
     if not isinstance(expr.name, Ps1StringLiteral):
         return None
     if expr.name.value.lower() not in FOREACH_ALIASES:
+        return None
+    if resolve_command_name(expr) in shadowed:
         return None
     if len(expr.arguments) != 1:
         return None
@@ -392,19 +175,25 @@ def extract_foreach_scriptblock(expr: Expression) -> Ps1ScriptBlock | None:
     return None
 
 
-def is_builtin_variable(
-    node: Node | None,
-    names: set[str] | frozenset[str] = BUILTIN_VARIABLES,
-) -> TypeGuard[Ps1Variable]:
+def stands_where_only_a_command_may(node: Node) -> bool:
     """
-    Return `True` when `node` is an unscoped `refinery.lib.scripts.ps1.model.Ps1Variable` whose
-    lowered name is in `names` (defaults to `$Null`, `$True`, `$False`).
+    Whether *node* fills a pipeline element that only a command may fill, so replacing it with a
+    value writes a script PowerShell will not parse.
+
+    An expression is allowed as the *first* element of a pipeline and nowhere else. Measured on 5.1:
+    `function zzqf { 'H' }; $r = 'x' | zzqf; Write-Host ('r=' + $r)` prints `r=H`, and the same
+    script with the call replaced by its value writes `ExpressionsMustBeFirstInPipeline` and runs
+    nothing at all.
+
+    A single-element pipeline is not one of these: its only element is the first.
     """
-    return (
-        isinstance(node, Ps1Variable)
-        and node.scope == Ps1ScopeModifier.NONE
-        and node.name.lower() in names
-    )
+    element = node.parent
+    if not isinstance(element, Ps1PipelineElement):
+        return False
+    pipeline = element.parent
+    if not isinstance(pipeline, Ps1Pipeline):
+        return False
+    return bool(pipeline.elements) and pipeline.elements[0] is not element
 
 
 def is_pipeline_item(node: Node | None) -> TypeGuard[Ps1Variable]:
@@ -417,52 +206,6 @@ def is_pipeline_item(node: Node | None) -> TypeGuard[Ps1Variable]:
         and node.scope == Ps1ScopeModifier.NONE
         and node.name.lower() in ('_', 'psitem')
     )
-
-
-def is_truthy(node: Node | None) -> bool | None:
-    """
-    Determine the boolean truth value of a constant expression using PowerShell semantics. Returns
-    `None` for non-constant or unrecognized expressions.
-    """
-    node = unwrap_parens(node) if isinstance(node, Expression) else node
-    if node is None:
-        return None
-    if is_builtin_variable(node):
-        lower = node.name.lower()
-        if lower == 'true':
-            return True
-        if lower in ('false', 'null'):
-            return False
-        return None
-    if isinstance(node, (Ps1IntegerLiteral, Ps1RealLiteral, Ps1StringLiteral)):
-        return bool(node.value)
-    if isinstance(node, Ps1UnaryExpression) and node.operator == '-':
-        return is_truthy(node.operand)
-    return None
-
-
-def is_array_reverse_call(node: Ps1ExpressionStatement) -> Ps1Variable | None:
-    """
-    If the statement is `[Array]::Reverse($var)`, return the variable node.
-    """
-    expr = node.expression
-    if not isinstance(expr, Ps1InvokeMember):
-        return None
-    if expr.access != Ps1AccessKind.STATIC:
-        return None
-    if not isinstance(expr.object, Ps1TypeExpression):
-        return None
-    if not is_type(normalize_type_expression(expr.object.name), 'system.array'):
-        return None
-    member = get_member_name(expr.member)
-    if member is None or member.lower() != 'reverse':
-        return None
-    if len(expr.arguments) != 1:
-        return None
-    arg = expr.arguments[0]
-    if isinstance(arg, Ps1Variable):
-        return arg
-    return None
 
 
 def ps_divide(a: int | float, b: int | float) -> int | float:
@@ -614,13 +357,108 @@ def _dotnet_replacement(template: str, text: str) -> Callable[[re.Match], str]:
     return repl
 
 
+_REGEX_GROUP_NAME = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
+
+
+def _character_class_end(pattern: str, start: int) -> int:
+    """
+    The index one past the character class that opens at `start`, where `pattern[start]` is `[`. A
+    `]` at the front of a class (after an optional `^`) is a literal, a backslash carries the
+    character behind it across, and a class that never closes runs to the end — where Python's own
+    engine then refuses it, the same refusal an untranslated pattern already earns.
+    """
+    j = start + 1
+    n = len(pattern)
+    if j < n and pattern[j] == '^':
+        j += 1
+    if j < n and pattern[j] == ']':
+        j += 1
+    while j < n and pattern[j] != ']':
+        j += 2 if pattern[j] == '\\' else 1
+    return min(j + 1, n)
+
+
+def dotnet_regex_pattern(pattern: str) -> str:
+    """
+    Rewrite a .NET regular expression into the one Python's `re` compiles, in the single place the
+    two dialects name one construct differently: a *named* group. .NET writes it `(?<name>...)` or
+    `(?'name'...)`, and refers back to it as `\\k<name>` or `\\k'name'`; Python writes these
+    `(?P<name>...)` and `(?P=name)`. Every other piece the two spell alike, so a pattern that names
+    no group is returned unchanged, and one Python already rejects is left for its own engine to
+    reject.
+
+    Three things share the `(?<` opening but are not a named group and must not be rewritten: a
+    look-behind `(?<=...)`/`(?<!...)`, a `(?<` a backslash makes literal, and one inside a character
+    class `[...]`, where every metacharacter is text.
+
+    A pattern that mixes a named group with an *unnamed* one is left untranslated, because the two
+    dialects disagree about what number the named one takes: .NET numbers every unnamed group first
+    and the named ones after, while Python numbers strictly by position. A numeric token — a `\1`
+    backreference or a `$1` in the replacement — would then resolve to a different group than 5.1
+    reads, so `'ab' -replace '(?<n>a)(b)', '$1'` is `b` on the host and would fold to `a`. Returning
+    the pattern unchanged leaves the `(?<name>` for Python's engine to reject. A pattern whose groups
+    are all named, or all unnamed, numbers alike in both and is translated.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(pattern)
+    named = False
+    unnamed = False
+    while i < n:
+        c = pattern[i]
+        if c == '\\':
+            if pattern.startswith((r'\k<', r"\k'"), i):
+                close = '>' if pattern[i + 2] == '<' else "'"
+                end = pattern.find(close, i + 3)
+                name = pattern[i + 3:end] if end > 0 else ''
+                if _REGEX_GROUP_NAME.fullmatch(name):
+                    out.append(F'(?P={name})')
+                    i = end + 1
+                    continue
+            out.append(pattern[i:i + 2])
+            i += 2
+            continue
+        if c == '[':
+            end = _character_class_end(pattern, i)
+            out.append(pattern[i:end])
+            i = end
+            continue
+        if pattern.startswith('(?<', i) and i + 3 < n and pattern[i + 3] not in '=!':
+            end = pattern.find('>', i + 3)
+            name = pattern[i + 3:end] if end > 0 else ''
+            if _REGEX_GROUP_NAME.fullmatch(name):
+                out.append(F'(?P<{name}>')
+                named = True
+                i = end + 1
+                continue
+        elif pattern.startswith("(?'", i):
+            end = pattern.find("'", i + 3)
+            name = pattern[i + 3:end] if end > 0 else ''
+            if _REGEX_GROUP_NAME.fullmatch(name):
+                out.append(F'(?P<{name}>')
+                named = True
+                i = end + 1
+                continue
+        if c == '(' and not pattern.startswith('(?', i):
+            unnamed = True
+        out.append(c)
+        i += 1
+    return pattern if named and unnamed else ''.join(out)
+
+
 def dotnet_regex_replace(pattern: str, replacement: str, text: str, *, flags: int = 0) -> str:
     """
     Replace every match of `pattern` in `text` with the .NET-style `replacement`, honoring .NET
-    substitution tokens. Replace-all is direction independent, so the regex `RightToLeft` option
-    does not change the result here.
+    substitution tokens and .NET's spelling of a named group (see `dotnet_regex_pattern`).
+    Replace-all is direction independent, so the regex `RightToLeft` option does not change the
+    result here.
     """
-    return re.sub(pattern, _dotnet_replacement(replacement, text), text, flags=flags)
+    return re.sub(
+        dotnet_regex_pattern(pattern),
+        _dotnet_replacement(replacement, text),
+        text,
+        flags=flags,
+    )
 
 
 _BARE_COMMAND_NAME = re.compile(r'''[^\s'"`(){};|&<>@]+''')
@@ -640,20 +478,29 @@ def set_command_name(node: Ps1CommandInvocation, name: str) -> bool:
     operator `&`) when the name is not a bare-safe command token. Returns `True` when the name
     actually changed, so callers should only `mark_changed()` on a `True` result; this guards
     against self-resolving rewrites that would otherwise loop forever.
+
+    Both edits go through the mutation API — the name through
+    `refinery.lib.scripts.ps1.deobfuscation.substitution.substitute_field` and the operator through
+    `refinery.lib.scripts.set_value` — so the rewrite advances the tree's mutation counter and every
+    analysis model over it is rebuilt from the name now written.
+
+    The operator is written only once the name has landed, because a substitution that would drop a
+    redirection is refused and the command then runs exactly as written, call operator included.
     """
     if node.name is not None and string_value(node.name) == name:
         return False
     offset = node.name.offset if node.name is not None else -1
-    if _BARE_COMMAND_NAME.fullmatch(name):
+    bare = is_bare_command_name(name)
+    if bare:
         literal: Ps1StringLiteral | Ps1HereString = Ps1StringLiteral(
             offset=offset, value=name, raw=name)
     else:
         literal = make_string_literal(name)
         literal.offset = offset
-        if not node.invocation_operator:
-            node.invocation_operator = '&'
-    literal.parent = node
-    node.name = literal
+    if not substitute_field(node, 'name', literal):
+        return False
+    if not bare and not node.invocation_operator:
+        set_value(node, 'invocation_operator', '&')
     return True
 
 
@@ -737,28 +584,6 @@ def apply_string_method(
     raise StringMethodError
 
 
-class LocalFunctionAwareTransformer(Transformer):
-
-    def __init__(self):
-        super().__init__()
-        self._local_functions: set[str] = set()
-        self._entry = False
-
-    def visit(self, node: Node):
-        if self._entry:
-            return super().visit(node)
-        self._entry = True
-        try:
-            self._local_functions = {
-                n.name.lower()
-                for n in node.walk()
-                if isinstance(n, Ps1FunctionDefinition) and n.name
-            }
-            return super().visit(node)
-        finally:
-            self._entry = False
-
-
 def _apply_dotnet_format(value: str | int, spec: str) -> str | None:
     """
     Apply a .NET composite format specifier to a single value. Supports `X`/`x` (hex), `D`/`d`
@@ -791,17 +616,6 @@ def _apply_dotnet_format(value: str | int, spec: str) -> str | None:
         decimal_places = width if width else 2
         return format(value, F',.{decimal_places}f')
     return None
-
-
-def normalize_type_expression(name: str) -> str:
-    return name.lower().replace(' ', '')
-
-
-def normalize_dotnet_type_name(name: str) -> str:
-    result = normalize_type_expression(name)
-    if result.startswith('system.'):
-        result = result[7:]
-    return result
 
 
 def apply_format_string(fmt: str, args: list[str | int]) -> str | None:

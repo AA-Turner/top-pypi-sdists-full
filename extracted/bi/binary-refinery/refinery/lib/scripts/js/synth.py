@@ -1,7 +1,13 @@
 from __future__ import annotations
 
-from refinery.lib.scripts import Node, Synthesizer
-from refinery.lib.scripts.js.deobfuscation.helpers import escape_js_string
+from typing import Callable, Sequence, TypeVar
+
+from refinery.lib.scripts import TREE_RECURSION_DEPTH, Node, Synthesizer
+from refinery.lib.scripts.js.deobfuscation.helpers import (
+    escape_js_string,
+    escape_js_template_text,
+)
+from refinery.lib.scripts.js.lexer import identifier_string_value
 from refinery.lib.scripts.js.model import (
     JsArrowFunctionExpression,
     JsAssignmentPattern,
@@ -11,7 +17,6 @@ from refinery.lib.scripts.js.model import (
     JsBooleanLiteral,
     JsBreakStatement,
     JsCallExpression,
-    JsDecorator,
     JsCatchClause,
     JsClassBody,
     JsClassDeclaration,
@@ -19,6 +24,7 @@ from refinery.lib.scripts.js.model import (
     JsConditionalExpression,
     JsContinueStatement,
     JsDebuggerStatement,
+    JsDecorator,
     JsDoWhileStatement,
     JsEmptyStatement,
     JsErrorNode,
@@ -33,8 +39,6 @@ from refinery.lib.scripts.js.model import (
     JsFunctionDeclaration,
     JsFunctionExpression,
     JsIdentifier,
-    JsPrivateIdentifier,
-    JsStaticBlock,
     JsIfStatement,
     JsImportAttribute,
     JsImportDeclaration,
@@ -53,6 +57,7 @@ from refinery.lib.scripts.js.model import (
     JsObjectExpression,
     JsObjectPattern,
     JsParenthesizedExpression,
+    JsPrivateIdentifier,
     JsProperty,
     JsPropertyDefinition,
     JsPropertyKind,
@@ -60,6 +65,7 @@ from refinery.lib.scripts.js.model import (
     JsReturnStatement,
     JsScript,
     JsSequenceExpression,
+    JsStaticBlock,
     JsStringLiteral,
     JsSwitchCase,
     JsSwitchStatement,
@@ -78,9 +84,28 @@ from refinery.lib.scripts.js.model import (
     JsYieldExpression,
     Statement,
 )
-from refinery.lib.scripts.js.precedence import needs_parens, statement_needs_parens
+from refinery.lib.scripts.js.numbers import exact_integer, is_negative_zero
+from refinery.lib.scripts.js.precedence import (
+    for_in_target_needs_parens,
+    for_initializer_needs_parens,
+    for_of_target_needs_parens,
+    needs_parens,
+    statement_needs_parens,
+)
+from refinery.lib.scripts.js.strict import promoted_use_strict, spelling_states
+from refinery.lib.scripts.js.token import LINE_TERMINATORS, spells_only_a_name
+from refinery.lib.scripts.js.utf16 import from_code_units
+from refinery.lib.tools import RecursionDepth
+
+_N = TypeVar('_N', bound=Node)
+
+#: A node holding a braced list the file may end inside, and carrying the comments behind its last
+#: item.
+_ListOwner = JsBlockStatement | JsStaticBlock | JsClassBody | JsSwitchStatement
 
 _WORD_UNARY_OPS = frozenset({'typeof', 'void', 'delete'})
+
+_BYTE_GRID_COLUMNS = 15
 
 
 def _is_decorator_member(expr: Node) -> bool:
@@ -122,25 +147,178 @@ class JsSynthesizer(Synthesizer):
         super().__init__(indent, line_length)
         self._unescape_strings = unescape_strings
         self._strip_comments = strip_comments
+        self._cut = False
+        self._ends_line = False
+        self._unparsed_holders: dict[int, bool] = {}
 
-    def _emit_leading_comments(self, node: Node):
-        if self._strip_comments or not node.leading_comments:
+    def convert(self, node: Node) -> str:
+        self._cut = False
+        self._ends_line = False
+        self._unparsed_holders = {}
+        with RecursionDepth(TREE_RECURSION_DEPTH):
+            return super().convert(node)
+
+    def _write(self, text: str):
+        """
+        Nothing is written past the end of the file. A construct the file ended inside — a literal,
+        a bracketed list, a block — writes what it holds and then cuts the output, so that no
+        closing bracket, quote or semicolon the file did not hold is written behind it. Whether the
+        text written last ended a line is kept, since unread text may carry its own terminator.
+        """
+        if self._cut or not text:
             return
-        for comment in node.leading_comments:
+        super()._write(text)
+        self._ends_line = text[-1] in LINE_TERMINATORS
+
+    def _newline(self):
+        """
+        A line break, unless the text written last already ended the line: unread text ending in
+        a string a line terminator ended carries that terminator, and writing another would put a
+        blank line into the file that the next read keeps as text of its own.
+        """
+        if self._cut:
+            return
+        if self._ends_line:
+            self._write(self._indent * self._depth)
+            return
+        super()._newline()
+        self._ends_line = False
+
+    def _holds_unparsed_text(self, node: Node) -> bool:
+        """
+        Whether *node* is, or holds, text the parser could not read. Each node is asked once per
+        print: a clause body may hold another, and each asks about its own.
+        """
+        key = id(node)
+        answer = self._unparsed_holders.get(key)
+        if answer is None:
+            answer = node.unparsed or any(
+                self._holds_unparsed_text(child) for child in node.children())
+            self._unparsed_holders[key] = answer
+        return answer
+
+    def _carried(self, comments: list[str]) -> list[str]:
+        """
+        The comments the printer writes of those a node carries: none where comments are stripped.
+        Text the parser could not read is written as it stood, and a comment inside it stays.
+        """
+        return [] if self._strip_comments else comments
+
+    def _emit_leading_comments(self, node: Node, *, inline: bool = False):
+        """
+        The comments that led *node*, each on a line of its own — or, *inline*, on the line the node
+        is written on wherever the comment is a block comment, which ends before the node does.
+        Unread text opening with `-->` may not be left at the head of a line (see `_separate`), and
+        the comments leading such text are block comments by construction: a `-->` behind a line
+        comment stands at the head of the next line, where it opens a comment of its own.
+        """
+        inline = inline or self._opens_html_close_comment(node)
+        for comment in self._carried(node.leading_comments):
             self._write(comment)
+            if inline and comment.startswith('/*'):
+                self._write(' ')
+            else:
+                self._newline()
+
+    @staticmethod
+    def _opens_html_close_comment(stmt: Node) -> bool:
+        """
+        Whether *stmt* is unread text opening with `-->`, which at the head of a line would open a
+        comment and swallow the line, whatever whitespace or delimited comment stood in front of it
+        there: such text is written on the line of what precedes it, behind a token, where the
+        lexer read it as the decrement and the `>` it is.
+        """
+        return isinstance(stmt, JsErrorNode) and stmt.text.startswith('-->')
+
+    @staticmethod
+    def _opens_hashbang(node: Node) -> bool:
+        """
+        Whether *node* is unread text opening with `#!`, which at the very start of a file is the
+        hash-bang line and nowhere else: such text is never what the output opens with.
+        """
+        return isinstance(node, JsErrorNode) and node.text.startswith('#!')
+
+    def _separate(self, stmt: Node):
+        """
+        The line break in front of an item of a list, which every writer that breaks a line in
+        front of an item asks for here: unread text that would read differently at the head of a
+        line stays on the line before it.
+        """
+        if self._opens_html_close_comment(stmt):
+            self._write(' ')
+        else:
             self._newline()
 
-    def _emit_block(self, body: list[Statement]):
+    def _emit_braced(
+        self,
+        items: Sequence[_N],
+        emit: Callable[[_N], object],
+        *,
+        owner: _ListOwner | None = None,
+    ):
+        """
+        Write *items* between braces, each on a line of its own led by the comments it carries and
+        followed by the comments *owner* carries behind its last item. An owner the file ended
+        inside has no closing brace, and the output is cut behind what it holds.
+        """
         self._write('{')
         self._depth += 1
-        for stmt in body:
+        for item in items:
+            self._separate(item)
+            self._emit_leading_comments(item)
+            emit(item)
+        trailing = self._carried(owner.trailing_comments) if owner is not None else []
+        for comment in trailing:
             self._newline()
-            self._emit_leading_comments(stmt)
-            self.visit(stmt)
+            self._write(comment)
         self._depth -= 1
-        if body:
+        if owner is not None and not owner.terminated:
+            self._cut = True
+            return
+        if items or trailing:
             self._newline()
         self._write('}')
+
+    def _emit_block_node(self, block: JsBlockStatement, *, prologue: bool = False):
+        self._emit_block(block.body, prologue=prologue, owner=block)
+
+    def _emit_block(
+        self,
+        body: list[Statement],
+        *,
+        prologue: bool = False,
+        owner: JsBlockStatement | JsStaticBlock | None = None,
+    ):
+        """
+        Write *body* as a braced block. *prologue* says that this block is a body a Directive
+        Prologue opens — a function body or a class static block — where a `'use strict'` standing
+        at the head is read as a directive and makes the body strict. Every other block holds
+        ordinary statements, and passing `True` for one of those would parenthesize a string that
+        governs nothing.
+        """
+        promoted = promoted_use_strict(body) if prologue else []
+        self._emit_braced(body, lambda stmt: self._emit_body_statement(stmt, promoted), owner=owner)
+
+    def _emit_body_statement(self, stmt: Statement, promoted: list[JsExpressionStatement]):
+        """
+        Write one statement of a body, parenthesizing it when it is one of *promoted* — a
+        `'use strict'` an edit moved into the Directive Prologue rather than the source having
+        written it there.
+
+        The parenthesis is what keeps the mode where the file left it. A directive is a statement
+        whose expression *is* the literal, so `('use strict');` computes the same string and declares
+        nothing, and the run it stood in ends at it. That last part is why only a string which would
+        otherwise turn the body strict is worth writing this way: ending the run ejects every
+        directive behind it, and for an inert string that is a cost paid for nothing.
+        """
+        if isinstance(stmt, JsExpressionStatement) and any(p is stmt for p in promoted):
+            literal = stmt.expression
+            if isinstance(literal, JsStringLiteral):
+                self._write('(')
+                self.visit(literal)
+                self._write(');')
+                return
+        self.visit(stmt)
 
     def _emit_child(self, child: Node | None, parent: Node):
         """
@@ -173,10 +351,21 @@ class JsSynthesizer(Synthesizer):
         lead_newline: bool = True,
         wrap_sequences: bool = False,
     ) -> bool:
+        """
+        Write *nodes* separated by commas, on one line where they fit and one to a line where they
+        do not, and report which. The fit is measured by writing the line and taking it back. Where
+        the indentation alone already runs past the line length, nothing fits and the measurement
+        is skipped: every line written there overflows, so the answer is known, and measuring at
+        every level of a deeply nested list would write each list once for every list around it.
+        """
         if not nodes:
             return False
-        save_pos = self._parts.tell()
-        save_col = self._col
+        if len(self._indent) * self._depth > self._line_length:
+            self._emit_one_to_a_line(nodes, lead_newline, wrap_sequences)
+            return True
+        save = self._capture_output()
+        save_cut = self._cut
+        save_ends_line = self._ends_line
         overflow = False
         for i, node in enumerate(nodes):
             if i > 0:
@@ -187,18 +376,21 @@ class JsSynthesizer(Synthesizer):
                 break
         if not overflow:
             return False
-        self._parts.seek(save_pos)
-        self._parts.truncate()
-        self._col = save_col
+        self._rewind_output(save)
+        self._cut = save_cut
+        self._ends_line = save_ends_line
+        self._emit_one_to_a_line(nodes, lead_newline, wrap_sequences)
+        return True
+
+    def _emit_one_to_a_line(self, nodes: list, lead_newline: bool, wrap_sequences: bool):
         self._depth += 1
         for i, node in enumerate(nodes):
             if i > 0 or lead_newline:
-                self._newline()
+                self._separate(node)
             self._emit_element(node, wrap_sequences)
             if i < len(nodes) - 1:
                 self._write(',')
         self._depth -= 1
-        return True
 
     def _emit_params(self, params: list):
         self._write('(')
@@ -214,10 +406,14 @@ class JsSynthesizer(Synthesizer):
             self._write('*')
 
     def _emit_key(self, key: Node | None, computed: bool):
+        """
+        A computed key holds one operand and not a whole expression, so a sequence written as one
+        keeps its brackets: without them the first comma ends the key rather than continuing it, and
+        the text is not a program at all.
+        """
         if computed:
             self._write('[')
-            if key:
-                self.visit(key)
+            self._emit_element(key, True)
             self._write(']')
         elif key:
             self.visit(key)
@@ -229,18 +425,33 @@ class JsSynthesizer(Synthesizer):
         self._write(node.raw)
 
     def visit_JsStringLiteral(self, node: JsStringLiteral):
-        if self._unescape_strings:
+        if self._unescape_strings and node.value is not None and node.terminated:
             self._write(self._encode_string(node.value, node.raw))
         else:
             self._write(node.raw)
+        if not node.terminated:
+            self._cut = True
 
     @staticmethod
     def _encode_string(value: str, raw: str) -> str:
+        """
+        Re-spell a literal from the text it denotes, unless the shorter spelling would state
+        something the source did not. Whether a literal spells the Use Strict Directive, or an
+        escape strict code refuses, is a fact about how it was written and not what it denotes:
+        unescaping `'use\\x20strict'` to `'use strict'` writes a directive nobody wrote and turns
+        the code behind it strict. Where either would move, the source spelling is kept, the same
+        rule the folding pass holds.
+        """
         quote = raw[0] if raw and raw[0] in ('"', "'") else "'"
-        return F'{quote}{escape_js_string(value, quote)}{quote}'
+        body = escape_js_string(value, quote)
+        if raw and spelling_states(body) != spelling_states(raw[1:-1]):
+            return raw
+        return F'{quote}{body}{quote}'
 
     def visit_JsRegExpLiteral(self, node: JsRegExpLiteral):
         self._write(node.raw)
+        if not node.terminated:
+            self._cut = True
 
     def visit_JsBooleanLiteral(self, node: JsBooleanLiteral):
         self._write('true' if node.value else 'false')
@@ -252,39 +463,138 @@ class JsSynthesizer(Synthesizer):
         self._write('this')
 
     def visit_JsIdentifier(self, node: JsIdentifier):
-        self._write(node.name)
+        self._write(self._encode_identifier(node.name, node.raw))
 
     def visit_JsPrivateIdentifier(self, node: JsPrivateIdentifier):
         self._write('#')
-        self._write(node.name)
+        self._write(self._encode_identifier(node.name, node.raw))
+
+    @staticmethod
+    def _encode_identifier(name: str, raw: str) -> str:
+        """
+        Write a name as itself, unless the bare text would be read as something other than a name.
+        `spells_only_a_name` says which words those are, and for one of them the source spelling is
+        the only text that says which reading the file meant:
+
+            var l\\u0065t = [0]; l\\u0065t[0] = 5;
+
+        is a program, and the same file with the name written out is not.
+
+        The spelling is trusted only for as long as it spells the name being printed, so a pass
+        that renames a node has nothing to maintain here — what it left behind is a spelling of
+        some other name, and the name itself is written instead. This is the rule
+        `_encode_string` holds for a literal, asked of a name.
+        """
+        if raw and not spells_only_a_name(name) and identifier_string_value(raw) == name:
+            return raw
+        return from_code_units(name)
 
     def visit_JsErrorNode(self, node: JsErrorNode):
+        if self._opens_hashbang(node) and self._parts.tell() == 0:
+            self._newline()
         self._write(node.text)
 
     def visit_JsTemplateLiteral(self, node: JsTemplateLiteral):
+        """
+        The literal, whose runs spell its text and whose delimiters the printer writes: every run
+        but the last is followed by the hole it opens, and the hole is closed by the run behind it
+        wherever the file held that run. A hole the file ended inside holds nothing.
+        """
         self._write('`')
-        qi = iter(node.quasis)
-        ei = iter(node.expressions)
-        for q in qi:
-            self._write(q.value)
-            e = next(ei, None)
-            if e is not None:
-                self._write('${')
-                self.visit(e)
+        expressions = iter(node.expressions)
+        for index, quasi in enumerate(node.quasis):
+            if not quasi.opened:
+                self._cut = True
+            self.visit(quasi)
+            if not quasi.terminated:
+                self._cut = True
+            if index + 1 == len(node.quasis):
+                break
+            self._write('${')
+            expression = next(expressions, None)
+            if expression is not None:
+                self.visit(expression)
+            if node.quasis[index + 1].opened:
                 self._write('}')
         self._write('`')
 
     def visit_JsTemplateElement(self, node: JsTemplateElement):
-        self._write(node.value)
+        """
+        A run of template text is written the way the source wrote it, because `value` is what that
+        spelling denotes: printing the cooked text back turns an escaped backtick into one that
+        ends the literal and an escaped `${` into a hole. A run that was never written has no
+        spelling to print and is escaped from its value instead.
+        """
+        self._write(node.raw or escape_js_template_text(node.value or ''))
 
     def _emit_array_like(self, node):
+        """
+        An array literal, or the pattern that matches one. A hole is an element that was left out,
+        and what spells it is the comma that would have followed it, so a hole at the end needs a
+        comma of its own: the separators between the elements spell one fewer than there are, and
+        `[1, 2, ,]` written back as `[1, 2, ]` is an array of two.
+        """
         self._write('[')
-        if self._comma_separated(node.elements, wrap_sequences=True):
+        elements = node.elements
+        wrapped = self._byte_grid(elements) or self._comma_separated(elements, wrap_sequences=True)
+        if elements and elements[-1] is None:
+            self._write(',')
+        if not node.terminated:
+            self._cut = True
+        if wrapped:
             self._newline()
         self._write(']')
 
     visit_JsArrayExpression = _emit_array_like
     visit_JsArrayPattern = _emit_array_like
+
+    def _byte_grid(self, elements: list) -> bool:
+        """
+        Emit *elements* as a grid of fixed-width hex bytes, and report whether that was done. Declines
+        unless every element is an integer literal in `0 .. 255` and there are enough of them to fill more
+        than one row, and unless the array would overflow the line anyway — the grid is an alternative to
+        the one-element-per-line fallback, so where that fallback does not apply the array is left exactly
+        as it was written.
+
+        Negative zero is excluded even though it is an integer in range, because the grid respells
+        each element from its value and `0x00` denotes positive zero: the one Number whose sign this
+        spelling cannot carry is the one Number whose sign is observable without reading it back,
+        through `1 / -0`.
+
+        Hex is used rather than decimal because `15` and `216` differ in width: only a fixed-width
+        element keeps the column structure that makes a key or ciphertext block legible.
+        """
+        if len(elements) <= _BYTE_GRID_COLUMNS:
+            return False
+        byte_values: list[int] = []
+        for element in elements:
+            if not isinstance(element, JsNumericLiteral) or is_negative_zero(element.value):
+                return False
+            byte = exact_integer(element.value)
+            if byte is None or not (0 <= byte <= 0xFF):
+                return False
+            byte_values.append(byte)
+        if not self._overflows_inline(elements):
+            return False
+        self._depth += 1
+        for start in range(0, len(byte_values), _BYTE_GRID_COLUMNS):
+            row = byte_values[start:start + _BYTE_GRID_COLUMNS]
+            self._newline()
+            self._write(', '.join(F'0x{byte:02X}' for byte in row))
+            if start + _BYTE_GRID_COLUMNS < len(byte_values):
+                self._write(',')
+        self._depth -= 1
+        return True
+
+    def _overflows_inline(self, elements: list) -> bool:
+        """
+        Whether emitting *elements* comma-separated on the current line would pass the line limit, and so
+        be broken up. Measured from each element's own spelling, because that is what would be printed:
+        deciding this from the hex form instead would grid an array of small values that fits as written,
+        since `0x05` is wider than `5`.
+        """
+        width = sum(len(element.raw) for element in elements) + 2 * (len(elements) - 1)
+        return self._col + width > self._line_length
 
     def visit_JsObjectExpression(self, node: JsObjectExpression):
         if not node.properties:
@@ -299,10 +609,12 @@ class JsSynthesizer(Synthesizer):
                 breaking = True
                 self._depth += 1
             if breaking:
-                self._newline()
+                self._separate(prop)
             else:
                 self._write(' ')
             self.visit(prop)
+        if not node.terminated:
+            self._cut = True
         if breaking:
             self._depth -= 1
             self._newline()
@@ -324,7 +636,7 @@ class JsSynthesizer(Synthesizer):
                 self._emit_params(node.value.params)
                 self._write(' ')
                 if node.value.body:
-                    self._emit_block(node.value.body.body)
+                    self._emit_block_node(node.value.body, prologue=True)
             return
         if node.shorthand:
             if isinstance(node.value, JsAssignmentPattern):
@@ -398,7 +710,17 @@ class JsSynthesizer(Synthesizer):
         if node.optional:
             self._write('?.')
         self._write('(')
-        if self._comma_separated(node.arguments, wrap_sequences=True):
+        self._emit_arguments(node)
+
+    def _emit_arguments(self, node: JsCallExpression | JsNewExpression):
+        """
+        The arguments of *node* behind the bracket already written, and the bracket that closes
+        them where the file held it.
+        """
+        wrapped = self._comma_separated(node.arguments, wrap_sequences=True)
+        if not node.terminated:
+            self._cut = True
+        if wrapped:
             self._newline()
         self._write(')')
 
@@ -406,12 +728,17 @@ class JsSynthesizer(Synthesizer):
         self._write('new ')
         self._emit_child(node.callee, node)
         self._write('(')
-        if self._comma_separated(node.arguments, wrap_sequences=True):
-            self._newline()
-        self._write(')')
+        self._emit_arguments(node)
 
     def visit_JsSequenceExpression(self, node: JsSequenceExpression):
-        self._comma_separated(node.expressions, lead_newline=False)
+        """
+        A sequence written inside a sequence keeps its brackets. The comma operator is flat in the
+        text and nested in the tree, so `(a, b), c` and `a, (b, c)` are both spelled `a, b, c` once
+        the brackets are gone, and reading that back gives one sequence of three where the tree held
+        two of two. The value is the same either way, which is exactly why nothing downstream would
+        report the shape being lost.
+        """
+        self._comma_separated(node.expressions, lead_newline=False, wrap_sequences=True)
 
     def visit_JsYieldExpression(self, node: JsYieldExpression):
         self._write('yield')
@@ -434,6 +761,8 @@ class JsSynthesizer(Synthesizer):
         self._write('(')
         if node.expression:
             self.visit(node.expression)
+        if not node.terminated:
+            self._cut = True
         self._write(')')
 
     def _emit_function(self, node):
@@ -444,7 +773,7 @@ class JsSynthesizer(Synthesizer):
         self._emit_params(node.params)
         self._write(' ')
         if node.body:
-            self._emit_block(node.body.body)
+            self._emit_block_node(node.body, prologue=True)
 
     visit_JsFunctionExpression = _emit_function
 
@@ -458,7 +787,7 @@ class JsSynthesizer(Synthesizer):
         self._write(' => ')
         if node.body:
             if isinstance(node.body, JsBlockStatement):
-                self._emit_block(node.body.body)
+                self._emit_block_node(node.body, prologue=True)
             elif isinstance(node.body, JsSequenceExpression) or statement_needs_parens(node.body):
                 self._write('(')
                 self.visit(node.body)
@@ -507,6 +836,8 @@ class JsSynthesizer(Synthesizer):
             else:
                 self._write(' ')
             self.visit(prop)
+        if not node.terminated:
+            self._cut = True
         if node.properties:
             self._write(' ')
         self._write('}')
@@ -518,15 +849,7 @@ class JsSynthesizer(Synthesizer):
         self._emit_element(node.right, True)
 
     def visit_JsClassBody(self, node: JsClassBody):
-        self._write('{')
-        self._depth += 1
-        for member in node.body:
-            self._newline()
-            self.visit(member)
-        self._depth -= 1
-        if node.body:
-            self._newline()
-        self._write('}')
+        self._emit_braced(node.body, self.visit, owner=node)
 
     def visit_JsMethodDefinition(self, node: JsMethodDefinition):
         self._emit_decorators(node.decorators)
@@ -544,7 +867,7 @@ class JsSynthesizer(Synthesizer):
             self._emit_params(node.value.params)
             self._write(' ')
             if node.value.body:
-                self._emit_block(node.value.body.body)
+                self._emit_block_node(node.value.body, prologue=True)
 
     def visit_JsPropertyDefinition(self, node: JsPropertyDefinition):
         self._emit_decorators(node.decorators)
@@ -558,7 +881,7 @@ class JsSynthesizer(Synthesizer):
 
     def visit_JsStaticBlock(self, node: JsStaticBlock):
         self._write('static ')
-        self._emit_block(node.body)
+        self._emit_block(node.body, prologue=True, owner=node)
 
     def visit_JsExpressionStatement(self, node: JsExpressionStatement):
         expr = node.expression
@@ -572,7 +895,7 @@ class JsSynthesizer(Synthesizer):
         self._write(';')
 
     def visit_JsBlockStatement(self, node: JsBlockStatement):
-        self._emit_block(node.body)
+        self._emit_block_node(node)
 
     def visit_JsEmptyStatement(self, node: JsEmptyStatement):
         self._write(';')
@@ -601,8 +924,18 @@ class JsSynthesizer(Synthesizer):
             self._emit_statement_body(node.alternate)
 
     def _emit_statement_body(self, stmt: Statement):
+        """
+        The body of a clause, written as a block. Text the parser could not read, and a statement
+        holding such text, is written as it was written, with no block put around it: a brace
+        inside such text would close or open the block the printer put there, and the file would
+        read back with a different shape.
+        """
         if isinstance(stmt, JsBlockStatement):
-            self._emit_block(stmt.body)
+            self._emit_leading_comments(stmt, inline=True)
+            self._emit_block_node(stmt)
+        elif self._holds_unparsed_text(stmt):
+            self._emit_leading_comments(stmt, inline=True)
+            self.visit(stmt)
         else:
             self._emit_block([stmt])
 
@@ -623,20 +956,49 @@ class JsSynthesizer(Synthesizer):
             self.visit(node.test)
         self._write(');')
 
-    def _emit_for_binding(self, node: Statement | Node):
-        if isinstance(node, JsVariableDeclaration):
-            self._write(F'{node.kind.value} ')
-            for i, decl in enumerate(node.declarations):
-                if i > 0:
-                    self._write(', ')
-                self.visit(decl)
-        else:
+    def _emit_bracketed_if(self, node: Node | None, refuses: Callable[[Node], bool]):
+        if node is None:
+            return
+        if not refuses(node):
             self.visit(node)
+            return
+        self._write('(')
+        self.visit(node)
+        self._write(')')
+
+    def _emit_for_binding(self, node: Statement | Node, refuses: Callable[[Node], bool]):
+        """
+        The binding or the assignment target in a loop head, bracketed where the head it stands in
+        refuses what it says. Each of the three heads refuses something the others do not, so which
+        rule applies is what the caller names; adding the next one is a rule beside them rather than
+        another answer inside this.
+
+        A declaration spells its own keyword and cannot be bracketed, so the rule reaches the value
+        each declarator is given instead — which is where a `for` initializer can still read an
+        `in` the head was not offering it.
+
+        Nothing else is bracketed. The other shape a statement may not open with is an object
+        literal, and a loop head is where one is a destructuring target: bracketing `for ({a} of x)`
+        would make the target invalid rather than keep it whole.
+        """
+        if not isinstance(node, JsVariableDeclaration):
+            return self._emit_bracketed_if(node, refuses)
+        self._write(F'{node.kind.value} ')
+        for i, decl in enumerate(node.declarations):
+            if i > 0:
+                self._write(', ')
+            if decl.init is None or not refuses(decl.init):
+                self.visit(decl)
+                continue
+            if decl.id:
+                self.visit(decl.id)
+            self._write(' = ')
+            self._emit_bracketed_if(decl.init, refuses)
 
     def visit_JsForStatement(self, node: JsForStatement):
         self._write('for (')
         if node.init:
-            self._emit_for_binding(node.init)
+            self._emit_for_binding(node.init, for_initializer_needs_parens)
         self._write('; ')
         if node.test:
             self.visit(node.test)
@@ -650,7 +1012,7 @@ class JsSynthesizer(Synthesizer):
     def visit_JsForInStatement(self, node: JsForInStatement):
         self._write('for (')
         if node.left:
-            self._emit_for_binding(node.left)
+            self._emit_for_binding(node.left, for_in_target_needs_parens)
         self._write(' in ')
         if node.right:
             self.visit(node.right)
@@ -664,10 +1026,10 @@ class JsSynthesizer(Synthesizer):
             self._write('await ')
         self._write('(')
         if node.left:
-            self._emit_for_binding(node.left)
+            self._emit_for_binding(node.left, for_of_target_needs_parens)
         self._write(' of ')
         if node.right:
-            self.visit(node.right)
+            self._emit_element(node.right, True)
         self._write(') ')
         if node.body:
             self._emit_statement_body(node.body)
@@ -676,15 +1038,8 @@ class JsSynthesizer(Synthesizer):
         self._write('switch (')
         if node.discriminant:
             self.visit(node.discriminant)
-        self._write(') {')
-        self._depth += 1
-        for case in node.cases:
-            self._newline()
-            self.visit(case)
-        self._depth -= 1
-        if node.cases:
-            self._newline()
-        self._write('}')
+        self._write(') ')
+        self._emit_braced(node.cases, self.visit, owner=node)
 
     def visit_JsSwitchCase(self, node: JsSwitchCase):
         if node.test:
@@ -695,20 +1050,21 @@ class JsSynthesizer(Synthesizer):
             self._write('default:')
         self._depth += 1
         for stmt in node.body:
-            self._newline()
+            self._separate(stmt)
+            self._emit_leading_comments(stmt)
             self.visit(stmt)
         self._depth -= 1
 
     def visit_JsTryStatement(self, node: JsTryStatement):
         self._write('try ')
         if node.block:
-            self._emit_block(node.block.body)
+            self._emit_block_node(node.block)
         if node.handler:
             self._write(' ')
             self.visit(node.handler)
         if node.finalizer:
             self._write(' finally ')
-            self._emit_block(node.finalizer.body)
+            self._emit_block_node(node.finalizer)
 
     def visit_JsCatchClause(self, node: JsCatchClause):
         self._write('catch')
@@ -718,7 +1074,7 @@ class JsSynthesizer(Synthesizer):
             self._write(')')
         self._write(' ')
         if node.body:
-            self._emit_block(node.body.body)
+            self._emit_block_node(node.body)
 
     def visit_JsThrowStatement(self, node: JsThrowStatement):
         self._write('throw ')
@@ -752,6 +1108,7 @@ class JsSynthesizer(Synthesizer):
             self.visit(node.label)
         self._write(': ')
         if node.body:
+            self._emit_leading_comments(node.body, inline=True)
             self.visit(node.body)
 
     def visit_JsWithStatement(self, node: JsWithStatement):
@@ -786,7 +1143,7 @@ class JsSynthesizer(Synthesizer):
                 default_spec = spec
             elif isinstance(spec, JsImportNamespaceSpecifier):
                 namespace_spec = spec
-            elif isinstance(spec, JsImportSpecifier):
+            else:
                 named_specs.append(spec)
         if default_spec:
             if default_spec.local:
@@ -810,14 +1167,28 @@ class JsSynthesizer(Synthesizer):
         self._emit_import_attributes(node)
         self._write(';')
 
-    def _emit_import_attributes(self, node: JsImportDeclaration):
+    def _emit_import_attributes(
+        self,
+        node: JsImportDeclaration | JsExportNamedDeclaration | JsExportAllDeclaration,
+    ):
         if not node.attributes_keyword:
             return
-        self._write(F' {node.attributes_keyword} {{ ')
-        for i, attr in enumerate(node.attributes):
+        self._write(F' {node.attributes_keyword} ')
+        self._emit_braced_list(node.attributes)
+
+    def _emit_braced_list(self, items: Sequence[Node]):
+        """
+        A list of module specifiers or import attributes between braces, on one line, with the
+        braces closed up where the list is empty.
+        """
+        if not items:
+            self._write('{}')
+            return
+        self._write('{ ')
+        for i, item in enumerate(items):
             if i > 0:
                 self._write(', ')
-            self.visit(attr)
+            self.visit(item)
         self._write(' }')
 
     def visit_JsImportAttribute(self, node: JsImportAttribute):
@@ -841,17 +1212,29 @@ class JsSynthesizer(Synthesizer):
         self._write('.')
         self._write(node.property)
 
+    @staticmethod
+    def _renames(written: Node | None, other: Node | None) -> bool:
+        """
+        Whether a specifier writes two names rather than the one a shorthand writes once. `import
+        { a }` holds a single node in both of its slots and `{ a as a }` holds two spelling one
+        name, and neither is written with an `as`; anything else is, whatever kind of node stands
+        there. A module export name written as a string is not a name node at all, and a position
+        the parser could not read is an error node, so deciding this by node class rather than by
+        what the two nodes say would drop the half that carries the meaning.
+        """
+        if written is None or other is None or written is other:
+            return False
+        if isinstance(written, JsIdentifier) and isinstance(other, JsIdentifier):
+            return written.name != other.name
+        return True
+
     def visit_JsImportSpecifier(self, node: JsImportSpecifier):
         if node.imported:
             self.visit(node.imported)
-        if (
-            node.local and node.imported
-            and isinstance(node.local, JsIdentifier)
-            and isinstance(node.imported, JsIdentifier)
-            and node.local.name != node.imported.name
-        ):
+        local = node.local
+        if local is not None and self._renames(local, node.imported):
             self._write(' as ')
-            self.visit(node.local)
+            self.visit(local)
 
     def visit_JsImportDefaultSpecifier(self, node: JsImportDefaultSpecifier):
         if node.local:
@@ -867,21 +1250,17 @@ class JsSynthesizer(Synthesizer):
         if node.declaration:
             self.visit(node.declaration)
             return
-        self._write('{ ')
-        for i, spec in enumerate(node.specifiers):
-            if i > 0:
-                self._write(', ')
-            self.visit(spec)
-        self._write(' }')
+        self._emit_braced_list(node.specifiers)
         if node.source:
             self._write(' from ')
             self.visit(node.source)
+            self._emit_import_attributes(node)
         self._write(';')
 
     def visit_JsExportDefaultDeclaration(self, node: JsExportDefaultDeclaration):
         self._write('export default ')
         if node.declaration:
-            self.visit(node.declaration)
+            self._emit_element(node.declaration, True)
             if not isinstance(node.declaration, (
                 JsFunctionDeclaration, JsClassDeclaration,
             )):
@@ -895,23 +1274,55 @@ class JsSynthesizer(Synthesizer):
         self._write(' from ')
         if node.source:
             self.visit(node.source)
+            self._emit_import_attributes(node)
         self._write(';')
 
     def visit_JsExportSpecifier(self, node: JsExportSpecifier):
         if node.local:
             self.visit(node.local)
-        if (
-            node.exported and node.local
-            and isinstance(node.exported, JsIdentifier)
-            and isinstance(node.local, JsIdentifier)
-            and node.exported.name != node.local.name
-        ):
+        exported = node.exported
+        if exported is not None and self._renames(exported, node.local):
             self._write(' as ')
-            self.visit(node.exported)
+            self.visit(exported)
 
     def visit_JsScript(self, node: JsScript):
-        for i, stmt in enumerate(node.body):
-            if i > 0:
+        """
+        The file: the `#!` line it opens with, its statements, and the comments standing behind the
+        last of them, of which the last may be one the file ended inside. Those stood at the end of
+        the file, inside whatever construct the file ended in, and are written behind the cut that
+        construct made — the cut keeps back what the file did not hold, and it held them.
+        """
+        promoted = promoted_use_strict(node.body)
+        lines = 0
+        for comment in self._carried(node.leading_comments):
+            if lines:
                 self._newline()
+            self._write(comment)
+            lines += 1
+        for stmt in node.body:
+            if lines:
+                self._separate(stmt)
             self._emit_leading_comments(stmt)
-            self.visit(stmt)
+            self._emit_body_statement(stmt, promoted)
+            lines += 1
+        for comment in self._tail_comments(node):
+            self._cut = False
+            if lines:
+                self._newline()
+            self._write(comment)
+            lines += 1
+
+    def _tail_comments(self, node: JsScript) -> list[str]:
+        """
+        The comments the file ends with, of which the last is kept even where comments are
+        stripped when the file ended inside it: that comment is the file's cut, and a print
+        without it would be a program the file is not.
+        """
+        comments = node.trailing_comments
+        if self._strip_comments:
+            return [c for c in comments[-1:] if self._ends_the_file_inside(c)]
+        return comments
+
+    @staticmethod
+    def _ends_the_file_inside(comment: str) -> bool:
+        return comment.startswith('/*') and not (len(comment) >= 4 and comment.endswith('*/'))

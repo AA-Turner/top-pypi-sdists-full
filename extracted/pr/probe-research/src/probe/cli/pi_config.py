@@ -1013,10 +1013,11 @@ def update_package(env: Mapping[str, str] | None = None, *, cwd: Path | None = N
     source = _entry_source(data["packages"][index]) or MIRROR_GIT_SOURCE
     command = ["pi", "update", source]
     try:
-        completed = subprocess.run(
-            [binary, "update", source], capture_output=True, text=True, timeout=UPDATE_TIMEOUT_S,
-            stdin=subprocess.DEVNULL, env=dict(active), check=False,
-            **({"cwd": str(cwd)} if cwd is not None else {}),
+        # Through `claude_cli.capture`: inside an update's pi step its process
+        # group is the step's to stop at its deadline (`upgrading`).
+        completed = claude_cli.capture(
+            [binary, "update", source], timeout=UPDATE_TIMEOUT_S, env=dict(active),
+            cwd=str(cwd) if cwd is not None else None,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         return claude_cli.Result(ok=False, detail=f"{' '.join(command)}: {exc}", command=" ".join(command))

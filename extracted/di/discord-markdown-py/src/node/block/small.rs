@@ -1,10 +1,4 @@
-use nom::{
-	Parser,
-	bytes::complete::tag,
-	character::complete::space1,
-	combinator::map,
-	sequence::{pair, preceded},
-};
+use nom::{Parser, bytes::complete::tag, character::complete::space1, combinator::map};
 
 use derive_where::derive_where;
 
@@ -12,9 +6,10 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
+	lossless::TokenKind,
 	node::{Element, Inlines, Sequence, block::inline_block},
 	scope::Scope,
-	span::Span,
+	span::{Span, Syntax, WithToken},
 	unparse::Unparse,
 };
 
@@ -61,11 +56,15 @@ where
 	E: ParseError<'data>,
 {
 	map(
-		preceded(
-			pair(tag(PREFIX), space1),
+		(
+			tag(PREFIX).token::<S>(TokenKind::SmallMarker),
+			space1.token::<S>(TokenKind::Whitespace),
 			inline_block(context.with_scope(Scope::Block)),
 		),
-		|content| Small { content },
+		|(marker, space, mut content): (_, _, Sequence<S, _>)| {
+			content.span.attach(marker.join(space));
+			Small { content }
+		},
 	)
 }
 

@@ -16091,12 +16091,12 @@ class GetConversationThreadV2Input(sgqlc.types.Input):
 
     preview_char_limit = sgqlc.types.Field(Int, graphql_name="previewCharLimit")
     """Maximum characters returned inline for each message preview.
-    Defaults to 4000.
+    Defaults to 4000. Ignored when fullContent is true.
     """
 
     chunk_char_size = sgqlc.types.Field(Int, graphql_name="chunkCharSize")
     """Chunk size used for full message retrieval. Defaults to 16000;
-    capped at 200000 characters.
+    capped at 200000 characters. Ignored when fullContent is true.
     """
 
     include_internal_steps = sgqlc.types.Field(Boolean, graphql_name="includeInternalSteps")
@@ -16111,14 +16111,13 @@ class GetConversationThreadV2Input(sgqlc.types.Input):
     """
 
     full_content = sgqlc.types.Field(Boolean, graphql_name="fullContent")
-    """Read the whole conversation, including tool inputs and outputs, in
-    one warehouse read for Monte Carlo-hosted agents. Intended for
-    batch readers such as the reinforcement loop. Tool inputs and
-    outputs come back complete inline. Message bodies still follow
-    previewCharLimit and the thread-wide preview budget; fetch the
-    rest of an incomplete message with
-    getConversationMessageContentV2. Agents on Snowflake Cortex or
-    Databricks Genie ignore it. Defaults to false.
+    """Return every message and tool call complete, for batch readers
+    such as the reinforcement loop. Monte Carlo-hosted agents are read
+    in one warehouse read. The result is never cached, so
+    getConversationMessageContentV2 returns null for its snapshotId.
+    The status is FAILED when the conversation is too large or some of
+    its content could not be loaded; read it without fullContent
+    instead. Defaults to false.
     """
 
     timeout_seconds = sgqlc.types.Field(Int, graphql_name="timeoutSeconds")
@@ -33616,6 +33615,7 @@ class ConversationMessageV2(sgqlc.types.Type):
     __field_names__ = (
         "message_id",
         "role",
+        "reasoning",
         "platform_thought_type",
         "content",
         "content_length",
@@ -33628,6 +33628,11 @@ class ConversationMessageV2(sgqlc.types.Type):
 
     role = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="role")
     """Message role (user, assistant, tool, …)"""
+
+    reasoning = sgqlc.types.Field("ConversationReasoningV2", graphql_name="reasoning")
+    """Model reasoning, separate from the visible message. Null when
+    absent.
+    """
 
     platform_thought_type = sgqlc.types.Field(String, graphql_name="platformThoughtType")
     """The platform's query-thought category, verbatim. Null for other
@@ -33769,6 +33774,39 @@ class ConversationOverviewMetricsWithComparison(sgqlc.types.Type):
     """The same metrics for the preceding period of equal length. Null
     when comparison is disabled; never null when it is enabled.
     """
+
+
+class ConversationReasoningV2(sgqlc.types.Type):
+    """A preview of a message's model reasoning."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "message_id",
+        "content",
+        "content_length",
+        "content_complete",
+        "content_chunk_count",
+    )
+    message_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="messageId")
+    """Opaque ID for fetching the full reasoning via
+    getConversationMessageContentV2
+    """
+
+    content = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="content")
+    """Preview of the reasoning text"""
+
+    content_length = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="contentLength")
+    """Character length of the reasoning"""
+
+    content_complete = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="contentComplete"
+    )
+    """Whether content contains the full reasoning or only a preview"""
+
+    content_chunk_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="contentChunkCount"
+    )
+    """How many chunks are available via getConversationMessageContentV2"""
 
 
 class ConversationSpan(sgqlc.types.Type):
@@ -40284,7 +40322,14 @@ class DomainMonitoringPlanEntry(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("domain_uuid", "state", "plan_uuid")
+    __field_names__ = (
+        "domain_uuid",
+        "state",
+        "plan_uuid",
+        "built_from_draft",
+        "detection_time",
+        "run_completed_time",
+    )
     domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
     """UUID of the metadata domain."""
 
@@ -40294,6 +40339,22 @@ class DomainMonitoringPlanEntry(sgqlc.types.Type):
     plan_uuid = sgqlc.types.Field(UUID, graphql_name="planUuid")
     """The domain's newest complete plan, whatever the state. Null when
     none.
+    """
+
+    built_from_draft = sgqlc.types.Field(Boolean, graphql_name="builtFromDraft")
+    """The plan's `MonitoringPlan.builtFromDraft`: whether it was built
+    from a reviewed draft selection. Null when `planUuid` is null.
+    """
+
+    detection_time = sgqlc.types.Field(DateTime, graphql_name="detectionTime")
+    """The plan's `MonitoringPlan.detectionTime`: when its run started.
+    Null when `planUuid` is null.
+    """
+
+    run_completed_time = sgqlc.types.Field(DateTime, graphql_name="runCompletedTime")
+    """The plan's `MonitoringPlan.runCompletedTime`: when its run reached
+    a terminal status. Null when `planUuid` is null, and for a plan
+    with no recorded run.
     """
 
 
@@ -49457,6 +49518,7 @@ class MetaSummarizerCandidateAgentIssue(sgqlc.types.Type):
         "last_seen_at",
         "lifecycle",
         "conversation_count",
+        "workflow_names",
         "content_restricted",
         "title",
         "description",
@@ -49495,6 +49557,15 @@ class MetaSummarizerCandidateAgentIssue(sgqlc.types.Type):
         sgqlc.types.non_null(Int), graphql_name="conversationCount"
     )
     """Distinct conversations the issue was seen in, last 7 days."""
+
+    workflow_names = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="workflowNames",
+    )
+    """Workflows of the conversations the issue was seen in, last 7 days.
+    Most conversations first, then name. Conversations with no
+    workflow label are left out.
+    """
 
     content_restricted = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="contentRestricted"
@@ -119584,9 +119655,10 @@ class ToolCallBlock(sgqlc.types.Type):
     tool_call_output column (Cortex/Genie/OTel/MLflow tool steps),
     always as valid JSON: an object/array for structured output, or a
     JSON string for raw text. Null for inline tool_use calls, whose
-    output is conveyed on the paired tool-role message. Also null when
-    outputComplete is false; if outputUnavailableReason is null, fetch
-    the full output with getConversationToolCallContentV2 using
+    output is conveyed on the paired tool-role message. An answered
+    ask_user call carries its answer payload here instead. Also null
+    when outputComplete is false; if outputUnavailableReason is null,
+    fetch the full output with getConversationToolCallContentV2 using
     spanId. Lazy outputs have no paired tool-role message. Non-null
     values can be JSON-decoded unconditionally.
     """

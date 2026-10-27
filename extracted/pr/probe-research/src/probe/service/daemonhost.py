@@ -38,6 +38,7 @@ import re
 import select
 import signal
 import socket
+import struct
 import subprocess
 import threading
 import time
@@ -63,6 +64,8 @@ ACK_TIMEOUT_S = 10.0
 #: A message to the host waits this long for room in its socket; a host that
 #: stopped reading longer is killed (`poll`).
 SEND_TIMEOUT_S = 10.0
+#: The longest one blocking send() may take before it returns what it sent (whole seconds).
+SEND_SLICE_S = 1
 HUNG_S = 60.0
 #: `host.MAX_LINE`: the longest message the host reads (a test keeps them equal).
 MAX_LINE = 4 * 1024 * 1024
@@ -213,11 +216,17 @@ class _Proc:
         #: the service's own kill, never a crash of every run.
         self.killed_by_service = False
         self.started_at = time.monotonic()
+        # MSG_DONTWAIT alone does not bound a send everywhere: macOS's send()
+        # ignores it, and a send to a host that stopped reading blocked for good
+        # (agent-ci service-macos). A send timeout bounds each blocking send at
+        # SEND_SLICE_S and leaves the reader's recv on the same socket blocking.
+        with contextlib.suppress(OSError, AttributeError):
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDTIMEO, struct.pack("ll", SEND_SLICE_S, 0))
 
     def send(self, obj: dict) -> bool:
-        """`obj` to the host, within SEND_TIMEOUT_S: a host that stopped reading is
-        killed, never waited for (the reader's recv shares the socket, so no
-        timeout is set on it)."""
+        """`obj` to the host, within SEND_TIMEOUT_S (plus at most one SEND_SLICE_S):
+        a host that stopped reading is killed, never waited for (the reader's recv
+        shares the socket, so only a SEND timeout is set on it)."""
         data = memoryview((json.dumps(obj, separators=(",", ":")) + "\n").encode())
         deadline = time.monotonic() + SEND_TIMEOUT_S
         with self.send_lock:

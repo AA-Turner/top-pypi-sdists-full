@@ -222,6 +222,7 @@ class CfnExport(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -282,7 +283,7 @@ class CfnExport(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c8ce26f4856f4fbb56e9f2fa30a5520af71bb0fab07aab599f3d350bcd7af208)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "export", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "export", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -297,7 +298,7 @@ class CfnExport(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ad623342e4c1e6ad8d0a1e800f480ca841fcc2866deb4be0a499fc18bffc658)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bcmdataexports.CfnExport.DataQueryProperty",

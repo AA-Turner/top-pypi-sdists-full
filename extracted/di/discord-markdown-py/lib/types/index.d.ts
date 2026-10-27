@@ -112,4 +112,86 @@ export type Block = Empty | Heading | List | Quote | Small;
 
 export type NodeType = Inline["type"] | Block["type"];
 
+// The lossless tree, as `parseLossless` returns it: nodes for what the markdown means, and tokens
+// holding every character of the source in order, so joining their text gives it back exactly.
+
+/** A region of the source, from `start` up to `end`, in UTF-16 code units: string indices. */
+export type Span = { start: number; end: number };
+
+export type ModifierKind =
+	| "bold"
+	| "italic"
+	| "underline"
+	| "strikethrough"
+	| "spoiler";
+
+/** How a link was written: bare, `<url>`, `<email>` or `<+phone>`, or `[text](url)`. */
+export type LinkKind = "detected" | "auto" | "contact" | "masked";
+
+export type LosslessNodeKind =
+	| EmptyNode<"document">
+	| EmptyNode<"paragraph">
+	| Node<"heading", { level: number }>
+	| EmptyNode<"small">
+	// `> ` on every line, or `>>> ` quoting the rest
+	| Node<"quote", "line" | "rest">
+	// the list's kind as written on its first item
+	| Node<"list", Node<"ordered", number> | EmptyNode<"unordered">>
+	| EmptyNode<"list_item">
+	| EmptyNode<"empty">
+	// A modifier covering several blocks is a fragment inside each, sharing an `id` with the
+	// others and with its delimiter tokens.
+	| Node<"modifier", { kind: ModifierKind; id: number }>
+	// unescaped
+	| Text
+	| Code
+	| CodeBlock
+	| Emoji
+	| Mention
+	| Timestamp
+	// a link's text, if it has any, is its child nodes
+	| Node<"link", { kind: LinkKind; url: string; title: string | null }>;
+
+export type TokenKind =
+	| EmptyNode<"text">
+	// the backslash of an escape; the escaped character is the text after it
+	| EmptyNode<"escape">
+	| Node<
+			"delimiter",
+			{ kind: ModifierKind; id: number; side: "open" | "close" }
+	  >
+	| EmptyNode<"code_delimiter">
+	| EmptyNode<"code_content">
+	| EmptyNode<"code_fence">
+	| EmptyNode<"language">
+	// an emoji, mention or timestamp, as written
+	| EmptyNode<"atom">
+	// `[` or `<`, and `]` or `>`
+	| EmptyNode<"link_open">
+	| EmptyNode<"link_close">
+	// `(` and `)` around a masked link's destination
+	| EmptyNode<"destination_open">
+	| EmptyNode<"destination_close">
+	| EmptyNode<"url">
+	| EmptyNode<"title">
+	| EmptyNode<"line_ending">
+	| EmptyNode<"quote_prefix">
+	| EmptyNode<"indent">
+	| EmptyNode<"list_marker">
+	| EmptyNode<"heading_marker">
+	| EmptyNode<"small_marker">
+	| EmptyNode<"whitespace">;
+
+export type Token = { kind: TokenKind; text: string; span: Span };
+
+export type LosslessNode = {
+	kind: LosslessNodeKind;
+	span: Span;
+	children: LosslessChild[];
+};
+
+export type LosslessChild =
+	| ({ type: "node" } & LosslessNode)
+	| ({ type: "token" } & Token);
+
 export { Syntax, type SyntaxFlags } from "./syntax.js";

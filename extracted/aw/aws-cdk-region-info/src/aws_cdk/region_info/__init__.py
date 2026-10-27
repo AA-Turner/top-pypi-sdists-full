@@ -133,6 +133,7 @@ class Default(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Default")
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VPC_ENDPOINT_SERVICE_NAME_PREFIX")
+    @builtins.classmethod
     def VPC_ENDPOINT_SERVICE_NAME_PREFIX(cls) -> builtins.str:
         '''(deprecated) The default value for a VPC Endpoint Service name prefix, useful if you do not have a synthesize-time region literal available (all you have is ``{ "Ref": "AWS::Region" }``).
 
@@ -230,6 +231,7 @@ class Fact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Fact"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="names")
+    @builtins.classmethod
     def names(cls) -> typing.List[builtins.str]:
         '''Returns the list of names of registered facts.
 
@@ -239,6 +241,7 @@ class Fact(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Fact"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="regions")
+    @builtins.classmethod
     def regions(cls) -> typing.List[builtins.str]:
         '''
         :return:
@@ -359,12 +362,14 @@ class FactName(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.FactName
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPMESH_ECR_ACCOUNT")
+    @builtins.classmethod
     def APPMESH_ECR_ACCOUNT(cls) -> builtins.str:
         '''The ID of the AWS account that owns the public ECR repository that contains the AWS App Mesh Envoy Proxy images in a given region.'''
         return typing.cast(builtins.str, jsii.sget(cls, "APPMESH_ECR_ACCOUNT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CDK_METADATA_RESOURCE_AVAILABLE")
+    @builtins.classmethod
     def CDK_METADATA_RESOURCE_AVAILABLE(cls) -> builtins.str:
         '''Whether the AWS::CDK::Metadata CloudFormation Resource is available in-region or not.
 
@@ -375,36 +380,42 @@ class FactName(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.FactName
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DLC_REPOSITORY_ACCOUNT")
+    @builtins.classmethod
     def DLC_REPOSITORY_ACCOUNT(cls) -> builtins.str:
         '''The ID of the AWS account that owns the public ECR repository that contains the AWS Deep Learning Containers images in a given region.'''
         return typing.cast(builtins.str, jsii.sget(cls, "DLC_REPOSITORY_ACCOUNT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DOMAIN_SUFFIX")
+    @builtins.classmethod
     def DOMAIN_SUFFIX(cls) -> builtins.str:
         '''The domain suffix for a region (e.g: 'amazonaws.com`).'''
         return typing.cast(builtins.str, jsii.sget(cls, "DOMAIN_SUFFIX"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EBS_ENV_ENDPOINT_HOSTED_ZONE_ID")
+    @builtins.classmethod
     def EBS_ENV_ENDPOINT_HOSTED_ZONE_ID(cls) -> builtins.str:
         '''The hosted zone ID used by Route 53 to alias a EBS environment endpoint in this region (e.g: Z2O1EMRO9K5GLX).'''
         return typing.cast(builtins.str, jsii.sget(cls, "EBS_ENV_ENDPOINT_HOSTED_ZONE_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELBV2_ACCOUNT")
+    @builtins.classmethod
     def ELBV2_ACCOUNT(cls) -> builtins.str:
         '''The account for ELBv2 in this region.'''
         return typing.cast(builtins.str, jsii.sget(cls, "ELBV2_ACCOUNT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FIREHOSE_CIDR_BLOCK")
+    @builtins.classmethod
     def FIREHOSE_CIDR_BLOCK(cls) -> builtins.str:
         '''The CIDR block used by Amazon Data Firehose servers.'''
         return typing.cast(builtins.str, jsii.sget(cls, "FIREHOSE_CIDR_BLOCK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IS_OPT_IN_REGION")
+    @builtins.classmethod
     def IS_OPT_IN_REGION(cls) -> builtins.str:
         '''Whether the given region is an opt-in region or not.
 
@@ -415,36 +426,42 @@ class FactName(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.FactName
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LATEST_NODE_RUNTIME")
+    @builtins.classmethod
     def LATEST_NODE_RUNTIME(cls) -> builtins.str:
         '''The latest Lambda NodeJS runtime available in a given region.'''
         return typing.cast(builtins.str, jsii.sget(cls, "LATEST_NODE_RUNTIME"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PARTITION")
+    @builtins.classmethod
     def PARTITION(cls) -> builtins.str:
         '''The name of the partition for a region (e.g: 'aws', 'aws-cn', ...).'''
         return typing.cast(builtins.str, jsii.sget(cls, "PARTITION"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_STATIC_WEBSITE_ENDPOINT")
+    @builtins.classmethod
     def S3_STATIC_WEBSITE_ENDPOINT(cls) -> builtins.str:
         '''The endpoint used for hosting S3 static websites.'''
         return typing.cast(builtins.str, jsii.sget(cls, "S3_STATIC_WEBSITE_ENDPOINT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="S3_STATIC_WEBSITE_ZONE_53_HOSTED_ZONE_ID")
+    @builtins.classmethod
     def S3_STATIC_WEBSITE_ZONE_53_HOSTED_ZONE_ID(cls) -> builtins.str:
         '''The endpoint used for aliasing S3 static websites in Route 53.'''
         return typing.cast(builtins.str, jsii.sget(cls, "S3_STATIC_WEBSITE_ZONE_53_HOSTED_ZONE_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAML_SIGN_ON_URL")
+    @builtins.classmethod
     def SAML_SIGN_ON_URL(cls) -> builtins.str:
         '''The SAML Sign On URL for partition used by IAM SAML Principal.'''
         return typing.cast(builtins.str, jsii.sget(cls, "SAML_SIGN_ON_URL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VPC_ENDPOINT_SERVICE_NAME_PREFIX")
+    @builtins.classmethod
     def VPC_ENDPOINT_SERVICE_NAME_PREFIX(cls) -> builtins.str:
         '''The prefix for VPC Endpoint Service names, cn.com.amazonaws.vpce for China regions, com.amazonaws.vpce otherwise.'''
         return typing.cast(builtins.str, jsii.sget(cls, "VPC_ENDPOINT_SERVICE_NAME_PREFIX"))
@@ -663,6 +680,7 @@ class RegionInfo(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/region-info.Region
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="regions")
+    @builtins.classmethod
     def regions(cls) -> typing.List["RegionInfo"]:
         '''
         :return:

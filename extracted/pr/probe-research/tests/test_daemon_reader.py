@@ -180,8 +180,6 @@ def test_every_approved_reads_file_is_pinned_here():
             "agent-facing/ask-inline.NEW.md",
             "skills/track-work/RENDERED.main-agent.md", "skills/track-work/RENDERED.writer.md",
             "skills/edit-notes/RENDERED.main-agent.md", "skills/edit-notes/RENDERED.writer.md",
-            # pinned in test_daemon_reader_gate.py
-            "gate/gate-instructions.NEW.md", "gate/final_result.NEW.md",
             # the `bash` tool set: pinned in test_daemon_bash_tools.py
             "tools/bash.NEW.md", "bash-text.NEW.md"}
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md")} == used
@@ -1141,7 +1139,7 @@ def test_with_prompt_wakes_off_a_prompt_alone_wakes_nothing(tmp_path, monkeypatc
     w = _worker(tmp_path, clock=lambda: now[0])
     lane = _lane(w, Reader())
     lane.last_turn_at = now[0]  # the events timer is not due
-    assert w.store.has_prompt_after(lane.mark(), new=True)
+    assert w.store.has_prompt_after(lane.cursor(), new=True)
     assert lane.due() is None, "the researcher's prompt alone: no turn"
     now[0] += rl.READ_EVERY_S
     assert lane.due() == "events", "the new events still wake it on the timer"

@@ -309,6 +309,7 @@ __all__ = (
     "TrafficTypeType",
     "TrendIndicatorType",
     "UnitType",
+    "UpdateOutboundEmailMessageSourceTypeType",
     "UseCaseTypeType",
     "VideoCapabilityType",
     "ViewStatusType",
@@ -1087,7 +1088,7 @@ RealTimeContactAnalysisSupportedChannelType = Literal["CHAT", "VOICE"]
 RecordingStatusType = Literal["AVAILABLE", "DELETED"]
 RecurrenceFrequencyType = Literal["MONTHLY", "WEEKLY", "YEARLY"]
 ReferenceStatusType = Literal[
-    "APPROVED", "AVAILABLE", "DELETED", "FAILED", "PROCESSING", "REJECTED"
+    "APPROVED", "AVAILABLE", "DELETED", "DRAFTING", "FAILED", "PROCESSING", "REJECTED"
 ]
 ReferenceTypeType = Literal[
     "ATTACHMENT",
@@ -1195,6 +1196,7 @@ TrafficDistributionGroupStatusType = Literal[
 TrafficTypeType = Literal["CAMPAIGN", "GENERAL"]
 TrendIndicatorType = Literal["NEGATIVE", "NEUTRAL", "POSITIVE"]
 UnitType = Literal["COUNT", "PERCENT", "SECONDS"]
+UpdateOutboundEmailMessageSourceTypeType = Literal["RAW"]
 UseCaseTypeType = Literal["CONNECT_CAMPAIGNS", "RULES_EVALUATION"]
 VideoCapabilityType = Literal["SEND"]
 ViewStatusType = Literal["PUBLISHED", "SAVED"]

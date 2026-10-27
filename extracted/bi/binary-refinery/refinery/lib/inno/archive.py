@@ -18,18 +18,21 @@ import functools
 import lzma
 import re
 import struct
+import weakref
 import zlib
 
-from datetime import datetime, timezone
 from functools import cached_property
 from hashlib import md5, pbkdf2_hmac, sha1, sha256
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Callable, Iterator, NamedTuple
 
-from refinery.lib.decompression import parse_lzma_properties
+from refinery.lib.decompression import decompress_pieces, inflate_pieces, parse_lzma_properties
+from refinery.lib.dt import filetime
 from refinery.lib.inno.ifps import IFPSFile
+from refinery.lib.inno.release import ReleaseRange, SetupRelease, next_release
 from refinery.lib.lcid import DEFAULT_CODEPAGE, LCID
+from refinery.lib.solid import SolidStream, SolidStreamTruncated
 from refinery.lib.structures import Struct, StructReader, StructReaderBits
-from refinery.lib.tools import exception_to_string, one
+from refinery.lib.tools import copy_exception, exception_to_string, one
 from refinery.lib.types import buf
 from refinery.units import Unit
 
@@ -38,6 +41,8 @@ if TYPE_CHECKING:
         ClassVar,
         TypeVar,
     )
+
+    from refinery.lib.inno.host import SetupConstants
     _T = TypeVar('_T', bound=Struct)
     _E = TypeVar('_E', bound=enum.IntEnum)
 
@@ -48,6 +53,16 @@ class InvalidPassword(ValueError):
             super().__init__('A password is required and none was given.')
         else:
             super().__init__('The given password is not correct.')
+
+
+class InnoChecksumMismatch(ValueError):
+    """
+    Raised when the data of a file does not match its checksum. The data is available as the
+    attribute `data` of the exception.
+    """
+    def __init__(self, message: str, data: buf):
+        super().__init__(message)
+        self.data = data
 
 
 class IncorrectVersion(RuntimeError):
@@ -166,7 +181,6 @@ class InnoVersion(NamedTuple):
 
 _I = InnoVersion
 
-_FILE_TIME_1970_01_01 = 116444736000000000
 _DEFAULT_INNO_VERSION = _I(5, 0, 0, 0, IVF.UTF_16)
 
 _IS_AMBIGUOUS = {
@@ -298,11 +312,51 @@ _IS_AMBIGUOUS = {
     _I(6, 7,  1, 0, IVF.UTF_16): False, # noqa
     _I(6, 7,  2, 0, IVF.UTF_16): False, # noqa
     _I(6, 7,  3, 0, IVF.UTF_16): False, # noqa
+    _I(7, 0,  0, 1, IVF.UTF_16): False, # noqa
     _I(7, 0,  0, 3, IVF.UTF_16): False, # noqa
     _I(7, 0,  1, 0, IVF.UTF_16): False, # noqa
 }
 
 _VERSIONS = sorted(_IS_AMBIGUOUS)
+
+_TEXT_DIRECTIVE_FIELDS = {
+    'AppName'               : 'AppName',
+    'AppVerName'            : 'AppVersionedName',
+    'AppVersion'            : 'AppVersion',
+    'AppCopyright'          : 'AppCopyright',
+    'AppMutex'              : 'AppMutex',
+    'SetupMutex'            : 'SetupMutex',
+    'AppId'                 : 'AppId',
+    'DefaultUserInfoName'   : 'DefaultUsername',
+    'DefaultUserInfoOrg'    : 'DefaultOrganisation',
+    'DefaultUserInfoSerial' : 'DefaultSerial',
+    'DefaultDirName'        : 'DefaultDirName',
+    'DefaultGroupName'      : 'DefaultGroupName',
+    'UninstallFilesDir'     : 'UninstallFilesDir',
+    'UninstallDisplayName'  : 'UninstallName',
+    'UninstallDisplayIcon'  : 'UninstallIcon',
+    'AppPublisher'          : 'AppPublisher',
+    'AppPublisherURL'       : 'AppPublisherUrl',
+    'AppSupportPhone'       : 'AppSupportPhone',
+    'AppSupportURL'         : 'AppSupportUrl',
+    'AppUpdatesURL'         : 'AppUpdatesUrl',
+    'AppReadmeFile'         : 'AppReadmeFile',
+    'AppContact'            : 'AppContact',
+    'AppComments'           : 'AppComment',
+    'AppModifyPath'         : 'AppModifyPath',
+}
+"""
+The fields of the setup header that hold the texts of `TextDirective`, by directive.
+"""
+
+_SETUP_PROGRAM_RELEASE = [
+    re.compile(BR'Inno Setup version (\d+)\.(\d+)\.(\d+)'),
+    re.compile(BR'I\0n\0n\0o\0 \0S\0e\0t\0u\0p\0 \0v\0e\0r\0s\0i\0o\0n\0 \0((?:\d\0)+)\.\0((?:\d\0)+)\.\0((?:\d\0)+)'),
+]
+"""
+The text in which the setup program of an installer names its release, in ANSI and in Unicode
+builds.
+"""
 
 
 class InnoStruct(Struct):
@@ -310,15 +364,19 @@ class InnoStruct(Struct):
         if version.unicode:
             self._read_string = functools.partial(
                 reader.read_length_prefixed_utf16, bytecount=True)
+            self._decode = functools.partial(codecs.decode, encoding='utf-16le', errors='replace')
         else:
-            def _read():
-                data = reader.read_length_prefixed()
+            def _decode(data: bytes | bytearray | memoryview) -> str:
                 try:
                     return codecs.decode(data, codec)
                 except (LookupError, UnicodeDecodeError):
                     # TODO
                     return codecs.decode(data, 'latin1')
+
+            def _read():
+                return _decode(reader.read_length_prefixed())
             self._read_string = _read
+            self._decode = _decode
 
 
 class CheckSumType(enum.IntEnum):
@@ -496,12 +554,16 @@ class CompressionMethod(enum.IntEnum):
 
 
 class Architecture(enum.IntFlag):
-    Unknown = 0b00000 # noqa
-    X86     = 0b00001 # noqa
-    AMD64   = 0b00010 # noqa
-    IA64    = 0b00100 # noqa
-    ARM64   = 0b01000 # noqa
-    All     = 0b01111 # noqa
+    """
+    A set of processor architectures as Setup stores the architecture directives before 6.3.0:
+    Delphi's `set of TSetupProcessorArchitecture`, where bit k stands for the architecture with
+    ordinal k of `(paUnknown, paX86, paX64, paIA64, paARM64)`.
+    """
+    Unknown = 0b00001 # noqa
+    X86     = 0b00010 # noqa
+    X64     = 0b00100 # noqa
+    IA64    = 0b01000 # noqa
+    ARM64   = 0b10000 # noqa
 
 
 class SetupEntryBitness(enum.IntEnum):
@@ -814,6 +876,12 @@ class SetupHeader(InnoStruct):
             # skip uncompressed size
             reader.u32()
 
+        self.AppId = self.AppPublisher = self.AppPublisherUrl = self.AppSupportPhone = None
+        self.AppSupportUrl = self.AppUpdatesUrl = self.AppVersion = self.UninstallFilesDir = None
+        self.UninstallName = self.UninstallIcon = self.AppMutex = self.DefaultUsername = None
+        self.DefaultOrganisation = self.DefaultSerial = self.AppReadmeFile = self.AppContact = None
+        self.AppComment = self.AppModifyPath = self.SetupMutex = None
+
         if True:
             self.AppName = read_string()
             self.AppVersionedName = read_string()
@@ -860,12 +928,8 @@ class SetupHeader(InnoStruct):
             self.AppContact = read_string()
             self.AppComment = read_string()
             self.AppModifyPath = read_string()
-        if version >= (5, 3, 8):
-            self.CreateUninstallRegistryKey = read_string()
-        if version >= (5, 3, 10):
-            self.Uninstallable = read_string()
-        else:
-            self.Uninstallable = B''
+        self.CreateUninstallRegistryKey = read_string() if version >= (5, 3, 8) else None
+        self.Uninstallable = read_string() if version >= (5, 3, 10) else None
         if version >= (5, 5, 0):
             self.CloseApplicationsFilter = read_string()
         if version >= (5, 5, 6):
@@ -873,9 +937,12 @@ class SetupHeader(InnoStruct):
         if version >= (5, 6, 1):
             self.ChangesEnvironment = read_string()
             self.ChangesAssociations = read_string()
+        else:
+            self.ChangesEnvironment = None
+            self.ChangesAssociations = None
         if version >= (6, 3, 0):
-            self.ArchitecturesAllowed32 = read_string()
-            self.ArchitecturesAllowed64 = read_string()
+            self.ArchitecturesAllowed = self._read_string()
+            self.ArchitecturesInstallIn64BitMode = self._read_string()
         if version >= (6, 4, 2):
             self.CloseApplicationsFilterExcludes = read_string()
         if version >= (6, 5, 0):
@@ -1082,15 +1149,12 @@ class SetupHeader(InnoStruct):
                 method = method.legacy_conversion_pre_5_3_9()
             self.CompressionMethod = method
 
-        if version >= (6, 3, 0):
-            self.ArchitecturesAllowed = Architecture.Unknown
-            self.ArchitecturesInstalled64 = Architecture.Unknown
-        elif version >= (5, 1, 0):
+        if (5, 1, 0) <= version < (6, 3, 0):
             self.ArchitecturesAllowed = Architecture(reader.u8())
-            self.ArchitecturesInstalled64 = Architecture(reader.u8())
-        else:
-            self.ArchitecturesAllowed = Architecture.All
-            self.ArchitecturesInstalled64 = Architecture.All
+            self.ArchitecturesInstallIn64BitMode = Architecture(reader.u8())
+        elif version < (5, 1, 0):
+            self.ArchitecturesAllowed = Architecture(0)
+            self.ArchitecturesInstallIn64BitMode = Architecture(0)
 
         if (5, 2, 1) <= version < (5, 3, 10):
             self.UninstallerOriginalSize = reader.u32()
@@ -1279,6 +1343,28 @@ class SetupHeader(InnoStruct):
     def get_license(self):
         return self._license
 
+    def text(self, directive: TextDirective) -> str | None:
+        """
+        The text of a directive that Setup expands, `None` when the version of the installer does
+        not have the directive.
+        """
+        return getattr(self, _TEXT_DIRECTIVE_FIELDS[directive])
+
+    def directive(self, name: YesNoDirective) -> SetupDirective:
+        """
+        A yes-or-no directive as Setup reads it: the text of the directive, or the flag that older
+        versions keep instead of a text.
+        """
+        text, flag = {
+            YesNoDirective.Uninstallable         : (self.Uninstallable, Flags.Uninstallable),
+            YesNoDirective.CreateUninstallRegKey : (self.CreateUninstallRegistryKey, Flags.CreateUninstallRegKey),
+            YesNoDirective.ChangesEnvironment    : (self.ChangesEnvironment, Flags.ChangesEnvironment),
+            YesNoDirective.ChangesAssociations   : (self.ChangesAssociations, Flags.ChangesAssociations),
+        }[name]
+        if TYPE_CHECKING:
+            assert isinstance(text, str | None)
+        return SetupDirective.read(text, bool(self.Flags & flag))
+
     def get_script(self):
         return self._CompiledCode
 
@@ -1324,8 +1410,10 @@ class SetupHeader(InnoStruct):
             'UninstallName',
         ]:
             try:
-                value: bytes = getattr(self, coded_string_attribute)
+                value: bytes | None = getattr(self, coded_string_attribute)
             except AttributeError:
+                continue
+            if value is None:
                 continue
             if not isinstance(value, (bytes, bytearray, memoryview)):
                 raise RuntimeError(F'Attempting to decode {coded_string_attribute} which was already decoded.')
@@ -1386,12 +1474,14 @@ class SetupLanguage(InnoStruct):
         self.TitleFont = read_string() if version < (6, 6, 0) else None
         self.WelcomeFont = read_string()
         self.CopyrightFont = read_string() if version < (6, 6, 0) else None
-        self._data = reader.read_length_prefixed()
+        self._compiled_messages = reader.read_length_prefixed()
 
         if version >= (4, 0, 1):
             self.LicenseText = reader.read_length_prefixed_ascii()
             self.InfoBefore = reader.read_length_prefixed_ascii()
             self.InfoAfter = reader.read_length_prefixed_ascii()
+        else:
+            self.LicenseText = self.InfoBefore = self.InfoAfter = ''
 
         self.LanguageId = LanguageId(reader, version)
 
@@ -1509,11 +1599,14 @@ class XChaChaMixin(SetupEncryptionHeader):
         return self.PasswordTest == self.decrypt(
             password_bytes, bytes(4), 0, SpecialCryptContext.PasswordTest)
 
-    def decrypt(self, password_bytes: buf, data: buf, chunk_start: int, first_slice: int) -> buf:
+    def decrypt(self, password_bytes: buf, data: buf, chunk_start: int, first_slice: int) -> bytes:
         key = self._derive(password_bytes)
-        from refinery.units.crypto.cipher.chacha import xchacha
-        nonce = self.PasswordSeed.BaseNonce.compile(chunk_start, first_slice)
-        return data | xchacha(key, nonce=nonce) | bytes
+        from Crypto.Cipher import ChaCha20
+        seed = self.PasswordSeed
+        assert isinstance(seed, XChaChaParams)
+        nonce = seed.BaseNonce.compile(chunk_start, first_slice)
+        cipher = ChaCha20.new(key=key, nonce=nonce)
+        return cipher.decrypt(data)
 
 
 class SetupEncryptionHeaderV1(Struct, SetupEncryptionHeader):
@@ -1586,7 +1679,7 @@ class SetupISSignature(InnoStruct):
         self.RuntimeID = read_string()
 
 
-class SetupMessage(InnoStruct):
+class SetupCustomMessage(InnoStruct):
 
     def __init__(self, reader: StructReader[memoryview], version: InnoVersion, parent: TSetup):
         super().__init__(reader, version, parent.Codec)
@@ -1623,10 +1716,8 @@ class SetupType(InnoStruct):
         read_string = self._read_string
         self.Name = read_string()
         self.Description = read_string()
-        if version >= (4, 0, 1):
-            self.Languages = read_string()
-        if version >= (4, 0, 0) or version.isx and version >= (1, 3, 24):
-            self.Check = read_string()
+        self.Languages = read_string() if version >= (4, 0, 1) else None
+        self.Check = read_string() if version >= (4, 0, 0) or version.isx and version >= (1, 3, 24) else None
         self.WindowsVersion = WinVerRange(reader, version)
         self.CustsomTypeCode = reader.u8()
         if version >= (4, 0, 3):
@@ -1647,12 +1738,9 @@ class SetupComponent(InnoStruct):
         self.Name = read_string()
         self.Description = read_string()
         self.Types = read_string()
-        if version >= (4, 0, 1):
-            self.Languages = read_string()
-        if version >= (4, 0, 0) or version.isx and version >= (1, 3, 24):
-            self.Check = read_string()
-        if version >= (4, 0, 0):
-            self.ExtraDiskSpace = reader.u64()
+        self.Languages = read_string() if version >= (4, 0, 1) else None
+        self.Check = read_string() if version >= (4, 0, 0) or version.isx and version >= (1, 3, 24) else None
+        self.ExtraDiskSpace = reader.u64() if version >= (4, 0, 0) else None
         if version >= (6, 7, 0):
             self.Level = reader.u8()
         elif version >= (4, 0, 0) or version.isx and version >= (3, 0, 3):
@@ -1670,6 +1758,8 @@ class SetupComponent(InnoStruct):
             self.Size = reader.u64()
         elif version >= (2, 0, 0) or version.isx and version >= (1, 3, 24):
             self.Size = reader.u32()
+        else:
+            self.Size = None
 
 
 class SetupTaskFlags(enum.IntFlag):
@@ -1691,11 +1781,8 @@ class SetupTask(InnoStruct):
         self.Description = read_string()
         self.GroupDescription = read_string()
         self.Components = read_string()
-
-        if version >= (4, 0, 1):
-            self.Languages = read_string()
-        if version >= (4, 0, 0) or version.isx and version >= (1, 3, 24):
-            self.Check = read_string()
+        self.Languages = read_string() if version >= (4, 0, 1) else None
+        self.Check = read_string() if version >= (4, 0, 0) or version.isx and version >= (1, 3, 24) else None
         if version >= (6, 7, 0):
             self.Level = reader.u8()
         elif version >= (4, 0, 0) or version.isx and version >= (3, 0, 3):
@@ -1732,19 +1819,16 @@ class SetupCondition(InnoStruct):
     def __init__(self, reader: StructReader[memoryview], version: InnoVersion, parent: TSetup):
         super().__init__(reader, version, parent.Codec)
         read_string = self._read_string
-        if version >= (2, 0, 0) or version.isx and version >= (1, 3, 8):
-            self.Components = read_string()
-        if version >= (2, 0, 0) or version.isx and version >= (1, 3, 17):
-            self.Tasks = read_string()
-        if version >= (4, 0, 1):
-            self.Languages = read_string()
-        if version >= (4, 0, 0) or version.isx and version >= (1, 3, 24):
-            self.Check = read_string()
-        else:
-            self.Check = None
+        self.Components = read_string() if version >= (2, 0, 0) or version.isx and version >= (1, 3, 8) else None
+        self.Tasks = read_string() if version >= (2, 0, 0) or version.isx and version >= (1, 3, 17) else None
+        self.Languages = read_string() if version >= (4, 0, 1) else None
+        self.Check = read_string() if version >= (4, 0, 0) or version.isx and version >= (1, 3, 24) else None
         if version >= (4, 1, 0):
             self.AfterInstall = read_string()
             self.BeforeInstall = read_string()
+        else:
+            self.AfterInstall = None
+            self.BeforeInstall = None
 
 
 class SetupDirectoryFlags(enum.IntFlag):
@@ -1862,6 +1946,12 @@ class SetupFileVerification(InnoStruct):
         self.ISSigAllowedKeys = reader.read_length_prefixed_ascii()
         self.Hash = reader.read_exactly(32)
         self.Type = _enum(SetupFileVerificationType, reader.u8(), SetupFileVerificationType.Nothing)
+
+
+_EXTERNAL_LOCATION = 0xFFFFFFFF
+"""
+The location of a file entry that is not in the installer.
+"""
 
 
 class SetupFile(InnoStruct):
@@ -2004,6 +2094,15 @@ class SetupFile(InnoStruct):
 
         self.Type = SetupFileType(reader.u8())
 
+    @property
+    def external(self) -> bool:
+        """
+        Whether the data of the file is not in the installer: Setup takes it from its source on the
+        machine or downloads it. The entry of the uninstaller, which Setup writes from itself, is
+        external too.
+        """
+        return self.Location == _EXTERNAL_LOCATION
+
 
 class SetupIconCloseSetting(enum.IntEnum):
     NoSetting       = 0           # noqa
@@ -2040,10 +2139,8 @@ class SetupIcon(InnoStruct):
 
         self.Condition = SetupCondition(reader, version, parent)
 
-        if version >= (5, 3, 5):
-            self.AppUserModelId = self._read_string()
-        if version >= (6, 1, 0):
-            self.AppUserModelToastActivatorCLSID = str(reader.read_guid())
+        self.AppUserModelId = self._read_string() if version >= (5, 3, 5) else None
+        self.AppUserModelToastActivatorCLSID = str(reader.read_guid()) if version >= (6, 1, 0) else None
 
         self.WindowsVersion = WinVerRange(reader, version)
         self.IconIndex = reader.i32()
@@ -2106,7 +2203,7 @@ class SetupIniEntry(InnoStruct):
 
         self.Section = self._read_string()
         self.Key = self._read_string()
-        self.Codepage = self._read_string()
+        self.Value = self._read_string()
         self.Condition = SetupCondition(reader, version, parent)
         self.WindowsVersion = WinVerRange(reader, version)
         self.Flags = SetupIniFlags(reader.u8())
@@ -2148,8 +2245,7 @@ class SetupRegistryEntry(InnoStruct):
 
         if True:
             self.Key = self._read_string()
-        if version.bits > 16:
-            self.Name = self._read_string()
+        self.Name = self._read_string() if version.bits > 16 else None
         if True:
             self.Value = reader.read_length_prefixed()
             self.Condition = SetupCondition(reader, version, parent)
@@ -2160,6 +2256,10 @@ class SetupRegistryEntry(InnoStruct):
         self.Hive = reader.u32() & 0x7FFFFFFF if version.bits > 16 else None
         self.Permissions = reader.u16() if version >= (4, 1, 0) else None
         self.Type = SetupRegistryType(reader.u8())
+        if self.Type in (SetupRegistryType.Unset, SetupRegistryType.Binary):
+            self.ValueText = None
+        else:
+            self.ValueText = self._decode(self.Value)
 
         if version >= (7, 0, 0, 3):
             self.Bitness = SetupEntryBitness(reader.u8())
@@ -2244,18 +2344,14 @@ class SetupRunEntry(InnoStruct):
         self.Parameters = self._read_string()
         self.WorkingDir = self._read_string()
 
-        if version >= (1, 3, 9):
-            self.RunOnceId = self._read_string()
-        if version >= (2, 0, 2):
-            self.StatusMessage = self._read_string()
-        if version >= (5, 1, 13):
-            self.Verb = self._read_string()
-        if version >= (2, 0, 0) or version.isx:
-            self.Description = self._read_string()
+        self.RunOnceId = self._read_string() if version >= (1, 3, 9) else None
+        self.StatusMessage = self._read_string() if version >= (2, 0, 2) else None
+        self.Verb = self._read_string() if version >= (5, 1, 13) else None
+        self.Description = self._read_string() if version >= (2, 0, 0) or version.isx else None
 
         self.Condition = SetupCondition(reader, version, parent)
 
-        if version >= (7, 0, 0, 3):
+        if version >= (7, 0, 0, 1):
             self.OnLog = self._read_string()
         else:
             self.OnLog = None
@@ -2298,6 +2394,174 @@ class SetupRunEntry(InnoStruct):
         reader.byte_align()
 
 
+class TextDirective(enum.StrEnum):
+    """
+    The directives of the setup header whose texts Setup expands, by their names in the script of
+    the installer.
+    """
+    AppName = 'AppName'
+    AppVerName = 'AppVerName'
+    AppVersion = 'AppVersion'
+    AppCopyright = 'AppCopyright'
+    AppMutex = 'AppMutex'
+    SetupMutex = 'SetupMutex'
+    AppId = 'AppId'
+    DefaultUserInfoName = 'DefaultUserInfoName'
+    DefaultUserInfoOrg = 'DefaultUserInfoOrg'
+    DefaultUserInfoSerial = 'DefaultUserInfoSerial'
+    DefaultDirName = 'DefaultDirName'
+    DefaultGroupName = 'DefaultGroupName'
+    UninstallFilesDir = 'UninstallFilesDir'
+    UninstallDisplayName = 'UninstallDisplayName'
+    UninstallDisplayIcon = 'UninstallDisplayIcon'
+    AppPublisher = 'AppPublisher'
+    AppPublisherURL = 'AppPublisherURL'
+    AppSupportPhone = 'AppSupportPhone'
+    AppSupportURL = 'AppSupportURL'
+    AppUpdatesURL = 'AppUpdatesURL'
+    AppReadmeFile = 'AppReadmeFile'
+    AppContact = 'AppContact'
+    AppComments = 'AppComments'
+    AppModifyPath = 'AppModifyPath'
+
+
+class SetupMessageName(enum.StrEnum):
+    """
+    The messages that Setup uses by name where the emulator follows it.
+    """
+    ButtonBack = 'ButtonBack'
+    ButtonNext = 'ButtonNext'
+    FullInstallation = 'FullInstallation'
+    CompactInstallation = 'CompactInstallation'
+    CustomInstallation = 'CustomInstallation'
+    ReadyMemoComponents = 'ReadyMemoComponents'
+    ReadyMemoDir = 'ReadyMemoDir'
+    ReadyMemoGroup = 'ReadyMemoGroup'
+    ReadyMemoTasks = 'ReadyMemoTasks'
+    ReadyMemoType = 'ReadyMemoType'
+    ReadyMemoUserInfo = 'ReadyMemoUserInfo'
+    ErrorInternal2 = 'ErrorInternal2'
+
+
+class _MessageList(NamedTuple):
+    lowest: tuple[int, int, int]
+    below: tuple[int, int, int] | None
+    positions: tuple[int, ...]
+
+
+_MESSAGE_LISTS: dict[tuple[tuple[int, ...], int], _MessageList] = {
+    ((5, 1, 11), 207) : _MessageList((5, 1, 11), (5, 5, 0), (10, 16, 83, 27, 35, 124, 125, 126, 127, 128, 129, 54)),
+    ((5, 5, 0), 220)  : _MessageList((5, 5, 0), (5, 5, 3), (12, 18, 89, 32, 40, 131, 132, 133, 134, 135, 136, 60)),
+    ((5, 5, 3), 221)  : _MessageList((5, 5, 3), (6, 0, 0), (12, 18, 90, 32, 40, 132, 133, 134, 135, 136, 137, 61)),
+    ((6, 0, 0), 240)  : _MessageList((6, 0, 0), (6, 0, 3), (16, 22, 95, 36, 44, 145, 146, 147, 148, 149, 150, 64)),
+    ((6, 0, 0), 243)  : _MessageList((6, 0, 3), (6, 1, 0), (16, 22, 97, 36, 45, 148, 149, 150, 151, 152, 153, 66)),
+    ((6, 0, 0), 261)  : _MessageList((6, 1, 0), (6, 4, 0), (16, 22, 114, 37, 46, 165, 166, 167, 168, 169, 170, 74)),
+    ((6, 4, 0), 266)  : _MessageList((6, 4, 0), (6, 5, 0), (16, 22, 118, 38, 47, 169, 170, 171, 172, 173, 174, 77)),
+    ((6, 5, 0), 281)  : _MessageList((6, 5, 0), None, (19, 25, 121, 41, 50, 172, 173, 174, 175, 176, 177, 80)),
+}
+"""
+The lists of Setup's messages, by the version in their identifier and their count: the releases of
+Inno Setup that use the list, and the positions of the messages of `SetupMessageName` in it, in the
+order of that enumeration. The identifier alone does not tell a list: 6.0.0 names three.
+"""
+
+
+class SetupMessages:
+    """
+    The compiled messages of one language as Setup's `AssignSetupMessages` checks and reads them: a
+    64-byte identifier `Inno Setup Messages (X.Y.Z)`, followed by ` (u)` in Unicode builds, the
+    count of the messages, their total size and its complement, the CRC-32 of the strings, and the
+    strings, each ended by a NUL character. The strings are UTF-16 in Unicode builds and decoded
+    with the codec of the script's strings otherwise, so that a message and a literal of the script
+    that Setup holds as the same bytes are equal. A block that fails a check raises `ValueError`.
+    """
+    def __init__(self, data: buf, unicode: bool, codec: str):
+        view = memoryview(data)
+        if len(view) <= 80:
+            raise ValueError('The messages are cut short.')
+        identifier = codecs.decode(bytes(view[:64]).partition(B'\0')[0], 'latin1')
+        match = re.fullmatch(r'Inno Setup Messages \((\d+)\.(\d+)\.(\d+)\)( \(u\))?', identifier)
+        if match is None or bool(match[4]) != unicode:
+            raise ValueError(F'The messages have the identifier {identifier!r}, which this Setup does not read.')
+        count, total, inverse, crc = struct.unpack_from('<IIIi', view, 64)
+        if total != ~inverse & 0xFFFFFFFF or total != len(view):
+            raise ValueError('The size of the messages does not match.')
+        strings = view[80:]
+        width = 2 if unicode else 1
+        if zlib.crc32(strings) != crc & 0xFFFFFFFF or len(strings) < width or any(strings[-width:]):
+            raise ValueError('The messages fail their CRC check.')
+        try:
+            texts = codecs.decode(strings, 'utf-16le' if unicode else codec).split('\0')
+        except (LookupError, UnicodeDecodeError) as error:
+            raise ValueError(F'The messages cannot be decoded: {error}') from error
+        if len(texts) - 1 < count:
+            raise ValueError('The messages are fewer than their count.')
+        self.identifier = identifier
+        self.version = (int(match[1]), int(match[2]), int(match[3]))
+        self.texts = texts[:count]
+        self.list = _MESSAGE_LISTS.get((self.version, count))
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, index: int) -> str:
+        return self.texts[index]
+
+    def named(self, name: SetupMessageName) -> str | None:
+        """
+        The message with the given name, `None` when the list of these messages is not known.
+        """
+        if (known := self.list) is None:
+            return None
+        return self.texts[known.positions[list(SetupMessageName).index(name)]]
+
+
+class YesNoDirective(enum.StrEnum):
+    """
+    The directives of the setup header that are yes or no, or an expression of functions of the
+    script.
+    """
+    Uninstallable = 'Uninstallable'
+    CreateUninstallRegKey = 'CreateUninstallRegKey'
+    ChangesEnvironment = 'ChangesEnvironment'
+    ChangesAssociations = 'ChangesAssociations'
+
+
+class SetupDirective(NamedTuple):
+    """
+    A yes-or-no directive of the setup header: its answer when the directive is yes or no, else the
+    expression of functions of the script that Setup evaluates when it needs the value.
+    """
+    answer: bool | None
+    expression: str = ''
+
+    @classmethod
+    def read(cls, text: str | None, flag: bool) -> SetupDirective:
+        """
+        Reads a directive as Setup does. Older versions keep it as the given flag and write no text.
+        A text is yes or no, spelled `yes`, `true` or `1` and `no`, `false` or `0` in any case; any
+        other text is an expression.
+        """
+        if not text:
+            return cls(flag)
+        folded = text.lower() if text.isascii() else text
+        if folded in ('1', 'yes', 'true'):
+            return cls(True)
+        if folded in ('0', 'no', 'false'):
+            return cls(False)
+        return cls(None, text)
+
+
+class WizardTexts(NamedTuple):
+    """
+    The license and the information texts that the wizard shows before and after the installation.
+    An empty text means that the wizard skips its page.
+    """
+    license: str
+    info_before: str
+    info_after: str
+
+
 class TSetup(InnoStruct):
 
     def __init__(self, reader: StructReaderBits[memoryview], version: InnoVersion, encryption: SetupEncryptionHeaderV3 | None):
@@ -2308,6 +2572,8 @@ class TSetup(InnoStruct):
             return [parser.Parse(reader, version, self) for _ in range(count)]
 
         self.Languages = _array(h.LanguageCount, SetupLanguage)
+        self._unicode = version.unicode
+        self._messages: dict[int, SetupMessages | str] = {}
         _default_codec = 'cp1252'
 
         if version.unicode:
@@ -2324,13 +2590,13 @@ class TSetup(InnoStruct):
         else:
             h.recode_strings('utf-16le')
 
-        if h.Uninstallable == 'yes':
+        if h.directive(YesNoDirective.Uninstallable).answer is True:
             h.Flags |= Flags.Uninstallable
 
         if version < (4, 0, 0):
             self._load_wizard_and_decompressor(reader, version)
 
-        self.Messages               = _array(h.MessageCount,         SetupMessage)       # noqa
+        self.CustomMessages         = _array(h.MessageCount,         SetupCustomMessage) # noqa
         self.Permissions            = _array(h.PermissionCount,      SetupPermission)    # noqa
         self.Types                  = _array(h.TypeCount,            SetupType)          # noqa
         self.Components             = _array(h.ComponentCount,       SetupComponent)     # noqa
@@ -2353,11 +2619,42 @@ class TSetup(InnoStruct):
         if version >= (4, 0, 0):
             self._load_wizard_and_decompressor(reader, version)
 
+    def wizard_texts(self, language: int | None) -> WizardTexts:
+        """
+        The texts that the wizard shows in the language with the given index: each one is that of
+        the language, or that of the setup header when the language has none.
+        """
+        header = self.Header
+        texts = WizardTexts(header.get_license(), header.InfoHead, header.InfoTail)
+        if language is None or not 0 <= language < len(self.Languages):
+            return texts
+        entry = self.Languages[language]
+        own = WizardTexts(entry.LicenseText, entry.InfoBefore, entry.InfoAfter)
+        return WizardTexts(*(text or fallback for text, fallback in zip(own, texts)))
+
     def get_wizard_images_large(self):
         return self._WizardImagesLarge
 
     def get_wizard_images_small(self):
         return self._WizardImagesSmall
+
+    def messages(self, language: int) -> SetupMessages:
+        """
+        The compiled messages of the language with the given index, read when first asked for; a
+        block that fails Setup's checks raises `ValueError` with the reason, every time it is asked
+        for.
+        """
+        if isinstance(known := self._messages.get(language), SetupMessages):
+            return known
+        if known is not None:
+            raise ValueError(known)
+        try:
+            messages = SetupMessages(self.Languages[language]._compiled_messages, self._unicode, self.Codec)
+        except ValueError as error:
+            self._messages[language] = str(error)
+            raise
+        self._messages[language] = messages
+        return messages
 
     def get_decompress_dll(self):
         return self._DecompressDLL
@@ -2457,8 +2754,7 @@ class SetupDataEntry(InnoStruct):
             from refinery.lib.dt import dostime
             ts = dostime(reader.u32())
         else:
-            ts = reader.u64() - _FILE_TIME_1970_01_01
-            ts = datetime.fromtimestamp(ts / 10000000, timezone.utc)
+            ts = filetime(reader.u64())
 
         self.FileTime = ts
 
@@ -2532,10 +2828,89 @@ class InnoParseResult(NamedTuple):
         return self.warnings == 0 and not self.failures
 
 
+class _Stored:
+    """
+    The decompressor of a stream that is stored without compression.
+    """
+    def decompress(self, data: buf) -> buf:
+        return data
+
+
 class InnoStreams(NamedTuple):
     TSetup: InnoStream
     TData: InnoStream
     Uninstaller: InnoStream
+
+
+def _archive_config():
+    """
+    The configuration of the machine that an archive assumes when it names its files: the folders
+    and names are the constants that stand for them.
+    """
+    from refinery.lib.inno.emulator import IFPSEmulatorConfig
+    return IFPSEmulatorConfig(
+        temp_path='{tmp}',
+        user_name='{user}',
+        host_name='{host}',
+        inno_name='{name}',
+        executable='{exe}',
+        install_to='{app}',
+        log_mutexes=False,
+        log_opcodes=False,
+        log_passwords=True,
+    )
+
+
+def _setup_program_release(view: memoryview, offset: int, version: InnoVersion) -> tuple[int, int, int] | None:
+    """
+    The release that the setup program at the given offset of an installer names in its text
+    `Inno Setup version`; `None` when the program cannot be read or names no single release.
+    """
+    if version < (4, 1, 6):
+        return None
+    try:
+        reader = StructReader(view[offset:])
+        stream = InnoStream(StreamHeader(reader, version))
+        to_read = stream.header.StoredSize
+        while to_read > 4:
+            block = CrcCompressedBlock(reader, min(to_read - 4, 0x1000))
+            stream.blocks.append(block)
+            to_read -= len(block)
+        program = InnoArchive.read_stream(stream)
+    except Exception:
+        return None
+    releases = {
+        (int(major.replace(B'\0', B'')), int(minor.replace(B'\0', B'')), int(patch.replace(B'\0', B'')))
+        for pattern in _SETUP_PROGRAM_RELEASE
+        for major, minor, patch in pattern.findall(program)
+    }
+    if len(releases) != 1:
+        return None
+    return releases.pop()
+
+
+def _message_list_releases(setup_info: TSetup) -> ReleaseRange | None:
+    """
+    The releases of Inno Setup that use the list of messages of the first language.
+    """
+    if not setup_info.Languages:
+        return None
+    try:
+        known = setup_info.messages(0).list
+    except ValueError:
+        return None
+    if known is None:
+        return None
+    return known.lowest, known.below
+
+
+def _setup_program_releases(view: memoryview, offset: int, version: InnoVersion) -> ReleaseRange | None:
+    """
+    The release that the setup program names, as a range of releases for `SetupRelease`.
+    """
+    if (release := _setup_program_release(view, offset, version)) is None:
+        return None
+    return release, next_release(release)
 
 
 class InnoArchive:
@@ -2554,7 +2929,8 @@ class InnoArchive:
         if not (meta := TSetupLdrOffsetTable.FindInBinary(data)):
             try:
                 from refinery.units.formats.pe.perc import perc
-                _meta = one(data | perc(self.OffsetsPath))
+                with data | perc(self.OffsetsPath) as resources:
+                    _meta = one(resources)
             except Exception as E:
                 raise ValueError(F'Could not find TSetupOffsets PE resource at {self.OffsetsPath}') from E
             else:
@@ -2574,7 +2950,8 @@ class InnoArchive:
         base = meta.base
         inno = StructReader(view[base:base + meta.total_size])
 
-        self._decompressed: dict[tuple[int, int], buf] = {}
+        self._chunks: weakref.WeakValueDictionary[tuple[int, int, str | None], SolidStream] = (
+            weakref.WeakValueDictionary())
 
         blobsize = meta.info_offset - meta.data_offset
         inno.seek(meta.data_offset)
@@ -2612,27 +2989,10 @@ class InnoArchive:
 
         self._log_comment(F'inno {version!s} via {method} header: {header}')
 
-        def _parse(v: InnoVersion):
-            inno.seekset(inno_start)
-            if inno.eof:
-                raise EOFError
-            try:
-                if v.legacy:
-                    inno.seekrel(-48)
-                r = self._try_parse_as(inno, blobs, v)
-            except Exception as e:
-                nonlocal best_error
-                best_error = best_error or e
-                self._log_comment(F'exception while parsing as {v!s}: {exception_to_string(e)}')
-                return InnoParseResult(v, [], [], 1, [str(e)], None, None, None)
-            else:
-                results[v] = r
-                return r
-
         inno_start = inno.tell()
         best_parse = None
         best_score = 0
-        best_error = None
+        first_error = None
         success = False
         results: dict[InnoVersion, InnoParseResult] = {}
         result = None
@@ -2655,28 +3015,42 @@ class InnoArchive:
 
         versions = [version] + VER[lower:upper] + VER[upper:] + VER[:lower]
 
-        for v in versions:
-            if success := (result := _parse(v)).ok():
-                if v != version:
-                    self._log_comment(F'inno {v!s} via closest match: {header}')
-                break
-            if not result.failures and (best_parse is None or result.warnings < best_score):
-                best_score = best_score
-                best_parse = result
+        try:
+            for v in versions:
+                inno.seekset(inno_start)
+                if inno.eof:
+                    raise EOFError
+                try:
+                    if v.legacy:
+                        inno.seekrel(-48)
+                    result = self._try_parse_as(inno, blobs, v)
+                except Exception as e:
+                    first_error = first_error or e
+                    self._log_comment(F'exception while parsing as {v!s}: {exception_to_string(e)}')
+                    result = InnoParseResult(v, [], [], 1, [str(e)], None, None, None)
+                else:
+                    results[v] = result
+                if success := result.ok():
+                    if v != version:
+                        self._log_comment(F'inno {v!s} via closest match: {header}')
+                    break
+                if not result.failures and (best_parse is None or result.warnings < best_score):
+                    best_score = result.warnings
+                    best_parse = result
 
-        if not success:
-            if best_parse is not None:
-                result = best_parse
-                self._log_warning(F'using parse result for {result.version!s} with {result.warnings} warnings')
-            else:
-                if not results:
-                    if best_error:
-                        raise best_error
-                    raise ValueError('no parser for any known Inno version worked')
-                result = min(results.values(), key=lambda result: len(result.failures))
-                self._log_warning(F'using parse result for {result.version!s} with {len(result.failures)} failures')
-                for k, failure in enumerate(result.failures, 1):
-                    self._log_comment(F'failure {k}: {failure}')
+            if not success:
+                if best_parse is not None:
+                    result = best_parse
+                    self._log_warning(F'using parse result for {result.version!s} with {result.warnings} warnings')
+                else:
+                    if not results:
+                        raise first_error or ValueError('no parser for any known Inno version worked')
+                    result = min(results.values(), key=lambda result: len(result.failures))
+                    self._log_warning(F'using parse result for {result.version!s} with {len(result.failures)} failures')
+                    for k, failure in enumerate(result.failures, 1):
+                        self._log_comment(F'failure {k}: {failure}')
+        finally:
+            del first_error
 
         if TYPE_CHECKING:
             assert result
@@ -2691,45 +3065,112 @@ class InnoArchive:
         self.streams = InnoStreams(*result.streams)
         self.script_codec = 'latin1' if version.unicode else codec
 
+        for file in self.files:
+            try:
+                path = self.expand_constants(file.path)
+            except Exception as error:
+                self._log_warning(F'keeping the constants of {file.path}: {exception_to_string(error)}')
+                path = file.path
+            path = path.replace('\\', '/')
+            drive, colon, path = path.rpartition(':/')
+            if colon and len(drive) == 1:
+                path = F'{drive}/{path}'
+            file.path = F'data/{path}'
+
+    def expand_constants(self, text: str) -> str:
+        """
+        Expands the constants in a text of the installer as Setup would on the machine that the
+        archive assumes, whose folders and names are the constants that stand for them. A code
+        constant runs the script when the emulator can run it and fails otherwise.
+        """
+        if (emulator := self._script_emulator) is not None:
+            return emulator.reset().expand_constant(text)
+        if isinstance(host := self._constants_without_script, Exception):
+            raise copy_exception(host)
+        expansion = host.expand(text)
         try:
-            emulator = self.emulator
-        except Exception:
-            pass
-        else:
-            for file in self.files:
-                path = emulator.reset().expand_constant(file.path)
-                path = path.replace('\\', '/')
-                drive, colon, path = path.rpartition(':/')
-                if colon and len(drive) == 1:
-                    path = F'{drive}/{path}'
-                file.path = F'data/{path}'
+            while True:
+                next(expansion)
+        except StopIteration as done:
+            return done.value
+
+    @cached_property
+    def _script_emulator(self):
+        try:
+            return self.emulator
+        except Exception as error:
+            self._log_comment(F'the script cannot be emulated: {exception_to_string(error)}')
+            return None
+
+    @cached_property
+    def _constants_without_script(self) -> SetupConstants | Exception:
+        """
+        The constants of Setup on the machine that the archive assumes, without the script; the
+        error that keeps them from being built, which every expansion then raises.
+        """
+        from refinery.lib.inno.host import HostSetup, SetupConstants
+        from refinery.lib.inno.wizard import StandIns, WizardForm
+        config = _archive_config()
+        try:
+            setup = HostSetup.of_installer(self, config)
+        except Exception as error:
+            return copy_exception(error)
+        form = WizardForm(StandIns.of(config), uninstallable=setup.uninstallable.answer is not False)
+        return SetupConstants(setup, config, form)
 
     @cached_property
     def emulator(self):
-        from refinery.lib.inno.emulator import (
-            IFPSEmulatorConfig,
-            InnoSetupEmulator,
+        """
+        An `refinery.lib.inno.emulator.InnoSetupEmulator` for the embedded IFPS script, if it exists.
+        """
+        if self.ifps is None:
+            return None
+        from refinery.lib.inno.emulator import InnoSetupEmulator
+        return InnoSetupEmulator(self, _archive_config())
+
+    @cached_property
+    def release(self) -> SetupRelease:
+        """
+        The release of Inno Setup that built the installer: the one that Inno Setup 7 writes into
+        the header, else the releases from the version of the installer's data up to the next
+        version of the data, which the list of Setup's messages and then the setup program narrow
+        when asked.
+        """
+        if code := self.setup_info.Header.CompiledCodeVersion:
+            return SetupRelease.of_compiled_code(code)
+        lowest = self.version.semver[:3]
+        below = next((v.semver[:3] for v in _VERSIONS if v.semver[:3] > lowest), None)
+        return SetupRelease(
+            lowest,
+            below,
+            functools.partial(_message_list_releases, self.setup_info),
+            functools.partial(_setup_program_releases, self.view, self.meta.exe_offset, self.version),
         )
-        return InnoSetupEmulator(self, IFPSEmulatorConfig(
-            temp_path='{tmp}',
-            user_name='{user}',
-            host_name='{host}',
-            inno_name='{name}',
-            executable='{exe}',
-            install_to='{app}',
-            log_mutexes=False,
-            log_opcodes=False,
-            log_passwords=True,
-        ))
+
+    @property
+    def setup_program_release(self) -> tuple[int, int, int] | None:
+        """
+        The release that the setup program of the installer names in its text `Inno Setup version`,
+        which Setup writes into its log; `None` when the program cannot be read or names no single
+        release.
+        """
+        return _setup_program_release(self.view, self.meta.exe_offset, self.version)
 
     @cached_property
     def ifps(self):
         """
         An `refinery.lib.inno.ifps.IFPSFile` representing the embedded IFPS script, if it exists.
+        Inno Setup 5.2.0 and later write two load flags into the declaration of a DLL import; for
+        older versions, the calls of the script decide.
         """
         if script := self.setup_info.Header.get_script():
+            version = self.version
             return IFPSFile.Parse(
-                script, self.script_codec, self.version.unicode, self.setup_info.Header.is_64bit)
+                script,
+                self.script_codec,
+                version.unicode,
+                2 if version >= (5, 2, 0) else None,
+            )
 
     def guess_password(self, timeout: int) -> bool:
         """
@@ -2739,13 +3180,20 @@ class InnoArchive:
             return self._password is not None
         self._password_guessed = True
         if file := self.get_encrypted_sample():
-            from refinery.lib.inno.emulator import NewPassword
+            from refinery.lib.inno.emulation import NewEmulationError, NewPassword, NewScriptError
             self._log_verbose('attempting to automatically determine password from the embedded script')
             try:
-                for p in self.emulator.reset().emulate_installation():
+                if (emulator := self.emulator) is None:
+                    self._log_comment('the archive has no script to determine the password from')
+                    return False
+                password_test = functools.partial(self.check_password, file)
+                for p in emulator.emulate_installation(max_seconds=timeout, password_test=password_test):
+                    if isinstance(p, (NewScriptError, NewEmulationError)):
+                        self._log_comment(str(p))
+                        continue
                     if not isinstance(p, NewPassword):
                         continue
-                    if self.check_password(file, p):
+                    if password_test(p):
                         self._log_comment('found password via emulation:', p)
                         self._password = p
                         return True
@@ -2798,14 +3246,16 @@ class InnoArchive:
                 to_read -= len(block)
 
         self._log_verbose(F'{version!s} parsing stream 1 (TData)')
-        stream1 = TData.Parse(memoryview(self.read_stream(streams[1])), version)
+        streams[1].data = self.read_stream(streams[1])
+        stream1 = TData.Parse(memoryview(streams[1].data), version)
 
         for meta in stream1.DataEntries:
             file = InnoFile(blobs, version, meta)
             files.append(file)
 
         self._log_verbose(F'{version!s} parsing stream 0 (TSetup)')
-        stream0 = TSetup.Parse(memoryview(self.read_stream(streams[0])), version, encryption)
+        streams[0].data = self.read_stream(streams[0])
+        stream0 = TSetup.Parse(memoryview(streams[0].data), version, encryption)
         path_dedup: dict[str, list[SetupFile]] = {}
 
         for file in files:
@@ -2815,7 +3265,7 @@ class InnoArchive:
         for sf in stream0.Files:
             sf: SetupFile
             location = sf.Location
-            if location == 0xFFFFFFFF or sf.Type != SetupFileType.UserFile or sf.Source:
+            if sf.external or sf.Type != SetupFileType.UserFile or sf.Source:
                 msg = F'skipping file: offset=0x{location:08X} type={sf.Type.name}'
                 if sf.Source:
                     msg = F'{msg} src={sf.Source}'
@@ -2879,8 +3329,6 @@ class InnoArchive:
         failures = []
         nonempty = [f for f in files if f.size > 0]
 
-        self._decompressed.clear()
-
         for file in nonempty:
             if len(failures) >= max_failures:
                 break
@@ -2899,19 +3347,15 @@ class InnoArchive:
             encryption,
         )
 
-    def read_stream(self, stream: InnoStream):
+    @staticmethod
+    def read_stream(stream: InnoStream):
         """
         Decompress and read the input stream.
         """
-        if stream.data is not None:
-            return stream.data
         result = bytearray()
         it = iter(stream.blocks)
         if stream.compression == StreamCompressionMethod.Store:
-            class _dummy:
-                def decompress(self, b):
-                    return b
-            dec = _dummy()
+            dec = _Stored()
         elif stream.compression == StreamCompressionMethod.LZMA1:
             import lzma
             first = next(it).BlockData
@@ -2926,7 +3370,6 @@ class InnoArchive:
             raise ValueError(F'Invalid compression value {stream.compression}')
         for block in it:
             result.extend(dec.decompress(block.BlockData))
-        stream.data = result
         return result
 
     def check_password(self, file: InnoFile, password: str):
@@ -2940,18 +3383,37 @@ class InnoArchive:
         else:
             return True
 
-    def read_chunk(self, file: InnoFile, password: str | None = None, check_only: bool = False):
+    def read_chunk(
+        self,
+        file: InnoFile,
+        password: str | None = None,
+        check_only: bool = False,
+    ) -> buf:
         """
         Decompress and read the chunk containing the given file. If the chunk is encrypted, the
-        function requires the correct password. If the `check_only` parameter is set, then only
-        a password check is performed, but the chunk is not actually decompressed.
+        function requires the correct password. If the `check_only` parameter is set, then only a
+        password check is performed, but the chunk is not actually decompressed.
+        """
+        if check_only:
+            return self._read_stored_chunk(file, password, check_only=True)
+        chunk = bytearray()
+        for _, piece in self._chunk_pieces(file, password):
+            chunk.extend(piece)
+        return chunk
+
+    def _read_stored_chunk(
+        self,
+        file: InnoFile,
+        password: str | None = None,
+        check_only: bool = False,
+    ) -> buf:
+        """
+        Read the compressed chunk containing the given file and decrypt it if it is encrypted. If
+        the `check_only` parameter is set, then only a password check is performed.
         """
         reader = file.reader
         offset = file.chunk_offset
         length = file.chunk_length
-        method = file.compression
-
-        self._log_verbose(F'decompressing chunk at {file.chunk_offset:#010x} using {method.name}')
 
         if password is None:
             password = self._password
@@ -2990,32 +3452,70 @@ class InnoArchive:
             assert file.crypto
             data = file.crypto.decrypt(password_bytes, data, file.chunk_offset, file.first_slice)
 
-        if method is None:
+        return data
+
+    def extractor(self, file: InnoFile, password: str | None = None) -> Callable[[], buf]:
+        """
+        Return a function that returns the contents of the given file record without performing
+        any checks. The chunk that holds the file is decompressed when the function is first called;
+        it keeps the data of other files only while the functions returned for them are alive.
+        Without a password, the function uses the password that the archive has when it is called.
+        """
+        key = file.chunk_offset, file.chunk_length, password
+        if (stream := self._chunks.get(key)) is None:
+            stream = self._chunks[key] = SolidStream(lambda _: self._chunk_pieces(file, password))
+        claim = stream.claim(file.offset, file.size)
+
+        def extract() -> buf:
+            if file.encrypted and password is None and self._password is None:
+                raise InvalidPassword
+            try:
+                data = claim()
+            except SolidStreamTruncated as truncated:
+                data = truncated.partial
+            if file.filtered:
+                if file.version >= (5, 2, 0):
+                    flip = (file.version >= (5, 3, 9))
+                    data = self._filter_new(data, flip_high_byte=flip)
+                else:
+                    data = self._filter_old(data)
             return data
 
+        return extract
+
+    def _chunk_pieces(self, file: InnoFile, password: str | None) -> Iterator[tuple[int, buf]]:
+        if password is None:
+            password = self._password
+        data = memoryview(self._read_stored_chunk(file, password))
+        method = file.compression
+        self._log_verbose(F'decompressing chunk at {file.chunk_offset:#010x} using {method.name}')
         try:
-            if method == CompressionMethod.Store:
-                chunk = data
+            if method is None or method == CompressionMethod.Store:
+                pieces = iter((data,))
             elif method == CompressionMethod.LZMA1:
                 props = parse_lzma_properties(data[0:5], 1)
-                dec = lzma.LZMADecompressor(lzma.FORMAT_RAW, filters=[props])
-                chunk = dec.decompress(data[5:])
+                lzma1 = lzma.LZMADecompressor(lzma.FORMAT_RAW, filters=[props])
+                pieces = decompress_pieces(lzma1, data[5:])
             elif method == CompressionMethod.LZMA2:
                 props = parse_lzma_properties(data[0:1], 2)
-                dec = lzma.LZMADecompressor(lzma.FORMAT_RAW, filters=[props])
-                chunk = dec.decompress(data[1:])
+                lzma2 = lzma.LZMADecompressor(lzma.FORMAT_RAW, filters=[props])
+                pieces = decompress_pieces(lzma2, data[1:])
             elif method == CompressionMethod.BZip2:
-                chunk = bz2.decompress(data)
+                pieces = decompress_pieces(bz2.BZ2Decompressor(), data)
             elif method == CompressionMethod.Flate:
-                chunk = zlib.decompress(data)
+                pieces = inflate_pieces(data)
             else:
-                chunk = data
+                pieces = iter((data,))
+            position = 0
+            for piece in pieces:
+                yield position, piece
+                position += len(piece)
+        except MemoryError:
+            raise
         except Exception as E:
             if not file.encrypted:
                 raise
             raise InvalidPassword(password) from E
-
-        return chunk
 
     def read_file(
         self,
@@ -3026,25 +3526,7 @@ class InnoArchive:
         Read the contents of the given file record from the archive without performing any checks.
         See also `refinery.lib.inno.InnoArchive.read_file_and_check`.
         """
-        offset = file.chunk_offset
-        length = file.chunk_length
-
-        try:
-            chunk = self._decompressed[offset, length]
-        except KeyError:
-            chunk = self._decompressed[offset, length] = self.read_chunk(file, password)
-
-        view = memoryview(chunk)
-        data = view[file.offset:file.offset + file.size]
-
-        if file.filtered:
-            if file.version >= (5, 2, 0):
-                flip = (file.version >= (5, 3, 9))
-                data = self._filter_new(data, flip_high_byte=flip)
-            else:
-                data = self._filter_old(data)
-
-        return data
+        return self.extractor(file, password)()
 
     def read_file_and_check(
         self,
@@ -3055,8 +3537,13 @@ class InnoArchive:
         Read the contents of the given file record from the archive. Raises a `ValueError` if the
         checksum is invalid.
         """
-        data = self.read_file(file, password)
+        return self.check_file(file, self.read_file(file, password))
 
+    def check_file(self, file: InnoFile, data: buf) -> buf:
+        """
+        Return the given contents of the file record, or raise `InnoChecksumMismatch` if they do
+        not match its checksum.
+        """
         if (cs := file.check(data)) is not None and cs != file.checksum:
             if isinstance(cs, int):
                 computed = F'{cs:08X}'
@@ -3064,7 +3551,7 @@ class InnoArchive:
             else:
                 computed = cs.hex().upper()
                 expected = file.checksum.hex().upper()
-            raise ValueError(F'checksum error; computed:{computed} expected:{expected}')
+            raise InnoChecksumMismatch(F'checksum error; computed:{computed} expected:{expected}', data)
 
         return data
 

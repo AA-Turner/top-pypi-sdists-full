@@ -132,6 +132,98 @@ class ExperimentRollupResult(TypedDict):
     rollup: ExperimentRollup
 
 
+ExperimentSummaryStatus = Literal["ready", "pending", "unavailable"]
+
+
+class ExperimentSummaryChange(TypedDict):
+    """A value on the baseline (``before``) and on this run (``after``), ``None`` when either side has nothing to measure."""
+
+    before: float | None
+    after: float | None
+
+
+class ExperimentSummaryBaseline(TypedDict):
+    """What the run was compared against: the first finished run in the same experiment group for the same traced function (``group_experiment``), or the run's original traces (``original_traces``)."""
+
+    kind: Literal["group_experiment", "original_traces"]
+    experimentId: str | None
+    name: str | None
+
+
+class ExperimentSummaryExample(TypedDict):
+    originalTraceId: str
+    replayTraceId: str
+    direction: Literal["fixed", "regressed"]
+
+
+class ExperimentSummaryCriterion(TypedDict):
+    criterionId: str
+    kind: Literal["grader", "assertion"]
+    label: str
+    groupTitle: str
+    fixed: int
+    regressed: int
+    examples: list[ExperimentSummaryExample]
+
+
+class ExperimentSummaryGroup(TypedDict):
+    groupId: str
+    kind: Literal["category", "grader", "uncategorized"]
+    title: str
+    passRate: ExperimentSummaryChange
+    fixed: int
+    regressed: int
+
+
+class ExperimentSummaryTraceToOpen(TypedDict):
+    originalTraceId: str
+    replayTraceId: str
+    title: str | None
+    reason: Literal["regressed", "fixed", "inconsistent"]
+
+
+class ExperimentSummaryPassRate(TypedDict):
+    """This run's own pass rate (0 to 1) over its ``traces`` with a verdict, reported whether or not anything could be compared."""
+
+    rate: float | None
+    traces: int
+
+
+class ExperimentSummaryFacts(TypedDict):
+    """The numbers the summary was written from. ``passRate`` is a fraction from 0 to 1, ``costUsd`` is dollars per trace, and ``durationMs`` is milliseconds per trace."""
+
+    baseline: ExperimentSummaryBaseline
+    comparedTraces: int
+    experimentPassRate: ExperimentSummaryPassRate
+    inconsistentTraces: int
+    passRate: ExperimentSummaryChange
+    costUsd: ExperimentSummaryChange
+    durationMs: ExperimentSummaryChange
+    fixedTraces: int
+    regressedTraces: int
+    flippedCriteria: int
+    criteria: list[ExperimentSummaryCriterion]
+    groups: list[ExperimentSummaryGroup]
+    tracesToOpen: list[ExperimentSummaryTraceToOpen]
+
+
+class ExperimentSummary(TypedDict):
+    version: int
+    headline: str
+    body: str
+    fingerprint: str
+    generatedAt: str
+    facts: ExperimentSummaryFacts
+
+
+class ExperimentSummaryResult(TypedDict):
+    """``summary`` is set only when ``status`` is ``"ready"``."""
+
+    experimentId: str
+    status: ExperimentSummaryStatus
+    summary: ExperimentSummary | None
+
+
 def _iso_with_offset(value: datetime | str) -> str:
     if isinstance(value, str):
         return value
@@ -211,3 +303,19 @@ class ExperimentsClient:
             return []
         query = urlencode({"experimentIds": ",".join(ids)}, safe=",")
         return self._http_client.get(f"{EXPERIMENTS_PATH}/rollups?{query}")["rollups"]
+
+    def get_summary(self, id: str) -> ExperimentSummaryResult:
+        """Read one run's written summary.
+
+        ``status`` is ``"pending"`` while the run has not finished or its
+        verdicts are still arriving; the summary is written once every verdict
+        is in. ``"unavailable"`` means the run ended failed or interrupted and
+        no summary will be written. ``"ready"`` carries the summary, compared
+        against the first finished run in the same experiment group for the
+        same traced function, or against the run's original traces when there
+        is none.
+        """
+        return cast(
+            ExperimentSummaryResult,
+            self._http_client.get(f"{EXPERIMENTS_PATH}/{quote(id, safe='')}/summary"),
+        )

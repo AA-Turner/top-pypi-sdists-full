@@ -203,6 +203,7 @@ class CfnCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -303,7 +304,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e0647f5f5813502cab7ad8655f908599ce680409806924f4d66a36d46068d2c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hsmType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hsmType", value)
 
     @builtins.property
     @jsii.member(jsii_name="backupRetentionPolicy")
@@ -321,7 +322,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fb5fc587b7585e41f2e1be3d7f4f1e811b567a635a9245ba81cf76b12c477be6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "backupRetentionPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "backupRetentionPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="mode")
@@ -334,7 +335,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc8aa4654961253c45d9693134f6a5be057e55764040c27d530bfde34d4af8f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mode", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkType")
@@ -347,7 +348,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ed80e285fc0faa87bbcd7f225ff3c0a09d65cb073c983cb87263455d2af4a2f9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkType", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnetIds")
@@ -360,7 +361,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c3aa2ce47988ad4a4a836b0090debe10f95b0ddbf6350f58107d7af75903487)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnetIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -376,7 +377,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8b939138dec4f688bf5ae2b98fc59c9210b97ebe512410ef517d5931f3802e3c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudhsm.CfnCluster.BackupRetentionPolicyProperty",

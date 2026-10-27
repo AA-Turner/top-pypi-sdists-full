@@ -213,6 +213,7 @@ class CfnLaunchProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -257,7 +258,7 @@ class CfnLaunchProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8eab63a068a36016ac93250f9b0a34c6df138ede870e6e7dd6c24f14f8e88e4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2SubnetIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ec2SubnetIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="launchProfileProtocolVersions")
@@ -272,7 +273,7 @@ class CfnLaunchProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__244782d1faf0571974ba6a1c12750af38ed7612b5c1d97fa7e01b48cc08793ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "launchProfileProtocolVersions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "launchProfileProtocolVersions", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -284,7 +285,7 @@ class CfnLaunchProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__549cc7f1cd83b0d6b509f02a91f45eeaec2f37fb1c8b7eb6bb233fed9c2d1241)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="streamConfiguration")
@@ -301,7 +302,7 @@ class CfnLaunchProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4d4c944f3608c457b83c69dac5a4b0dd866e36dd1e2861d2eda291179f914ed8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="studioComponentIds")
@@ -313,7 +314,7 @@ class CfnLaunchProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b26ebbd02c5570a7f87ceb260d4d0a26bf024848979ffbad2cac045053fdee6f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "studioComponentIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "studioComponentIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="studioId")
@@ -325,7 +326,7 @@ class CfnLaunchProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d1edb30e700b6e7289aa48d4088a1eb6a71cc6ce4437c1b3f3acc67a5056c5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "studioId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "studioId", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -337,7 +338,7 @@ class CfnLaunchProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e1daf19be5a17af43fb390f37aac4fbae48bb61c1d3437067e5a69761552656c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -352,7 +353,7 @@ class CfnLaunchProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5a7ed277becd75aaa152fa2cdcf16874239db41e9e5f5cb9cfe9640e984da3ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_nimblestudio.CfnLaunchProfile.StreamConfigurationProperty",
@@ -1160,6 +1161,7 @@ class CfnStreamingImage(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1254,7 +1256,7 @@ class CfnStreamingImage(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e288fe1c9afd779c805cdf86daf8c368566816ac637a20639c48dd52a91e1edf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2ImageId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ec2ImageId", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1266,7 +1268,7 @@ class CfnStreamingImage(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f45937e5e70c9f94fdab81bc9a82676c2e4be3245ab692680328a311c28cdf45)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="studioId")
@@ -1278,7 +1280,7 @@ class CfnStreamingImage(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__457f906bcebf6cadc64c88ad0022be38965d66119e246c12deb74de88404a0aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "studioId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "studioId", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1290,7 +1292,7 @@ class CfnStreamingImage(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ad786d753c89334f55d3c9f271ffb856894dd8b2ebbe4e82cf60051ba58e881)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1305,7 +1307,7 @@ class CfnStreamingImage(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca0d63091de8d88c09bdab08615b7f8db92f3b45649c5965ea4473a43b3c4e7d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_nimblestudio.CfnStreamingImage.StreamingImageEncryptionConfigurationProperty",
@@ -1648,6 +1650,7 @@ class CfnStudio(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1716,7 +1719,7 @@ class CfnStudio(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3d45ca698b0f9c73a5a815431dab2f63d7a25137f62fa1b04be4ce8b2f86a6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "adminRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "adminRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -1728,7 +1731,7 @@ class CfnStudio(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96b73f6d52ee20a9a22ee68f200107e5e34616b8607c05a9595b8eca6efb6ce6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "displayName", value)
 
     @builtins.property
     @jsii.member(jsii_name="studioName")
@@ -1740,7 +1743,7 @@ class CfnStudio(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eb1a59455ee690f34b227f1f8fa0736461134072dc0468cb376617813d739cbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "studioName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "studioName", value)
 
     @builtins.property
     @jsii.member(jsii_name="userRoleArn")
@@ -1752,7 +1755,7 @@ class CfnStudio(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a2ec224d834b90ef2e15d73b85c5c439aefad3adb2c0991d837a5f73239e44bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "userRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="studioEncryptionConfiguration")
@@ -1769,7 +1772,7 @@ class CfnStudio(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__65e345613e83891827335ce5b32806fa57cf7c858954c9518f24f1ad182d23d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "studioEncryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "studioEncryptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1784,7 +1787,7 @@ class CfnStudio(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9aa4bab5b1a32aba59dcf9d389dc561f499db9d284979f550aa02a5217890468)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_nimblestudio.CfnStudio.StudioEncryptionConfigurationProperty",
@@ -2012,6 +2015,7 @@ class CfnStudioComponent(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2058,7 +2062,7 @@ class CfnStudioComponent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f4f4c1afe096cb2f5c4ebd1c617301dfc41ef84987003077915c9f2a38ad2e61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="studioId")
@@ -2070,7 +2074,7 @@ class CfnStudioComponent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d199c64c8bc358279fb06fb2308e8de2838e907d3b3d9ee49b203ec3defe86d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "studioId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "studioId", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -2082,7 +2086,7 @@ class CfnStudioComponent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7516e9fe600c8968b99698223adac50887f80996b31ea7da47891ca3594f82dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
@@ -2099,7 +2103,7 @@ class CfnStudioComponent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__34572620ca2af0c513e1e746eb9c110d151b9bfdf8ec84a3e8d9b96f4a029f28)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2111,7 +2115,7 @@ class CfnStudioComponent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f4d435d976922da8bf26ca6560198803fd916e0a3be3e830c4be0919311c8179)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="ec2SecurityGroupIds")
@@ -2126,7 +2130,7 @@ class CfnStudioComponent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6238eec10b0be6fb62a440a534f079d11883a8e84a6d4745fde07f70f507c406)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2SecurityGroupIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ec2SecurityGroupIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="initializationScripts")
@@ -2143,7 +2147,7 @@ class CfnStudioComponent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__659216de4760e25164d033c057bfa0fdf83af861fc798a0f08b86ff4d3a87b87)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "initializationScripts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "initializationScripts", value)
 
     @builtins.property
     @jsii.member(jsii_name="scriptParameters")
@@ -2160,7 +2164,7 @@ class CfnStudioComponent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4d03432e7064ac8ade176413120d4effe4df12f3c4c0ea0d5812102bd65db908)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scriptParameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scriptParameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="subtype")
@@ -2172,7 +2176,7 @@ class CfnStudioComponent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__83a7858d87ccc1b3698f54725ddcb72b48818d28bf2b6cf8b26640011e6028cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subtype", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subtype", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2187,7 +2191,7 @@ class CfnStudioComponent(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ec5b0a0223c7b24add9fca9d6614f1e0b4446ec4b4e800ac16d2ce120598396)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_nimblestudio.CfnStudioComponent.ActiveDirectoryComputerAttributeProperty",

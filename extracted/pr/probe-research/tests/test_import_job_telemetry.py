@@ -228,16 +228,12 @@ def test_a_worker_signalled_by_a_cancel_stays_quiet(queued, captured, approving,
 # --- stalls -----------------------------------------------------------------
 
 
-def test_a_worker_waiting_for_a_connection_says_so_once_not_per_retry(
-    queued, captured, approving, monkeypatch,
-):
-    """A disconnected laptop retries forever. The stall is a LEVEL, and an
-    event per retry turns one bad afternoon into hundreds of them."""
+def _retrying_worker(monkeypatch, failures):
     attempts = {"n": 0}
 
     def flaky(*args):
         attempts["n"] += 1
-        if attempts["n"] < 4:
+        if attempts["n"] <= failures:
             raise jobs.RetryableJobError("connection reset")
         return ["Finished."]
 
@@ -245,13 +241,38 @@ def test_a_worker_waiting_for_a_connection_says_so_once_not_per_retry(
     monkeypatch.setattr(jobs, "_dispatch", flaky)
     monkeypatch.setattr(jobs.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(jobs, "_reclaim_children", lambda folder: None)
+    return job
+
+
+def test_a_brief_connection_blip_is_not_reported_as_a_stall(
+    queued, captured, approving, monkeypatch,
+):
+    """A few retries that ride out a transient error are not a stall: the
+    import finished, so an "Import stuck" ping for it is noise."""
+    job = _retrying_worker(monkeypatch, failures=3)
+    captured.clear()
+    assert jobs.run_worker(job["id"]) == 0
+    assert [row for row in captured if row["event"] == tm.EVENT_IMPORT_JOB_STALLED] == []
+    assert _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)["network_retries"] == 3
+
+
+def test_a_worker_waiting_for_a_connection_says_so_once_not_per_retry(
+    queued, captured, approving, monkeypatch,
+):
+    """A disconnected laptop retries forever. The stall is a LEVEL, and an
+    event per retry turns one bad afternoon into hundreds of them. It is
+    reported once the wait passes the grace period, then every interval."""
+    # Backoff 2, 4, ... 60: the 10th retry is the first after 300 s of waiting,
+    # and the 19th (842 s) is still inside the next 600 s interval.
+    job = _retrying_worker(monkeypatch, failures=19)
     captured.clear()
     assert jobs.run_worker(job["id"]) == 0
     stalls = [row for row in captured if row["event"] == tm.EVENT_IMPORT_JOB_STALLED]
-    assert len(stalls) == 1, "three retries, one report"
+    assert len(stalls) == 1, "nineteen retries, one report"
     assert stalls[0]["properties"]["reason"] == tm.ImportJobStall.WAITING_FOR_CONNECTION
-    assert stalls[0]["properties"]["network_retries"] == 1
-    assert _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)["network_retries"] == 3
+    assert stalls[0]["properties"]["network_retries"] == 10
+    assert stalls[0]["properties"]["waiting_seconds"] >= jobs.STALL_GRACE_S
+    assert _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)["network_retries"] == 19
 
 
 def test_a_batch_retry_is_counted_apart_from_connection_waits(

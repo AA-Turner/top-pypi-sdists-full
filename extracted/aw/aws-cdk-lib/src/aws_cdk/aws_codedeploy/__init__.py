@@ -1405,6 +1405,7 @@ class CfnApplication(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1442,7 +1443,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__728dce9dc041502139649117dd6edec48c37d9c568f82ee3be92de1b22e2d700)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "applicationName", value)
 
     @builtins.property
     @jsii.member(jsii_name="computePlatform")
@@ -1455,7 +1456,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1915728b28efc5c1d28ee6eddc170806e157b6c8dea55af22c18fe4e3b4ac191)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computePlatform", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "computePlatform", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1471,7 +1472,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b760e30495233c290b05641b219df0417ec34a7cdcb66209b76925733db09c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -1701,6 +1702,7 @@ class CfnDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1734,7 +1736,7 @@ class CfnDeploymentConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fccd76b57c8ae8e5170ce23818cd0a34ba59302c6ce3d4c180222152061e2922)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computePlatform", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "computePlatform", value)
 
     @builtins.property
     @jsii.member(jsii_name="deploymentConfigName")
@@ -1747,7 +1749,7 @@ class CfnDeploymentConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2be2e5144bd03df4a4fa40048f27e95c3e5304df13985412b42828a3a74d0e4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deploymentConfigName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deploymentConfigName", value)
 
     @builtins.property
     @jsii.member(jsii_name="minimumHealthyHosts")
@@ -1765,7 +1767,7 @@ class CfnDeploymentConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a51d4f90c94e060ed843233d31547707cbf9d10d3d4de60cd6205bda621edc94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "minimumHealthyHosts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "minimumHealthyHosts", value)
 
     @builtins.property
     @jsii.member(jsii_name="trafficRoutingConfig")
@@ -1783,7 +1785,7 @@ class CfnDeploymentConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fe1bae2a6b88ba41a47472dc8dc7bbf6f72bde54b89b4ed3b8f8e3fd35645ce4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "trafficRoutingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "trafficRoutingConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="zonalConfig")
@@ -1801,7 +1803,7 @@ class CfnDeploymentConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b0fc8d5b7ad2a2a7cd82c46195cb23f97c32d3c56a1872111486e2ce1020d343)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "zonalConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "zonalConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_codedeploy.CfnDeploymentConfig.MinimumHealthyHostsPerZoneProperty",
@@ -2751,6 +2753,7 @@ class CfnDeploymentGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2790,7 +2793,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ddb70a956898eec48889a079260c8cc973bf43c5f7612ee24bff5dbbbf459fe5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "applicationName", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceRoleArn")
@@ -2803,7 +2806,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66b7f059438dd5722aa9d8f744a278bc5625386e8ce3d4fc1eb8a281e2f306c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="alarmConfiguration")
@@ -2821,7 +2824,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5e91a52d4fd08a0b9deb3baefb2ccf408f0cb24c44a56893da4cb20fc1d8c83c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "alarmConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "alarmConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoRollbackConfiguration")
@@ -2839,7 +2842,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__69accffcb10c8665244d6da2f6e58570690d0e957e337792a901cb7be04905b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoRollbackConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoRollbackConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoScalingGroups")
@@ -2855,7 +2858,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7e04b36b090b14ba34ad491347fe2aca8d51c1e1877ebf2c7e060f1741102a50)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoScalingGroups", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoScalingGroups", value)
 
     @builtins.property
     @jsii.member(jsii_name="blueGreenDeploymentConfiguration")
@@ -2873,7 +2876,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e01bb8b0c5b5d341a669261e31783fa832409200e3eb8a634fe33223a72f7306)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "blueGreenDeploymentConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "blueGreenDeploymentConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="deployment")
@@ -2891,7 +2894,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__08845fc7de26e5f1faa42234a437c12699ffe9eb475932cf303f7acd1c272595)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deployment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deployment", value)
 
     @builtins.property
     @jsii.member(jsii_name="deploymentConfigName")
@@ -2904,7 +2907,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a74c90812b52cdad890ecf4f6486df9ad8780f8c6a1c163cd9479e4971f08402)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deploymentConfigName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deploymentConfigName", value)
 
     @builtins.property
     @jsii.member(jsii_name="deploymentGroupName")
@@ -2917,7 +2920,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8e42dd2dab2a2d9e3bc41f1ad0d0e48a8811bc6c996da34cbbfacc9757b3286d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deploymentGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deploymentGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="deploymentStyle")
@@ -2935,7 +2938,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5bf1c6eb87ee1012ff4d9949ecda81e6dcac87415f749d230c6ee6752153ec80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deploymentStyle", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deploymentStyle", value)
 
     @builtins.property
     @jsii.member(jsii_name="ec2TagFilters")
@@ -2953,7 +2956,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee79962691a5c39e41198cbe8d3feba8224218b0f0150b5f282db760c6c767ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2TagFilters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ec2TagFilters", value)
 
     @builtins.property
     @jsii.member(jsii_name="ec2TagSet")
@@ -2971,7 +2974,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6196a4cb27800772b6bd881880397500b9e720f740bb7b6289f13d2f51e04863)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ec2TagSet", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ec2TagSet", value)
 
     @builtins.property
     @jsii.member(jsii_name="ecsServices")
@@ -2989,7 +2992,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__04e313b8ad9be6363e7a8552e9cf937d4c0cf7ff77b9f105105f6b3bab3b53c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ecsServices", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ecsServices", value)
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancerInfo")
@@ -3007,7 +3010,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72f10ac10d280e8586e5bdb5699bdb0c53aab83965020339a2a5611d15d4061e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loadBalancerInfo", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loadBalancerInfo", value)
 
     @builtins.property
     @jsii.member(jsii_name="onPremisesInstanceTagFilters")
@@ -3025,7 +3028,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f88440801309d20e368d659f0132d109e5c37cb01b5a5f894053f4f9081f75f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "onPremisesInstanceTagFilters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "onPremisesInstanceTagFilters", value)
 
     @builtins.property
     @jsii.member(jsii_name="onPremisesTagSet")
@@ -3043,7 +3046,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e1da01bcd68da7d01c5ffa220e48c83cd4d65bd034d7416a79c12856e9a25fad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "onPremisesTagSet", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "onPremisesTagSet", value)
 
     @builtins.property
     @jsii.member(jsii_name="outdatedInstancesStrategy")
@@ -3056,7 +3059,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9af30b6e3ffc37ae09bbaa003b72063af09adae4e47a022a24f8e942d28ea799)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outdatedInstancesStrategy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "outdatedInstancesStrategy", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3072,7 +3075,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ca51d486320d92369410ca709970091be367eabeebde41a60143404eeb1cc6a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="terminationHookEnabled")
@@ -3090,7 +3093,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2bf9c1fbb66f570f500b907e6dae98c96270a20d62e93986637535a81ad80522)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "terminationHookEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "terminationHookEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="triggerConfigurations")
@@ -3108,7 +3111,7 @@ class CfnDeploymentGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__19f14404bcc2f5c2897842d997eb29c01baf8bcd6619fdc09e6b87d0df1f7693)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "triggerConfigurations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "triggerConfigurations", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_codedeploy.CfnDeploymentGroup.AlarmConfigurationProperty",
@@ -7389,6 +7392,7 @@ class LambdaApplication(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -7758,6 +7762,7 @@ class LambdaDeploymentGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -8468,6 +8473,7 @@ class ServerApplication(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -8772,6 +8778,7 @@ class ServerDeploymentGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -9856,6 +9863,7 @@ class CustomLambdaDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(deprecated) Uniquely identifies this class.
 
@@ -9988,6 +9996,7 @@ class EcsApplication(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -10097,12 +10106,14 @@ class EcsDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALL_AT_ONCE")
+    @builtins.classmethod
     def ALL_AT_ONCE(cls) -> "IEcsDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts all traffic to the updated ECS task set at once.'''
         return typing.cast("IEcsDeploymentConfig", jsii.sget(cls, "ALL_AT_ONCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CANARY_10PERCENT_15MINUTES")
+    @builtins.classmethod
     def CANARY_10_PERCENT_15_MINUTES(cls) -> "IEcsDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic in the first increment.
 
@@ -10112,6 +10123,7 @@ class EcsDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CANARY_10PERCENT_5MINUTES")
+    @builtins.classmethod
     def CANARY_10_PERCENT_5_MINUTES(cls) -> "IEcsDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic in the first increment.
 
@@ -10121,18 +10133,21 @@ class EcsDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LINEAR_10PERCENT_EVERY_1MINUTES")
+    @builtins.classmethod
     def LINEAR_10_PERCENT_EVERY_1_MINUTES(cls) -> "IEcsDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic every minute until all traffic is shifted.'''
         return typing.cast("IEcsDeploymentConfig", jsii.sget(cls, "LINEAR_10PERCENT_EVERY_1MINUTES"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LINEAR_10PERCENT_EVERY_3MINUTES")
+    @builtins.classmethod
     def LINEAR_10_PERCENT_EVERY_3_MINUTES(cls) -> "IEcsDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic every three minutes until all traffic is shifted.'''
         return typing.cast("IEcsDeploymentConfig", jsii.sget(cls, "LINEAR_10PERCENT_EVERY_3MINUTES"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -10275,6 +10290,7 @@ class EcsDeploymentGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -10433,12 +10449,14 @@ class LambdaDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALL_AT_ONCE")
+    @builtins.classmethod
     def ALL_AT_ONCE(cls) -> "ILambdaDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts all traffic to the updated Lambda function at once.'''
         return typing.cast("ILambdaDeploymentConfig", jsii.sget(cls, "ALL_AT_ONCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CANARY_10PERCENT_10MINUTES")
+    @builtins.classmethod
     def CANARY_10_PERCENT_10_MINUTES(cls) -> "ILambdaDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic in the first increment.
 
@@ -10448,6 +10466,7 @@ class LambdaDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CANARY_10PERCENT_15MINUTES")
+    @builtins.classmethod
     def CANARY_10_PERCENT_15_MINUTES(cls) -> "ILambdaDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic in the first increment.
 
@@ -10457,6 +10476,7 @@ class LambdaDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CANARY_10PERCENT_30MINUTES")
+    @builtins.classmethod
     def CANARY_10_PERCENT_30_MINUTES(cls) -> "ILambdaDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic in the first increment.
 
@@ -10466,6 +10486,7 @@ class LambdaDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CANARY_10PERCENT_5MINUTES")
+    @builtins.classmethod
     def CANARY_10_PERCENT_5_MINUTES(cls) -> "ILambdaDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic in the first increment.
 
@@ -10475,30 +10496,35 @@ class LambdaDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LINEAR_10PERCENT_EVERY_10MINUTES")
+    @builtins.classmethod
     def LINEAR_10_PERCENT_EVERY_10_MINUTES(cls) -> "ILambdaDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic every 10 minutes until all traffic is shifted.'''
         return typing.cast("ILambdaDeploymentConfig", jsii.sget(cls, "LINEAR_10PERCENT_EVERY_10MINUTES"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LINEAR_10PERCENT_EVERY_1MINUTE")
+    @builtins.classmethod
     def LINEAR_10_PERCENT_EVERY_1_MINUTE(cls) -> "ILambdaDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic every minute until all traffic is shifted.'''
         return typing.cast("ILambdaDeploymentConfig", jsii.sget(cls, "LINEAR_10PERCENT_EVERY_1MINUTE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LINEAR_10PERCENT_EVERY_2MINUTES")
+    @builtins.classmethod
     def LINEAR_10_PERCENT_EVERY_2_MINUTES(cls) -> "ILambdaDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic every two minutes until all traffic is shifted.'''
         return typing.cast("ILambdaDeploymentConfig", jsii.sget(cls, "LINEAR_10PERCENT_EVERY_2MINUTES"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LINEAR_10PERCENT_EVERY_3MINUTES")
+    @builtins.classmethod
     def LINEAR_10_PERCENT_EVERY_3_MINUTES(cls) -> "ILambdaDeploymentConfig":
         '''CodeDeploy predefined deployment configuration that shifts 10 percent of traffic every three minutes until all traffic is shifted.'''
         return typing.cast("ILambdaDeploymentConfig", jsii.sget(cls, "LINEAR_10PERCENT_EVERY_3MINUTES"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -10577,6 +10603,7 @@ class ServerDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALL_AT_ONCE")
+    @builtins.classmethod
     def ALL_AT_ONCE(cls) -> "IServerDeploymentConfig":
         '''The CodeDeployDefault.AllAtOnce predefined deployment configuration for EC2/on-premises compute platform.
 
@@ -10586,6 +10613,7 @@ class ServerDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HALF_AT_A_TIME")
+    @builtins.classmethod
     def HALF_AT_A_TIME(cls) -> "IServerDeploymentConfig":
         '''The CodeDeployDefault.HalfAtATime predefined deployment configuration for EC2/on-premises compute platform.
 
@@ -10595,6 +10623,7 @@ class ServerDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ONE_AT_A_TIME")
+    @builtins.classmethod
     def ONE_AT_A_TIME(cls) -> "IServerDeploymentConfig":
         '''The CodeDeployDefault.OneAtATime predefined deployment configuration for EC2/on-premises compute platform.
 
@@ -10604,6 +10633,7 @@ class ServerDeploymentConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

@@ -106,8 +106,8 @@ class Parameters(BaseModel):
     model_config = ConfigDict(
         extra='allow',
     )
-    arguments: list[ParameterDef] | None = Field([], validate_default=True)
-    returns: list[ReturnDef] | None = Field([], validate_default=True)
+    arguments: list[ParameterDef] | None = Field(default_factory=list)
+    returns: list[ReturnDef] | None = Field(default_factory=list)
 
 
 class Signature(BaseModel):
@@ -119,7 +119,7 @@ class Signature(BaseModel):
         extra='allow',
     )
     columns: list[ColumnDef] | None = Field(
-        [], description='Column definitions', validate_default=True
+        default_factory=list, description='Column definitions'
     )
     parameters: Parameters | None = Field(None, title='Parameters')
 
@@ -257,6 +257,7 @@ class SourcePlatform(Enum):
     """
 
     ansi = 'ansi'
+    apacheHop = 'apacheHop'
     azureSynapse = 'azureSynapse'
     bigQuery = 'bigQuery'
     databricksSql = 'databricksSql'
@@ -367,7 +368,7 @@ class Dependencies(BaseModel):
         extra='allow',
     )
     dependsOn: list[Dependency] | None = Field(
-        [], description='Code units this unit depends on', validate_default=True
+        default_factory=list, description='Code units this unit depends on'
     )
     requiredBy: list[str] | None = Field(
         [], description='Code units that depend on this unit'
@@ -819,7 +820,7 @@ class Part(BaseModel):
     target: PartTarget | None = None
     dependencies: Dependencies | None = None
     cloudStatus: CloudStatus | None = None
-    issues: list[Issue] | None = Field([], validate_default=True)
+    issues: list[Issue] | None = Field(default_factory=list)
 
 
 class Parts(RootModel[list[Part]]):

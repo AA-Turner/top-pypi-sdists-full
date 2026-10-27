@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import os
 import re
@@ -28,6 +29,11 @@ MAX_SAMPLE_BYTES = 4096
 MAX_HASH_BYTES = 1024 * 1024
 MAX_INPUT_BYTES = 80_000
 MAX_OUTPUT_BYTES = 24_000
+#: One import note's share of the input. A note is one line by design; the
+#: plan tool allows 2,000 characters, which the excerpts' 40 KB cannot spare.
+MAX_NOTE_CHARS = 240
+#: Earlier drafts a project's state remembers, so a new one can replace them.
+MAX_EARLIER_DRAFTS = 5
 TITLES = {"Purpose", "Questions", "Decisions", "Chronology", "Conflicts"}
 # A draft's model and effort are the `draft` lane's (`import_agent_settings`):
 # Claude drafts on sonnet unless the import's settings say otherwise.
@@ -214,6 +220,44 @@ def _read_sample(folder: Path, row: dict) -> tuple[str | None, str | None]:
     return data[:MAX_SAMPLE_BYTES].decode("utf-8", errors="ignore"), "excerpt truncated"
 
 
+def _note(row: dict) -> str | None:
+    """The unit agent's line about this file (`probe-backfill-plan note`), or None.
+
+    It rides in the coverage row's manifest (`Coverage.remember_manifest`). It
+    is written by a model from the file's text, so it is masked by the same
+    gate as an excerpt, it only ever rides beside an excerpt of that file, and
+    the draft prompt treats it as a hint, never support.
+    """
+    raw = row.get("manifest")
+    if not raw:
+        return None
+    try:
+        manifest = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    text = manifest.get("notes") if isinstance(manifest, dict) else None
+    if not isinstance(text, str) or not text.strip():
+        return None
+    # Masked whole, THEN cut: a cut first can split a token so the gate no
+    # longer recognises it, and its head reaches the model.
+    try:
+        data, _ = _redact_read(" ".join(text.split()).encode("utf-8"), scan_policy=None, full_scan=False)
+    except CredentialBlocked:
+        return None
+    return data.decode("utf-8", errors="ignore")[:MAX_NOTE_CHARS] or None
+
+
+def _excerptable(row: dict, file: dict) -> bool:
+    """Whether `_read_sample` could give this file an excerpt, judged without
+    reading it: a note moves a file up only where it can ride beside one."""
+    size = row.get("size")
+    return (
+        not file["reference"]
+        and (size is None or size <= MAX_HASH_BYTES)
+        and Path(row["path"]).suffix.lower() not in {".jsonl", ".ndjson"}
+    )
+
+
 def _receipt(coverage, row: dict) -> dict:
     value = coverage.conn.execute(
         "SELECT receipt, intent FROM versions WHERE correlation=?", (row["correlation"],)
@@ -266,10 +310,15 @@ def _inputs(client, folder: Path, coverage, rows: list[dict], git_bundle, projec
             not (available.get("items", {}).get(ident) or {}).get("download_url") for ident in batch
         ):
             raise ValueError("one or more delivered artifacts are not readable on the server")
+    notes = {row["path"]: _note(row) for row in rows}
+    # Within a role, the files the unit agents described come first: they are
+    # the ones someone would look for again, and excerpts are capped (64
+    # files, 40 KB). A note only rides beside its file's excerpt.
     candidates = sorted(
         zip(rows, inventory, strict=True),
         key=lambda pair: (
             _file_role(pair[0]["path"])[0],
+            notes[pair[0]["path"]] is None or not _excerptable(pair[0], pair[1]),
             len(Path(pair[0]["path"]).parts),
             pair[0]["path"],
         ),
@@ -288,10 +337,12 @@ def _inputs(client, folder: Path, coverage, rows: list[dict], git_bundle, projec
             gaps.append(f"{row['path']}: {limitation}")
         if sample:
             ref = f"F{len(sources) + 1:03d}"
+            note = notes[row["path"]]
             sources[ref] = {
                 **file,
                 "role_hint": _file_role(row["path"])[1],
                 "text": sample,
+                **({"note": note} if note else {}),
                 "url": f"/artifacts/{quote(file['artifact_id'], safe='')}",
             }
             if len(_json(sources).encode()) > MAX_INPUT_BYTES // 2:
@@ -588,6 +639,103 @@ def _generate(inputs: dict, directory: Path, *, agent, agents: AgentSettings | N
         ) from exc
 
 
+def _earlier(state: dict) -> list[dict]:
+    """The drafts this import may still have on the page, `state`'s own last.
+
+    Carried from state to state when the inputs change, so a new draft knows
+    which earlier ones are its to replace -- never another import's, never one
+    it cannot identify word for word.
+    """
+    earlier = [entry for entry in state.get("earlier") or [] if isinstance(entry, dict)]
+    if (state.get("publication") or {}).get("state") in ("published", "pending") and all(
+        state.get(field) for field in ("input_id", "draft_hash", "draft_path")
+    ):
+        earlier.append(
+            {field: state[field] for field in ("input_id", "draft_hash", "draft_path")}
+        )
+    return earlier[-MAX_EARLIER_DRAFTS:]
+
+
+def _words(line: str) -> str:
+    """A line's letters and digits only (any script), entities decoded.
+
+    The page re-renders the document: a blank line after the marker, escaped
+    underscores (`__init__`), `*x*` as `_x_`, `* ` and `2) ` list markers,
+    entities. None of that is a person's edit; a changed word is.
+    """
+    for _ in range(3):
+        decoded = html.unescape(line)
+        if decoded == line:
+            break
+        line = decoded
+    return re.sub(r"[\W_]+", "", line.casefold())
+
+
+def _served_span(lines: list[str], marker: str, draft: str) -> tuple[int, int] | None:
+    """The lines of `marker` + `draft` as the page serves them, or None.
+
+    Every wordy line of the draft must follow the marker in order, compared
+    by `_words`, with only lines that carry no words between them. A word a
+    person changed anywhere in the draft makes it not ours to cut.
+    """
+    want = [words for words in map(_words, draft.splitlines()) if words]
+    if not want:
+        return None  # nothing to recognise it by: never cut a bare marker
+    for first, line in enumerate(lines):
+        if line.strip() != marker:
+            continue
+        index, matched, last = first + 1, 0, first
+        while matched < len(want) and index < len(lines):
+            words = _words(lines[index])
+            if not words:
+                index += 1
+                continue
+            if words != want[matched]:
+                break
+            last, matched, index = index, matched + 1, index + 1
+        if matched == len(want):
+            return first, last
+    return None
+
+
+def _place_draft(document: str, block: str, earlier: list[dict]) -> tuple[str, int, int]:
+    """`document` with `block` in, and how many earlier drafts it replaced and kept.
+
+    An earlier draft is cut only when the page still holds it as this import
+    published it, word for word (`_served_span`); the new block takes the first
+    cut one's place, or goes at the end. One whose words changed stays where it
+    is. Nothing else on the page -- prose, a README embed -- is touched.
+    """
+    lines = document.split("\n")
+    spans, kept = [], 0
+    for entry in earlier:
+        marker = f"[probe-backfill:{entry.get('input_id')}:{entry.get('draft_hash')}]"
+        if marker not in document:
+            continue  # already gone: cut by an earlier publish, or by a person
+        try:
+            draft = Path(entry["draft_path"]).read_text()
+        except (KeyError, TypeError, OSError):
+            draft = None
+        span = (
+            _served_span(lines, marker, draft)
+            if draft is not None and _hash(draft) == entry.get("draft_hash")
+            else None
+        )
+        if span:
+            spans.append(span)
+        else:
+            kept += 1
+    if not spans:
+        return document + ("\n\n" if document else "") + block, 0, kept
+    spans.sort()
+    dropped = {index for first, last in spans for index in range(first, last + 1)}
+    remaining = [(index, line) for index, line in enumerate(lines) if index not in dropped]
+    before = "\n".join(line for index, line in remaining if index < spans[0][0]).rstrip()
+    after = "\n".join(line for index, line in remaining if index > spans[0][0]).strip()
+    parts = [part for part in (before, block.rstrip("\n"), after) if part]
+    return "\n\n".join(parts) + "\n", len(spans), kept
+
+
 def _publish(
     client, coverage, key: str, state: dict, draft: str, *, interactive: bool, yes: bool
 ) -> str:
@@ -617,16 +765,24 @@ def _publish(
         )
     if CAPABILITY not in (client.me().get("capabilities") or []):
         return "Draft retained: server lacks safe Overview publication; upgrade the server before publishing."
+    target, replaced, kept = _place_draft(current, block, state.get("earlier") or [])
+    where = ""
+    if replaced:
+        where = ", replacing the earlier imported file reconstruction there"
+    if kept:
+        where += (
+            "; an earlier imported reconstruction there no longer matches what this import"
+            " published, so it stays as it is"
+        )
     if not _confirm(
         f"Review {state['draft_path']}. Publish this draft into the Overview document "
-        f"for {project_id}? The existing document is rewritten as the page renders it, "
+        f"for {project_id}{where}? The existing document is rewritten as the page renders it, "
         "so code-fence languages and non-https links already in it may not survive."
     ):
         coverage.put_meta(key, state)
         return (
             f"Draft saved: {state['draft_path']}. Review it, then rerun interactively to publish."
         )
-    target = current + ("\n\n" if current else "") + block
     publication.update(state="pending", expected=current, target=target)
     coverage.put_meta(key, state)  # before the first write, including lost ACKs
     client.transport.patch(
@@ -845,11 +1001,35 @@ def complete_reconstruction(
             for kind in ("queued", "new", "changed", "unresolved", "vanished")
         )
     )
-    rows = coverage.rows()
-    projects = sorted({row["project_id"] for row in rows if row.get("project_id")})
+    # A file the walk now skips by rule (`SkipRule`: hidden folders, worktree
+    # copies) is out of the import, so it is out of the draft too: neither
+    # pending (it never comes back) nor an input (its bytes are no longer
+    # verified, and a worktree is a copy of files the project already has).
+    # That holds after it is deleted as well -- a finished agent's worktree is
+    # removed -- so the rule on the row decides, not whether it is on disk. A
+    # project that only such files fed is not drafted, and not waited on.
+    every = coverage.rows()
+    rows = [row for row in every if not (row.get("skipped") and not row.get("present"))]
+    projects = sorted({row["project_id"] for row in rows
+                       if row.get("project_id") and not row.get("exclusion")})
     lines = []
-    if any(row["path"] in pending and not row.get("project_id") for row in rows):
-        return ["Reconstruction waiting for reviewed file placement and delivery."]
+    only_skipped = {row["project_id"] for row in every
+                    if row.get("project_id") and row.get("skipped")
+                    and not row.get("present")} - set(projects)
+    if only_skipped:
+        named = ", ".join(sorted(only_skipped)[:5])
+        more = len(only_skipped) - 5
+        lines.append(
+            f"{len(only_skipped):,} project(s) hold only files now skipped "
+            f"(hidden folders and worktree copies); they are not drafted from this folder: {named}"
+            + (f" and {more:,} more." if more > 0 else ".")
+        )
+    # Waiting for a file to be PLACED needs a file that can still be placed: a
+    # deleted one never will be, and it held every project's draft forever.
+    vanished = set(report.get("vanished", []))
+    if any(row["path"] in pending and row["path"] not in vanished and not row.get("project_id")
+           for row in rows):
+        return [*lines, "Reconstruction waiting for reviewed file placement and delivery."]
     # Rotate the bounded pass across restarts. Completed projects still need
     # their inputs checked on later cycles, while failures or unchanged drafts
     # must not permanently occupy the first twenty slots.
@@ -879,9 +1059,11 @@ def complete_reconstruction(
             inputs_ready = True
             state = coverage.meta(key, {})
             if state.get("input_id") != inputs["input_id"]:
+                earlier = _earlier(state) if state.get("input_id") else []
                 if state.get("input_id"):
                     coverage.put_meta(f"{key}:{state['input_id']}", state)
                 state = {
+                    **({"earlier": earlier} if earlier else {}),
                     "input_id": inputs["input_id"],
                     "project_id": project_id,
                     "prompt_version": inputs["prompt_version"],

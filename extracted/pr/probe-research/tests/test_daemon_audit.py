@@ -205,6 +205,10 @@ def test_it_starts_once_on_the_first_prompt(tmp_path, monkeypatch):
         ({"type": "session_meta", "payload": {"originator": "codex_cli_rs"}}, True),
         ({"type": "session_meta", "payload": {"originator": "codex_exec"}}, False),  # codex exec
         ({"type": "session_meta", "payload": {"originator": "codex_cli_rs", "source": {"subagent": "review"}}}, False),
+        ({"type": "session_meta", "payload": {"originator": "T3 Code", "source": "vscode"}}, True),  # T3's Codex
+        ({"type": "session_meta", "payload": {"originator": "Codex Desktop", "source": "vscode"}}, True),
+        # `codex exec` run from a T3 shell: the override it inherited names T3, its source does not
+        ({"type": "session_meta", "payload": {"originator": "T3 Code", "source": "exec"}}, False),
         ({"type": "user"}, True),  # nothing said: a person (a deny-list, like the prompt hook's)
     ],
 )
@@ -212,6 +216,47 @@ def test_a_session_a_program_drives_never_audits(tmp_path, head, person):
     transcript = tmp_path / "t.jsonl"
     transcript.write_text("not json\n" + _line(head))
     assert audit_mod.interactive(transcript) is person
+
+
+def _t3_claude_head(*, hooks: int = 6, tools: tuple = ("mcp__t3-code__delegate_task",)) -> str:
+    """A Claude Code session T3 Code started, in the shape t3 0.1.2 left on 2026-10-26:
+    every line says `sdk-cli`, SessionStart hooks' lines first, then the tool list."""
+    stamp = {"entrypoint": "sdk-cli", "userType": "external", "version": "2.1.296"}
+    lines = _line({"type": "queue-operation", "operation": "enqueue", "content": "/probe on"})
+    lines += "".join(
+        _line({"type": "attachment", "attachment": {"type": "hook_success"}, **stamp}) for _ in range(hooks)
+    )
+    lines += _line({"type": "attachment", **stamp, "attachment": {
+        "type": "deferred_tools_delta", "addedNames": ["CronCreate", *tools, "mcp__claude_ai_Claude_Docs__batch"]}})
+    return lines + _line({"type": "user", "message": {"content": "sweep C"}, **stamp})
+
+
+def test_a_t3_code_claude_session_is_a_persons(tmp_path):
+    """T3 Code drives Claude through the Agent SDK, so its sessions say `sdk-cli` like
+    `claude -p`; its own MCP server's tools in the head say a person is in T3."""
+    transcript = tmp_path / "t.jsonl"
+    transcript.write_text(_t3_claude_head())
+    assert audit_mod.interactive(transcript) is True
+    transcript.write_text(_t3_claude_head(hooks=30))  # more hooks push it down
+    assert audit_mod.interactive(transcript) is True
+    transcript.write_text(_t3_claude_head(tools=()))  # the same head with no T3: claude -p
+    assert audit_mod.interactive(transcript) is False
+
+
+def test_a_line_nested_past_the_parsers_depth_is_skipped(tmp_path):
+    """`json.loads` raises RecursionError, not ValueError, on deep nesting: it must not
+    escape `interactive` (it would end the session's worker), nor hide what follows."""
+    transcript = tmp_path / "t.jsonl"
+    transcript.write_text("[" * 200_000 + "\n" + _t3_claude_head())
+    assert audit_mod.interactive(transcript) is True
+
+
+def test_a_prompt_naming_t3_tools_is_not_t3(tmp_path):
+    """Only Claude Code's own tool list counts: a `claude -p` prompt that names the tools does not."""
+    transcript = tmp_path / "t.jsonl"
+    transcript.write_text(_line({"type": "user", "entrypoint": "sdk-cli",
+                                 "message": {"content": "call mcp__t3-code__delegate_task"}}))
+    assert audit_mod.interactive(transcript) is False
 
 
 def test_a_long_codex_session_meta_line_is_still_read(tmp_path):

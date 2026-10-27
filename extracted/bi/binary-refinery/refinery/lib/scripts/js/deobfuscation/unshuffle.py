@@ -34,7 +34,9 @@ from refinery.lib.scripts.js.model import (
     JsUpdateExpression,
     JsVariableDeclaration,
     JsVariableDeclarator,
+    wraps_return,
 )
+from refinery.lib.scripts.js.numbers import exact_integer
 
 
 def _is_push_shift_rotation(func: JsFunctionDeclaration | JsFunctionExpression) -> bool:
@@ -46,6 +48,8 @@ def _is_push_shift_rotation(func: JsFunctionDeclaration | JsFunctionExpression) 
 
     and returns `param1`.
     """
+    if wraps_return(func):
+        return False
     if len(func.params) != 2:
         return False
     p0, p1 = func.params
@@ -179,9 +183,6 @@ def _unrotate(elements: list, shift: int) -> list:
 
 
 def _find_rotation_functions(root: JsScript) -> set[str]:
-    """
-    Find all function declarations/expressions that are push/shift rotation functions.
-    """
     names: set[str] = set()
     for node in root.walk():
         if isinstance(node, JsFunctionDeclaration) and node.id is not None:
@@ -211,8 +212,8 @@ class JsArrayUnshuffle(ScriptLevelTransformer):
                 continue
             if not isinstance(shift_arg, JsNumericLiteral):
                 continue
-            shift = int(shift_arg.value)
-            if shift <= 0 or shift >= len(arr_arg.elements):
+            shift = exact_integer(shift_arg.value)
+            if shift is None or shift <= 0 or shift >= len(arr_arg.elements):
                 continue
             if not _is_all_literal_array(arr_arg):
                 continue

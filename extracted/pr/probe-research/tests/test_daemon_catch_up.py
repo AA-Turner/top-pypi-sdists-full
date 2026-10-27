@@ -181,7 +181,7 @@ def _old_helper_logs(transcript: Path, count: int = 2, lines: int = 50) -> None:
         (sub / f"agent-{n}.jsonl").write_text("".join(json.dumps(line) + "\n" for line in body))
 
 
-def test_old_helper_agent_lines_are_never_shown_as_new(tmp_path):
+def test_old_helper_agent_lines_are_never_shown_as_new(tmp_path, monkeypatch):
     """Review (#2853, critical): a span of new events reached across the old helper
     lines (higher seqs), and every bite render showed them below the divider."""
     work = tmp_path / "home" / "work"
@@ -206,12 +206,16 @@ def test_old_helper_agent_lines_are_never_shown_as_new(tmp_path):
     assert "OLD HELPER" not in fresh.prompt.split(bite_mod.DIVIDER, 1)[1]
     assert not [ev for ev in w.store.events_between(first, last, recorded=True, new=True)
                 if ev.bite == store_mod.BEFORE_DAEMON_BITE]
-    # Nor in the reader's windows, nor as a reason to wake it.
+    # Nor in the reader's windows (the oldest, and the newest with prompt wakes off),
+    # nor as a reason to wake it.
+    from probe.daemon import model as model_mod
     from probe.daemon import reader_lane as rl
 
     reader = rl.ReaderLane(w)
     assert not [ev for ev in reader.new_events() if ev.bite == store_mod.BEFORE_DAEMON_BITE]
-    assert not [ev for ev in reader.window_to(w.store.next_seq() - 1) if ev.bite == store_mod.BEFORE_DAEMON_BITE]
+    monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "off")
+    newest = reader.next_window()
+    assert newest and not [ev for ev in newest if ev.bite == store_mod.BEFORE_DAEMON_BITE]
 
 
 def test_a_stream_rewritten_mid_catch_up_does_not_stall_it(tmp_path, monkeypatch):

@@ -186,6 +186,39 @@ def daemon_status(as_json: bool = typer.Option(False, "--json")) -> None:
 @daemon_app.command("install")
 def daemon_install() -> None:
     """Install the daemon's AI libraries into this CLI's environment (the `daemon` extra)."""
+    from probe._shared import uninstall_barrier
+
+    refused = uninstall_barrier.refusal()
+    if refused:
+        typer.echo(f"not installed: {refused}", err=True)
+        raise typer.Exit(2)
+    # Identity first (plan clean-uninstall-reinstall R-T4), on every path, the
+    # "already installed" one too: an earlier sign-in's daemon key of another
+    # team is revoked and dropped (approved afresh where someone can) before
+    # the daemon's libraries are provisioned or the key reused. The daemon
+    # wrote to the old team.
+    problems = _hold_identity()
+    _provision()
+    if problems:
+        typer.echo("daemon mode is INCOMPLETE on this machine: " + "; ".join(problems), err=True)
+        raise typer.Exit(1)
+
+
+def _hold_identity() -> list[str]:
+    """`identity_check.reconcile`, said: its lines, its problems with `!`.
+    The problems (they make the install incomplete)."""
+    from probe.cli import identity_check
+
+    report = identity_check.reconcile(only_when_needed=True)
+    for line in report.lines:
+        typer.echo(line)
+    for line in report.problems:
+        typer.echo(f"! {line}", err=True)
+    return list(report.problems)
+
+
+def _provision() -> None:
+    """The daemon's libraries, by this install's method (`daemon_install`)."""
     import dataclasses
     import subprocess
 
@@ -209,13 +242,22 @@ def daemon_install() -> None:
         return
     if ai_libraries():
         typer.echo(f"already installed (Pydantic AI {ai_libraries()})")
+        _start_service()
         return
     install = updater.detect_install()
+    if install.method == updater.Method.UV_TOOL:
+        managed = _install_side_by_side(__version__)
+        if managed is not None and managed != 2:
+            _start_service()
+        if managed:
+            raise typer.Exit(managed)
+        if managed == 0:
+            return  # never `Exit(0)`: the wizard's provisioning reads any Exit as a failed install
     # `all` stays (plan 2.11: the CLI's own dependencies leave core in the next
     # release), and so does whatever the install records beside it (#2043 review).
     # `daemon` is asked for here, not inferred: on a first switch to the daemon
     # neither the libraries nor the setting exist yet.
-    kept = updater.kept_from_uv_receipt()
+    kept = updater.faithful_kept_from_uv_receipt()
     if kept is None and install.method in (updater.Method.UV_TOOL, updater.Method.UV_TOOL_LEGACY):
         # Unreadable, or an editable or local `--with`, constraints: a reinstall
         # would drop what it cannot restate, which `probe update` refuses too.
@@ -268,6 +310,66 @@ def daemon_install() -> None:
         )
         raise typer.Exit(1)
     typer.echo("installed: daemon mode can run on this machine")
+    _start_service()
+
+
+def _start_service() -> None:
+    """An install ends with the Probe service started, as the hooks start it
+    (its start installs the OS keeper and the lifeboat): one line when it
+    cannot run here, never a failure (`install_pipeline.start_service`)."""
+    from probe.cli import install_pipeline
+
+    note = install_pipeline.start_service()
+    if note:
+        typer.echo(note)
+
+
+def _install_side_by_side(version: str) -> int | None:
+    """The `daemon` extra the way every install goes (plan clean-uninstall-
+    reinstall R-T1): the same version again, with the extra, in a folder of
+    its own beside the running one (`<version>+g<N>`), checked, then switched
+    to under the install lock -- never a `uv tool install` into the env every
+    running `probe` reads its files from. The exit status (2: refused, or
+    another update holds the install lock; 0 too when the switch waits for a
+    quiet machine), or None where the side-by-side layout is not used (the
+    caller installs as before)."""
+    from probe._shared import installs
+
+    from probe.cli import install_pipeline
+
+    out = install_pipeline.install_cli(version, mode=install_pipeline.Mode.DAEMON, person=True)
+    if out.unmanaged:
+        return None
+    if out.refused:
+        typer.echo(f"not installed: {out.refused}", err=True)
+        return 2
+    if out.busy:
+        typer.echo(f"not installed: {out.busy} (run `probe daemon install` again when it ends)", err=True)
+        return 2
+    for line in out.lines:
+        typer.echo(line)
+    if out.waiting and not out.ok:
+        # Built and checked beside uv's own folder; the first switch waits for
+        # a quiet machine (as `probe repair` says it): no failure.
+        typer.echo(f"daemon mode {install_pipeline.QUIET_SWITCH} ({out.waiting}); "
+                   "capture keeps running until then")
+        return 0
+    if out.waiting:
+        typer.echo(out.waiting)
+    if not out.ok or out.env is None:
+        for line in out.problems or ["the install did not end up working"]:
+            typer.echo(line, err=True)
+        typer.echo("Capture keeps running; daemon mode stays unavailable.", err=True)
+        return 1
+    if _fresh_ai_libraries(str(installs.env_python(out.env))) is None:
+        typer.echo(
+            "the install finished but the daemon's AI libraries still do not import. Capture keeps running; "
+            "daemon mode stays unavailable.",
+            err=True,
+        )
+        return 1
+    typer.echo("installed: daemon mode can run on this machine")
+    return 0
 
 
 #: The `daemon` extra's own packages: what a repair reinstalls.

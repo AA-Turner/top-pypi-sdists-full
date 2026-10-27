@@ -108,19 +108,22 @@ import re
 from abc import ABC, abstractmethod
 from argparse import ArgumentTypeError
 from contextlib import suppress
-from functools import reduce, update_wrapper
+from functools import cache, reduce, update_wrapper
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    ClassVar,
     Iterable,
     Mapping,
+    MutableMapping,
     TypeVar,
     get_type_hints,
     overload,
 )
 
+from refinery.lib.decorators import ArithmeticReducer
 from refinery.lib.frame import Chunk
 from refinery.lib.meta import Percentage, is_valid_variable_name, metavars
 from refinery.lib.patterns import formats
@@ -162,6 +165,32 @@ class LazyEvaluation:
     """
 
 
+class _ExpressionPostprocessor(ArithmeticReducer):
+    """
+    Rewrites an expression for `refinery.lib.argformats.PythonExpression`: string constants become
+    bytes, the matrix product becomes exclusive or, and the result of each arithmetic operation is
+    reduced by the given modulus or mask.
+    """
+    def __init__(self, modulus: int | None, mask: int):
+        self.modulus = modulus
+        self.mask = mask
+
+    def reduced(self, node: ast.expr) -> ast.expr:
+        if (modulus := self.modulus) is not None:
+            return ast.BinOp(node, ast.Mod(), ast.Constant(modulus))
+        if (mask := self.mask) > 0:
+            return ast.BinOp(node, ast.BitAnd(), ast.Constant(mask))
+        return node
+
+    def visit_Constant(self, node: ast.Constant):
+        if not isinstance(node.value, str):
+            return node
+        return ast.Constant(value=node.value.encode('utf8'))
+
+    def visit_MatMult(self, node: ast.MatMult) -> Any:
+        return ast.BitXor()
+
+
 class PythonExpression:
     """
     Implements a parser for any Python expression with a prescribed set of variable names permitted
@@ -184,38 +213,7 @@ class PythonExpression:
         if mask > 0 and modulus is not None:
             raise ValueError('Cannot specify both modulus and mask.')
 
-        class Postprocessor(ast.NodeTransformer):
-            def visit_Constant(self, node: ast.Constant):
-                if not isinstance(node.value, str):
-                    return node
-                return ast.Constant(value=node.value.encode('utf8'))
-
-            def visit_MatMult(self, node: ast.MatMult) -> Any:
-                return ast.BitXor()
-
-            def visit_BinOp(self, node: ast.BinOp) -> Any:
-                self.generic_visit(node)
-                if not isinstance(node.op, (ast.Add, ast.Mult, ast.Sub, ast.LShift, ast.Pow)):
-                    return node
-                if modulus is not None:
-                    return ast.BinOp(node, ast.Mod(), ast.Constant(modulus))
-                elif mask > 0:
-                    return ast.BinOp(node, ast.BitAnd(), ast.Constant(mask))
-                else:
-                    return node
-
-            def visit_UnaryOp(self, node: ast.UnaryOp) -> Any:
-                self.generic_visit(node)
-                if not isinstance(node.op, (ast.UAdd, ast.USub, ast.Invert)):
-                    return node
-                if modulus is not None:
-                    return ast.BinOp(node, ast.Mod(), ast.Constant(modulus))
-                elif mask > 0:
-                    return ast.BinOp(node, ast.BitAnd(), ast.Constant(mask))
-                else:
-                    return node
-
-        expression = ast.fix_missing_locations(Postprocessor().visit(expression))
+        expression = ast.fix_missing_locations(_ExpressionPostprocessor(modulus, mask).visit(expression))
         nodes = ast.walk(expression)
 
         try:
@@ -227,7 +225,6 @@ class PythonExpression:
         names = {node for node in nodes if isinstance(node, ast.Name)}
         names = {node.id for node in names} - {node.id for node in names if isinstance(node.ctx, ast.Store)}
         names.difference_update(dir(builtins))
-        names.difference_update(globals())
         if not all_variables_allowed and not names <= variables:
             raise ParserVariableMissing(
                 'the following variable names are unknown: {}'.format(', '.join(names - variables)))
@@ -239,7 +236,7 @@ class PythonExpression:
     def __str__(self):
         return self.definition
 
-    def __call__(self, mapping: dict | None = None, **values):
+    def __call__(self, mapping: MutableMapping[str, Any] | None = None, **values):
         if mapping is not None:
             values, tmp = mapping, values
             values.update(tmp)
@@ -250,14 +247,14 @@ class PythonExpression:
             except KeyError:
                 raise ParserVariableMissing(v)
         variables.update(self.constants)
-        return eval(self.expression, None, variables)
+        return eval(self.expression, {'__builtins__': builtins}, variables)
 
     @classmethod
     def Lazy(cls, definition: str):
         return cls(definition, all_variables_allowed=True)
 
     @classmethod
-    def Evaluate(cls, definition: str, values: dict):
+    def Evaluate(cls, definition: str, values: MutableMapping[str, Any]):
         """
         Creates a new `refinery.lib.argformats.PythonExpression` object based on `definition` and
         evaluates it based on the variable mapping `values`. If a variable used in the expression
@@ -498,6 +495,8 @@ class DelayedArgumentDispatch:
         unit = unit and unit.assemble(*args).log_detach()
         if rev == _REVERSE_SIGN:
             unit = -unit
+        if unit is not None:
+            unit.args.squeeze = True
         self.units[uhash] = unit
         return unit
 
@@ -547,7 +546,7 @@ class DelayedArgumentDispatch:
         return _register
 
 
-def LazyPythonExpression(expression: str, variables: dict | None = None) -> MaybeDelayedType[Any]:
+def LazyPythonExpression(expression: str, variables: MutableMapping[str, Any] | None = None) -> MaybeDelayedType[Any]:
     """
     Wraps the given expression for use as a `refinery.lib.argformats.multibin` expression. If it
     contains no variables, the expression is evaluated immediately, otherwise the function returns
@@ -989,7 +988,7 @@ class DelayedArgument(LazyEvaluation):
         return _cut
 
     @handler.register('pd')
-    def pd(self, input: bytes, region: slice | str = slice(1, None, 1), separator: bytes = B'/') -> bytes:
+    def pd(self, input: bytes, region: slice | str = slice(1, None, 1)) -> bytes:
         """
         The handler `pd[region=1:,sep=/]:input` splits the input at the given string `sep`
         and reverses the sequence. Parts are then selected according to the `region` parameter,
@@ -1001,23 +1000,24 @@ class DelayedArgument(LazyEvaluation):
         will return the string `/path/to/some/item`.
         """
         def _pd(data: Chunk | None = None):
-            b: slice = sliceobj(region, data=data, final=True)
-            pd = input.split(separator)
+            b = sliceobj(region, data=data, final=True)
+            assert isinstance(b, slice)
+            pd = re.split(rB'[\\/]', input)
             pd.reverse()
             pd = pd[b]
             pd.reverse()
-            return separator.join(pd)
+            return b'/'.join(pd)
         try:
             return _pd()
         except TooLazy:
             return _pd
 
     @handler.register('pb')
-    def pb(self, input: bytes, separator: bytes = B'/') -> bytes:
+    def pb(self, input: bytes) -> bytes:
         """
         The handler `pb:input` is equivalent to `pd[:1]:input` and corresponds to "basename".
         """
-        return self.pd(input, slice(0, 1, 1), separator=separator)
+        return self.pd(input, slice(0, 1, 1))
 
     @handler.register('pn')
     def pn(self, path: str | bytes) -> bytes:
@@ -1769,41 +1769,48 @@ class Option(ABC):
         return self.mode
 
 
+class _FactoryOption(Option):
+    """
+    The base of the option types that `refinery.lib.argformats.OptionFactory` makes: each type
+    accepts the names in its class attribute `options` and takes the value of the given name.
+    """
+    options: ClassVar[Mapping[str, Any]]
+    ignorecase: ClassVar[bool]
+
+    def __init__(self, name: str):
+        options = self.options
+        if self.ignorecase and name not in options:
+            needle = name.upper()
+            for key in options:
+                if needle == key.upper():
+                    name = key
+                    break
+        if name not in options:
+            raise ValueError('The option {} is not one of these: {}'.format(name, list(options)))
+        self.mode = options[name]
+        self.name = name
+
+
 def OptionFactory(options: Mapping[str, Any], ignorecase: bool = False):
     """
     The factory produces an argument parser type that accepts the keys of `options`
     as possible values and causes the parsed argument to contain the corresponding
     value from the `options` dictionary.
     """
-    try:
-        cache = OptionFactory.Cache
-    except AttributeError:
-        cache = OptionFactory.Cache = {}
+    return _option_type(tuple(options.items()), ignorecase)
 
-    option_description = ','.join(sorted(options))
-    option_identifier = hash(option_description)
 
-    try:
-        return cache[option_identifier]
-    except KeyError:
-        pass
-
-    class TheOption(Option):
-        def __init__(self, name: str):
-            if ignorecase and name not in options:
-                needle = name.upper()
-                for key in options:
-                    if needle == key.upper():
-                        name = key
-                        break
-            if name not in options:
-                raise ValueError('The option {} is not one of these: {}'.format(name, list(options)))
-            self.mode = options[name]
-            self.name = name
-
-    TheOption.__qualname__ = F'OptionFactory.Option[{option_description}]'
-    cache[option_identifier] = TheOption
-    return TheOption
+@cache
+def _option_type(options: tuple[tuple[str, Any], ...], ignorecase: bool) -> type[_FactoryOption]:
+    """
+    The option type of `refinery.lib.argformats.OptionFactory` for the given names and values; one
+    type for each set of options.
+    """
+    description = ','.join(sorted(name for name, _ in options))
+    namespace = dict(options=dict(options), ignorecase=ignorecase, __module__=__name__)
+    option_type = type('TheOption', (_FactoryOption,), namespace)
+    option_type.__qualname__ = F'OptionFactory.Option[{description}]'
+    return option_type
 
 
 def extract_options(symbols, prefix: str, *exceptions: str):

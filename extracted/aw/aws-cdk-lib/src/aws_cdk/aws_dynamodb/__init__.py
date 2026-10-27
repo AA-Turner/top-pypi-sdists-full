@@ -2223,6 +2223,7 @@ class CfnGlobalTable(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2294,7 +2295,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a097f89adcd67d171d1cf0c2f82a8189f354dac15e39c6b6cc82e65b8e315806)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicas", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replicas", value)
 
     @builtins.property
     @jsii.member(jsii_name="attributeDefinitions")
@@ -2312,7 +2313,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f732bb8272361b5800f36f0c389121597f9a72868d0f90932b3744684600e75e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeDefinitions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "attributeDefinitions", value)
 
     @builtins.property
     @jsii.member(jsii_name="billingMode")
@@ -2328,7 +2329,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b7a91e461bd5e49ff4dc2350ae1ceae8597a286d7e21db96c7ec976ba3537e3c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "billingMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "billingMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalSecondaryIndexes")
@@ -2346,7 +2347,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__484436e7e1867a9d477f3fa0bdee0dfdfb2646ba7497c71d398076d9872d332b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalSecondaryIndexes", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalTableSourceArn")
@@ -2358,7 +2359,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b7289daf8c207efd37cb3d7fa1fd9c044421e2990cb9ec991503208d45d34503)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalTableSourceArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalTableSourceArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalTableWitnesses")
@@ -2376,7 +2377,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__12c424a307d05c5f02c5d3df3ad420cd4151741010ad7531cd1fdc24fa467f2a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalTableWitnesses", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalTableWitnesses", value)
 
     @builtins.property
     @jsii.member(jsii_name="keySchema")
@@ -2394,7 +2395,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6ef890475efd870bf55df50bbfa6efc88da22eca84273a283f67749593f5b884)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keySchema", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keySchema", value)
 
     @builtins.property
     @jsii.member(jsii_name="localSecondaryIndexes")
@@ -2412,7 +2413,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a0b3191b7117186bc41f62e22fff4e4f50d0835a5f174dde9b2b8188ceee5162)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "localSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "localSecondaryIndexes", value)
 
     @builtins.property
     @jsii.member(jsii_name="multiRegionConsistency")
@@ -2425,7 +2426,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9fa800c2b80560454a211edac5215563ba994d97da2fc12e542c8f064daf753d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiRegionConsistency", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "multiRegionConsistency", value)
 
     @builtins.property
     @jsii.member(jsii_name="readOnDemandThroughputSettings")
@@ -2442,7 +2443,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e3345c5f5a5971f3677cfd1861143699cf7bccce6d5fb865fffdf9b6995f0246)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "readOnDemandThroughputSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "readOnDemandThroughputSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="readProvisionedThroughputSettings")
@@ -2459,7 +2460,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7341a92bb1008a818610ce95647ed1d5b340cccce3d2803375eee76b8e7fe217)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "readProvisionedThroughputSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "readProvisionedThroughputSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="sseSpecification")
@@ -2477,7 +2478,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ccb739aac1de1ded207a80b782298c972ccf113dd96de224fea60f9ce1b43833)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sseSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sseSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="streamSpecification")
@@ -2495,7 +2496,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0b312fc3bf6b9413081bae5b2557691650d4bf70fd047bf867dd8ce608971cd7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="tableName")
@@ -2508,7 +2509,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db38617fc8b7b8f4ed3d8858186d464cb90a597e2acb75a0d09d8fecadfb89b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableName", value)
 
     @builtins.property
     @jsii.member(jsii_name="timeToLiveSpecification")
@@ -2526,7 +2527,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0b2a71693eba1f1adfbaa4a2d1968a10f7e914f3714a169453fb5831d2b159f7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeToLiveSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "timeToLiveSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="vectorIndexes")
@@ -2543,7 +2544,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3babd439783fc7d1acd9ce1c7761670b268c94a389dd02a22c2b63de51d6d5ed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vectorIndexes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vectorIndexes", value)
 
     @builtins.property
     @jsii.member(jsii_name="warmThroughput")
@@ -2561,7 +2562,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5cffa71e41723d2cc6240a56e0993116de480cb2c21c1c9bb92de9599718c4b2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "warmThroughput", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "warmThroughput", value)
 
     @builtins.property
     @jsii.member(jsii_name="writeOnDemandThroughputSettings")
@@ -2579,7 +2580,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e9e1941bc70970aa12bf29b98d00fed94dd701aea1acb0d4280e0f96ab3ca8bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "writeOnDemandThroughputSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "writeOnDemandThroughputSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="writeProvisionedThroughputSettings")
@@ -2597,7 +2598,7 @@ class CfnGlobalTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__575a6fcd8e2e451f04b5c40c3e6da53aad798e3089f98afaa25d709c7d291a10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "writeProvisionedThroughputSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "writeProvisionedThroughputSettings", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.AttributeDefinitionProperty",
@@ -6355,6 +6356,7 @@ class CfnTable(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6419,7 +6421,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b23ffa0600490aa85e7d7d78bfa21eab76ec61e446848fa311842ae651fa9836)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keySchema", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keySchema", value)
 
     @builtins.property
     @jsii.member(jsii_name="attributeDefinitions")
@@ -6437,7 +6439,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5daf5ddc396c2de639d9ab720b24bd4802cb6b1935c3acaabde5b29c25732fd7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeDefinitions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "attributeDefinitions", value)
 
     @builtins.property
     @jsii.member(jsii_name="billingMode")
@@ -6450,7 +6452,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__859e18c7e0169484ae1438c12328e5f08e77b8ce32d6fc9d190d1d453358f8b8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "billingMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "billingMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="contributorInsightsSpecification")
@@ -6468,7 +6470,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4418562f8958ca4e57cc994ee87a0b27423f94d0f99284b5f04311b9e61b238f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contributorInsightsSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contributorInsightsSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtectionEnabled")
@@ -6486,7 +6488,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d91900a3abfeb455a4849c52c7f1d034e09b1b0ceb4a50b598d8c938f15c012b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtectionEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtectionEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="globalSecondaryIndexes")
@@ -6507,7 +6509,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__97df696d6ba063acb98f58f09adb6516d0fc1d41d4d4a37c39f7ffac09e0d5cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "globalSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "globalSecondaryIndexes", value)
 
     @builtins.property
     @jsii.member(jsii_name="importSourceSpecification")
@@ -6525,7 +6527,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__61eb67e9e79c54ed8659ffe201d838bdf08b6b20da8fa03693734f4336da76c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "importSourceSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "importSourceSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="kinesisStreamSpecification")
@@ -6543,7 +6545,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d983fc83d1717d6aa76c247a0250e28278e9d16c940822fa16986ff229e9043)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kinesisStreamSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kinesisStreamSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="localSecondaryIndexes")
@@ -6561,7 +6563,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__45185c524451628b623abf4663f9427843c4d4a709a2cf82b14f8d2b3a9a7ffd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "localSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "localSecondaryIndexes", value)
 
     @builtins.property
     @jsii.member(jsii_name="onDemandThroughput")
@@ -6579,7 +6581,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__510f5c7d4293f98a55434a588a20db69cf20ac7b409105b7335eb2699ba8c570)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "onDemandThroughput", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "onDemandThroughput", value)
 
     @builtins.property
     @jsii.member(jsii_name="pointInTimeRecoverySpecification")
@@ -6597,7 +6599,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__06f7cca9d14af75b709b53e94a6fb51bba6dfa0cb31a23e0b70f506be9551e8d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pointInTimeRecoverySpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "pointInTimeRecoverySpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="provisionedThroughput")
@@ -6615,7 +6617,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6fa8ca064a9e23781245ca2f3d32d36a2324726abba76565a2e12ac5e399a599)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisionedThroughput", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "provisionedThroughput", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicy")
@@ -6633,7 +6635,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4166d9b0a925b24598927de15ecb1935d22d14f9a49469ba893db8d18421bf02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="sseSpecification")
@@ -6651,7 +6653,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc5e50032964d91e0cf5ec36aba75b6ae325bfe6129ad9f55764353e645b28c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sseSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sseSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="streamSpecification")
@@ -6669,7 +6671,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c4ba4ef955ba0e9ac6474c62ea545a637752c92fffc5fe0868d55987f8b593ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="tableClass")
@@ -6682,7 +6684,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__df6efdc84208b4dd6d9307c0da182d301e83373407c8e72b4e33094a16f0e9ee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableClass", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableClass", value)
 
     @builtins.property
     @jsii.member(jsii_name="tableName")
@@ -6695,7 +6697,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b9a680d2bfdc5e6712f2c0338c7388d0ee2bbf8560c324a2398466ed5efe5e1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -6711,7 +6713,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ae8c7d0ef496e4ff46af1a1db46d7b3840fc5e44d90dd5539a886f2d9ef19658)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="timeToLiveSpecification")
@@ -6729,7 +6731,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13f09e3b5bed84728f44ababaa84b1754ef531ec7fc1a8800692ac3ee9bba9a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "timeToLiveSpecification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "timeToLiveSpecification", value)
 
     @builtins.property
     @jsii.member(jsii_name="vectorIndexes")
@@ -6746,7 +6748,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__738ead5c21074a6c7f2ebb789d2b1fda8505dbe8d78a769c2c7f6fcf6e47ce25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vectorIndexes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vectorIndexes", value)
 
     @builtins.property
     @jsii.member(jsii_name="warmThroughput")
@@ -6764,7 +6766,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8eb093514d81ccb0743d4c6abe13c5421f3570760fac0d429feb8eb70cd70401)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "warmThroughput", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "warmThroughput", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.AttributeDefinitionProperty",
@@ -8347,7 +8349,7 @@ class CfnTable(
 
             :param stream_view_type: When an item in the table is modified, ``StreamViewType`` determines what information is written to the stream for this table. Valid values for ``StreamViewType`` are: - ``KEYS_ONLY`` - Only the key attributes of the modified item are written to the stream. - ``NEW_IMAGE`` - The entire item, as it appears after it was modified, is written to the stream. - ``OLD_IMAGE`` - The entire item, as it appeared before it was modified, is written to the stream. - ``NEW_AND_OLD_IMAGES`` - Both the new and the old item images of the item are written to the stream.
             :param resource_policy: Creates or updates a resource-based policy document that contains the permissions for DynamoDB resources, such as a table's streams. Resource-based policies let you define access permissions by specifying who has access to each resource, and the actions they are allowed to perform on each resource. .. epigraph:: When you remove the ``StreamSpecification`` property from the template, DynamoDB disables the stream but retains any attached resource policy until the stream is deleted after 24 hours. When you modify the ``StreamViewType`` property, DynamoDB creates a new stream and retains the old stream's resource policy. The old stream and its resource policy are deleted after the 24-hour retention period. In a CloudFormation template, you can provide the policy in JSON or YAML format because CloudFormation converts YAML to JSON before submitting it to DynamoDB . For more information about resource-based policies, see `Using resource-based policies for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/access-control-resource-based.html>`_ and `Resource-based policy examples <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/rbac-examples.html>`_ .
-            :param tags: 
+            :param tags: Specifies the tags to apply to the DDB stream. Stream tags are independent of table tags. For an overview on tagging DynamoDB resources, see `Tagging for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Tagging.html>`_ in the *Amazon DynamoDB Developer Guide*.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html
             :exampleMetadata: fixture=_generated
@@ -8424,7 +8426,11 @@ class CfnTable(
 
         @builtins.property
         def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
-            '''
+            '''Specifies the tags to apply to the DDB stream.
+
+            Stream tags are independent of table tags.
+            For an overview on tagging DynamoDB resources, see `Tagging for DynamoDB <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Tagging.html>`_ in the *Amazon DynamoDB Developer Guide*.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-streamspecification.html#cfn-dynamodb-table-streamspecification-tags
             '''
             result = self._values.get("tags")
@@ -13808,7 +13814,7 @@ class _TableBaseProxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__385df27fafa61fd6d1e8ebb872e4af26b3119795ee6bb9684e56f891cd86ba94)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcePolicy", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, TableBase).__jsii_proxy_class__ = lambda : _TableBaseProxy
@@ -14831,7 +14837,7 @@ class _TableBaseV2Proxy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb944fe3dd5a924cda3570a3226b526ff95d46099b3de4b4ab2a005c34091870)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcePolicy", value)
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, TableBaseV2).__jsii_proxy_class__ = lambda : _TableBaseV2Proxy
@@ -17576,6 +17582,7 @@ class TableV2(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -17648,7 +17655,7 @@ class TableV2(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c681fc6a08524e2909b1c97c77ad38edec11b1f8bd3f666a073a61c09638e19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="streamResourcePolicy")
@@ -17666,7 +17673,7 @@ class TableV2(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e926a59d9befa27c7eb48aee7445d2065fc297f722e40ebc06fdff7f366f264f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamResourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamResourcePolicy", value)
 
 
 class TableV2MultiAccountReplica(
@@ -17813,6 +17820,7 @@ class TableV2MultiAccountReplica(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -17886,7 +17894,7 @@ class TableV2MultiAccountReplica(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3e867cd3b95f74fb19d4e40aeffd7b9068449e391b56096a093c16acbbad5164)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="streamResourcePolicy")
@@ -17904,7 +17912,7 @@ class TableV2MultiAccountReplica(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1731264d75b7f73b07a1fa5fa428c82db704c1964283f3b0a5ded32703b25d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamResourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamResourcePolicy", value)
 
 
 @jsii.data_type(
@@ -20267,6 +20275,7 @@ class Table(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -20326,7 +20335,7 @@ class Table(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b85333b9f4a3ca55431a35f4006c1aeb1fcd34f68dee45d5355498d8a1b77806)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcePolicy", value)
 
 
 __all__ = [

@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from probe.mcp.server import NO_TOKEN_PLACEHOLDER
 
 _HELPER = (
     Path(__file__).resolve().parent.parent
@@ -213,8 +214,8 @@ def test_helper_serves_no_token_when_the_active_context_is_missing(tmp_path: Pat
         },
     )
 
-    assert result.returncode == 1
     assert "probe_pat_other" not in result.stdout
+    assert json.loads(result.stdout)["Authorization"] == f"Bearer {NO_TOKEN_PLACEHOLDER}"
 
 
 def test_helper_never_serves_the_write_token(tmp_path: Path) -> None:
@@ -229,8 +230,8 @@ def test_helper_never_serves_the_write_token(tmp_path: Path) -> None:
         },
     )
 
-    assert result.returncode == 1
     assert "probe_pat_write" not in result.stdout
+    assert json.loads(result.stdout)["Authorization"] == f"Bearer {NO_TOKEN_PLACEHOLDER}"
 
 
 def test_helper_adds_plugin_metadata_to_cli_fallback_token(tmp_path: Path) -> None:
@@ -555,3 +556,16 @@ def test_the_cli_fallback_carries_the_clis_limit(tmp_path: Path) -> None:
         "X-Probe-Workspace-Limit": _WS,
         "X-Probe-Workspace-Limit-Team-Items": "hide",
     }
+
+
+def test_no_token_anywhere_still_sends_a_header_never_nothing(tmp_path: Path) -> None:
+    """A helper that exits without a header sends Claude Code's request bare: the
+    edge answers with its OAuth challenge, Claude Code shows "Needs
+    authentication" and skips the server in every new session for 15 minutes.
+    The placeholder is refused like a bad token instead, and the next connect
+    runs the helper again. The server knows the same placeholder."""
+    result = _run_helper_against_config(tmp_path, {"version": 2, "current_context": "default", "contexts": {}})
+    assert result.returncode == 0, result.stderr
+    headers = json.loads(result.stdout)
+    assert headers["Authorization"] == f"Bearer {NO_TOKEN_PLACEHOLDER}"
+    assert "run the Probe wizard" in result.stderr

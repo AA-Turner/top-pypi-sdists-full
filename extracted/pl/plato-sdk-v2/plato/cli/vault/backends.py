@@ -55,6 +55,8 @@ _CHRONOS_CREDS = {
 # ``archived_at`` is the flag, the other two say who and why.
 ARCHIVE_FIELDS = ("archived_at", "archived_by", "archived_reason")
 _CHRONOS_FIELDS = (
+    "login_email",
+    "login_email_source",
     "login_url",
     "browser_mode",
     "auto_refresh",
@@ -402,6 +404,13 @@ class ConsoleBackend:
     def create(self, login_key: str, account: str, fields: dict) -> dict:
         if "max_sessions" in fields:
             raise VaultConsoleError("the login console cannot set max sessions; that needs the Chronos login vault")
+        login_email = (fields.get("login_email") or "").casefold()
+        if login_email and login_email != (fields.get("username") or "").strip().casefold():
+            # The console's vault write has no login email: only the username lands.
+            raise VaultConsoleError(
+                "the login console cannot save a login email apart from the username; "
+                "that needs the Chronos login vault"
+            )
         body: dict[str, Any] = {"login_key": login_key, "account": account}
         for key, name in _CONSOLE_CRED_NAMES.items():
             if fields.get(key):
@@ -410,6 +419,8 @@ class ConsoleBackend:
             body["security_qa"] = fields["security_qa"]
         if fields.get("login_url"):
             body["target_url"] = fields["login_url"]
+        if fields.get("login_email"):
+            body["email"] = fields["login_email"]
         result = self._client.create_login(body)
         created = result.get("created") if isinstance(result, dict) else None
         if not isinstance(created, dict):
@@ -445,6 +456,8 @@ class ConsoleBackend:
         if "max_sessions" in fields:
             # Checked before any write, so nothing else lands half-way.
             raise VaultConsoleError("the login console cannot set max sessions; that needs the Chronos login vault")
+        if "login_email" in fields:
+            raise VaultConsoleError("the login console cannot edit the login email; that needs the Chronos login vault")
         applied = self._edit_routes(login_key, account, fields)
         return {"view": None, "applied": applied}
 

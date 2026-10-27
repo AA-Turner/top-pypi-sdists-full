@@ -102,7 +102,7 @@ class FadingKalmanFilter(object):
         measurement function
 
     F : ndarray (dim_x, dim_x)
-        state transistion matrix
+        state transition matrix
 
     B : ndarray (dim_x, dim_u), default 0
         control transition matrix
@@ -314,7 +314,7 @@ class FadingKalmanFilter(object):
             In other words `covariance[k,:,:]` is the covariance at step `k`.
         """
 
-        n = np.size(zs, 0)
+        n = len(zs)
         if Rs is None:
             Rs = [None] * n
 
@@ -438,7 +438,7 @@ class FadingKalmanFilter(object):
         mahalanobis : float
         """
         if self._mahalanobis is None:
-            self._mahalanobis = sqrt(float(dot(dot(self.y.T, self.SI), self.y)))
+            self._mahalanobis = sqrt(dot(dot(self.y.T, self.SI), self.y).item())
         return self._mahalanobis
 
     def __repr__(self):

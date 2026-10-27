@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.7.17
+Version: 4.7.19
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,16 +11,16 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.7.15
-Requires-Dist: praisonai-code>=0.1.14
-Requires-Dist: praisonai-bot>=0.1.14
-Requires-Dist: praisonai-train>=0.1.14
-Requires-Dist: praisonai-browser>=0.1.14
-Requires-Dist: praisonai-mcp>=0.1.16
-Requires-Dist: praisonai-sandbox>=0.1.14
-Requires-Dist: praisonai-deploy>=0.1.14
+Requires-Dist: praisonaiagents>=1.7.17
+Requires-Dist: praisonai-code>=0.1.16
+Requires-Dist: praisonai-bot>=0.1.16
+Requires-Dist: praisonai-train>=0.1.16
+Requires-Dist: praisonai-browser>=0.1.16
+Requires-Dist: praisonai-mcp>=0.1.18
+Requires-Dist: praisonai-sandbox>=0.1.16
+Requires-Dist: praisonai-deploy>=0.1.16
 Requires-Dist: python-dotenv>=0.19.0
-Requires-Dist: litellm<2,>=1.83.14
+Requires-Dist: litellm<1.106,>=1.83.14
 Requires-Dist: PyYAML>=6.0
 Requires-Dist: mcp<2,>=1.20.0
 Requires-Dist: typer>=0.12.0
@@ -29,7 +29,7 @@ Requires-Dist: textual>=0.47.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: toml>=0.10.2
 Provides-Extra: ui
-Requires-Dist: aiui<0.4,>=0.3.121; extra == "ui"
+Requires-Dist: aiui<0.4,>=0.3.148; extra == "ui"
 Provides-Extra: gradio
 Requires-Dist: gradio>=4.26.0; extra == "gradio"
 Provides-Extra: api
@@ -51,13 +51,13 @@ Requires-Dist: langfuse>=3.0.0; extra == "langfuse"
 Provides-Extra: langextract
 Requires-Dist: langextract>=1.0.0; extra == "langextract"
 Provides-Extra: chat
-Requires-Dist: aiui<0.4,>=0.3.121; extra == "chat"
+Requires-Dist: aiui<0.4,>=0.3.148; extra == "chat"
 Requires-Dist: tavily-python==0.5.0; extra == "chat"
 Requires-Dist: crawl4ai>=0.7.0; extra == "chat"
 Requires-Dist: playwright>=1.47.0; extra == "chat"
 Requires-Dist: rich; extra == "chat"
 Provides-Extra: code
-Requires-Dist: aiui<0.4,>=0.3.121; extra == "code"
+Requires-Dist: aiui<0.4,>=0.3.148; extra == "code"
 Requires-Dist: tavily-python==0.5.0; extra == "code"
 Requires-Dist: crawl4ai>=0.7.0; extra == "code"
 Requires-Dist: playwright>=1.47.0; extra == "code"
@@ -78,7 +78,7 @@ Requires-Dist: praisonai-sandbox[daytona]; extra == "daytona"
 Provides-Extra: tenki
 Requires-Dist: praisonai-sandbox[tenki]; extra == "tenki"
 Provides-Extra: realtime
-Requires-Dist: aiui<0.4,>=0.3.121; extra == "realtime"
+Requires-Dist: aiui<0.4,>=0.3.148; extra == "realtime"
 Requires-Dist: tavily-python==0.5.0; extra == "realtime"
 Requires-Dist: crawl4ai>=0.7.0; extra == "realtime"
 Requires-Dist: playwright>=1.47.0; extra == "realtime"
@@ -160,7 +160,7 @@ Requires-Dist: slack_sdk>=3.0.0; extra == "all"
 Requires-Dist: slack-bolt>=1.18.0; extra == "all"
 Requires-Dist: brotlicffi>=1.0.0; extra == "all"
 Requires-Dist: aiohttp>=3.8.0; extra == "all"
-Requires-Dist: aiui<0.4,>=0.3.121; extra == "all"
+Requires-Dist: aiui<0.4,>=0.3.148; extra == "all"
 Requires-Dist: redis>=5.0.0; extra == "all"
 Requires-Dist: pymongo>=4.6.0; extra == "all"
 Requires-Dist: psycopg2-binary>=2.9.0; extra == "all"
@@ -170,7 +170,7 @@ Provides-Extra: observability
 Requires-Dist: langfuse>=3.0.0; extra == "observability"
 Provides-Extra: bot
 Requires-Dist: praisonai-bot[bot]; extra == "bot"
-Requires-Dist: aiui<0.4,>=0.3.121; extra == "bot"
+Requires-Dist: aiui<0.4,>=0.3.148; extra == "bot"
 Provides-Extra: bot-whatsapp-web
 Requires-Dist: praisonai-bot[bot-whatsapp-web]; extra == "bot-whatsapp-web"
 Provides-Extra: redis
@@ -192,7 +192,7 @@ Requires-Dist: psycopg2-binary>=2.9.0; extra == "cockroachdb"
 Provides-Extra: xata
 Requires-Dist: psycopg2-binary>=2.9.0; extra == "xata"
 Provides-Extra: claw
-Requires-Dist: aiui[all]<0.4,>=0.3.121; extra == "claw"
+Requires-Dist: aiui[all]<0.4,>=0.3.148; extra == "claw"
 Requires-Dist: praisonaiagents[all]>=1.5.40; extra == "claw"
 Requires-Dist: praisonai-bot[bot,gateway]>=0.0.6; extra == "claw"
 Requires-Dist: flask>=3.0.0; extra == "claw"
@@ -1217,11 +1217,13 @@ agent.start('Write a movie script about a robot in Mars');
 
 ## ⚡ Performance
 
-PraisonAI is built for speed, with agent instantiation in around 14μs. This reduces overhead, improves responsiveness, and helps multi-agent systems scale efficiently in real-world production workloads.
+PraisonAI keeps framework overhead microsecond-class: creating an `Agent` (one tool, no LLM call) averaged **46 μs** in our 2026-10-15 run, so per-agent setup is negligible next to model latency in multi-agent workloads.
 
-| Performance Metric | PraisonAI |
-|--------------------|-----------|
-| Avg Instantiation Time | **14 μs** |
+| Performance Metric | PraisonAI | Measured |
+|--------------------|-----------|----------|
+| Avg Agent instantiation (1 tool, 1000 iterations) | **46 μs** | 2026-10-15 · praisonaiagents 1.7.12 |
+
+Methodology, comparisons and how to reproduce: [benchmarks/BENCHMARK_RESULTS.md](https://github.com/MervinPraison/PraisonAI/blob/main/src/praisonai-agents/benchmarks/BENCHMARK_RESULTS.md) · [docs](https://docs.praison.ai/docs/developers/benchmarks)
 
 ---
 

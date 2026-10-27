@@ -1,0 +1,168 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "testrail_api"
+dynamic = ["version"]
+description = "Python wrapper of the TestRail API"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "tolstislon", email = "tolstislon@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = ["requests>=2.34.2"]
+keywords = [
+    "testrail",
+    "api",
+    "client",
+    "api-client",
+    "library",
+    "testrail_api",
+    "testrail-api",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/tolstislon/testrail-api"
+Repository = "https://github.com/tolstislon/testrail-api"
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "responses==0.21.0",
+    "ruff==0.15.20",
+    "pytest-xdist==3.8.0",
+    "mypy==2.1.0",
+    "types-requests==2.33.0.20260518",
+]
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "dev_tools"]
+
+[tool.setuptools.package-data]
+testrail_api = ["py.typed"]
+
+[tool.setuptools_scm]
+version_file = "testrail_api/__version__.py"
+
+[tool.coverage.run]
+omit = ["testrail_api/__version__.py"]
+
+[tool.mypy]
+files = ["testrail_api"]
+python_version = "3.10"
+strict = true
+# Every endpoint funnels through the overridable response_handler, which returns Any.
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = "testrail_api._category"
+# Endpoint methods deliberately take untyped **kwargs (ruff ANN003 is ignored too)
+# and annotate JSON payloads as bare dict/list.
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_any_generics = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+exclude = [".git", ".pytest_cache", ".idea", ".github", "build"]
+
+[tool.ruff.lint]
+select = [
+    "A", # flake8-builtins
+    "ANN", # flake8-annotations
+    "B", # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "COM", # flake8-commas
+    "D", # pydocstyle
+    "E", # pycodestyle
+    "F", # Pyflakes
+    "FURB", # refurb
+    "I", # isort
+    "ICN", # flake8-import-conventions
+    "ISC", # flake8-implicit-str-concat
+    "N", # pep8-naming
+    "PERF", # Perflint
+    "PGH", # pygrep-hooks
+    "PTH", # flake8-use-pathlib
+    "RUF", # Ruff-specific rules
+    "S", # flake8-bandit
+    "T20", # flake8-print
+    "UP", # pyupgrade
+    "PIE", # flake8-pie
+    "PT", # flake8-pytest-style
+    "Q", # flake8-quotes
+    "RET", # flake8-return
+    "SIM", # flake8-simplify
+    "ARG", # flake8-unused-arguments
+    "FLY", # flynt
+    "PL", # Pylint
+    "RSE", # flake8-raise
+    "ERA", # eradicate (Закомменченый код)
+    "BLE", # flake8-blind-except
+    "FBT", # flake8-boolean-trap
+    "DTZ", # flake8-datetimez
+    "INT", # flake8-gettext
+    "TC", # flake8-type-checking
+    "W", # pycodestyle (warning)
+    "PLR", # Refactor
+    "PLW", # Warning
+    "TRY", # Warning
+    "ASYNC", # flake8-async
+    "T10", # flake8-debugger
+    "EM", # flake8-errmsg
+    "EXE", # flake8-executable
+    "LOG", # flake8-logging
+    "G", # flake8-logging-format
+    "SLF", # flake8-self
+    "SLOT", # flake8-slots
+    "TID", # flake8-tidy-imports
+    "PLE", # Pylint Error
+]
+ignore = [
+    "S311", # Standard pseudo-random generators are not suitable for cryptographic purposesStandard pseudo-random generators are not suitable for cryptographic purposes
+    "D212", # multi-line-summary-first-line (conflicts rules)
+    "D203", # one-blank-line-before-class (conflicts rules)
+    "COM812", # conflicts rules
+    "ISC001", # conflicts rules
+    "N818", # Exception name `{exception}` should be named with an Error suffix
+    "ANN003", # Missing type annotation for `**kwargs`
+    "ANN002", # Missing type annotation for `*args`
+    "D107", # Missing docstring in `__init__`
+    "ANN401", # Dynamically typed expressions (typing.Any) are disallowed
+    "EM101", # Exception must not use a string literal, assign to variable first
+    "EM102", # Exception must not use an f-string literal, assign to variable first
+    "TRY003", # Avoid specifying long messages outside the exception class
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test_*.py" = ["S101", "D103", "ANN201", "D100", "S605", "S607", "ANN001", "PLR2004", "PT018", "ARG002", "D102", "ANN204", "A004", "PT012", "DTZ005", "PT030"]
+"conftest.py" = ["ANN001", "PLR0913", "D101", "D100"]
+"_category.py" = ["D401", "A002"]
+
+[tool.ruff.lint.flake8-pytest-style]
+parametrize-values-row-type = "tuple"
+parametrize-values-type = "tuple"
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.format]
+line-ending = "lf"

@@ -55,7 +55,7 @@ from guppylang_internals.error import (
     RequiresMonomorphizationError,
     pretty_errors,
 )
-from guppylang_internals.frame_util import get_calling_frame
+from guppylang_internals.frame_util import FrameSnapshot, get_calling_frame
 from guppylang_internals.metadata.debug_info_util import (
     StringTable,
 )
@@ -174,10 +174,14 @@ class DefinitionStore:
     type_members: defaultdict[DefId, dict[str, DefId]]
     type_member_parents: dict[DefId, DefId]
     wasm_functions: dict[DefId, FunctionType]
-    frames: dict[DefId, FrameType]
+    frames: dict[DefId, FrameType | FrameSnapshot]
     sources: SourceMap
     # Maps a parent definition (usually a function) to its custom modified definitions
     custom_modified_defs: dict[DefId, dict[CustomModifierKind, DefId]]
+    # Reverse mapping for custom modified definitions to their unmodified definition
+    custom_modified_def_parents: dict[DefId, DefId]
+    # Tracks frame registrations made inside detach_new_frames.
+    _registered_frame_defs: set[DefId] | None
 
     def __init__(self) -> None:
         self.raw_defs = {defn.id: defn for defn in BUILTIN_DEFS_LIST}
@@ -187,35 +191,52 @@ class DefinitionStore:
         self.sources = SourceMap()
         self.wasm_functions = {}
         self.custom_modified_defs = defaultdict(dict)
+        self.custom_modified_def_parents = {}
+        self._registered_frame_defs: set[DefId] | None = None
 
-    def register_def(self, defn: RawDef, frame: FrameType) -> None:
+    def register_def(self, defn: RawDef, frame: FrameType | FrameSnapshot) -> None:
+        """Register a definition and its Python scope."""
         self.raw_defs[defn.id] = defn
         self.frames[defn.id] = frame
+        if self._registered_frame_defs is not None and isinstance(frame, FrameType):
+            self._registered_frame_defs.add(defn.id)
 
     def update_def_frame(self, def_id: DefId, frame: FrameType) -> None:
         """Update the Python scope used to resolve names in a registered definition."""
         self.frames[def_id] = frame
 
     def register_type_member(self, ty_id: DefId, name: str, member_id: DefId) -> None:
-        assert member_id not in self.type_member_parents, "Already a type member"
         self.type_members[ty_id][name] = member_id
+        self._register_type_member_parent(ty_id, member_id)
+
+        # When a `@guppy.unitary` class is used as method, the custom implementations
+        # are members too: their first argument is the same `self` as the unmodified
+        # definition, i.e. the struct or enum instance.
+        for custom_id in self.custom_modified_defs.get(member_id, {}).values():
+            self._register_type_member_parent(ty_id, custom_id)
+
+    def _register_type_member_parent(self, ty_id: DefId, member_id: DefId) -> None:
+        assert member_id not in self.type_member_parents, "Already a type member"
         self.type_member_parents[member_id] = ty_id
-        # Update the frame of the definition to the frame of the defining class
-        if member_id in self.frames:
-            frame = self.frames[member_id].f_back
-            if frame:
-                self.frames[member_id] = frame
-                # For Python 3.12 generic functions and classes, there is an additional
-                # inserted frame for the annotation scope. We can detect this frame by
-                # looking for the special ".generic_base" variable in the frame locals
-                # that is implicitly inserted by CPython. See
-                # - https://docs.python.org/3/reference/executionmodel.html#annotation-scopes
-                # - https://docs.python.org/3/reference/compound_stmts.html#generic-functions
-                # - https://jellezijlstra.github.io/pep695.html
-                if ".generic_base" in frame.f_locals:
-                    frame = frame.f_back
-                    assert frame is not None
-                    self.frames[member_id] = frame
+        # Advance past each class and its optional annotation scope.
+        if member_id not in self.frames:
+            return
+        frame = self.frames[member_id]
+        parent_frame = frame.f_back
+        if parent_frame is not None:
+            frame = parent_frame
+            # For Python 3.12 generic functions and classes, there is an additional
+            # inserted frame for the annotation scope. We can detect this frame by
+            # looking for the special ".generic_base" variable in the frame locals
+            # that is implicitly inserted by CPython. See
+            # - https://docs.python.org/3/reference/executionmodel.html#annotation-scopes
+            # - https://docs.python.org/3/reference/compound_stmts.html#generic-functions
+            # - https://jellezijlstra.github.io/pep695.html
+            if ".generic_base" in frame.f_locals:
+                frame = frame.f_back
+                assert frame is not None
+
+        self.frames[member_id] = frame
 
     def register_wasm_function(self, fn_id: DefId, sig: FunctionType) -> None:
         self.wasm_functions[fn_id] = sig
@@ -229,6 +250,30 @@ class DefinitionStore:
         custom_defs = self.custom_modified_defs[parent_def_id]
         assert kind not in custom_defs, f"Custom {kind.value} already registered"
         custom_defs[kind] = custom_def_id
+        assert custom_def_id not in self.custom_modified_def_parents
+        self.custom_modified_def_parents[custom_def_id] = parent_def_id
+
+    @contextmanager
+    def detach_new_frames(self) -> Generator[None, None, None]:
+        """Break references to caller frames in `self.frames` after exiting this
+        context.
+
+        Frames inside this context are kept alive so forward references and
+        class-member scope changes get reflected in the local frames.
+        """
+        assert self._registered_frame_defs is None, "Frame detachment cannot be nested"
+        self._registered_frame_defs = set()
+        try:
+            yield
+        finally:
+            snapshots: dict[FrameType, FrameSnapshot] = {}
+            for def_id in self._registered_frame_defs:
+                frame = self.frames[def_id]
+                if isinstance(frame, FrameType):
+                    if frame not in snapshots:
+                        snapshots[frame] = FrameSnapshot.from_frame(frame)
+                    self.frames[def_id] = snapshots[frame]
+            self._registered_frame_defs = None
 
 
 DEF_STORE: DefinitionStore = DefinitionStore()
@@ -301,7 +346,8 @@ class CompilationEngine:
         old_stage = self._stage
         self._stage = stage
         try:
-            yield
+            with DEF_STORE.detach_new_frames():
+                yield
         finally:
             self._stage = old_stage
 

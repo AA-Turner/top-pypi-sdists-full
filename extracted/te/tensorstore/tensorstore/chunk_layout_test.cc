@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <limits>
 #include <random>
 #include <string>
 #include <vector>
@@ -32,6 +33,7 @@
 #include "absl/strings/str_cat.h"
 #include <nlohmann/json_fwd.hpp>
 #include "tensorstore/box.h"
+#include "tensorstore/contiguous_layout.h"
 #include "tensorstore/index.h"
 #include "tensorstore/index_space/dim_expression.h"
 #include "tensorstore/index_space/index_domain_builder.h"
@@ -84,13 +86,24 @@ using ::testing::Optional;
 using Usage = ChunkLayout::Usage;
 
 TEST(ChunkLayoutTest, SingleLevelRank0) {
-  ChunkLayout layout;
-  TENSORSTORE_ASSERT_OK(layout.Set(tensorstore::RankConstraint(0)));
-  TENSORSTORE_ASSERT_OK(layout.Finalize());
-  ASSERT_EQ(0, layout.rank());
-  EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre());
-  EXPECT_THAT(layout | tensorstore::IdentityTransform(0), Optional(layout));
-  EXPECT_THAT(layout.read_chunk().shape(), ::testing::ElementsAre());
+  {
+    ChunkLayout layout;
+    TENSORSTORE_ASSERT_OK(layout.Set(tensorstore::RankConstraint(0)));
+    TENSORSTORE_ASSERT_OK(layout.Finalize());
+    ASSERT_EQ(0, layout.rank());
+    EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre());
+    EXPECT_THAT(layout | tensorstore::IdentityTransform(0), Optional(layout));
+    EXPECT_THAT(layout.read_chunk().shape(), ::testing::ElementsAre());
+  }
+
+  // Verify rank-0 inner_order constraint JSON parsing:
+  {
+    TENSORSTORE_ASSERT_OK_AND_ASSIGN(
+        auto layout,
+        ChunkLayout::FromJson({{"inner_order", ::nlohmann::json::array()}}));
+    EXPECT_EQ(0, layout.rank());
+    EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre());
+  }
 }
 
 TEST(ChunkLayoutTest, SingleLevelRank1) {
@@ -1891,6 +1904,101 @@ TEST(HasHardConstraints, Basic) {
         layout1.Set(tensorstore::ChunkLayout::ReadChunkElements(200)));
     EXPECT_FALSE(layout1.HasHardConstraints());
   }
+}
+
+TEST(ChunkLayoutTest, ExtremeAndInfiniteAspectRatioDoesNotHang) {
+  {
+    tensorstore::ChunkLayout layout;
+    EXPECT_THAT(layout.Set(tensorstore::ChunkLayout::ReadChunkAspectRatio(
+                    {std::numeric_limits<double>::infinity(), 1.0})),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+    EXPECT_THAT(layout.Set(tensorstore::ChunkLayout::ReadChunkAspectRatio(
+                    {std::numeric_limits<double>::quiet_NaN(), 1.0})),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+  }
+  {
+    // Case A: Valid positive finite numbers whose quotient overflows double.
+    Box box(2);
+    TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+        /*origin_constraints=*/{},
+        ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                              ChunkLayout::ChunkAspectRatio({1.0, 1e-308}),
+                              ChunkLayout::ChunkElements(1024)),
+        BoxView(2), box));
+    EXPECT_EQ(Box({1024, 1}), box);
+  }
+  {
+    // Case B: Ratio >= ~1e17 where min_factor_increment < ulp(min_factor).
+    Box box(2);
+    TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+        /*origin_constraints=*/{},
+        ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                              ChunkLayout::ChunkAspectRatio({1e18, 1.0}),
+                              ChunkLayout::ChunkElements(2000)),
+        BoxView({100, 10000}), box));
+    EXPECT_EQ(Box({100, 20}), box);
+  }
+  {
+    // Extreme large ratio {1e300, 1.0}.
+    Box box(2);
+    TENSORSTORE_ASSERT_OK(ChooseChunkGrid(
+        /*origin_constraints=*/{},
+        ChunkLayout::GridView(ChunkLayout::ChunkShape(),
+                              ChunkLayout::ChunkAspectRatio({1e300, 1.0}),
+                              ChunkLayout::ChunkElements(1024)),
+        BoxView(2), box));
+    EXPECT_EQ(Box({1024, 1}), box);
+  }
+}
+
+TEST(ChunkLayoutTest, ChooseReadWriteChunkShapesLargeDivisorOverflow) {
+  {
+    tensorstore::ChunkLayout constraints;
+    TENSORSTORE_EXPECT_OK(
+        constraints.Set(tensorstore::ChunkLayout::ReadChunkShape(
+            {tensorstore::kMaxFiniteIndex})));
+    EXPECT_THAT(constraints.Set(tensorstore::ChunkLayout::ReadChunkShape(
+                    {tensorstore::kInfIndex})),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+    EXPECT_THAT(constraints.Set(tensorstore::ChunkLayout::WriteChunkShape(
+                    {0x6000000000000001LL}, /*hard_constraint=*/false)),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+    TENSORSTORE_EXPECT_OK(
+        constraints.Set(tensorstore::ChunkLayout::ReadChunkElements(
+            tensorstore::kMaxFiniteIndex)));
+    EXPECT_THAT(constraints.Set(tensorstore::ChunkLayout::ReadChunkElements(
+                    tensorstore::kInfIndex)),
+                StatusIs(absl::StatusCode::kInvalidArgument));
+  }
+  {
+    tensorstore::ChunkLayout constraints;
+    constexpr tensorstore::Index kReadSize = 1LL << 61;
+    constexpr tensorstore::Index kWriteTarget = (3LL << 60) + 1;
+    TENSORSTORE_ASSERT_OK(
+        constraints.Set(tensorstore::ChunkLayout::ReadChunkShape({kReadSize})));
+    TENSORSTORE_ASSERT_OK(
+        constraints.Set(tensorstore::ChunkLayout::WriteChunkShape(
+            {kWriteTarget}, /*hard_constraint=*/false)));
+    tensorstore::Index read_shape[1] = {0}, write_shape[1] = {0};
+    TENSORSTORE_ASSERT_OK(tensorstore::internal::ChooseReadWriteChunkShapes(
+        constraints.read_chunk(), constraints.write_chunk(),
+        tensorstore::Box<1>({0}, {100}), read_shape, write_shape));
+    EXPECT_EQ(read_shape[0], kReadSize);
+    EXPECT_EQ(write_shape[0], kReadSize);
+    EXPECT_LE(write_shape[0], tensorstore::kMaxFiniteIndex);
+  }
+}
+
+TEST(ChunkLayoutTest, SetContiguousLayoutPermutation) {
+  static_assert(tensorstore::ChunkLayout::IsOption<
+                tensorstore::ContiguousLayoutPermutation<2>>);
+  static_assert(tensorstore::ChunkLayout::IsOption<
+                tensorstore::ContiguousLayoutPermutation<>>);
+  tensorstore::ChunkLayout layout;
+  TENSORSTORE_EXPECT_OK(
+      layout.Set(tensorstore::ContiguousLayoutPermutation<2>({1, 0})));
+  EXPECT_THAT(layout.inner_order(), ::testing::ElementsAre(1, 0));
+  EXPECT_TRUE(layout.inner_order().hard_constraint);
 }
 
 }  // namespace

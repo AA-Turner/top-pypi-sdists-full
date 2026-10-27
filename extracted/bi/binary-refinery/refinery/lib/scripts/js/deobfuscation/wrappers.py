@@ -8,6 +8,7 @@ wrappers and substitutes each call site with the inlined return expression.
 """
 from __future__ import annotations
 
+from collections import Counter
 from typing import NamedTuple
 
 from refinery.lib.scripts import (
@@ -15,32 +16,45 @@ from refinery.lib.scripts import (
     _remove_from_parent,
     _replace_in_parent,
 )
-from refinery.lib.scripts.js.analysis.cache import model_cache
+from refinery.lib.scripts.js.analysis.cache import ModelCache, model_cache
 from refinery.lib.scripts.js.analysis.effects import EffectModel
+from refinery.lib.scripts.js.analysis.model import SemanticModel, is_use_position
 from refinery.lib.scripts.js.deobfuscation.helpers import (
     ScriptLevelTransformer,
-    _param_written,
-    extract_identifier_params,
+    arguments_substitutable,
+    expression_a_call_answers,
     is_closed_expression,
+    is_literal,
+    is_simple_expression,
+    names_used_under_a_nested_scope,
     substitute_params,
 )
 from refinery.lib.scripts.js.model import (
     JsCallExpression,
     JsFunctionDeclaration,
     JsIdentifier,
-    JsReturnStatement,
     JsScript,
 )
 
 
 class _WrapperInfo(NamedTuple):
     """
-    Describes a detected call wrapper function.
+    Describes a detected call wrapper function. *multi_use* holds the parameters read more than once
+    by the return expression: substituting anything but a simple, identity-stable argument for one
+    of these would evaluate the argument once per read, splitting one value into distinct copies.
+    *deferred* holds the parameters read inside a function nested in the return expression, where a
+    substituted argument would no longer evaluate at the call but on each later run of that body;
+    only a literal argument reads the same there. *unused* holds the parameters the return
+    expression never reads, whose argument the inline drops: a dropped argument that may throw a
+    `ReferenceError` would mute the throw the call raised, so its inline is refused.
     """
     node: JsFunctionDeclaration
     name: str
     param_names: list[str]
     return_expression: Node
+    multi_use: frozenset[str]
+    deferred: frozenset[str]
+    unused: frozenset[str]
 
 
 def _detect_wrapper(node: JsFunctionDeclaration) -> _WrapperInfo | None:
@@ -51,41 +65,40 @@ def _detect_wrapper(node: JsFunctionDeclaration) -> _WrapperInfo | None:
        whose arguments are closed over the wrapper's parameters and literal constants.
     2. **Constant functions** (zero parameters): the body is a single return of an expression that
        is closed (no free variables — only literal constants).
+
+    Neither is recognized where a call to the function answers a wrapper around the return
+    expression rather than the expression itself, which
+    `refinery.lib.scripts.js.deobfuscation.helpers.expression_a_call_answers` decides.
     """
-    if node.id is None or node.body is None:
+    if node.id is None:
         return None
-    param_names = extract_identifier_params(node.params)
-    if param_names is None:
+    answered = expression_a_call_answers(node)
+    if answered is None:
         return None
-    body = node.body.body
-    if len(body) != 1:
-        return None
-    stmt = body[0]
-    if not isinstance(stmt, JsReturnStatement) or stmt.argument is None:
-        return None
-    expr = stmt.argument
+    expr, param_names = answered
     if param_names:
         if not isinstance(expr, JsCallExpression):
             return None
         if not isinstance(expr.callee, JsIdentifier):
             return None
-        param_set = set(param_names)
-        allowed_names = param_set | {expr.callee.name}
+        allowed_names = set(param_names) | {expr.callee.name}
         for arg in expr.arguments:
             if not is_closed_expression(arg, allowed_names):
                 return None
-        if _param_written(expr, param_set):
-            return None
     else:
         if not is_closed_expression(expr, set()):
             return None
-    return _WrapperInfo(node, node.id.name, param_names, expr)
+    uses = Counter(
+        n.name for n in expr.walk()
+        if isinstance(n, JsIdentifier) and is_use_position(n)
+    )
+    multi_use = frozenset(name for name in param_names if uses[name] > 1)
+    deferred = frozenset(param_names) & names_used_under_a_nested_scope(expr)
+    unused = frozenset(name for name in param_names if uses[name] == 0)
+    return _WrapperInfo(node, node.id.name, param_names, expr, multi_use, deferred, unused)
 
 
 def _collect_wrappers(root: Node) -> dict[str, _WrapperInfo]:
-    """
-    Walk the entire AST and collect all function declarations that qualify as call wrappers.
-    """
     wrappers: dict[str, _WrapperInfo] = {}
     for node in root.walk():
         if isinstance(node, JsFunctionDeclaration):
@@ -97,14 +110,44 @@ def _collect_wrappers(root: Node) -> dict[str, _WrapperInfo]:
 
 class JsCallWrapperInliner(ScriptLevelTransformer):
     """
-    Detect trivial call wrapper functions and inline them at every call site.
+    Detect trivial call wrapper functions and inline them at every call site the wrapper's value has
+    reached. A function declared in the scope it names has that value before any statement runs, so
+    every call site qualifies; one Annex B copies into the scope around a block has it only from the
+    declaration onwards, and a call written before that reads `undefined` and throws.
     """
 
     def _process_script(self, node: JsScript):
         wrappers = _collect_wrappers(node)
         if not wrappers:
             return
-        effects = model_cache(self, node).effects
+        with model_cache(self, node).pinned() as cache:
+            # The loop reads the establishment answer lazily, which can fall after the first
+            # replacement's edit. Warming the root-reading models at entry keeps every such late
+            # build a pure function of held bases, so none reads a tree the pin's edits moved.
+            cache.warm()
+            inlined = self._inline_the_calls_the_wrappers_reach(node, wrappers, cache)
+        if not inlined:
+            return
+        kept = self._wrappers_to_keep(node, wrappers)
+        for name, info in wrappers.items():
+            if name not in kept:
+                _remove_from_parent(info.node)
+        self.mark_changed()
+
+    def _inline_the_calls_the_wrappers_reach(
+        self, node: JsScript, wrappers: dict[str, _WrapperInfo], cache: ModelCache,
+    ) -> bool:
+        """
+        Replace every call the wrappers of *wrappers* reach with the expression it forwards to, and
+        report whether any was replaced.
+
+        The models are read from a cache the caller holds pinned, because each replacement advances
+        the tree's mutation counter and an unpinned read would rebuild all of them per call site.
+        Nothing this loop does makes a model it reads more permissive: a replaced call is gone, and
+        no declaration moves, so a call site it has not reached yet is ordered exactly as it was.
+        """
+        effects = cache.effects
+        dominance = cache.dominance
         by_node = {id(info.node): info for info in wrappers.values()}
         for dead in self._self_forwarding_wrappers(wrappers, by_node, effects):
             del by_node[dead]
@@ -118,9 +161,35 @@ class JsCallWrapperInliner(ScriptLevelTransformer):
             info = by_node.get(id(target))
             if info is None:
                 continue
-            if len(ast_node.arguments) != len(info.param_names):
+            if not dominance.callee_established_before(ast_node):
+                continue
+            if not arguments_substitutable(ast_node.arguments, info.param_names):
                 continue
             if not all(effects.is_side_effect_free(a) for a in ast_node.arguments):
+                continue
+            if any(
+                name in info.unused
+                and not effects.is_side_effect_free(
+                    argument,
+                    reads_may_throw=True,
+                    read_established=cache.read_established,
+                )
+                for name, argument in zip(info.param_names, ast_node.arguments)
+            ):
+                continue
+            if not all(
+                is_simple_expression(argument)
+                for name, argument in zip(info.param_names, ast_node.arguments)
+                if name in info.multi_use
+            ):
+                continue
+            if not all(
+                is_literal(argument)
+                for name, argument in zip(info.param_names, ast_node.arguments)
+                if name in info.deferred
+            ):
+                continue
+            if not self._forwarded_callee_reaches(cache.model, info, ast_node):
                 continue
             replacement = substitute_params(
                 info.return_expression,
@@ -130,13 +199,27 @@ class JsCallWrapperInliner(ScriptLevelTransformer):
             )
             _replace_in_parent(ast_node, replacement)
             inlined = True
-        if not inlined:
-            return
-        kept = self._wrappers_to_keep(node, wrappers)
-        for name, info in wrappers.items():
-            if name not in kept:
-                _remove_from_parent(info.node)
-        self.mark_changed()
+        return inlined
+
+    @staticmethod
+    def _forwarded_callee_reaches(
+        model: SemanticModel, info: _WrapperInfo, call: JsCallExpression,
+    ) -> bool:
+        """
+        Whether the free name the wrapper's return expression calls resolves, from *call*'s scope,
+        to the same binding it reads at the wrapper — so that the forwarded name does not get
+        captured by a local of that name at the destination. A callee that is one of the wrapper's
+        own parameters is substituted by the argument and carries no name into the destination, and
+        a callee that is not a bare name — a constant wrapper's body may call through a
+        literal — carries none either; neither places a constraint.
+        """
+        expr = info.return_expression
+        if not isinstance(expr, JsCallExpression):
+            return True
+        callee = expr.callee
+        if not isinstance(callee, JsIdentifier) or callee.name in info.param_names:
+            return True
+        return model.lookup(callee.name, model.scope_of(call)) is model.resolve(callee)
 
     @staticmethod
     def _self_forwarding_wrappers(

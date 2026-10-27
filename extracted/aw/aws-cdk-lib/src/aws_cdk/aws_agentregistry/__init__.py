@@ -106,6 +106,13 @@ class CfnRegistry(
             authorizer_type="authorizerType",
             auto_detection_enabled=False,
             auto_detection_scope="autoDetectionScope",
+            custom_metadata_schema_configuration=agentregistry.CfnRegistry.CustomMetadataSchemaConfigurationProperty(
+                default_schema="defaultSchema",
+                record_type_schema_overrides=[agentregistry.CfnRegistry.RecordTypeSchemaOverrideProperty(
+                    record_type="recordType",
+                    schema="schema"
+                )]
+            ),
             description="description",
             discovery_configuration=agentregistry.CfnRegistry.DiscoveryConfigurationProperty(
                 authorizer_configuration=agentregistry.CfnRegistry.AuthorizerConfigurationProperty(
@@ -150,6 +157,7 @@ class CfnRegistry(
         authorizer_type: typing.Optional[builtins.str] = None,
         auto_detection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         auto_detection_scope: typing.Optional[builtins.str] = None,
+        custom_metadata_schema_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.CustomMetadataSchemaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         discovery_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.DiscoveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -164,6 +172,7 @@ class CfnRegistry(
         :param authorizer_type: The type of authorizer that controls how consumers access the registry's search and MCP invoke operations.
         :param auto_detection_enabled: Specifies whether auto-detection is requested for the registry. Must be specified together with AutoDetectionScope. Setting this to true is necessary but not sufficient for auto-detection to become active; the preconditions of the configured scope must also be met. To turn auto-detection off, explicitly set this to false - removing AutoDetectionEnabled and AutoDetectionScope from the template is a no-op and leaves the existing auto-detection settings unchanged. A registry cannot be deleted while auto-detection is enabled: set this to false and update the stack before deleting the registry.
         :param auto_detection_scope: The source from which resources are detected. ORGANIZATION sources resources from all member accounts of an AWS Organization.
+        :param custom_metadata_schema_configuration: Configuration that defines a typed metadata schema for a registry. A default schema and per-record-type schema overrides are both optional. Schema evolution is additive only: you can add fields and enum values, but you cannot remove fields, change types, or remove enum values.
         :param description: The description of the registry.
         :param discovery_configuration: Discovery configuration for the registry. Controls how consumers are authorized to search the registry and invoke its MCP endpoint.
         :param encryption_configuration: The server-side encryption configuration for a registry. Specifies a customer managed key used to encrypt the registry's content. When omitted, the registry's content is encrypted with an AWS owned key. You cannot change the encryption configuration after registry creation. Specifying a different KMS key, adding this property to an existing registry, or removing it replaces the registry: CloudFormation creates a new registry with a new Amazon Resource Name (ARN) and then deletes the original, including all registry records it contains. Registry records that are not managed by the stack are not re-created in the new registry, and if any remain in the original registry its deletion fails and it is left behind.
@@ -179,6 +188,7 @@ class CfnRegistry(
             authorizer_type=authorizer_type,
             auto_detection_enabled=auto_detection_enabled,
             auto_detection_scope=auto_detection_scope,
+            custom_metadata_schema_configuration=custom_metadata_schema_configuration,
             description=description,
             discovery_configuration=discovery_configuration,
             encryption_configuration=encryption_configuration,
@@ -239,6 +249,7 @@ class CfnRegistry(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -332,7 +343,7 @@ class CfnRegistry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__44903752c8ad92a1a5b3bea748d118e360856827239ffb71ff515dbc7e372da7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="approvalConfiguration")
@@ -350,7 +361,7 @@ class CfnRegistry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a82c9cc795b7a19f46589e380713aa8028087b53c881ad5cb72684fb914b42e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "approvalConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "approvalConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="authorizerType")
@@ -363,7 +374,7 @@ class CfnRegistry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e5ae93a351cc6e0a318dbf92458f45de0b6b96efd086af7f4205c7e00dcd0f56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authorizerType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "authorizerType", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoDetectionEnabled")
@@ -381,7 +392,7 @@ class CfnRegistry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a96c6d354e8928325f1d6d60db3334e5c2866551a0c5ed7e7992d8cdb9448c92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoDetectionEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoDetectionEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoDetectionScope")
@@ -394,7 +405,25 @@ class CfnRegistry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__debc64dc04165d35e6c03757c993f317c665ad78f4ea3e2a0a6d5bda6ef9b23e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoDetectionScope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoDetectionScope", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="customMetadataSchemaConfiguration")
+    def custom_metadata_schema_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.CustomMetadataSchemaConfigurationProperty"]]:
+        '''Configuration that defines a typed metadata schema for a registry.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.CustomMetadataSchemaConfigurationProperty"]], jsii.get(self, "customMetadataSchemaConfiguration"))
+
+    @custom_metadata_schema_configuration.setter
+    def custom_metadata_schema_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.CustomMetadataSchemaConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__769d299350d75fc895a0212e74cd0d020f28da31d28f7061229a260dce6dc98e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customMetadataSchemaConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -407,7 +436,7 @@ class CfnRegistry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b008aa20d30be0120e5d8a8866b7968949e2929088e43770aa94ebee678edbc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="discoveryConfiguration")
@@ -425,7 +454,7 @@ class CfnRegistry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5a1b96b5514172fb57ca62002ae3be655be2839d81eff8747ebaecd2ee280ce9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "discoveryConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "discoveryConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfiguration")
@@ -443,7 +472,7 @@ class CfnRegistry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b01cec69ebf6f7b032abcd9f676e1d7b40718f0a257ebf0b6d7204f16a7af528)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -459,7 +488,7 @@ class CfnRegistry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6f33b3edde8ee2055f274039c2177c20002d6e3d68800b02fd6a5690ffaa15d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistry.ApprovalConfigurationProperty",
@@ -982,6 +1011,90 @@ class CfnRegistry(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistry.CustomMetadataSchemaConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "default_schema": "defaultSchema",
+            "record_type_schema_overrides": "recordTypeSchemaOverrides",
+        },
+    )
+    class CustomMetadataSchemaConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            default_schema: typing.Optional[builtins.str] = None,
+            record_type_schema_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.RecordTypeSchemaOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Configuration that defines a typed metadata schema for a registry.
+
+            A default schema and per-record-type schema overrides are both optional. Schema evolution is additive only: you can add fields and enum values, but you cannot remove fields, change types, or remove enum values.
+
+            :param default_schema: The default JSON Schema that applies to record types without a specific override. Supported property types are string, string with an enum constraint, string with a uri format, and boolean.
+            :param record_type_schema_overrides: A list of per-record-type schema overrides. When a record's type matches an override, that override's schema is used instead of the default schema for validation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-custommetadataschemaconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_agentregistry as agentregistry
+                
+                custom_metadata_schema_configuration_property = agentregistry.CfnRegistry.CustomMetadataSchemaConfigurationProperty(
+                    default_schema="defaultSchema",
+                    record_type_schema_overrides=[agentregistry.CfnRegistry.RecordTypeSchemaOverrideProperty(
+                        record_type="recordType",
+                        schema="schema"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__cbe9618f5ad5b035b1ac070e8b6cd9c184afb6b51956f9d7e6f5198d2b17464b)
+                check_type(argname="argument default_schema", value=default_schema, expected_type=type_hints["default_schema"])
+                check_type(argname="argument record_type_schema_overrides", value=record_type_schema_overrides, expected_type=type_hints["record_type_schema_overrides"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if default_schema is not None:
+                self._values["default_schema"] = default_schema
+            if record_type_schema_overrides is not None:
+                self._values["record_type_schema_overrides"] = record_type_schema_overrides
+
+        @builtins.property
+        def default_schema(self) -> typing.Optional[builtins.str]:
+            '''The default JSON Schema that applies to record types without a specific override.
+
+            Supported property types are string, string with an enum constraint, string with a uri format, and boolean.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-custommetadataschemaconfiguration.html#cfn-agentregistry-registry-custommetadataschemaconfiguration-defaultschema
+            '''
+            result = self._values.get("default_schema")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def record_type_schema_overrides(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.RecordTypeSchemaOverrideProperty"]]]]:
+            '''A list of per-record-type schema overrides.
+
+            When a record's type matches an override, that override's schema is used instead of the default schema for validation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-custommetadataschemaconfiguration.html#cfn-agentregistry-registry-custommetadataschemaconfiguration-recordtypeschemaoverrides
+            '''
+            result = self._values.get("record_type_schema_overrides")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.RecordTypeSchemaOverrideProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomMetadataSchemaConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistry.DiscoveryConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"authorizer_configuration": "authorizerConfiguration"},
@@ -1118,6 +1231,74 @@ class CfnRegistry(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistry.RecordTypeSchemaOverrideProperty",
+        jsii_struct_bases=[],
+        name_mapping={"record_type": "recordType", "schema": "schema"},
+    )
+    class RecordTypeSchemaOverrideProperty:
+        def __init__(self, *, record_type: builtins.str, schema: builtins.str) -> None:
+            '''A schema override for a specific record type within a custom metadata schema configuration.
+
+            :param record_type: The record type that this schema override applies to.
+            :param schema: The JSON Schema for the specified record type. Must follow the same structural rules as the default schema.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-recordtypeschemaoverride.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_agentregistry as agentregistry
+                
+                record_type_schema_override_property = agentregistry.CfnRegistry.RecordTypeSchemaOverrideProperty(
+                    record_type="recordType",
+                    schema="schema"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2fda160dbb22060705261ede4f01181145b42424f14ce972b84414a54b3eafdf)
+                check_type(argname="argument record_type", value=record_type, expected_type=type_hints["record_type"])
+                check_type(argname="argument schema", value=schema, expected_type=type_hints["schema"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "record_type": record_type,
+                "schema": schema,
+            }
+
+        @builtins.property
+        def record_type(self) -> builtins.str:
+            '''The record type that this schema override applies to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-recordtypeschemaoverride.html#cfn-agentregistry-registry-recordtypeschemaoverride-recordtype
+            '''
+            result = self._values.get("record_type")
+            assert result is not None, "Required property 'record_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def schema(self) -> builtins.str:
+            '''The JSON Schema for the specified record type.
+
+            Must follow the same structural rules as the default schema.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-recordtypeschemaoverride.html#cfn-agentregistry-registry-recordtypeschemaoverride-schema
+            '''
+            result = self._values.get("schema")
+            assert result is not None, "Required property 'schema' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RecordTypeSchemaOverrideProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistryProps",
@@ -1128,6 +1309,7 @@ class CfnRegistry(
         "authorizer_type": "authorizerType",
         "auto_detection_enabled": "autoDetectionEnabled",
         "auto_detection_scope": "autoDetectionScope",
+        "custom_metadata_schema_configuration": "customMetadataSchemaConfiguration",
         "description": "description",
         "discovery_configuration": "discoveryConfiguration",
         "encryption_configuration": "encryptionConfiguration",
@@ -1143,6 +1325,7 @@ class CfnRegistryProps:
         authorizer_type: typing.Optional[builtins.str] = None,
         auto_detection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         auto_detection_scope: typing.Optional[builtins.str] = None,
+        custom_metadata_schema_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.CustomMetadataSchemaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         discovery_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.DiscoveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1155,6 +1338,7 @@ class CfnRegistryProps:
         :param authorizer_type: The type of authorizer that controls how consumers access the registry's search and MCP invoke operations.
         :param auto_detection_enabled: Specifies whether auto-detection is requested for the registry. Must be specified together with AutoDetectionScope. Setting this to true is necessary but not sufficient for auto-detection to become active; the preconditions of the configured scope must also be met. To turn auto-detection off, explicitly set this to false - removing AutoDetectionEnabled and AutoDetectionScope from the template is a no-op and leaves the existing auto-detection settings unchanged. A registry cannot be deleted while auto-detection is enabled: set this to false and update the stack before deleting the registry.
         :param auto_detection_scope: The source from which resources are detected. ORGANIZATION sources resources from all member accounts of an AWS Organization.
+        :param custom_metadata_schema_configuration: Configuration that defines a typed metadata schema for a registry. A default schema and per-record-type schema overrides are both optional. Schema evolution is additive only: you can add fields and enum values, but you cannot remove fields, change types, or remove enum values.
         :param description: The description of the registry.
         :param discovery_configuration: Discovery configuration for the registry. Controls how consumers are authorized to search the registry and invoke its MCP endpoint.
         :param encryption_configuration: The server-side encryption configuration for a registry. Specifies a customer managed key used to encrypt the registry's content. When omitted, the registry's content is encrypted with an AWS owned key. You cannot change the encryption configuration after registry creation. Specifying a different KMS key, adding this property to an existing registry, or removing it replaces the registry: CloudFormation creates a new registry with a new Amazon Resource Name (ARN) and then deletes the original, including all registry records it contains. Registry records that are not managed by the stack are not re-created in the new registry, and if any remain in the original registry its deletion fails and it is left behind.
@@ -1180,6 +1364,13 @@ class CfnRegistryProps:
                 authorizer_type="authorizerType",
                 auto_detection_enabled=False,
                 auto_detection_scope="autoDetectionScope",
+                custom_metadata_schema_configuration=agentregistry.CfnRegistry.CustomMetadataSchemaConfigurationProperty(
+                    default_schema="defaultSchema",
+                    record_type_schema_overrides=[agentregistry.CfnRegistry.RecordTypeSchemaOverrideProperty(
+                        record_type="recordType",
+                        schema="schema"
+                    )]
+                ),
                 description="description",
                 discovery_configuration=agentregistry.CfnRegistry.DiscoveryConfigurationProperty(
                     authorizer_configuration=agentregistry.CfnRegistry.AuthorizerConfigurationProperty(
@@ -1220,6 +1411,7 @@ class CfnRegistryProps:
             check_type(argname="argument authorizer_type", value=authorizer_type, expected_type=type_hints["authorizer_type"])
             check_type(argname="argument auto_detection_enabled", value=auto_detection_enabled, expected_type=type_hints["auto_detection_enabled"])
             check_type(argname="argument auto_detection_scope", value=auto_detection_scope, expected_type=type_hints["auto_detection_scope"])
+            check_type(argname="argument custom_metadata_schema_configuration", value=custom_metadata_schema_configuration, expected_type=type_hints["custom_metadata_schema_configuration"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument discovery_configuration", value=discovery_configuration, expected_type=type_hints["discovery_configuration"])
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
@@ -1235,6 +1427,8 @@ class CfnRegistryProps:
             self._values["auto_detection_enabled"] = auto_detection_enabled
         if auto_detection_scope is not None:
             self._values["auto_detection_scope"] = auto_detection_scope
+        if custom_metadata_schema_configuration is not None:
+            self._values["custom_metadata_schema_configuration"] = custom_metadata_schema_configuration
         if description is not None:
             self._values["description"] = description
         if discovery_configuration is not None:
@@ -1297,6 +1491,19 @@ class CfnRegistryProps:
         '''
         result = self._values.get("auto_detection_scope")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_metadata_schema_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.CustomMetadataSchemaConfigurationProperty"]]:
+        '''Configuration that defines a typed metadata schema for a registry.
+
+        A default schema and per-record-type schema overrides are both optional. Schema evolution is additive only: you can add fields and enum values, but you cannot remove fields, change types, or remove enum values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registry.html#cfn-agentregistry-registry-custommetadataschemaconfiguration
+        '''
+        result = self._values.get("custom_metadata_schema_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.CustomMetadataSchemaConfigurationProperty"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -1372,6 +1579,8 @@ class CfnRegistryRecord(
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_agentregistry as agentregistry
+        
+        # custom_metadata: Any
         
         cfn_registry_record = agentregistry.CfnRegistryRecord(self, "MyCfnRegistryRecord",
             descriptors=agentregistry.CfnRegistryRecord.DescriptorsProperty(
@@ -1480,6 +1689,7 @@ class CfnRegistryRecord(
             record_type="recordType",
         
             # the properties below are optional
+            custom_metadata=custom_metadata,
             description="description",
             display_name="displayName",
             record_version="recordVersion",
@@ -1499,6 +1709,7 @@ class CfnRegistryRecord(
         descriptors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.DescriptorsProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         record_type: builtins.str,
+        custom_metadata: typing.Any = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         record_version: typing.Optional[builtins.str] = None,
@@ -1512,6 +1723,7 @@ class CfnRegistryRecord(
         :param descriptors: The typed set of descriptors for a registry record. Exactly one descriptor field is populated based on the record type.
         :param name: The name of the registry record.
         :param record_type: The type of the registry record.
+        :param custom_metadata: The custom metadata to attach to the registry record. Each key must match a property defined in the registry's custom metadata schema. Values can be strings (maximum 128 characters) or native JSON booleans (true or false).
         :param description: The description of the registry record.
         :param display_name: The human-readable display name of the registry record.
         :param record_version: The version of the registry record.
@@ -1526,6 +1738,7 @@ class CfnRegistryRecord(
             descriptors=descriptors,
             name=name,
             record_type=record_type,
+            custom_metadata=custom_metadata,
             description=description,
             display_name=display_name,
             record_version=record_version,
@@ -1573,6 +1786,7 @@ class CfnRegistryRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1665,6 +1879,19 @@ class CfnRegistryRecord(
         return typing.cast("_aws_agentregistry_506fb521.RegistryRecordReference", jsii.get(self, "registryRecordRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="customMetadata")
+    def custom_metadata(self) -> typing.Any:
+        '''The custom metadata to attach to the registry record.'''
+        return typing.cast(typing.Any, jsii.get(self, "customMetadata"))
+
+    @custom_metadata.setter
+    def custom_metadata(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c5ef3e330c972fff000a93e330e4fe3389b52160df2f5164d56defed03260333)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customMetadata", value)
+
+    @builtins.property
     @jsii.member(jsii_name="descriptors")
     def descriptors(
         self,
@@ -1680,7 +1907,7 @@ class CfnRegistryRecord(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e20ed69c19154a1c1c82f76a8fa036f90acfa535493e48813acaf3af97ae1fef)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "descriptors", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "descriptors", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1693,7 +1920,7 @@ class CfnRegistryRecord(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3dac661425718c0e01f8c2d9f0b486f0cf83ef80ab08988a82ad85f2797e2336)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="recordType")
@@ -1706,7 +1933,7 @@ class CfnRegistryRecord(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ddafdbd3f82f53f2237ad280e72be884e39e4be52bec5ebb50731242e8bb189f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recordType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recordType", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1719,7 +1946,7 @@ class CfnRegistryRecord(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c6a9aae0bf922e08911fd3846f325f960d7df0f0cbb9e1057371b443377e605)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -1732,7 +1959,7 @@ class CfnRegistryRecord(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4837f51052d31d643559b181dcf50bb6914aea97770549487a7166473d6d13df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "displayName", value)
 
     @builtins.property
     @jsii.member(jsii_name="recordVersion")
@@ -1745,7 +1972,7 @@ class CfnRegistryRecord(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c03f3fe0d25f7024efbcefface95c2d9aad0137a0613c75161e23fa68d4a24af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recordVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recordVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="registryId")
@@ -1758,7 +1985,7 @@ class CfnRegistryRecord(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d4a1f651ea2d1dea12707fff754c90bddf57ff13a28d3826dea56199a5971c15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "registryId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "registryId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1774,7 +2001,7 @@ class CfnRegistryRecord(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__59a039aa0fc4e16e0e8ba645515217334b8560454b55d3da7bfc7de67e70bc46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistryRecord.A2aAgentCardDescriptorProperty",
@@ -3653,6 +3880,7 @@ class CfnRegistryRecord(
         "descriptors": "descriptors",
         "name": "name",
         "record_type": "recordType",
+        "custom_metadata": "customMetadata",
         "description": "description",
         "display_name": "displayName",
         "record_version": "recordVersion",
@@ -3667,6 +3895,7 @@ class CfnRegistryRecordProps:
         descriptors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.DescriptorsProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         record_type: builtins.str,
+        custom_metadata: typing.Any = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         record_version: typing.Optional[builtins.str] = None,
@@ -3678,6 +3907,7 @@ class CfnRegistryRecordProps:
         :param descriptors: The typed set of descriptors for a registry record. Exactly one descriptor field is populated based on the record type.
         :param name: The name of the registry record.
         :param record_type: The type of the registry record.
+        :param custom_metadata: The custom metadata to attach to the registry record. Each key must match a property defined in the registry's custom metadata schema. Values can be strings (maximum 128 characters) or native JSON booleans (true or false).
         :param description: The description of the registry record.
         :param display_name: The human-readable display name of the registry record.
         :param record_version: The version of the registry record.
@@ -3693,6 +3923,8 @@ class CfnRegistryRecordProps:
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_agentregistry as agentregistry
+            
+            # custom_metadata: Any
             
             cfn_registry_record_props = agentregistry.CfnRegistryRecordProps(
                 descriptors=agentregistry.CfnRegistryRecord.DescriptorsProperty(
@@ -3801,6 +4033,7 @@ class CfnRegistryRecordProps:
                 record_type="recordType",
             
                 # the properties below are optional
+                custom_metadata=custom_metadata,
                 description="description",
                 display_name="displayName",
                 record_version="recordVersion",
@@ -3816,6 +4049,7 @@ class CfnRegistryRecordProps:
             check_type(argname="argument descriptors", value=descriptors, expected_type=type_hints["descriptors"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument record_type", value=record_type, expected_type=type_hints["record_type"])
+            check_type(argname="argument custom_metadata", value=custom_metadata, expected_type=type_hints["custom_metadata"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument record_version", value=record_version, expected_type=type_hints["record_version"])
@@ -3826,6 +4060,8 @@ class CfnRegistryRecordProps:
             "name": name,
             "record_type": record_type,
         }
+        if custom_metadata is not None:
+            self._values["custom_metadata"] = custom_metadata
         if description is not None:
             self._values["description"] = description
         if display_name is not None:
@@ -3870,6 +4106,17 @@ class CfnRegistryRecordProps:
         result = self._values.get("record_type")
         assert result is not None, "Required property 'record_type' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def custom_metadata(self) -> typing.Any:
+        '''The custom metadata to attach to the registry record.
+
+        Each key must match a property defined in the registry's custom metadata schema. Values can be strings (maximum 128 characters) or native JSON booleans (true or false).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registryrecord.html#cfn-agentregistry-registryrecord-custommetadata
+        '''
+        result = self._values.get("custom_metadata")
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -3948,6 +4195,7 @@ def _typecheckingstub__c92eab34b9759c9076b623bf33eca391e46a29b4416fcb07c7b30302f
     authorizer_type: typing.Optional[builtins.str] = None,
     auto_detection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     auto_detection_scope: typing.Optional[builtins.str] = None,
+    custom_metadata_schema_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.CustomMetadataSchemaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     discovery_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.DiscoveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4006,6 +4254,12 @@ def _typecheckingstub__a96c6d354e8928325f1d6d60db3334e5c2866551a0c5ed7e7992d8cdb
 
 def _typecheckingstub__debc64dc04165d35e6c03757c993f317c665ad78f4ea3e2a0a6d5bda6ef9b23e(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__769d299350d75fc895a0212e74cd0d020f28da31d28f7061229a260dce6dc98e(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRegistry.CustomMetadataSchemaConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4084,6 +4338,14 @@ def _typecheckingstub__f7f05f2a0c04cca178fdec7101afb3c703940cffbf41f03ccc78bc909
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cbe9618f5ad5b035b1ac070e8b6cd9c184afb6b51956f9d7e6f5198d2b17464b(
+    *,
+    default_schema: typing.Optional[builtins.str] = None,
+    record_type_schema_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.RecordTypeSchemaOverrideProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0075ca34f0469a75f3909e5eaf6a881ca07aa3e497e1be371bc34bb156576420(
     *,
     authorizer_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.AuthorizerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4098,6 +4360,14 @@ def _typecheckingstub__5bb8dca691770be1d18258851da6d95495436ebd6378e717de544fe43
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2fda160dbb22060705261ede4f01181145b42424f14ce972b84414a54b3eafdf(
+    *,
+    record_type: builtins.str,
+    schema: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b98476a5662bfac6fbe3ddd43ef77bef00711e71c235f99e97057616ec96a16e(
     *,
     name: builtins.str,
@@ -4105,6 +4375,7 @@ def _typecheckingstub__b98476a5662bfac6fbe3ddd43ef77bef00711e71c235f99e97057616e
     authorizer_type: typing.Optional[builtins.str] = None,
     auto_detection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     auto_detection_scope: typing.Optional[builtins.str] = None,
+    custom_metadata_schema_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.CustomMetadataSchemaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     discovery_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.DiscoveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4120,6 +4391,7 @@ def _typecheckingstub__7ef8b3afdf0d8fa2a57531ae35ed0ed172ca12f519f3a312e79d540a7
     descriptors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.DescriptorsProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     record_type: builtins.str,
+    custom_metadata: typing.Any = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
     record_version: typing.Optional[builtins.str] = None,
@@ -4143,6 +4415,12 @@ def _typecheckingstub__a7361ed8164b5f3cdafa91a2686cb44699f14ff384f55aada32958b17
 
 def _typecheckingstub__b8464f2d44da52e9636217c4cc94c48509e2de79509aec4ac8f0c9cc915064df(
     props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5ef3e330c972fff000a93e330e4fe3389b52160df2f5164d56defed03260333(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4370,6 +4648,7 @@ def _typecheckingstub__68bc3c29ea26d0372a7ccb8f399a09e4970aca187d9f42a8210b96465
     descriptors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.DescriptorsProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     record_type: builtins.str,
+    custom_metadata: typing.Any = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
     record_version: typing.Optional[builtins.str] = None,

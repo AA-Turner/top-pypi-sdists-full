@@ -22,6 +22,7 @@ from refinery.units.compression.brotli import brotli as brotli
 from refinery.units.compression.bz2 import bz2 as bz2
 from refinery.units.compression.decompress import decompress as decompress
 from refinery.units.compression.flz import flz as flz
+from refinery.units.compression.huffman import huffman as huffman
 from refinery.units.compression.jcalg import jcalg as jcalg
 from refinery.units.compression.lz import lzma as lzma
 from refinery.units.compression.lz4 import lz4 as lz4
@@ -175,6 +176,7 @@ from refinery.units.formats.archive.xtcpio import xtcpio as xtcpio
 from refinery.units.formats.archive.xtdmg import xtdmg as xtdmg
 from refinery.units.formats.archive.xtdmp import xtdmp as xtdmp
 from refinery.units.formats.archive.xtgz import xtgz as xtgz
+from refinery.units.formats.archive.xtiex import xtiex as xtiex
 from refinery.units.formats.archive.xtinno import xtinno as xtinno
 from refinery.units.formats.archive.xtiso import xtiso as xtiso
 from refinery.units.formats.archive.xtiss import xtiss as xtiss
@@ -191,6 +193,7 @@ from refinery.units.formats.archive.xtsim import xtsim as xtsim
 from refinery.units.formats.archive.xtsql import xtsql as xtsql
 from refinery.units.formats.archive.xttar import xttar as xttar
 from refinery.units.formats.archive.xtvhd import xtvhd as xtvhd
+from refinery.units.formats.archive.xtwim import xtwim as xtwim
 from refinery.units.formats.archive.xtzip import xtzip as xtzip
 from refinery.units.formats.archive.xtzpaq import xtzpaq as xtzpaq
 from refinery.units.formats.asn1 import asn1 as asn1
@@ -229,6 +232,7 @@ from refinery.units.formats.lnk import lnk as lnk
 from refinery.units.formats.macho.machometa import machometa as machometa
 from refinery.units.formats.msgpack import msgpack as msgpack
 from refinery.units.formats.msi import xtmsi as xtmsi
+from refinery.units.formats.network.dns import dns as dns
 from refinery.units.formats.network.http import http as http
 from refinery.units.formats.network.pcap import pcap as pcap
 from refinery.units.formats.network.tcp import tcp as tcp
@@ -361,16 +365,20 @@ from refinery.units.pattern.urlguards import urlguards as urlguards
 from refinery.units.pattern.xtp import xtp as xtp
 from refinery.units.pattern.xtw import xtw as xtw
 from refinery.units.scripting.bat import bat as bat
+from refinery.units.scripting.bat import batev as batev
+from refinery.units.scripting.bat import batfs as batfs
 from refinery.units.scripting.cmdarg import cmdarg as cmdarg
+from refinery.units.scripting.dau3 import dau3 as dau3
 from refinery.units.scripting.deobfuscate import defu as defu
-from refinery.units.scripting.js import js as js
-from refinery.units.scripting.php import php as php
-from refinery.units.scripting.ps1 import ps1 as ps1
-from refinery.units.scripting.vba import vba as vba
+from refinery.units.scripting.djs import djs as djs
+from refinery.units.scripting.dphp import dphp as dphp
+from refinery.units.scripting.dps1 import dps1 as dps1
+from refinery.units.scripting.dvba import dvba as dvba
 from refinery.units.sinks.asm import asm as asm
 from refinery.units.sinks.dnasm import dnasm as dnasm
 from refinery.units.sinks.dump import d2p as d2p
 from refinery.units.sinks.dump import dump as dump
+from refinery.units.sinks.dump import dumprel as dumprel
 from refinery.units.sinks.hl import hl as hl
 from refinery.units.sinks.hl import hlb as hlb
 from refinery.units.sinks.hl import hlg as hlg

@@ -563,3 +563,132 @@ def test_reconstruction_launch_records_its_selected_model_and_reuses_valid_outpu
         assert len(calls) == 2 and calls[1][1]["settings"].model == "opus"
         assert coverage.meta("reconstruction:p")["input_id"] != previous
         assert coverage.meta("reconstruction:p:" + previous)["model"] == "sonnet"
+
+
+# -- a new draft replaces the one this import published before it ----------
+
+DRAFT_1 = (
+    "## Imported file reconstruction\n\n"
+    "Draft based on bounded file and Git evidence.\n\n"
+    "### Purpose\n\nThe encoder was trainable. [F001](/artifacts/x)\n\n"
+    "### Evidence limits\n\n1 delivered file records; excerpts are bounded.\n"
+)
+NEW_BLOCK = "[probe-backfill:new:h2]\n## Imported file reconstruction\n\nNew.\n"
+
+
+def _earlier_draft(tmp_path, draft=DRAFT_1, input_id="old"):
+    path = tmp_path / f"{input_id}.md"
+    path.write_text(draft)
+    entry = {"input_id": input_id, "draft_hash": rec._hash(draft), "draft_path": str(path)}
+    return entry, f"[probe-backfill:{input_id}:{entry['draft_hash']}]"
+
+
+def _served(marker, draft=DRAFT_1):
+    # What the Overview page hands back: the renderer puts a blank line after
+    # the marker, so a fake that echoes the bytes sent proves nothing here.
+    return f"{marker}\n\n{draft}"
+
+
+def test_the_page_served_draft_is_replaced_and_everything_around_it_kept(tmp_path):
+    entry, marker = _earlier_draft(tmp_path)
+    doc = (
+        "Teammate's prose.\n\n" + _served(marker)
+        + "\nReviewed by Alice: claim 1 is wrong.\n\n[README](https://github.com/acme/judge)\n"
+    )
+    out, replaced, kept = rec._place_draft(doc, NEW_BLOCK, [entry])
+    assert (replaced, kept) == (1, 0)
+    assert "trainable" not in out and out.count("[probe-backfill:") == 1
+    assert out.startswith("Teammate's prose.\n\n[probe-backfill:new:h2]")
+    assert "Reviewed by Alice: claim 1 is wrong." in out
+    assert "[README](https://github.com/acme/judge)" in out
+
+
+def test_a_draft_a_person_edited_is_kept_and_the_new_one_goes_below(tmp_path):
+    entry, marker = _earlier_draft(tmp_path)
+    doc = _served(marker).replace("was trainable", "was trainable (Alice: no, frozen)")
+    out, replaced, kept = rec._place_draft(doc, NEW_BLOCK, [entry])
+    assert (replaced, kept) == (0, 1)
+    assert out == doc + "\n\n" + NEW_BLOCK
+
+
+def test_another_imports_draft_and_a_typed_marker_are_never_touched(tmp_path):
+    entry, _ = _earlier_draft(tmp_path)
+    other, other_marker = _earlier_draft(tmp_path, input_id="folder-b")
+    doc = _served(other_marker) + "\nSee [probe-backfill:x] above.\n"
+    out, replaced, kept = rec._place_draft(doc, NEW_BLOCK, [entry])
+    assert (replaced, kept) == (0, 0) and out == doc + "\n\n" + NEW_BLOCK
+
+
+def test_a_missing_or_changed_saved_draft_cuts_nothing(tmp_path):
+    entry, marker = _earlier_draft(tmp_path)
+    doc = _served(marker)
+    (tmp_path / "old.md").write_text(DRAFT_1 + "edited on disk\n")
+    assert rec._place_draft(doc, NEW_BLOCK, [entry])[1:] == (0, 1)
+    (tmp_path / "old.md").unlink()
+    assert rec._place_draft(doc, NEW_BLOCK, [entry])[1:] == (0, 1)
+
+
+def test_every_earlier_draft_this_import_left_is_cut(tmp_path):
+    one, marker_1 = _earlier_draft(tmp_path, input_id="one")
+    two, marker_2 = _earlier_draft(tmp_path, DRAFT_1.replace("trainable", "frozen"), input_id="two")
+    doc = "Prose.\n\n" + _served(marker_1) + "\n" + _served(marker_2, DRAFT_1.replace("trainable", "frozen"))
+    out, replaced, kept = rec._place_draft(doc, NEW_BLOCK, [one, two])
+    assert (replaced, kept) == (2, 0)
+    assert out == "Prose.\n\n" + NEW_BLOCK
+
+
+def test_new_evidence_redrafts_and_replaces_the_published_draft_on_the_page(setup, monkeypatch):
+    """End to end, through a fake page that serves what the renderer serves."""
+    _, coverage, client, calls = setup
+    sent = client.patch
+
+    def rendered_patch(path, body):
+        result = sent(path, body)
+        client.document = client.document.replace("]\n## Imported", "]\n\n## Imported")
+        return result
+
+    client.patch = rendered_patch
+    prompts = []
+    monkeypatch.setattr(rec, "_confirm", lambda prompt: prompts.append(prompt) or True)
+    run(setup, interactive=True)
+    first = coverage.meta("reconstruction:p")
+    assert first["publication"]["state"] == "published"
+    coverage.file_rows[0]["manifest"] = json.dumps({"path": "design.md", "notes": "The design doc."})
+    run(setup, interactive=True)
+    assert len(calls) == 2 and calls[1]["sources"]["F001"]["note"] == "The design doc."
+    assert coverage.meta("reconstruction:p")["earlier"][-1]["input_id"] == first["input_id"]
+    assert client.document.count("[probe-backfill:") == 1 and first["input_id"] not in client.document
+    assert client.document.startswith("Teammate's prose\n\n[probe-backfill:")
+    assert any("replacing the earlier imported file reconstruction" in p for p in prompts)
+
+
+def test_what_the_renderer_rewrites_is_not_mistaken_for_an_edit(tmp_path):
+    """Seen on the prod renderer (review, 10-26): escaped underscores, emphasis
+    swapped, list markers renumbered, entities. Words unchanged, so it is ours."""
+    draft = (
+        "## Imported file reconstruction\n\n"
+        "The dataset's __getitem__ returns one *held-out* prompt group. [F001](/artifacts/x)\n\n"
+        "### Evidence limits\n\n- src/__init__.py: excerpt truncated\n* a &amp; b\n2) ~~old~~ step\n"
+    )
+    entry, marker = _earlier_draft(tmp_path, draft)
+    served = (
+        f"{marker}\n\n## Imported file reconstruction\n\n"
+        "The dataset's \\_\\_getitem\\_\\_ returns one _held-out_ prompt group. [F001](/artifacts/x)\n\n"
+        "### Evidence limits\n\n- src/\\_\\_init\\_\\_.py: excerpt truncated\n- a &amp;amp; b\n2. ~~old~~ step\n"
+    )
+    out, replaced, kept = rec._place_draft("Prose.\n\n" + served, NEW_BLOCK, [entry])
+    assert (replaced, kept) == (1, 0) and out == "Prose.\n\n" + NEW_BLOCK
+
+
+def test_an_edit_in_any_script_keeps_the_draft(tmp_path):
+    draft = "## Imported file reconstruction\n\nLa précision augmente; 精度が上がった。 [F001](/artifacts/x)\n"
+    entry, marker = _earlier_draft(tmp_path, draft)
+    for edited in ("précision", "精度"):
+        doc = _served(marker, draft.replace(edited, edited[::-1]))
+        assert rec._place_draft(doc, NEW_BLOCK, [entry])[1:] == (0, 1), edited
+    assert rec._place_draft(_served(marker, draft), NEW_BLOCK, [entry])[1:] == (1, 0)
+
+
+def test_a_draft_with_no_words_is_never_cut(tmp_path):
+    entry, marker = _earlier_draft(tmp_path, "---\n")
+    assert rec._place_draft(f"{marker}\n\n---\n", NEW_BLOCK, [entry])[1:] == (0, 1)

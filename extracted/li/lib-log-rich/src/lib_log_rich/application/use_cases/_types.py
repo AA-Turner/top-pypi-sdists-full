@@ -11,6 +11,8 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from lib_log_rich.domain.enums import DiagnosticEvent, DropReason
+
 if TYPE_CHECKING:
     from lib_log_rich.application.ports import (
         ClockPort,
@@ -50,20 +52,25 @@ class ProcessResult:
     Attributes:
         ok: Whether the event was successfully processed.
         event_id: Identifier of the processed event (when available).
-        reason: Failure reason when ok is False.
+        reason: Why the event was not delivered, when ok is False.
         queued: Whether the event was queued for async processing.
         failed_adapters: List of adapter names that failed during fan-out.
     """
 
     ok: bool
     event_id: str | None = None
-    reason: str | None = None
+    reason: DropReason | None = None
     queued: bool = False
     failed_adapters: list[str] = field(default_factory=lambda: [])
 
 
 DiagnosticPayload = Mapping[str, object]
+MessageArgs = tuple[object, ...] | Mapping[str, object]
+"""Arguments for ``%``-formatting a message: positional, or the single mapping stdlib unwraps for ``%(name)s``."""
 DiagnosticCallback = Callable[[str, DiagnosticPayload], None]
+"""The caller's diagnostic hook: it receives each event name as a plain ``str``."""
+DiagnosticEmitter = Callable[[DiagnosticEvent, DiagnosticPayload], None]
+"""What the pipeline calls internally; only the wrapper around the hook turns the member into its value."""
 
 
 @runtime_checkable
@@ -77,9 +84,14 @@ class FanOutCallable(Protocol):
 
 @runtime_checkable
 class ProcessCallable(Protocol):
-    """Protocol for the main event processing callable."""
+    """Protocol for the main event processing callable.
 
-    fan_out: FanOutCallable
+    ``deliver`` is the step after queueing, run by the queue worker for each
+    dequeued event: fan it out to the adapters and account for a failure (the
+    ``adapter_error`` drop and diagnostic) the same way an inline call does.
+    """
+
+    deliver: Callable[[LogEvent], ProcessResult]
 
     def __call__(
         self,
@@ -87,7 +99,7 @@ class ProcessCallable(Protocol):
         logger_name: str,
         level: LogLevel,
         message: object,
-        args: tuple[object, ...] = (),
+        args: MessageArgs = (),
         exc_info: object | None = None,
         stack_info: object | None = None,
         stacklevel: int = 1,
@@ -131,8 +143,10 @@ class ProcessPipelineDependencies:
 
 __all__ = [
     "DiagnosticCallback",
+    "DiagnosticEmitter",
     "DiagnosticPayload",
     "FanOutCallable",
+    "MessageArgs",
     "PayloadLimitsProtocol",
     "ProcessCallable",
     "ProcessFactory",

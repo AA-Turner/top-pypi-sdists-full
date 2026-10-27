@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: energyquantified
-Version: 0.18
+Version: 0.19
 Summary: Energy Quantified Time series API client.
 Home-page: https://github.com/energyquantified/eq-python-client
-Author: Energy Quantified AS
+Author: Montel AS
 Project-URL: Documentation, https://energyquantified-python.readthedocs.io
 Project-URL: Source, https://github.com/energyquantified/eq-python-client
 Classifier: Development Status :: 4 - Beta
@@ -96,6 +96,8 @@ at Read the Docs.
 - Forecasts- and time series data
 - Period-based data
 - OHLC data with SRMC calculations
+- Intraday trade OHLC data
+- Power purchase agreement (PPA) prices
 - Shows your subscription for each data series
 - Support for timezones, resolutions, aggregations and unit conversions
 - Easy-to-use filters for issue dates and forecast types
@@ -107,6 +109,16 @@ Create an account on [Energy Quantified](https://www.energyquantified.com)'s
 home page. Trial users get access to 30 days of history.
 
 ## Installation
+
+Install with **uv**:
+
+```bash
+# Install
+uv add energyquantified
+
+## Upgrade (all dependencies)
+uv lock --upgrade
+```
 
 Install with **pip**:
 

@@ -3,369 +3,409 @@ Remove unused variable assignments and junk expression statements.
 """
 from __future__ import annotations
 
-from refinery.lib.scripts import Node, Transformer, _remove_from_parent, _replace_in_parent
+from typing import NamedTuple
+
+from refinery.lib.scripts import Node, Transformer
+from refinery.lib.scripts.ps1.analysis.cache import model_cache
+from refinery.lib.scripts.ps1.analysis.callgraph import Ps1CallGraph
+from refinery.lib.scripts.ps1.analysis.effects import (
+    OutputSink,
+    StatementEffect,
+    body_is_inert,
+    expression_cannot_fault,
+    is_side_effect_free,
+    opens_a_redirection_target,
+    output_path,
+    pruning_erases_body,
+    statement_effect,
+    unconsumed_statement,
+)
+from refinery.lib.scripts.ps1.analysis.faults import Ps1FaultReach
+from refinery.lib.scripts.ps1.analysis.model import Binding, Ps1SemanticModel, Scope
+from refinery.lib.scripts.ps1.analysis.worldflow import Ps1WorldReach
+from refinery.lib.scripts.ps1.ast import (
+    assignment_of,
+    assignment_target_is_all_variables,
+    assignment_target_variables,
+    fault_operand,
+    get_body,
+    normalize_command_name,
+)
 from refinery.lib.scripts.ps1.deobfuscation.constants import (
     _PS1_SKIP_VARIABLES,
-    _assignment_target_variable,
-    _candidate_key,
     _find_removable_statement,
-    _walk_outer_scope,
 )
-from refinery.lib.scripts.ps1.deobfuscation.helpers import (
-    get_body,
-    get_command_name,
-    inside_value_producing_context,
-)
+from refinery.lib.scripts.ps1.deobfuscation.helpers import store_dropped_to_value
+from refinery.lib.scripts.ps1.deobfuscation.removal import Ps1RemovalPlan, Ps1RemovalPlans
 from refinery.lib.scripts.ps1.model import (
     Expression,
-    Ps1AccessKind,
-    Ps1ArrayExpression,
-    Ps1ArrayLiteral,
     Ps1AssignmentExpression,
-    Ps1BinaryExpression,
-    Ps1CastExpression,
-    Ps1ClassDefinition,
-    Ps1CommandArgument,
-    Ps1CommandInvocation,
-    Ps1EnumDefinition,
-    Ps1ExpandableString,
     Ps1ExpressionStatement,
-    Ps1ForEachLoop,
+    Ps1ForLoop,
     Ps1FunctionDefinition,
-    Ps1HereString,
-    Ps1IndexExpression,
-    Ps1IntegerLiteral,
-    Ps1InvokeMember,
-    Ps1MemberAccess,
-    Ps1ParameterDeclaration,
-    Ps1ParenExpression,
-    Ps1Pipeline,
-    Ps1PipelineElement,
-    Ps1RangeExpression,
-    Ps1RealLiteral,
     Ps1ScopeModifier,
-    Ps1ScriptBlock,
-    Ps1StringLiteral,
-    Ps1TypeExpression,
+    Ps1Script,
     Ps1UnaryExpression,
     Ps1Variable,
 )
-
-_PURE_STATIC_TYPES = frozenset({
-    'array',
-    'bitconverter',
-    'char',
-    'convert',
-    'datetime',
-    'decimal',
-    'double',
-    'environment',
-    'guid',
-    'int',
-    'int32',
-    'int64',
-    'math',
-    'string',
-    'system.array',
-    'system.bitconverter',
-    'system.char',
-    'system.convert',
-    'system.datetime',
-    'system.decimal',
-    'system.double',
-    'system.environment',
-    'system.guid',
-    'system.int32',
-    'system.int64',
-    'system.math',
-    'system.string',
-    'system.timespan',
-    'timespan',
-})
+from refinery.lib.scripts.ps1.options import bare_output_is_preserved, env_stores_are_preserved
 
 
-def _inside_definition(node: Node) -> bool:
+def _writes_only_what_cannot_fault(
+    stmt: Node,
+    faults: Ps1FaultReach,
+    world: Ps1WorldReach,
+) -> bool:
     """
-    Return `True` when `node` is nested inside a function, class, or enum definition body.
+    Whether a statement writes a value to the output stream and can do nothing else — not even
+    raise. `refinery.lib.scripts.ps1.analysis.effects.StatementEffect.OUTPUT` says the first half
+    and deliberately says nothing about the second, so a caller about to delete such a statement
+    asks the fault question here.
+
+    It is the same question `refinery.lib.scripts.ps1.analysis.effects.fault_is_observed` asks of a
+    `DISCARD`, and it goes through the same gate *over the same operand* for that reason: a bare
+    `$x` answered fault-free at one of the two sites and not at the other would be deleted as a
+    discard and kept as an output in one script, and so would one the two sites disagreed about
+    which expression to weigh. `refinery.lib.scripts.ps1.ast.fault_operand` is that
+    one reading, and it answers `None` for a statement that is not one expression.
     """
-    cursor = node.parent
-    while cursor is not None:
-        if isinstance(cursor, (Ps1FunctionDefinition, Ps1ClassDefinition, Ps1EnumDefinition)):
-            return True
-        cursor = cursor.parent
-    return False
+    operand = fault_operand(stmt)
+    return operand is not None and expression_cannot_fault(operand, stmt, faults, world)
 
 
-_PURE_INSTANCE_METHODS = frozenset({
-    'adddays',
-    'addhours',
-    'addminutes',
-    'addmonths',
-    'addseconds',
-    'addyears',
-    'compareto',
-    'contains',
-    'endswith',
-    'equals',
-    'gethashcode',
-    'gettype',
-    'indexof',
-    'lastindexof',
-    'length',
-    'padleft',
-    'padright',
-    'split',
-    'startswith',
-    'substring',
-    'tochar',
-    'tochararray',
-    'tolower',
-    'tostring',
-    'touniversaltime',
-    'toupper',
-    'trim',
-    'trimend',
-    'trimstart',
-})
-
-_PURE_CMDLETS = frozenset({
-    'get-childitem',
-    'get-content',
-    'get-date',
-    'get-item',
-    'get-location',
-    'get-process',
-    'get-random',
-    'get-variable',
-    'measure-object',
-    'out-null',
-    'out-string',
-    'select-object',
-    'sort-object',
-    'where-object',
-})
-
-_PURE_PIPELINE_CMDLETS = frozenset({
-    'foreach-object',
-    'select-object',
-    'sort-object',
-    'where-object',
-})
-
-
-def _command_body_is_pure(cmd: Ps1CommandInvocation) -> bool:
+class _MutationEdit(NamedTuple):
     """
-    Check whether all script block arguments of a pipeline cmdlet (ForEach-Object, Where-Object,
-    etc.) have side-effect-free bodies. These cmdlets are pure transforms: they evaluate a script
-    block per input item without mutating state themselves.
+    One intended edit to a dead store: the statement to be removed, and the right-hand side that has
+    to be kept as a discard because evaluating it does something, or `None` when it does not.
     """
-    for arg in cmd.arguments:
-        block = arg.value if isinstance(arg, Ps1CommandArgument) else arg
-        if not isinstance(block, Ps1ScriptBlock):
-            continue
-        for stmt in block.body:
-            if isinstance(stmt, Ps1ExpressionStatement) and stmt.expression is not None:
-                if not _is_side_effect_free(stmt.expression):
-                    return False
-            elif not isinstance(stmt, Ps1ExpressionStatement):
-                return False
-    return True
+    statement: Node
+    keep_value: Expression | None
 
 
-def _is_side_effect_free(node) -> bool:
+def _value_is_movable(rhs: Node) -> bool:
     """
-    Conservative check: return `True` only when evaluating `node` is guaranteed to produce no
-    observable side effects beyond yielding a value.
+    Whether a dead store's right-hand side can be kept as a statement of its own.
+
+    A right-hand side that is a *statement* rather than an expression — `$x = if ($c) { ... }`, and
+    the `switch`/`foreach`/`while`/`try` forms beside it, all legal assignment sources — has no
+    expression-statement spelling to be moved into, so the whole assignment stays. Removing it
+    instead would take the branch bodies with it.
+
+    Both passes that drop a dead store share this, rather than each spelling the rule: the two
+    outcomes are keep-the-value and keep-the-statement, and a pass that learned only one of them
+    would delete what the other keeps.
     """
-    if isinstance(node, (Ps1StringLiteral, Ps1HereString, Ps1IntegerLiteral, Ps1RealLiteral)):
-        return True
-    if isinstance(node, Ps1TypeExpression):
-        return True
-    if isinstance(node, Ps1Variable):
-        return True
-    if isinstance(node, Ps1ParenExpression):
-        return node.expression is None or _is_side_effect_free(node.expression)
-    if isinstance(node, Ps1CastExpression):
-        return _is_side_effect_free(node.operand)
-    if isinstance(node, Ps1UnaryExpression):
-        if node.operator in ('++', '--'):
-            return False
-        return _is_side_effect_free(node.operand)
-    if isinstance(node, Ps1BinaryExpression):
-        return _is_side_effect_free(node.left) and _is_side_effect_free(node.right)
-    if isinstance(node, Ps1RangeExpression):
-        return _is_side_effect_free(node.start) and _is_side_effect_free(node.end)
-    if isinstance(node, Ps1ArrayLiteral):
-        return all(_is_side_effect_free(e) for e in node.elements)
-    if isinstance(node, Ps1ArrayExpression):
-        if len(node.body) == 1:
-            stmt = node.body[0]
-            if isinstance(stmt, Ps1ExpressionStatement) and stmt.expression is not None:
-                return _is_side_effect_free(stmt.expression)
-        return len(node.body) == 0
-    if isinstance(node, Ps1IndexExpression):
-        return _is_side_effect_free(node.object) and _is_side_effect_free(node.index)
-    if isinstance(node, Ps1MemberAccess):
-        return _is_side_effect_free(node.object)
-    if isinstance(node, Ps1InvokeMember):
-        if not all(_is_side_effect_free(a) for a in node.arguments):
-            return False
-        if node.access == Ps1AccessKind.STATIC:
-            obj = node.object
-            if isinstance(obj, Ps1TypeExpression) and obj.name.lower() in _PURE_STATIC_TYPES:
-                return True
-        elif _is_side_effect_free(node.object):
-            member = node.member
-            if isinstance(member, str) and member.lower() in _PURE_INSTANCE_METHODS:
-                return True
-        return False
-    if isinstance(node, Ps1CommandInvocation):
-        name = get_command_name(node)
-        if name is None:
-            return False
-        if name.lower() in _PURE_CMDLETS:
-            return True
-        if name.lower() in _PURE_PIPELINE_CMDLETS:
-            return _command_body_is_pure(node)
-        return False
-    if isinstance(node, Ps1Pipeline):
-        return all(
-            isinstance(el, Ps1PipelineElement) and _is_side_effect_free(el.expression)
-            for el in node.elements
-        )
-    if isinstance(node, Ps1ExpandableString):
-        return all(_is_side_effect_free(p) for p in node.parts)
-    return False
+    return isinstance(rhs, Expression)
 
 
 class Ps1UnusedVariableRemoval(Transformer):
     """
-    Remove assignments to variables that are never read anywhere in the outer scope. When the
-    right-hand side of an assignment has side effects, the assignment wrapper is stripped but the
-    expression is preserved as a standalone statement.
+    Remove assignments to variables that are never read anywhere in the outer scope. Liveness comes
+    from the shared `refinery.lib.scripts.ps1.analysis.model.Ps1SemanticModel`, so a read that
+    reaches the assignment through a nested function, a captured scriptblock, or a scope qualifier
+    keeps it alive. When the right-hand side of a removable assignment has side effects, the
+    assignment wrapper is stripped but the expression is preserved as a standalone statement.
+
+    A store to an environment variable is removed only as declared noise — no read inside the file
+    can prove it dead, because every child process reads the environment, so
+    `refinery.lib.scripts.ps1.options.env_stores_are_preserved` is what keeps it.
+
+    A store of a name the script may read where no occurrence of it stands is never dead — see
+    `refinery.lib.scripts.ps1.analysis.cache.Ps1ModelCache.names_may_be_read_unseen`. A script that
+    runs code supplied as data — an `Invoke-Expression`, a dispatched scriptblock, a dot-sourced
+    file — may read every name, so the pass makes no removals there. The trusting model —
+    `refinery.lib.scripts.ps1.options.eval_is_trusted` — closes that world and restores full removal.
     """
 
     def visit(self, node: Node):
-        write_nodes: dict[str, list[Node]] = {}
-        write_targets: set[Ps1Variable] = set()
-        read_in_assign: dict[str, set[str]] = {}
-        has_free_read: set[str] = set()
-        for n in _walk_outer_scope(node):
-            if isinstance(n, Ps1AssignmentExpression):
-                var = _assignment_target_variable(n.target)
-                if var is not None:
-                    write_targets.add(var)
-                    key = _candidate_key(var)
-                    if key is not None:
-                        write_nodes.setdefault(key, []).append(n)
-            elif isinstance(n, Ps1ForEachLoop):
-                if isinstance(n.variable, Ps1Variable):
-                    write_targets.add(n.variable)
-            elif isinstance(n, Ps1UnaryExpression) and n.operator in ('++', '--'):
-                if isinstance(n.operand, Ps1Variable):
-                    write_targets.add(n.operand)
-                    key = _candidate_key(n.operand)
-                    if key is not None:
-                        write_nodes.setdefault(key, []).append(n)
-            elif isinstance(n, Ps1ParameterDeclaration):
-                if isinstance(n.variable, Ps1Variable):
-                    write_targets.add(n.variable)
-        for n in _walk_outer_scope(node):
-            if not isinstance(n, Ps1Variable) or n in write_targets:
+        """
+        Plan every candidate edit, ask the batch what it would accept, and only then decide which
+        bindings are dead.
+
+        A binding is dead because its every read sits inside a right-hand side that is going away,
+        so liveness is *restrictive* in the survivor set and has to be asked of what the batch will
+        actually do (`refinery.lib.scripts.ps1.deobfuscation.removal.Ps1RemovalPlan.accepted`). Two
+        things keep a right-hand side standing and neither is visible before the edits are planned: a
+        value that does something survives as `$Null = <value>`, and a statement the fault veto
+        declines to delete survives whole. Planning up front costs nothing — registering a
+        replacement gives back whatever it adopted — so the liveness question is asked of the tree as
+        written.
+        """
+        cache = model_cache(self, node)
+        unseen = cache.names_may_be_read_unseen
+        if unseen.every_name:
+            return None
+        model = cache.model
+        world = cache.world_reach
+        candidates: dict[Binding, list[Node]] = {}
+        for binding in model.script_scope.bindings.values():
+            if binding.read_through_using or binding.name in _PS1_SKIP_VARIABLES:
                 continue
-            key = _candidate_key(n)
-            if key is None:
+            if binding.name in unseen:
                 continue
-            enclosing = self._enclosing_assignment_target(n)
-            if enclosing is not None:
-                read_in_assign.setdefault(key, set()).add(enclosing)
-            else:
-                has_free_read.add(key)
-        # An outer-scope assignment can still be read through PowerShell's dynamic scoping (from
-        # inside a function body) or through a scope qualifier (`$script:x`, `$global:x`). The
-        # outer-scope walk above misses both, so collect those reads from the full tree by bare name
-        # and treat them as free reads — keeping the assignment alive rather than deleting live code.
-        for n in node.walk():
-            if not isinstance(n, Ps1Variable) or n in write_targets:
+            mutations = self._removable_mutations(binding)
+            if mutations:
+                candidates[binding] = mutations
+        if not candidates:
+            return None
+        plans = Ps1RemovalPlans(cache.faults, world, cache.error_state)
+        planned: dict[int, _MutationEdit] = {}
+        installed: set[int] = set()
+        claimed: set[int] = set()
+        for mutations in candidates.values():
+            for mutation in mutations:
+                if id(mutation) in planned:
+                    continue
+                edit = self._plan_mutation(mutation, world)
+                if edit is None or id(edit.statement) in claimed:
+                    continue
+                replacement = None
+                if edit.keep_value is not None:
+                    replacement = [store_dropped_to_value(edit.keep_value)]
+                if plans.propose(edit.statement, replacement):
+                    claimed.add(id(edit.statement))
+                    planned[id(mutation)] = edit
+                    if replacement is not None:
+                        installed.update(id(stmt) for stmt in replacement)
+        accepted = {id(statement) for statement in plans.accepted}
+        dissolving = {
+            key for key, edit in planned.items()
+            if edit.keep_value is None and id(edit.statement) in accepted
+        }
+        dead = self._dead_bindings(candidates, dissolving)
+        removable = self._removable_statements(candidates, dead, model) if dead else []
+        keep = {id(mutation) for mutation in removable}
+        for key, edit in planned.items():
+            if key not in keep:
+                plans.withdraw(edit.statement)
+        if not removable:
+            plans.abandon()
+            return None
+        if get_body(node) is not None and not self._leaves_anything(plans, node, installed):
+            plans.abandon()
+            return None
+        if plans.commit():
+            self.mark_changed()
+
+    @staticmethod
+    def _leaves_anything(plans: Ps1RemovalPlans, node: Node, installed: set[int]) -> bool:
+        """
+        Whether the script still says something of its own once this batch lands.
+
+        A pass may not reduce a whole script to nothing, for the reason `_remove_inert_functions`
+        spells out: what is left would be a module whose callers the walk never read, and the
+        definitions that would prove it live are exactly what is out of reach. Definitions are
+        therefore not survivors here.
+
+        Neither is a `$Null = <value>` discard this pass is installing. It preserves a side effect
+        and it is genuinely observable, but it is **this pass's own residue**, and a guard against
+        erasure that counts its own output as proof it erased nothing answers itself. A script
+        reduced to nothing but discards has had everything it said deleted; that the deletions left
+        husks behind is not evidence to the contrary.
+        """
+        surviving = plans.survivors(node)
+        return any(
+            not isinstance(stmt, Ps1FunctionDefinition) and id(stmt) not in installed
+            for stmt in surviving
+        )
+
+    def _removable_mutations(self, binding: Binding) -> list[Node]:
+        """
+        The removable mutation nodes that write `binding`: a bare (unqualified) assignment or a
+        `++`/`--` update. A parameter or `foreach` loop variable writes the binding but is not a
+        removable mutation, and a scope-qualified write (`$script:x = ...`) is never removed, so
+        all are excluded.
+
+        An `$env:` write is removable only under the caller's answer to whether the environment is
+        part of the artifact: nothing inside the tree can prove such a store dead, because every
+        child process reads the environment, so the stripping default is a declaration that the
+        input's unread `$env:` stores are noise. `env_stores_are_preserved` holds that answer, and
+        `refinery.lib.scripts.ps1.analysis.effects._skipped_writes` holds the same refusal for the
+        trap-skip analysis, where no option is asked for it.
+        """
+        keep_env = env_stores_are_preserved(self.options)
+        mutations: list[Node] = []
+        seen: set[int] = set()
+        for write in binding.writes:
+            var = write.node
+            if not isinstance(var, Ps1Variable):
                 continue
-            scoped = n.scope not in (Ps1ScopeModifier.NONE, Ps1ScopeModifier.ENV)
-            if not scoped and not _inside_definition(n):
+            if var.scope is Ps1ScopeModifier.ENV:
+                if keep_env:
+                    continue
+            elif var.scope is not Ps1ScopeModifier.NONE:
                 continue
-            has_free_read.add(n.name.lower())
-            if n.scope == Ps1ScopeModifier.ENV:
-                has_free_read.add(F'env:{n.name.lower()}')
-        dead: set[str] = set()
-        for key in write_nodes:
-            if key in has_free_read or key in _PS1_SKIP_VARIABLES:
-                continue
-            if key not in read_in_assign:
-                dead.add(key)
+            mutation = Ps1UnusedVariableRemoval._mutation_of(var)
+            if mutation is not None and id(mutation) not in seen:
+                seen.add(id(mutation))
+                mutations.append(mutation)
+        return mutations
+
+    @staticmethod
+    def _mutation_of(var: Ps1Variable) -> Node | None:
+        """
+        The node this pass would remove to undo the write `var` performs, or `None` when the write
+        is one it cannot remove.
+
+        A `[ref]$x` is such a write and must stay `None`: the store happens inside a callee, so
+        there is nothing here to delete, and the enclosing call is not this pass's to touch. That
+        also makes the reference a use nothing discounts, which is what keeps the assignment it
+        stores into alive.
+        """
+        assignment = assignment_of(var)
+        if assignment is not None:
+            return assignment
+        parent = var.parent
+        if isinstance(parent, Ps1UnaryExpression) and parent.operator in ('++', '--'):
+            if parent.operand is var:
+                return parent
+        return None
+
+    def _dead_bindings(
+        self, candidates: dict[Binding, list[Node]], dissolving: set[int],
+    ) -> list[Binding]:
+        """
+        From candidate bindings mapped to their removable mutations, return those that are dead. A
+        binding is live if it has a use not contained in the right-hand side of any *dissolving*
+        assignment — a use in live code, in a live function, or a captured scriptblock. Liveness
+        propagates back along right-hand sides: if a live binding's assignment reads another
+        candidate, that candidate is live too. The rest, whose every read sits inside the right-hand
+        side of an assignment that is itself dead, are dead — removing those assignments removes the
+        reads, so nothing observes the value.
+
+        `dissolving` holds the mutations whose planned edit really does take their right-hand side
+        with it. A right-hand side that survives — as the value of a `$Null = <value>` discard, or
+        because the fault veto declined to delete the whole statement — still holds its reads, so
+        the bindings they name stay live and their own assignments stay.
+
+        The veto is not the only thing that keeps an assignment standing, so this asks the same
+        question `_all_targets_dead` asks. A target such as `$a, $arr[0]` names exactly one variable
+        and is still never removable, because the slot beside it writes memory this pass reasons
+        nothing about; a right-hand side that is only ever going away when that binding dies is a
+        right-hand side that is never going away at all.
+
+        The uses are `Binding.uses`, not `Binding.reads`: a write that observes the previous value
+        reads the binding as surely as anything in `reads` and is filed among the writes. Such a use
+        is discounted when the mutation performing it is itself dissolving, on the same reasoning as
+        a read inside a dissolving right-hand side — the store consumes the read, so removing the
+        store removes the read, and `$x = 1; $x += 2` that nothing else reads is dead whole. A
+        `[ref]$x` has no mutation this pass can remove, so it is never discounted and always keeps
+        its binding live.
+        """
+        bindings = list(candidates)
+        rhs_owner: dict[int, Binding] = {}
+        for binding, mutations in candidates.items():
+            for mutation in mutations:
+                if id(mutation) not in dissolving:
+                    continue
+                if not isinstance(mutation, Ps1AssignmentExpression) or mutation.value is None:
+                    continue
+                if not assignment_target_is_all_variables(mutation.target):
+                    continue
+                if len(assignment_target_variables(mutation.target)) == 1:
+                    rhs_owner[id(mutation.value)] = binding
+        readers: dict[Binding, set[Binding]] = {binding: set() for binding in bindings}
+        live: set[Binding] = set()
+        for binding in bindings:
+            for use in binding.uses:
+                mutation = self._mutation_of(use.node)
+                if mutation is not None and id(mutation) in dissolving:
+                    continue
+                owner = self._covering_owner(use.node, rhs_owner)
+                if owner is None or owner is binding:
+                    live.add(binding)
+                else:
+                    readers[binding].add(owner)
         changed = True
         while changed:
             changed = False
-            for key, assignees in read_in_assign.items():
-                if key in dead or key in has_free_read or key in _PS1_SKIP_VARIABLES:
-                    continue
-                if key not in write_nodes:
-                    continue
-                if assignees.issubset(dead):
-                    dead.add(key)
+            for binding in bindings:
+                if binding not in live and readers[binding] & live:
+                    live.add(binding)
                     changed = True
-        if not dead:
-            return None
-        body = get_body(node)
-        if body is not None:
-            dead_stmts: set[Node] = set()
-            for key in dead:
-                for mutation in write_nodes[key]:
-                    stmt = _find_removable_statement(mutation)
-                    if stmt is not None:
-                        dead_stmts.add(stmt)
-            surviving = [
-                s for s in body
-                if s not in dead_stmts
-                and not isinstance(s, Ps1FunctionDefinition)
-            ]
-            if not surviving:
-                return None
-        for key in dead:
-            for mutation in write_nodes[key]:
-                self._remove_mutation(mutation)
+        return [binding for binding in bindings if binding not in live]
 
     @staticmethod
-    def _enclosing_assignment_target(var: Ps1Variable) -> str | None:
+    def _covering_owner(node: Node, rhs_owner: dict[int, Binding]) -> Binding | None:
         """
-        If `var` is read inside an assignment's RHS, return the assignment target's variable key.
+        The candidate binding whose assignment right-hand side encloses *node*, taken at the
+        outermost such right-hand side, or `None` when *node* lies outside every candidate
+        right-hand side.
         """
-        cursor: Node = var
-        while cursor.parent is not None:
-            parent = cursor.parent
-            if isinstance(parent, Ps1AssignmentExpression) and cursor is not parent.target:
-                target = _assignment_target_variable(parent.target)
-                if target is not None:
-                    return _candidate_key(target)
-                return None
-            cursor = parent
-        return None
+        owner: Binding | None = None
+        cursor: Node | None = node
+        while cursor is not None:
+            found = rhs_owner.get(id(cursor))
+            if found is not None:
+                owner = found
+            cursor = cursor.parent
+        return owner
 
-    def _remove_mutation(self, mutation: Node):
+    def _removable_statements(
+        self, candidates: dict[Binding, list[Node]], dead: list[Binding], model: Ps1SemanticModel,
+    ) -> list[Node]:
+        dead_set = set(dead)
+        removable: list[Node] = []
+        seen: set[int] = set()
+        for binding in dead:
+            for mutation in candidates[binding]:
+                if id(mutation) in seen:
+                    continue
+                if (
+                    isinstance(mutation, Ps1AssignmentExpression)
+                    and not self._all_targets_dead(mutation, model, dead_set)
+                ):
+                    continue
+                seen.add(id(mutation))
+                removable.append(mutation)
+        return removable
+
+    @staticmethod
+    def _all_targets_dead(
+        assign: Ps1AssignmentExpression, model: Ps1SemanticModel, dead: set[Binding],
+    ) -> bool:
+        """
+        Whether every variable written by `assign` is dead. A multi-assignment such as
+        `$a, $b = 1, 2` is only removable when all of its targets are dead; removing it while a
+        co-target is still live would destroy that live write. A target that contains a non-variable
+        slot (e.g. `$arr[0], $b`) writes to memory beyond the named variables and is never
+        considered fully dead.
+        """
+        if not assignment_target_is_all_variables(assign.target):
+            return False
+        variables = assignment_target_variables(assign.target)
+        if not variables:
+            return False
+        for var in variables:
+            binding = model.binding_of(var)
+            if binding is None or binding not in dead:
+                return False
+        return True
+
+    @staticmethod
+    def _plan_mutation(mutation: Node, world: Ps1WorldReach) -> _MutationEdit | None:
+        """
+        What this pass intends to do with the statement holding `mutation`, decided without touching
+        the tree: the statement to edit, and the right-hand side that has to survive the edit, or
+        `None` where the store can go whole.
+
+        Deciding before building matters because the caller may still abandon the batch. Whether the
+        value can be moved is therefore answered here, by `_value_is_movable`, rather than by trying
+        to build the replacement and reading the failure.
+        """
+        keep_value = None
         if isinstance(mutation, Ps1AssignmentExpression):
             rhs = mutation.value
-            if rhs is not None and not _is_side_effect_free(rhs) and isinstance(rhs, Expression):
-                stmt = _find_removable_statement(mutation)
-                if stmt is None:
-                    return
-                replacement = Ps1ExpressionStatement(expression=rhs)
-                _replace_in_parent(stmt, replacement)
-                self.mark_changed()
-            else:
-                stmt = _find_removable_statement(mutation)
-                if stmt is not None and _remove_from_parent(stmt):
-                    self.mark_changed()
-        elif isinstance(mutation, Ps1UnaryExpression):
-            stmt = _find_removable_statement(mutation)
-            if stmt is not None and _remove_from_parent(stmt):
-                self.mark_changed()
+            if rhs is not None and not is_side_effect_free(rhs, world):
+                if not _value_is_movable(rhs):
+                    return None
+                keep_value = rhs
+        elif not isinstance(mutation, Ps1UnaryExpression):
+            return None
+        stmt = _find_removable_statement(mutation)
+        if stmt is None:
+            return None
+        return _MutationEdit(stmt, keep_value)
 
 
 class Ps1JunkStatementRemoval(Transformer):
@@ -375,170 +415,408 @@ class Ps1JunkStatementRemoval(Transformer):
     """
 
     def visit(self, node: Node):
-        called = self._reachable_functions(node)
-        for parent in list(_walk_outer_scope(node)):
-            if inside_value_producing_context(parent):
-                continue
+        """
+        Decide the whole batch, then apply it once.
+
+        **Two different sinks are read here and they answer two different questions.** Whether a
+        body may be reasoned about at all is positional: `output_path` calls a stored closure or a
+        `$( ... )` opaque, and this pass has never touched one. Whether a *write to the output
+        stream* inside it may be deleted needs the destination that write reaches, which position
+        cannot supply for a function body, so `Ps1OutputFlow` resolves it across the call graph.
+
+        One outward walk answers both, since the resolution reads the positional `Ps1OutputPath`.
+        Both must be asked: a body the flow reports captured — a function whose result someone stores
+        — still holds `$Null = 1` discards that write nothing, and the output question is what deletes
+        them.
+        """
+        cache = model_cache(self, node)
+        flow = cache.output_flow
+        called = cache.call_graph.reachable_names()
+        # A name used before it is defined denotes, at that use, whatever bound it earlier rather
+        # than the body written below — nothing, at script scope, where the bare word raises a
+        # non-terminating CommandNotFoundException and the run carries on to the body below. Such a
+        # function is not this pass's to reason about: pruning its body or deleting it with the
+        # calls that never reach it erases the error the earlier call raised.
+        unreached = cache.used_before_defined
+        plans = Ps1RemovalPlans(cache.faults, cache.world_reach, cache.error_state)
+        for parent in node.walk():
             body = get_body(parent)
             if body is None:
                 continue
-            self._prune_body(body, parent is node, called)
-
-    @staticmethod
-    def _is_dynamic_dispatch(cmd: Ps1CommandInvocation) -> bool:
-        """
-        Return `True` when an invocation may resolve to an arbitrary function name at runtime. A
-        literal command name resolves statically, and a literal scriptblock body (`&{ ... }`) runs
-        inline; any other command expression (a variable like `& $f`, an expandable string, or a
-        subexpression) could dispatch to any defined function.
-        """
-        return not isinstance(cmd.name, (Ps1StringLiteral, Ps1ScriptBlock))
-
-    @staticmethod
-    def _reachable_functions(node: Node) -> set[str]:
-        """
-        Collect all function names transitively reachable from top-level call sites. First gather
-        direct calls from the outer scope, then expand through function bodies until stable. When an
-        invocation may dispatch dynamically (see `_is_dynamic_dispatch`), every defined function is
-        treated as reachable so that a function called only through `& $f` is never removed.
-        """
-        directly_called: set[str] = set()
-        functions: dict[str, Ps1FunctionDefinition] = {}
-        dynamic_call = False
-        for n in _walk_outer_scope(node):
-            if isinstance(n, Ps1CommandInvocation):
-                name = get_command_name(n)
-                if name is not None:
-                    directly_called.add(name.lower())
-                elif Ps1JunkStatementRemoval._is_dynamic_dispatch(n):
-                    dynamic_call = True
-            elif isinstance(n, Ps1FunctionDefinition):
-                functions[n.name.lower()] = n
-        if dynamic_call:
-            return set(functions.keys()) | directly_called
-        reachable = set(directly_called)
-        frontier = list(reachable & functions.keys())
-        while frontier:
-            fname = frontier.pop()
-            fdef = functions[fname]
-            if fdef.body is None:
+            if self._within_unreached_function(parent, unreached):
                 continue
-            for n in fdef.body.walk():
-                if isinstance(n, Ps1CommandInvocation):
-                    name = get_command_name(n)
-                    if name is None:
-                        if Ps1JunkStatementRemoval._is_dynamic_dispatch(n):
-                            return set(functions.keys()) | reachable
-                        continue
-                    key = name.lower()
-                    if key not in reachable:
-                        reachable.add(key)
-                        if key in functions:
-                            frontier.append(key)
-        return reachable
+            path = output_path(parent)
+            if path.sink is OutputSink.CAPTURED:
+                continue
+            removable = self._removable_in_body(
+                parent, flow.resolved(path), path.guarded, called, cache.world_reach, cache.faults)
+            for statement in body:
+                if statement in removable:
+                    plans.propose_in(parent, statement)
+        if plans.commit():
+            self.mark_changed()
+        # A fresh world after the commit, not the one the loop read: the commit advanced the tree
+        # version, so a held world would answer `False` for every function this walk still has to
+        # weigh. The cache rebuilds it only because a removal landed.
+        self._remove_inert_functions(node, cache.call_graph, cache.world_reach, unreached)
 
-    def _prune_body(self, body: list, is_root: bool, called: set[str]):
+    @staticmethod
+    def _within_unreached_function(node: Node, unreached: frozenset[str]) -> bool:
+        """
+        Whether `node` sits in the body of a function some call to it does not reach the definition
+        of. This pass cannot reason about a name whose calls it cannot place, so the whole subtree
+        is left alone — not only the definition statement but the block that holds its statements,
+        which the walk reaches as a parent of its own.
+        """
+        cursor: Node | None = node
+        while cursor is not None:
+            if (
+                isinstance(cursor, Ps1FunctionDefinition)
+                and normalize_command_name(cursor.name) in unreached
+            ):
+                return True
+            cursor = cursor.parent
+        return False
+
+    def _remove_inert_functions(
+        self,
+        node: Node,
+        graph: Ps1CallGraph,
+        world: Ps1WorldReach,
+        unreached: frozenset[str],
+    ):
+        """
+        Remove top-level functions whose body carries no observable output or side effect together
+        with the bare call statements that invoke them. After body pruning, an injected junk function
+        such as `function j { $Null = 915 }` has an empty body; calling it is a no-op, so the
+        definition and its call sites drop out as a unit. Only whole-statement, argument-free
+        invocations count as call sites — a name referenced any other way is a name whose value
+        could be observed.
+
+        A name is inert only when *every* definition of it is, since the calls are attributed to the
+        name rather than to one of its definitions: removing them because one definition is empty
+        would silence a payload-bearing other one. `Ps1CallGraph` reports every definition, wherever
+        it sits, because a `function` inside an `if` or a loop body is written into the enclosing
+        scope just the same — while only a top-level definition is itself removable, since a nested
+        one is not this pass's to reason about.
+
+        "Every definition" can only mean every definition standing in this tree, so the tree has to
+        be the whole story. That is the graph's own `is_readable`: an open world, an opaque
+        dispatch, an identity-namespace assignment and an export all bind a name from somewhere the
+        walk cannot read, and the empty body standing here is then not the body the call reaches.
+
+        The graph is built in source order, because removal is by identity scan over the containing
+        list: taking the reverse order `Node.walk` yields would delete from the back and make every
+        scan traverse the whole body.
+
+        Removals are collected before any is applied so that `pruning_erases_body` sees the whole
+        set at once. A script of nothing but inert definitions is inert by every measure this pass
+        has and still may not be emptied — it is a module whose functions are dot-sourced from a
+        caller the walk never read, and the call sites that would prove them live are exactly what
+        is out of reach. The same invariant governs `_removable_in_body`, so both removal sites hold
+        it.
+
+        Only the definitions are weighed against that invariant, because only they are what a
+        dot-sourcing caller would come for. A script holding a call site of its own is not the
+        module the guard protects — it uses the function here — so `function j { $Null = 1 }` beside
+        a bare `j` reduces to nothing, while the same definition standing alone survives.
+
+        `deletion_is_observable` is applied for the same reason it is applied when a body is pruned:
+        emptying a `try` body beside a handler that does something is what makes the handler read as
+        unreachable, so both removal sites answer it the same way.
+
+        A definition and the calls to it are one edit, and they routinely land in *different* plans,
+        so no single plan's `all_or_nothing` can hold them together. The batch is therefore planned
+        whole and then asked what it would accept: a name any part of which is declined is withdrawn
+        entirely, because half the edit is not a smaller edit. Deleting `function j` while a veto
+        keeps `try { j }` leaves the script calling a function it no longer defines, and deleting
+        the call while the definition is kept leaves a definition the emitted script never reaches.
+        The withdrawals are read back to a fixpoint rather than applied once, so a group broken by
+        another group's withdrawal is caught too; it terminates because the batch only shrinks.
+        `pruning_erases_body` is asked *before* any of this, against the full set, because it is
+        permissive in the survivors and a withdrawal is a veto by another name.
+
+        A call site that runs sets `$?`, so removing one is observable to a later read of that
+        variable even where the call's own output is not — the exposure
+        `Ps1CommandModel.reads_command_success` already answers for the alias drive. A group
+        carrying call statements is therefore kept whole where the script reads `$?`; a definition
+        alone is transparent to the flag and drops regardless.
+
+        A name in `unreached` is skipped whole: one of its calls stands where the definition is not
+        guaranteed to have run, so the calls are not the inert no-ops this removal takes them for —
+        see `refinery.lib.scripts.ps1.analysis.callgraph.names_used_before_defined`.
+        """
+        if not graph.is_readable:
+            return
+        cache = model_cache(self, node)
+        commands = cache.commands
+        reads_success = commands.reads_command_success()
+        function_reads = commands.function_drive_reads()
+        groups: dict[str, list[Node]] = {}
+        removable_definitions: set[Node] = set()
+        for key in graph.defined_names:
+            if key in unreached:
+                continue
+            if key in function_reads:
+                continue
+            definitions = graph.definitions(key)
+            if not all(body_is_inert(d.body, world) for d in definitions):
+                continue
+            if not all(body_is_inert(body, world) for body in graph.keyword_definitions(key)):
+                continue
+            removable_here = [d for d in definitions if d.parent is node]
+            if not removable_here:
+                continue
+            call_statements = self._inert_call_statements(graph, key)
+            if call_statements is None:
+                continue
+            if call_statements and reads_success:
+                continue
+            groups[key] = [*call_statements, *removable_here]
+            removable_definitions.update(removable_here)
+        if not groups:
+            return
+        if get_body(node) is not None:
+            survivors = self._survivors(get_body(node), removable_definitions)
+            if pruning_erases_body(node, survivors):
+                return
+        plans = Ps1RemovalPlans(cache.faults, world, cache.error_state)
+        for group in groups.values():
+            for statement in group:
+                plans.propose(statement)
+        while True:
+            accepted = {id(statement) for statement in plans.accepted}
+            broken = [
+                key for key, group in groups.items()
+                if any(id(statement) not in accepted for statement in group)
+            ]
+            if not broken:
+                break
+            for key in broken:
+                for statement in groups.pop(key):
+                    plans.withdraw(statement)
+        if plans.commit():
+            self.mark_changed()
+
+    @staticmethod
+    def _inert_call_statements(graph: Ps1CallGraph, key: str) -> list[Node] | None:
+        """
+        The statements that call `key` and nothing else, or `None` when some reference to the name
+        is not one — which means the name and every definition of it stay.
+
+        A call site qualifies only when it is argument-free, its value is what the enclosing
+        statement yields, and nothing on the way to that statement opens a file. The two redirection
+        questions are separate and both have to be asked: `j > out.txt` sends the value somewhere
+        the body cannot see it, which `unconsumed_statement` answers, and `j 2> err.txt` sends
+        nothing anywhere while still creating the file, which only `opens_a_redirection_target`
+        catches. The call is inert either way; the statement around it is not.
+        """
+        statements: list[Node] = []
+        for site in graph.call_sites(key):
+            statement = unconsumed_statement(site.invocation)
+            if statement is None or site.invocation.arguments:
+                return None
+            cursor: Node | None = site.invocation
+            while cursor is not None and cursor is not statement:
+                if opens_a_redirection_target(cursor):
+                    return None
+                cursor = cursor.parent
+            statements.append(statement)
+        return statements
+
+    def _removable_in_body(
+        self,
+        parent: Node,
+        sink: OutputSink,
+        guarded: bool,
+        called: frozenset[str],
+        world: Ps1WorldReach,
+        faults: Ps1FaultReach,
+    ) -> set[Node]:
+        """
+        What this pass would drop from the statement list `parent` owns, where `sink` is the
+        *resolved* destination of what that body writes and `guarded` says that body runs only on a
+        fault. Both set-level guards are answered here, against the **pre-veto** survivors, which is
+        the polarity they require — see
+        `refinery.lib.scripts.ps1.deobfuscation.removal.Ps1RemovalPlan`.
+
+        A `DISCARD` emits nothing wherever the body's output goes, so nothing about the output makes
+        one worth keeping and a body of them turns a junk function inert. It is not by itself a
+        licence to drop, because emission is all it claims: a call returning `System.Void` emits as
+        little as a discard idiom and can still raise, which is the removal veto's to weigh and not
+        this. An `OUTPUT` writes a value someone could see, and dropping it needs four separate
+        things to hold, none of which implies another:
+
+        - the caller asks for it, which is `bare_output_is_preserved` read the other way round;
+        - the value provably reaches the host and nothing else, which is `sink`. A body whose writes
+          land anywhere else keeps every one of them — that is the whole of what the resolution
+          across the call graph buys, and the reason this is not the positional answer;
+        - the body runs on the normal path and not only on a fault, which is `guarded` read the other
+          way round. A `trap` or `catch` body's value is console output exactly when the handler
+          fires; deleting it as noise drops what the script prints when it recovers from an error;
+        - evaluating it cannot raise, which is `expression_cannot_fault`. `[Int]'abc'` and `1/0`
+          are `OUTPUT` like `42` is, and both terminate the script where they stand, so deleting one
+          resumes execution that had stopped — and does it across a function boundary, where the
+          `try` veto in `Ps1RemovalPlan` cannot see.
+        """
+        body = get_body(parent)
         removable: set[Node] = set()
+        strip_bare_output = (
+            sink is OutputSink.HOST
+            and not guarded
+            and not bare_output_is_preserved(self.options)
+        )
         for stmt in body:
-            if self._is_removable_statement(stmt):
+            if isinstance(stmt, Ps1FunctionDefinition):
+                # `called` is every call site standing in this tree, which is only the whole story
+                # while the tree is the whole script. When the world is open, a dot-sourced file, an
+                # imported module or an `iex` holds call sites the walk never read, so a definition
+                # with none here is not unreachable — it is reachable from somewhere unreadable.
+                if (
+                    isinstance(parent, Ps1Script)
+                    and world.closed_for_the_whole_run
+                    and normalize_command_name(stmt.name) not in called
+                ):
+                    removable.add(stmt)
+                continue
+            effect = statement_effect(stmt, world)
+            if effect is StatementEffect.DISCARD:
                 removable.add(stmt)
-            elif is_root and isinstance(stmt, Ps1FunctionDefinition):
-                if stmt.name.lower() not in called:
+            elif effect is StatementEffect.OUTPUT and strip_bare_output:
+                if _writes_only_what_cannot_fault(stmt, faults, world):
                     removable.add(stmt)
         if not removable:
-            return
-        if is_root:
-            surviving = [
-                s for s in body
-                if s not in removable
-                and not isinstance(s, Ps1FunctionDefinition)
-            ]
-            if not surviving:
-                return
-        for stmt in list(body):
-            if stmt in removable:
-                if _remove_from_parent(stmt):
-                    self.mark_changed()
+            return set()
+        if pruning_erases_body(parent, self._survivors(body, removable)):
+            return set()
+        return removable
 
     @staticmethod
-    def _is_removable_statement(stmt) -> bool:
-        if not isinstance(stmt, Ps1ExpressionStatement):
-            return False
-        expr = stmt.expression
-        if expr is None:
-            return False
-        if isinstance(expr, Ps1CastExpression) and expr.type_name.lower() == 'void':
-            return True
-        if isinstance(expr, Ps1Pipeline):
-            if _pipeline_ends_with_out_null(expr) and _pipeline_prefix_is_pure(expr):
-                return True
-            if _pipeline_ends_with_void_foreach(expr) and _pipeline_prefix_is_pure(expr):
-                return True
-            if _pipeline_ends_with_cmdlet(expr, _PURE_PIPELINE_CMDLETS):
-                return False
-        return _is_side_effect_free(expr)
+    def _survivors(body: list, removable: set[Node]) -> list[Node]:
+        return [stmt for stmt in body if stmt not in removable]
 
 
-def _pipeline_ends_with_out_null(pipeline: Ps1Pipeline) -> bool:
-    if len(pipeline.elements) < 2:
-        return False
-    last = pipeline.elements[-1]
-    if not isinstance(last, Ps1PipelineElement):
-        return False
-    expr = last.expression
-    if isinstance(expr, Ps1CommandInvocation):
-        name = get_command_name(expr)
-        return name is not None and name.lower() == 'out-null'
-    return False
-
-
-def _pipeline_prefix_is_pure(pipeline: Ps1Pipeline) -> bool:
-    for el in pipeline.elements[:-1]:
-        if not isinstance(el, Ps1PipelineElement):
-            return False
-        if not _is_side_effect_free(el.expression):
-            return False
-    return True
-
-
-def _pipeline_ends_with_void_foreach(pipeline: Ps1Pipeline) -> bool:
+class Ps1DeadStoreElimination(Transformer):
     """
-    Detect junk pipelines like ``... | ForEach-Object { [Void]$_ }`` where the ForEach body
-    explicitly discards all output via ``[Void]`` casts. These are anti-analysis noise injected
-    into malware scripts.
+    Remove assignments to a variable that are provably overwritten before their next read within the
+    same linear scope. This targets the pattern left behind by tier-2 empty-for rewriting: dozens of
+    `$i = N` statements followed by a for-loop whose initializer `$i = 0` overwrites them all. Reads
+    come from the shared `refinery.lib.scripts.ps1.analysis.model.Ps1SemanticModel`, so a store read
+    only through a nested scriptblock is correctly seen as live rather than skipped.
+
+    A name the script may read where no occurrence of it stands can be read between a store and
+    the overwrite this pass treats as a kill — see
+    `refinery.lib.scripts.ps1.analysis.cache.Ps1ModelCache.names_may_be_read_unseen` — so no store
+    of one is eliminated, and where code supplied as data runs that is every name. The trusting
+    model — `refinery.lib.scripts.ps1.options.eval_is_trusted` — closes that world and restores
+    full elimination.
     """
-    if len(pipeline.elements) < 2:
-        return False
-    last = pipeline.elements[-1]
-    if not isinstance(last, Ps1PipelineElement):
-        return False
-    expr = last.expression
-    if not isinstance(expr, Ps1CommandInvocation):
-        return False
-    name = get_command_name(expr)
-    if name is None or name.lower() != 'foreach-object':
-        return False
-    for arg in expr.arguments:
-        block = arg.value if isinstance(arg, Ps1CommandArgument) else arg
-        if not isinstance(block, Ps1ScriptBlock):
-            continue
-        for stmt in block.body:
-            if not isinstance(stmt, Ps1ExpressionStatement) or stmt.expression is None:
-                return False
-            if not (isinstance(stmt.expression, Ps1CastExpression)
-                    and stmt.expression.type_name.lower() == 'void'):
-                return False
-    return True
 
+    def visit(self, node: Node):
+        cache = model_cache(self, node)
+        unseen = cache.names_may_be_read_unseen
+        if unseen.every_name:
+            self.generic_visit(node)
+            return None
+        model = cache.model
+        # Model and world are both re-read per body through the version-keyed cache: removing a
+        # store changes what the next body's scope says, and once a removal advances the version a
+        # held world would answer `False` for the rest of the pass. A body whose
+        # removal bumps the version rebuilds both, and a body that removes nothing reads the same
+        # cached objects back, so the fresh read costs a rebuild only where the tree actually moved.
+        world = cache.world_reach
+        body = get_body(node)
+        scope = model.scope_of(node)
+        if body is None or scope is None:
+            self.generic_visit(node)
+            return None
+        pending: dict[str, list[Ps1ExpressionStatement]] = {}
+        dead: list[Ps1ExpressionStatement] = []
+        has_read: set[str] = set()
+        for stmt in body:
+            reads, kills, writes = self._classify_statement(stmt, scope, model)
+            for var in kills:
+                if var in pending:
+                    dead.extend(pending.pop(var))
+                has_read.add(var)
+            for var in reads:
+                pending.pop(var, None)
+                has_read.add(var)
+            for var, store in writes:
+                if var in unseen:
+                    continue
+                if var in pending:
+                    dead.extend(pending[var])
+                pending[var] = [store]
+        if isinstance(node, Ps1Script):
+            for var, stores in pending.items():
+                if var in has_read:
+                    dead.extend(stores)
+        if not dead:
+            self.generic_visit(node)
+            return None
+        plan = Ps1RemovalPlan(
+            node, faults=cache.faults, world=world, error_state=cache.error_state)
+        for stmt in dead:
+            if not isinstance(stmt, Ps1ExpressionStatement):
+                continue
+            rhs = stmt.expression
+            if isinstance(rhs, Ps1AssignmentExpression):
+                rhs = rhs.value
+            if rhs is None or is_side_effect_free(rhs, world):
+                plan.propose(stmt)
+            elif _value_is_movable(rhs):
+                plan.propose(stmt, [store_dropped_to_value(rhs)])
+        if plan.commit():
+            self.mark_changed()
+        self.generic_visit(node)
 
-def _pipeline_ends_with_cmdlet(pipeline: Ps1Pipeline, names: frozenset) -> bool:
-    if len(pipeline.elements) < 2:
-        return False
-    last = pipeline.elements[-1]
-    if not isinstance(last, Ps1PipelineElement):
-        return False
-    expr = last.expression
-    if not isinstance(expr, Ps1CommandInvocation):
-        return False
-    name = get_command_name(expr)
-    return name is not None and name.lower() in names
+    def _classify_statement(
+        self, stmt, scope: Scope, model: Ps1SemanticModel,
+    ) -> tuple[set[str], set[str], list[tuple[str, Ps1ExpressionStatement]]]:
+        """
+        Return `(reads, kills, writes)` for a top-level statement:
+        - `reads`: variable keys read by the statement (flush: pending writes are needed).
+        - `kills`: variable keys whose previous pending writes are dead (overwritten before read).
+        - `writes`: list of `(key, statement)` pairs for pure assignments to register as pending.
+
+        A for-loop's initializer kills previous stores without itself becoming a pending write
+        (the for-loop is not a removable expression statement). Other control-flow constructs
+        contribute all internal variable references as reads and produce no kills/writes.
+        """
+        reads: set[str] = set()
+        kills: set[str] = set()
+        writes: list[tuple[str, Ps1ExpressionStatement]] = []
+        if isinstance(stmt, Ps1ExpressionStatement) and isinstance(
+            stmt.expression, Ps1AssignmentExpression
+        ):
+            assign = stmt.expression
+            if (
+                assign.operator == '='
+                and isinstance(assign.target, Ps1Variable)
+                and assign.target.scope is Ps1ScopeModifier.NONE
+            ):
+                key = assign.target.name.lower()
+                if key not in _PS1_SKIP_VARIABLES:
+                    if assign.value is not None:
+                        reads |= model.reads_in_scope(assign.value, scope)
+                    writes.append((key, stmt))
+                    return reads, kills, writes
+        if isinstance(stmt, Ps1ForLoop):
+            if (
+                isinstance(stmt.initializer, Ps1AssignmentExpression)
+                and stmt.initializer.operator == '='
+                and isinstance(stmt.initializer.target, Ps1Variable)
+                and stmt.initializer.target.scope is Ps1ScopeModifier.NONE
+            ):
+                key = stmt.initializer.target.name.lower()
+                if key not in _PS1_SKIP_VARIABLES:
+                    init_rhs_reads: set[str] = set()
+                    if stmt.initializer.value is not None:
+                        init_rhs_reads = model.reads_in_scope(stmt.initializer.value, scope)
+                    if key in init_rhs_reads:
+                        reads.update(init_rhs_reads)
+                    else:
+                        kills.add(key)
+        reads |= model.variables_in_scope(stmt, scope)
+        return reads, kills, writes

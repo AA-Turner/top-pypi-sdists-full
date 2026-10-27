@@ -193,6 +193,7 @@ class CfnDataSource(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -247,7 +248,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5fd53ed0a74d133f1794fbf48d296a3ff088e24b139405347dfc0dcc6ee03a65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataSourceType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataSourceType", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -260,7 +261,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3bd20d259bb4ce3f3b95ac5d03b867e73d39a69b92deb5d743ac31ec95a7d582)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -273,7 +274,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2721c6a9354b3eca652a8fe48632f79783a832fa8b7729edc5a35123ada9212b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -286,7 +287,7 @@ class CfnDataSource(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc7193ebef40e9e0b052dc80c80ac1d447480891f8181fbd487b4a7a1589770c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_opensearch.CfnDataSource.DataSourceTypeProperty",

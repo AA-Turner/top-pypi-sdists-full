@@ -169,6 +169,7 @@ class CfnAccountCustomization(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -213,7 +214,7 @@ class CfnAccountCustomization(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4fb8c33ae449fd87ad7af669a2c39936de2c4feb6e650c02c6a8b93dd1570ef4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountColor", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accountColor", value)
 
     @builtins.property
     @jsii.member(jsii_name="visibleRegions")
@@ -229,7 +230,7 @@ class CfnAccountCustomization(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0a55eb948736eaf0670badbd62d8e1ebbf2c698792a92b39d1dcc56ab066af92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "visibleRegions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "visibleRegions", value)
 
     @builtins.property
     @jsii.member(jsii_name="visibleServices")
@@ -245,7 +246,7 @@ class CfnAccountCustomization(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96dac46328c85397990b4e60031f31361219f12ab70c79223e8b87d9aea08886)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "visibleServices", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "visibleServices", value)
 
 
 @jsii.data_type(

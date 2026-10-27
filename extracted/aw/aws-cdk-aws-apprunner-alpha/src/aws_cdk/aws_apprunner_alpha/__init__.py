@@ -1190,6 +1190,7 @@ class Cpu(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Cpu")
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FOUR_VCPU")
+    @builtins.classmethod
     def FOUR_VCPU(cls) -> "Cpu":
         '''(experimental) 4 vCPU.
 
@@ -1199,6 +1200,7 @@ class Cpu(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Cpu")
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HALF_VCPU")
+    @builtins.classmethod
     def HALF_VCPU(cls) -> "Cpu":
         '''(experimental) 0.5 vCPU.
 
@@ -1208,6 +1210,7 @@ class Cpu(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Cpu")
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ONE_VCPU")
+    @builtins.classmethod
     def ONE_VCPU(cls) -> "Cpu":
         '''(experimental) 1 vCPU.
 
@@ -1217,6 +1220,7 @@ class Cpu(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Cpu")
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="QUARTER_VCPU")
+    @builtins.classmethod
     def QUARTER_VCPU(cls) -> "Cpu":
         '''(experimental) 0.25 vCPU.
 
@@ -1226,6 +1230,7 @@ class Cpu(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Cpu")
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TWO_VCPU")
+    @builtins.classmethod
     def TWO_VCPU(cls) -> "Cpu":
         '''(experimental) 2 vCPU.
 
@@ -2662,6 +2667,7 @@ class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Me
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EIGHT_GB")
+    @builtins.classmethod
     def EIGHT_GB(cls) -> "Memory":
         '''(experimental) 8 GB(for 4 vCPU).
 
@@ -2671,6 +2677,7 @@ class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Me
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FOUR_GB")
+    @builtins.classmethod
     def FOUR_GB(cls) -> "Memory":
         '''(experimental) 4 GB(for 1 or 2 vCPU).
 
@@ -2680,6 +2687,7 @@ class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Me
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HALF_GB")
+    @builtins.classmethod
     def HALF_GB(cls) -> "Memory":
         '''(experimental) 0.5 GB(for 0.25 vCPU).
 
@@ -2689,6 +2697,7 @@ class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Me
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ONE_GB")
+    @builtins.classmethod
     def ONE_GB(cls) -> "Memory":
         '''(experimental) 1 GB(for 0.25 or 0.5 vCPU).
 
@@ -2698,6 +2707,7 @@ class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Me
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SIX_GB")
+    @builtins.classmethod
     def SIX_GB(cls) -> "Memory":
         '''(experimental) 6 GB(for 2 vCPU).
 
@@ -2707,6 +2717,7 @@ class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Me
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TEN_GB")
+    @builtins.classmethod
     def TEN_GB(cls) -> "Memory":
         '''(experimental) 10 GB(for 4 vCPU).
 
@@ -2716,6 +2727,7 @@ class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Me
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="THREE_GB")
+    @builtins.classmethod
     def THREE_GB(cls) -> "Memory":
         '''(experimental) 3 GB(for 1 vCPU).
 
@@ -2725,6 +2737,7 @@ class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Me
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TWELVE_GB")
+    @builtins.classmethod
     def TWELVE_GB(cls) -> "Memory":
         '''(experimental) 12 GB(for 4 vCPU).
 
@@ -2734,6 +2747,7 @@ class Memory(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-apprunner-alpha.Me
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TWO_GB")
+    @builtins.classmethod
     def TWO_GB(cls) -> "Memory":
         '''(experimental) 2 GB(for 1 vCPU).
 
@@ -2861,6 +2875,7 @@ class ObservabilityConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -3099,6 +3114,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORRETTO_11")
+    @builtins.classmethod
     def CORRETTO_11(cls) -> "Runtime":
         '''(experimental) CORRETTO 11.
 
@@ -3108,6 +3124,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORRETTO_8")
+    @builtins.classmethod
     def CORRETTO_8(cls) -> "Runtime":
         '''(experimental) CORRETTO 8.
 
@@ -3117,6 +3134,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DOTNET_6")
+    @builtins.classmethod
     def DOTNET_6(cls) -> "Runtime":
         '''(experimental) .NET 6.
 
@@ -3126,6 +3144,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GO_1")
+    @builtins.classmethod
     def GO_1(cls) -> "Runtime":
         '''(experimental) Go 1.18.
 
@@ -3135,6 +3154,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NODEJS_12")
+    @builtins.classmethod
     def NODEJS_12(cls) -> "Runtime":
         '''(experimental) NodeJS 12.
 
@@ -3144,6 +3164,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NODEJS_14")
+    @builtins.classmethod
     def NODEJS_14(cls) -> "Runtime":
         '''(experimental) NodeJS 14.
 
@@ -3153,6 +3174,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NODEJS_16")
+    @builtins.classmethod
     def NODEJS_16(cls) -> "Runtime":
         '''(experimental) NodeJS 16.
 
@@ -3162,6 +3184,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NODEJS_18")
+    @builtins.classmethod
     def NODEJS_18(cls) -> "Runtime":
         '''(experimental) NodeJS 18.
 
@@ -3171,6 +3194,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NODEJS_22")
+    @builtins.classmethod
     def NODEJS_22(cls) -> "Runtime":
         '''(experimental) NodeJS 22.
 
@@ -3180,6 +3204,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PHP_81")
+    @builtins.classmethod
     def PHP_81(cls) -> "Runtime":
         '''(experimental) PHP 8.1.
 
@@ -3189,6 +3214,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PYTHON_3")
+    @builtins.classmethod
     def PYTHON_3(cls) -> "Runtime":
         '''(experimental) Python 3.
 
@@ -3198,6 +3224,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PYTHON_311")
+    @builtins.classmethod
     def PYTHON_311(cls) -> "Runtime":
         '''(experimental) Python 3.11.
 
@@ -3207,6 +3234,7 @@ class Runtime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RUBY_31")
+    @builtins.classmethod
     def RUBY_31(cls) -> "Runtime":
         '''(experimental) Ruby 3.1.
 
@@ -3704,6 +3732,7 @@ class Service(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -4844,6 +4873,7 @@ class VpcConnector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -5268,6 +5298,7 @@ class VpcIngressConnection(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 
@@ -5738,6 +5769,7 @@ class AutoScalingConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(experimental) Uniquely identifies this class.
 

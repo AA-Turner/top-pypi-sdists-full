@@ -6,13 +6,13 @@ import json
 
 from contextlib import suppress
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from enum import Enum
 from typing import cast
 
 from refinery.lib import lief
 from refinery.lib.dotnet.header import DotNetHeader
-from refinery.lib.dt import date_from_timestamp
+from refinery.lib.dt import date_from_timestamp, filetime
 from refinery.lib.id import is_likely_pe
 from refinery.lib.lcid import LCID
 from refinery.lib.resources import datapath
@@ -25,11 +25,6 @@ from refinery.units.formats.pe import get_pe_size
 _PE = lief.PE
 _PE_Hdr = _PE.Header
 _PE_Dbg = _PE.Debug
-
-
-def _FILETIME(value: int) -> datetime:
-    s, ns100 = divmod(value - 116444736000000000, 10000000)
-    return datetime.fromtimestamp(s, timezone.utc).replace(microsecond=(ns100 // 10))
 
 
 def _STRING(value: str | bytes, dll: bool = False) -> str:
@@ -155,10 +150,59 @@ def get_rich_info(vid: int) -> VersionInfo:
     return VersionInfo(pid, ver, err)
 
 
+def _signature_value(doc: dict, require_type=None):
+    if require_type is not None:
+        if doc.get('type', None) != require_type:
+            raise LookupError
+    value = doc.get('value', None)
+    value = [value] if value else doc.get('values', [])
+    if not value:
+        raise LookupError
+    return value[0]
+
+
+def _find_timestamps(entry) -> dict | None:
+    if isinstance(entry, dict):
+        try:
+            return {'Timestamp': _signature_value(entry, 'signingTime')}
+        except LookupError:
+            pass
+        for value in entry.values():
+            result = _find_timestamps(value)
+            if result is None:
+                continue
+            with suppress(KeyError):
+                result.setdefault('TimestampIssuer', entry['sid']['issuer']['commonName'])
+            return result
+    elif isinstance(entry, list):
+        for value in entry:
+            result = _find_timestamps(value)
+            if result is None:
+                continue
+            return result
+
+
+def _code_pages(d: _PE.ResourceDirectory | _PE.ResourceData | _PE.ResourceNode):
+    if isinstance(d, _PE.ResourceData):
+        yield d.code_page
+        return
+    for child in d.childs:
+        yield from _code_pages(child)
+
+
+def _normalized(value):
+    if isinstance(value, list):
+        return [_normalized(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _normalized(v) for k, v in value.items()}
+    if isinstance(value, int):
+        return value
+    return str(value)
+
+
 class pemeta(JSONTableUnit):
     """
-    Extract metadata from PE files. By default, all information except for imports and exports are
-    extracted.
+    Extract metadata from PE files; Optionally includes imports and exports.
     """
     def __init__(
         self,
@@ -230,37 +274,7 @@ class pemeta(JSONTableUnit):
 
         info = {}
 
-        def _value(doc: dict, require_type=None):
-            if require_type is not None:
-                if doc.get('type', None) != require_type:
-                    raise LookupError
-            value = doc.get('value', None)
-            value = [value] if value else doc.get('values', [])
-            if not value:
-                raise LookupError
-            return value[0]
-
-        def find_timestamps(entry) -> dict | None:
-            if isinstance(entry, dict):
-                try:
-                    return {'Timestamp': _value(entry, 'signingTime')}
-                except LookupError:
-                    pass
-                for value in entry.values():
-                    result = find_timestamps(value)
-                    if result is None:
-                        continue
-                    with suppress(KeyError):
-                        result.setdefault('TimestampIssuer', entry['sid']['issuer']['commonName'])
-                    return result
-            elif isinstance(entry, list):
-                for value in entry:
-                    result = find_timestamps(value)
-                    if result is None:
-                        continue
-                    return result
-
-        timestamp_info = find_timestamps(signature)
+        timestamp_info = _find_timestamps(signature)
         if timestamp_info is not None:
             info.update(timestamp_info)
 
@@ -313,7 +327,7 @@ class pemeta(JSONTableUnit):
                     if attr['type'] != 'spcSpOpusInfo':
                         continue
                     try:
-                        auth = _value(attr)
+                        auth = _signature_value(attr)
                     except Exception:
                         continue
                     if not isinstance(auth, dict):
@@ -397,13 +411,6 @@ class pemeta(JSONTableUnit):
                 Charset=self._CHARSET.get(icon.sublang, 'Unknown Charset'),
             )
 
-        def _code_pages(d: _PE.ResourceDirectory | _PE.ResourceData | _PE.ResourceNode):
-            if isinstance(d, _PE.ResourceData):
-                yield d.code_page
-                return
-            for child in d.childs:
-                yield from _code_pages(child)
-
         code_pages: set[int] = set()
 
         for t in rsrc.types:
@@ -437,8 +444,8 @@ class pemeta(JSONTableUnit):
                     version_info[name] = T(val).name
                 except Exception:
                     continue
-            if t := info.file_date_ms << 32 | info.file_date_ls:
-                version_info.update(Timestamp=_FILETIME(t))
+            if timestamp := filetime(info.file_date_ms << 32 | info.file_date_ls):
+                version_info.update(Timestamp=timestamp)
             version_info.update(
                 ProductVersion=_to_version_string(info.product_version_ms, info.product_version_ls),
                 FileVersion=_to_version_string(info.file_version_ms, info.file_version_ls),
@@ -597,16 +604,7 @@ class pemeta(JSONTableUnit):
                         info.update(Delphi=dos)
                         info.update(RsrcTS=dt(res_timestamp))
 
-        def norm(value):
-            if isinstance(value, list):
-                return [norm(v) for v in value]
-            if isinstance(value, dict):
-                return {k: norm(v) for k, v in value.items()}
-            if isinstance(value, int):
-                return value
-            return str(value)
-
-        return {key: norm(value) for key, value in info.items()}
+        return {key: _normalized(value) for key, value in info.items()}
 
     def parse_dotnet(self, pe: _PE.Binary, data):
         """
@@ -719,7 +717,8 @@ class pemeta(JSONTableUnit):
         if P or S:
             with suppress(Exception):
                 from refinery.units.formats.pe.pesig import pesig
-                signature = self.parse_signature(next(data | pesig))
+                with data | pesig as signatures:
+                    signature = self.parse_signature(next(signatures))
 
         if signature:
             try:

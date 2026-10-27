@@ -195,6 +195,7 @@ class CfnBillScenario(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -291,7 +292,7 @@ class CfnBillScenario(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7bf3540920aef609fd784758cc78a57071379f8e33487aba585b73f53fd7d325)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "costCategoryGroupSharingPreferenceArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "costCategoryGroupSharingPreferenceArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="expiresAt")
@@ -304,7 +305,7 @@ class CfnBillScenario(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dff93d6d267606ad02a704874ff370ba50deb5b4ab342cc600e1160dd83420a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "expiresAt", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "expiresAt", value)
 
     @builtins.property
     @jsii.member(jsii_name="groupSharingPreference")
@@ -316,7 +317,7 @@ class CfnBillScenario(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc81d5e2e2d17a621eaf96acee8bc5fbd376e291918203d39dcaecb8087bec15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groupSharingPreference", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "groupSharingPreference", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -329,7 +330,7 @@ class CfnBillScenario(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e4d2e14c1d683567ef229b10c3a4911341522e85bf7bee462d88696628fcc799)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -345,7 +346,7 @@ class CfnBillScenario(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__de6aaaf59fe930cc42db783bf03cc917082dc87230a98ef306fb78a8d02503d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bcmpricingcalculator.CfnBillScenario.BillIntervalProperty",
@@ -655,6 +656,7 @@ class CfnWorkloadEstimate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -764,7 +766,7 @@ class CfnWorkloadEstimate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__59f13a6252d58cb6047ed165f6d24bc9cf8521351bde547d37b381c37f308c3e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="expiresAt")
@@ -777,7 +779,7 @@ class CfnWorkloadEstimate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d31d84eac8ea1df7c753c48cd729c0ae972f2accfb4fb8acc5650d2362819f31)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "expiresAt", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "expiresAt", value)
 
     @builtins.property
     @jsii.member(jsii_name="rateType")
@@ -789,7 +791,7 @@ class CfnWorkloadEstimate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__23d3cd9a6c7d022cd679d83390beddfca5b9780b3770a5ca4016753f84278238)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rateType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rateType", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -805,7 +807,7 @@ class CfnWorkloadEstimate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db03ce5004a515ba66b4544fc29808f1528568433792946038cd614cc34b7dc8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(

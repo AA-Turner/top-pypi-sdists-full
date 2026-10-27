@@ -464,6 +464,20 @@ external_cpp_references = {
         'object_type': 'class',
         'desc': 'C++ class',
     },
+    'absl::SourceLocation': {
+        'url': (
+            'https://github.com/abseil/abseil-cpp/blob/master/absl/types/source_location.h'
+        ),
+        'object_type': 'class',
+        'desc': 'C++ class',
+    },
+    'absl::SourceLocation::current': {
+        'url': (
+            'https://github.com/abseil/abseil-cpp/blob/master/absl/types/source_location.h'
+        ),
+        'object_type': 'function',
+        'desc': 'C++ function',
+    },
     'std::move': {
         'url': 'https://en.cppreference.com/w/cpp/utility/move.html',
         'object_type': 'function',
@@ -641,3 +655,13 @@ def setup(app):
     return None
 
   app.connect('autodoc-skip-member', _autodoc_skip_member)
+
+  # Override `sphinx_immaterial.local_mathjax`, which rewrites the default
+  # `mathjax_path` to a local `mathjax/tex-mml-chtml.js` path that is not copied
+  # during parallel builds in Sphinx >= 8.2.
+  def _configure_mathjax(app, config):
+    del app
+    config.mathjax_path = mathjax_path
+    config.mathjax_options.pop('async', None)
+
+  app.connect('config-inited', _configure_mathjax, priority=600)

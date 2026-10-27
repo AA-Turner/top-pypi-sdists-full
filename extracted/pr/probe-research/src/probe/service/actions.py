@@ -2,7 +2,9 @@
 
     action.run     check the request, take the one mutating slot (or answer
                    `busy` naming its holder), journal it, answer `{action_id}`
-                   BEFORE any work, then run `python -m probe.core.run <action>`
+                   BEFORE any work, then run `python -m probe.core.run <action>`,
+                   stopped (and failed) past ACTION_TIMEOUT_S (60 min, C1),
+                   one an earlier service left running too
     action.status  from the journal: queued | running | done (+ the `done` event)
     action.events  the journaled events after `since`, and whether it is done
     action.cancel  SIGINT to the child, only while it waits for a browser
@@ -79,6 +81,21 @@ TRIGGER_ENV = "PROBE_AUTOUPDATE_TRIGGER"
 DESKTOP_HUMAN_ENV = "PROBE_DESKTOP_HUMAN"  # probe._shared.telemetry, kept stdlib-only here
 #: `probe.core.events.INTERRUPTED_EXIT_CODE`: a run stopped during its approval wait.
 INTERRUPTED_EXIT = 130
+#: An action child's wall time, at most (plan C1). Past it the child is stopped
+#: (SIGTERM to its process group, SIGKILL past ACTION_STOP_GRACE_S) and the
+#: action fails saying so: a child that never returned held the one mutating
+#: slot -- and with it every update -- for good. An hour is twice the update
+#: child's own limit (`updater.UPDATE_TIMEOUT_S`) and well past a browser
+#: approval's wait: a child still running then is hung, not slow.
+ACTION_TIMEOUT_S = 60 * 60
+#: SIGTERM to SIGKILL: the child's handler (`probe.core.events`) ends the run
+#: through its `finally` blocks, its locks let go and `done` written.
+ACTION_STOP_GRACE_S = 30.0
+#: Test-only overrides of the two, read where the manager runs (a service that
+#: `client.ensure` starts never gets them: `client.ENV_ALLOWLIST`). Nothing in
+#: production sets them.
+ACTION_TIMEOUT_ENV = "PROBE_SERVICE_ACTION_TIMEOUT_S"
+ACTION_STOP_GRACE_ENV = "PROBE_SERVICE_ACTION_STOP_GRACE_S"
 _ACTION_ID = re.compile(r"^act_[0-9a-f]{16}$")
 
 #: NDJSON event kinds (`probe.core.events.Event`).
@@ -89,6 +106,20 @@ EVENT_DEVICE_PROMPT = "device_prompt"
 
 def _now() -> float:
     return time.time()
+
+
+def _env_seconds(name: str, default: float) -> float:
+    """A test override of a time limit (ACTION_TIMEOUT_ENV), else `default`."""
+    try:
+        value = float(os.environ.get(name) or default)
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
+def _span(seconds: float) -> str:
+    """`60 min`, `2 s`: a time limit as a person reads it (`updater.span`)."""
+    return f"{seconds / 60:.0f} min" if seconds >= 120 else f"{seconds:g} s"
 
 
 def done_event(exit_code: int | None) -> dict:
@@ -125,6 +156,9 @@ class Record:
     orphan: bool = False
     #: `action.cancel` sent it SIGINT.
     cancel_sent: bool = False
+    #: Why the service ended it (it ran past ACTION_TIMEOUT_S), kept even when
+    #: the child wrote its own `done` as it stopped: the action's error.
+    failure: str | None = None
 
     @property
     def done(self) -> dict | None:
@@ -157,7 +191,7 @@ class Record:
             # Only the child's own word: it exits 130 when the SIGINT stopped
             # it in its approval wait, and ignores one anywhere else.
             out["cancelled"] = self.cancel_sent and isinstance(done, dict) and done.get("exit_code") == INTERRUPTED_EXIT
-            error = self.last_error()
+            error = error_event("failed", self.failure) if self.failure else self.last_error()
             if error is not None:
                 out["error"] = error
         return out
@@ -185,6 +219,8 @@ class ActionManager:
         self.running: Record | None = None
         self._fds: dict[str, int] = {}
         self._tasks: set = set()
+        #: The time limits of children an earlier service left running (`_limit_orphan`).
+        self._timers: list = []
         self._watch: Callable | None = None
 
     # -- disk ------------------------------------------------------------------
@@ -300,6 +336,8 @@ class ActionManager:
                     record.ended_at = float(line.get("at"))
                 code = line.get("exit_code")
                 record.exit_code = code if isinstance(code, int) else None
+                failure = line.get("failure")
+                record.failure = failure if isinstance(failure, str) and failure else None
         if record is not None and record.done is not None:
             record.state = ActionState.DONE
             if record.ended_at is None:
@@ -317,11 +355,46 @@ class ActionManager:
             if self.running is None or record.accepted_at > self.running.accepted_at:
                 self.running = record
             self._watch(("action", record.action_id), pid, start, lambda: self._orphan_exited(record))
+            self._limit_orphan(record)
             return
         self._finish(record, None, interrupted=SERVICE_STOPPED)
 
     def _orphan_exited(self, record: Record) -> None:
-        self._finish(record, None, interrupted=SERVICE_STOPPED)
+        if record.failure:
+            self._finish(record, None, failed=record.failure)  # this service stopped it
+        else:
+            self._finish(record, None, interrupted=SERVICE_STOPPED)
+
+    def _limit_orphan(self, record: Record) -> None:
+        """A child an earlier service left running gets the same time limit as
+        this one's own (ACTION_TIMEOUT_S, C1), counted from its acceptance:
+        stopped then, its group with it, and the action failed saying why. Never
+        raises; with no running loop (a test loading journals) there is none."""
+        limit = _env_seconds(ACTION_TIMEOUT_ENV, ACTION_TIMEOUT_S)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        delay = max(0.0, record.accepted_at + limit - _now())
+
+        def due() -> None:
+            task = asyncio.ensure_future(self._stop_orphan(record, limit))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
+
+        self._timers.append(loop.call_later(delay, due))
+
+    async def _stop_orphan(self, record: Record, limit: float) -> None:
+        if record.state == ActionState.DONE or not record.orphan or not record.child_pid or not record.child_start:
+            return
+        from .updater import stop_process  # the service's own, loaded with it
+
+        record.failure = f"the action ran past {_span(limit)} and was stopped"
+        await stop_process(
+            record.child_pid, record.child_start, _env_seconds(ACTION_STOP_GRACE_ENV, ACTION_STOP_GRACE_S)
+        )
+        if record.state != ActionState.DONE:
+            self._finish(record, None, failed=record.failure)
 
     # -- requests --------------------------------------------------------------
 
@@ -495,6 +568,7 @@ class ActionManager:
 
         code: int | None
         failure: str | None = None
+        limit = _env_seconds(ACTION_TIMEOUT_ENV, ACTION_TIMEOUT_S)
         try:
             # The login shell's PATH (D14): an agent installed with nvm or volta
             # is found. The request's context, not the shell, says the rest.
@@ -506,7 +580,14 @@ class ActionManager:
                 on_event=lambda event: self._event(record, event),
                 on_start=started,
                 log_path=self._log(record.action_id),
+                # Past it the child's group is stopped and the action fails, so
+                # the slot (and the update it holds off) is free again (C1).
+                timeout=limit,
+                grace=_env_seconds(ACTION_STOP_GRACE_ENV, ACTION_STOP_GRACE_S),
             )
+        except children.Overran as exc:
+            code = exc.code
+            failure = f"the action ran past {_span(limit)} and was stopped ({exc.how})"
         except OSError as exc:
             code, failure = None, f"the action could not start: {exc}"
         except asyncio.CancelledError:
@@ -547,11 +628,19 @@ class ActionManager:
                     error_event("failed", f"the action ended without finishing (exit {exit_code})"),
                 )
             self._event(record, done_event(exit_code))
+        elif failed is not None:
+            # The child wrote its own `done` as it was stopped (its SIGTERM
+            # handler ends the run through its `finally` blocks): the reason
+            # the service stopped it is still the action's error.
+            record.failure = failed
         record.exit_code = exit_code
         record.ended_at = _now()
         record.state = ActionState.DONE
         record.orphan = False
-        self._write(record, {"type": "ended", "at": record.ended_at, "exit_code": exit_code})
+        ended = {"type": "ended", "at": record.ended_at, "exit_code": exit_code}
+        if record.failure:
+            ended["failure"] = record.failure
+        self._write(record, ended)
         self._close(record)
         if self.running is record:
             self.running = None
@@ -561,6 +650,9 @@ class ActionManager:
         self.changed()
 
     def close(self) -> None:
+        for timer in self._timers:
+            timer.cancel()
+        self._timers.clear()
         for task in list(self._tasks):
             task.cancel()
         for action_id in list(self._fds):

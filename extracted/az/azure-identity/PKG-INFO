@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-identity
-Version: 1.26.0
+Version: 1.27.0
 Summary: Microsoft Azure Identity Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -10,13 +10,13 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: azure-core>=1.31.0
@@ -49,7 +49,7 @@ pip install azure-identity
 ### Prerequisites
 
 - An [Azure subscription](https://azure.microsoft.com/free/python)
-- Python 3.9 or a recent version of Python 3 (this library doesn't support end-of-life versions)
+- Python 3.10 or a recent version of Python 3 (this library doesn't support end-of-life versions)
 
 ### Use with AI tools
 
@@ -129,6 +129,21 @@ client = SecretClient("https://my-vault.vault.azure.net", default_credential)
 - [Azure Service Fabric](https://learn.microsoft.com/azure/service-fabric/concepts-managed-identity)
 - [Azure Virtual Machines](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/how-to-use-vm-token)
 - [Azure Virtual Machines Scale Sets](https://learn.microsoft.com/entra/identity/managed-identities-azure-resources/qs-configure-powershell-windows-vmss)
+
+## AKS identity bindings
+
+[`WorkloadIdentityCredential`][workload_id_cred_ref] supports [AKS identity bindings](https://learn.microsoft.com/azure/aks/identity-bindings), which allow multiple clusters to share a federated identity credential for a user-assigned managed identity.
+
+After configuring an identity binding and authorizing the pod's Kubernetes service account, construct `WorkloadIdentityCredential` directly with `enable_azure_proxy=True`:
+
+```python
+from azure.identity import WorkloadIdentityCredential
+
+with WorkloadIdentityCredential(enable_azure_proxy=True) as credential:
+    token = credential.get_token("https://management.azure.com/.default")
+```
+
+AKS supplies the pod's identity, projected-token, proxy, SNI, and CA configuration. Identity binding mode isn't supported through `DefaultAzureCredential`. The asynchronous `WorkloadIdentityCredential` in `azure.identity.aio` supports the same option.
 
 ## Cloud configuration
 
@@ -326,6 +341,18 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 [workload_id_cred_ref]: https://aka.ms/azsdk/python/identity/workloadidentitycredential
 
 # Release History
+
+## 1.27.0 (2026-10-26)
+
+### Features Added
+
+- Added support for `WorkloadIdentityCredential` identity binding mode in AKS environments. This feature uses an AKS proxy to handle FIC exchanges on behalf of pods, addressing Entra's limit on federated identity credentials per managed identity. Enable it by constructing `WorkloadIdentityCredential` directly with `enable_azure_proxy=True`. Identity binding mode isn't supported through `DefaultAzureCredential`. ([#43287](https://github.com/Azure/azure-sdk-for-python/pull/43287), [#44147](https://github.com/Azure/azure-sdk-for-python/pull/44147))
+
+### Bugs Fixed
+
+- Fixed `AzureDeveloperCliCredential` to correctly parse error messages from Azure Developer CLI v1.23.7 and later, which previously caused raw JSON to surface in `ClientAuthenticationError` instead of the underlying error text. ([#46711](https://github.com/Azure/azure-sdk-for-python/pull/46711))
+- Fixed persistent token cache isolation on macOS when using custom cache names or CAE-enabled caches. ([#49314](https://github.com/Azure/azure-sdk-for-python/pull/49314))
+- Fixed a regression in 1.26.0 where asynchronous `OnBehalfOfCredential` instances could not reuse access or refresh tokens cached by another instance with the same user assertion. Cache entries are now isolated by user assertion, allowing safe reuse across instances, including with `TokenCachePersistenceOptions`. Existing cache entries without assertion binding require a fresh token exchange. ([#49533](https://github.com/Azure/azure-sdk-for-python/pull/49533))
 
 ## 1.26.0 (2026-09-30)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: retell-sdk
-Version: 6.2.12
+Version: 6.2.13
 Summary: The official Python library for the retell API
 Project-URL: Homepage, https://github.com/RetellAI/retell-python-sdk
 Project-URL: Repository, https://github.com/RetellAI/retell-python-sdk

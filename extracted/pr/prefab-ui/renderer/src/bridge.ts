@@ -16,7 +16,9 @@
 
 import { App } from "@modelcontextprotocol/ext-apps";
 import type { McpUiHostContext } from "@modelcontextprotocol/ext-apps";
+import type { Transport } from "@modelcontextprotocol/client";
 import type { ExecuteResult } from "./pyodide/executor";
+import { AppTools } from "./app-tools";
 import {
   loadPyodideRuntime,
   executePrefabCode,
@@ -29,19 +31,20 @@ export interface BufferedToolResult {
 
 export interface Bridge {
   /** Start the connection. Call once, before React mounts. */
-  connect(): void;
+  connect(transport?: Transport): Promise<void>;
   /** The pre-connected App instance (null until connect() resolves). */
   app: App | null;
+  tools: AppTools | null;
   /** Tool results received before React was ready. */
   bufferedResults: BufferedToolResult[];
   /** Host context received before React was ready. */
   hostContext: McpUiHostContext | null;
   /** Register a listener for tool results (replays buffered ones immediately). */
-  onToolResult(cb: (result: BufferedToolResult) => void): void;
+  onToolResult(cb: (result: BufferedToolResult) => void): () => void;
   /** Register a listener for host context changes. */
-  onHostContext(cb: (ctx: McpUiHostContext) => void): void;
+  onHostContext(cb: (ctx: McpUiHostContext) => void): () => void;
   /** Register a listener for Pyodide code execution results. */
-  onCodeResult(cb: (result: ExecuteResult) => void): void;
+  onCodeResult(cb: (result: ExecuteResult) => void): () => void;
 }
 
 let toolResultCb: ((result: BufferedToolResult) => void) | null = null;
@@ -53,8 +56,8 @@ let codeResultCb: ((result: ExecuteResult) => void) | null = null;
 /** The argument key that contains Python code. Defaults to "code". */
 let codeKey = "code";
 
-/** Track the last code string to avoid re-executing identical partials. */
-let lastCode = "";
+/** Track the last execution input to avoid re-executing identical partials. */
+let lastExecutionKey = "";
 
 /** Whether Pyodide is ready for execution. */
 let pyodideReady = false;
@@ -70,13 +73,13 @@ let pyodideLoading = false;
 let execSeq = 0;
 
 /** Buffer the latest partial received before Pyodide was ready. */
-let pendingCode: string | null = null;
+let pendingExecution: { code: string; data?: unknown } | null = null;
 
 /** Execute code with sequence-based stale result rejection. */
-function executeAndDeliver(code: string) {
+function executeAndDeliver(code: string, data?: unknown) {
   const mySeq = ++execSeq;
   const t0 = performance.now();
-  executePrefabCode(code).then((result) => {
+  executePrefabCode(code, data).then((result) => {
     const elapsed = (performance.now() - t0).toFixed(0);
     if (mySeq !== execSeq) {
       return;
@@ -105,11 +108,11 @@ function ensurePyodideLoading() {
     debug(`Pyodide: status=${status}`);
     if (status === "ready") {
       pyodideReady = true;
-      if (pendingCode) {
-        const code = pendingCode;
-        pendingCode = null;
+      if (pendingExecution) {
+        const { code, data } = pendingExecution;
+        pendingExecution = null;
         debug(`Pyodide: executing buffered code (${code.length} chars)`);
-        executeAndDeliver(code);
+        executeAndDeliver(code, data);
       }
     } else if (status === "error") {
       debug("Pyodide: FAILED to load");
@@ -146,41 +149,42 @@ export function onDebug(cb: (msg: string) => void) {
 // ── Throttle for streaming partials ────────────────────────────────────
 
 let throttleTimer: ReturnType<typeof setTimeout> | null = null;
-let latestCode: string | null = null;
+let latestExecution: { code: string; data?: unknown } | null = null;
 const THROTTLE_MS = 50;
 
 /** Handle a code string from partial or complete input. */
-function handleCode(code: string, immediate = false) {
-  if (code === lastCode) return;
-  lastCode = code;
+function handleCode(code: string, data?: unknown, immediate = false) {
+  const executionKey = JSON.stringify([code, data]);
+  if (executionKey === lastExecutionKey) return;
+  lastExecutionKey = executionKey;
 
   // Lazy-load Pyodide on first code arrival
   ensurePyodideLoading();
 
   if (!pyodideReady) {
-    pendingCode = code;
+    pendingExecution = { code, data };
     return;
   }
 
   if (immediate) {
     if (throttleTimer) clearTimeout(throttleTimer);
     throttleTimer = null;
-    latestCode = null;
-    executeAndDeliver(code);
+    latestExecution = null;
+    executeAndDeliver(code, data);
     return;
   }
 
   // Stash the latest code. The throttle timer fires every THROTTLE_MS
   // and executes whatever's latest, regardless of whether partials
   // are still arriving.
-  latestCode = code;
+  latestExecution = { code, data };
   if (!throttleTimer) {
     throttleTimer = setTimeout(() => {
       throttleTimer = null;
-      if (latestCode) {
-        const c = latestCode;
-        latestCode = null;
-        executeAndDeliver(c);
+      if (latestExecution) {
+        const { code, data } = latestExecution;
+        latestExecution = null;
+        executeAndDeliver(code, data);
       }
     }, THROTTLE_MS);
   }
@@ -190,11 +194,17 @@ function handleCode(code: string, immediate = false) {
 
 export const bridge: Bridge = {
   app: null,
+  tools: null,
   bufferedResults: [],
   hostContext: null,
 
-  connect() {
-    const app = new App({ name: "Prefab", version: "1.0.0" });
+  connect(transport) {
+    const app = new App(
+      { name: "Prefab", version: "1.0.0" },
+      { tools: { listChanged: true } },
+    );
+    const tools = new AppTools(app);
+    this.tools = tools;
     this.app = app;
 
     // Standard tool result handler
@@ -220,7 +230,7 @@ export const bridge: Bridge = {
       if (partialCount % 100 === 1) {
         debug(`partial #${partialCount}: ${code.length} chars`);
       }
-      handleCode(code);
+      handleCode(code, args.data);
     };
 
     // Complete tool input — execute immediately, no debounce
@@ -230,7 +240,7 @@ export const bridge: Bridge = {
       if (!args) return;
       const code = args[codeKey];
       if (typeof code !== "string" || !code.trim()) return;
-      handleCode(code, true);
+      handleCode(code, args.data, true);
     };
 
     app.onhostcontextchanged = (ctx) => {
@@ -244,9 +254,12 @@ export const bridge: Bridge = {
       }
     };
 
-    app.connect().catch((err) => {
-      console.error("[Prefab] Bridge connection failed:", err);
-    });
+    return app
+      .connect(transport)
+      .then(() => tools.connected())
+      .catch((err) => {
+        console.error("[Prefab] Bridge connection failed:", err);
+      });
   },
 
   onToolResult(cb) {
@@ -255,6 +268,9 @@ export const bridge: Bridge = {
       cb(result);
     }
     this.bufferedResults.length = 0;
+    return () => {
+      if (toolResultCb === cb) toolResultCb = null;
+    };
   },
 
   onHostContext(cb) {
@@ -262,9 +278,15 @@ export const bridge: Bridge = {
     if (this.hostContext) {
       cb(this.hostContext);
     }
+    return () => {
+      if (hostContextCb === cb) hostContextCb = null;
+    };
   },
 
   onCodeResult(cb) {
     codeResultCb = cb;
+    return () => {
+      if (codeResultCb === cb) codeResultCb = null;
+    };
   },
 };

@@ -239,7 +239,7 @@ class MaterializedFeatureView(_message.Message):
         "observation_sampling_strategy",
         "background_compaction",
         "features",
-        "plannable",
+        "queryable",
         "resource_group",
     )
     NAMESPACES_FIELD_NUMBER: _ClassVar[int]
@@ -251,7 +251,7 @@ class MaterializedFeatureView(_message.Message):
     OBSERVATION_SAMPLING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
     BACKGROUND_COMPACTION_FIELD_NUMBER: _ClassVar[int]
     FEATURES_FIELD_NUMBER: _ClassVar[int]
-    PLANNABLE_FIELD_NUMBER: _ClassVar[int]
+    QUERYABLE_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     namespaces: _containers.RepeatedScalarFieldContainer[str]
     time_resolution: _duration_pb2.Duration
@@ -262,7 +262,7 @@ class MaterializedFeatureView(_message.Message):
     observation_sampling_strategy: MaterializedFeatureViewObservationSamplingStrategy
     background_compaction: bool
     features: _containers.RepeatedScalarFieldContainer[str]
-    plannable: bool
+    queryable: bool
     resource_group: str
     def __init__(
         self,
@@ -275,7 +275,7 @@ class MaterializedFeatureView(_message.Message):
         observation_sampling_strategy: _Optional[_Union[MaterializedFeatureViewObservationSamplingStrategy, str]] = ...,
         background_compaction: bool = ...,
         features: _Optional[_Iterable[str]] = ...,
-        plannable: bool = ...,
+        queryable: bool = ...,
         resource_group: _Optional[str] = ...,
     ) -> None: ...
 
@@ -355,6 +355,7 @@ class NamedQuery(_message.Message):
         "additional_logged_features",
         "valid_plan_not_required",
         "resource_groups",
+        "output_expressions",
     )
     class MetaEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -408,6 +409,7 @@ class NamedQuery(_message.Message):
     ADDITIONAL_LOGGED_FEATURES_FIELD_NUMBER: _ClassVar[int]
     VALID_PLAN_NOT_REQUIRED_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_EXPRESSIONS_FIELD_NUMBER: _ClassVar[int]
     name: str
     query_version: str
     input: _containers.RepeatedScalarFieldContainer[str]
@@ -424,6 +426,7 @@ class NamedQuery(_message.Message):
     additional_logged_features: _containers.RepeatedScalarFieldContainer[str]
     valid_plan_not_required: bool
     resource_groups: _containers.MessageMap[str, NamedQueryResourceGroups]
+    output_expressions: _containers.RepeatedCompositeFieldContainer[NamedQueryOutputExpression]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -442,6 +445,22 @@ class NamedQuery(_message.Message):
         additional_logged_features: _Optional[_Iterable[str]] = ...,
         valid_plan_not_required: bool = ...,
         resource_groups: _Optional[_Mapping[str, NamedQueryResourceGroups]] = ...,
+        output_expressions: _Optional[_Iterable[_Union[NamedQueryOutputExpression, _Mapping]]] = ...,
+    ) -> None: ...
+
+class NamedQueryOutputExpression(_message.Message):
+    __slots__ = ("output_column_name", "expr", "namespace")
+    OUTPUT_COLUMN_NAME_FIELD_NUMBER: _ClassVar[int]
+    EXPR_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    output_column_name: str
+    expr: _expression_pb2.LogicalExprNode
+    namespace: str
+    def __init__(
+        self,
+        output_column_name: _Optional[str] = ...,
+        expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
+        namespace: _Optional[str] = ...,
     ) -> None: ...
 
 class NamedQueryResourceGroups(_message.Message):

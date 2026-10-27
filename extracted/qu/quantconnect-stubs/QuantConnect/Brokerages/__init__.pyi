@@ -733,6 +733,15 @@ class WebSocketClientWrapper(System.Object, QuantConnect.Brokerages.IWebSocket):
             ...
 
     @property
+    def deflate_options(self) -> typing.Any:
+        """The permessage-deflate compression options offered to the server when connecting, null to disable compression"""
+        ...
+
+    @deflate_options.setter
+    def deflate_options(self, value: typing.Any) -> None:
+        ...
+
+    @property
     def is_open(self) -> bool:
         """Wraps IsAlive"""
         ...

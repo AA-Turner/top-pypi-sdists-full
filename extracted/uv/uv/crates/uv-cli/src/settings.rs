@@ -522,6 +522,14 @@ impl InitSettings {
 
         let no_description = no_description || (bare && description.is_none());
 
+        // `UV_INIT_BUILD_BACKEND` only sets a default, so it yields to `--no-package` and
+        // `--script` instead of conflicting with them like `--build-backend` does.
+        let build_backend = match build_backend {
+            Some(build_backend) => Some(build_backend),
+            None if script || no_package || r#virtual => None,
+            None => environment.init_build_backend,
+        };
+
         if r#virtual && lib {
             bail!("`--virtual` and `--lib` are mutually exclusive");
         }
@@ -706,6 +714,7 @@ pub struct RunSettings {
     pub refresh: Refresh,
     pub settings: ResolverInstallerSettings,
     pub env_file: EnvFile,
+    pub recursion_depth: u32,
     pub max_recursion_depth: u32,
     pub malware_settings: MalwareCheckSettings,
     #[cfg(unix)]
@@ -875,6 +884,7 @@ impl RunSettings {
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
+            recursion_depth: environment.run_recursion_depth.unwrap_or_default(),
             max_recursion_depth: max_recursion_depth.unwrap_or(Self::DEFAULT_MAX_RECURSION_DEPTH),
             malware_settings,
             #[cfg(unix)]

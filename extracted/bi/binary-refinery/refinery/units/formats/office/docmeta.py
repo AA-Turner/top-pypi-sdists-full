@@ -3,11 +3,10 @@ from __future__ import annotations
 import re
 
 from enum import Enum
-from pathlib import Path
 
 from refinery.lib import xml
 from refinery.lib.dt import isodate
-from refinery.units.formats import JSONTableUnit, Unit
+from refinery.units.formats import JSONTableUnit, Unit, read_part, read_parts
 from refinery.units.formats.office.xtdoc import xtdoc
 
 
@@ -129,7 +128,7 @@ class docmeta(JSONTableUnit):
 
     def _json_opendocument(self, data: bytearray):
         from refinery.units.formats.archive.xtzip import xtzip
-        meta = data | xtzip('meta.xml') | bytearray
+        meta = read_part(self, data, xtzip, 'meta.xml')
         if not meta or (dom := xml.parse(meta)) is None:
             return None
         while dom.tag.rpartition(':')[2].lower() != 'document-meta':
@@ -151,18 +150,14 @@ class docmeta(JSONTableUnit):
         return {'meta': contents} if contents else None
 
     def _json_ooxml(self, data: bytearray):
-        props = data | xtdoc('docProps/*.xml', exact=True, path=b'path') | {'path': bytearray}
         result = {}
+        paths = [F'docProps/{prop.value}' for prop in _Prop]
 
-        for path, page in props.items():
-            name = Path(path).name
+        for prop, path, page in zip(_Prop, paths, read_parts(self, data, xtdoc, *paths)):
+            if page is None:
+                continue
             if (dom := xml.parse(page)) is None:
                 self.log_info(F'failed to parse as XML: {path}')
-                continue
-            try:
-                prop = _Prop(name)
-            except ValueError:
-                self.log_info(F'skipped unknown property: {name}')
                 continue
 
             result[prop.name] = contents = {}

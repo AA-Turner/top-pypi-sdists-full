@@ -24,8 +24,8 @@ import matplotlib.pyplot as plt
 from pytest import approx
 from filterpy.kalman import KalmanFilter, update, predict, batch_filter
 from filterpy.common import Q_discrete_white_noise, kinematic_kf, Saver
+from filterpy.stats import mahalanobis
 from scipy.linalg import block_diag, norm
-from scipy.spatial.distance import mahalanobis as scipy_mahalanobis
 
 DO_PLOT = False
 
@@ -121,7 +121,7 @@ def test_noisy_1d():
 
         # test mahalanobis
         a = np.zeros(f.y.shape)
-        maha = scipy_mahalanobis(a, f.y, f.SI)
+        maha = mahalanobis(a, f.y, f.S)
         assert f.mahalanobis == approx(maha)
 
 
@@ -233,7 +233,7 @@ def test_noisy_11d():
 
         # test mahalanobis
         a = np.zeros(f.y.shape)
-        maha = scipy_mahalanobis(a, f.y, f.SI)
+        maha = mahalanobis(a, f.y, f.S)
         assert f.mahalanobis == approx(maha)
 
     # now do a batch run with the stored z values so we can test that
@@ -254,6 +254,95 @@ def test_noisy_11d():
 
         plt.show()
 
+def test_sequential_3d():
+    N = 100
+    dt = 0.02
+    R_std = 1.0
+
+    f_a = KalmanFilter(dim_x=6, dim_z=3)
+    f_b = KalmanFilter(dim_x=6, dim_z=3)
+    f_c = KalmanFilter(dim_x=6, dim_z=3)
+    f_d = KalmanFilter(dim_x=6, dim_z=3)
+
+    f_a.x = np.zeros([6, 1])
+    f_b.x = np.copy(f_a.x)
+    f_c.x = np.copy(f_a.x)
+    f_d.x = np.copy(f_a.x)
+
+    p = np.diag([1., 1.])
+    f_a.P = block_diag(p, p, p)
+    f_b.P = np.copy(f_a.P)
+    f_c.P = np.copy(f_a.P)
+    f_d.P = np.copy(f_a.P)
+
+    F1 = np.array([[1., dt],
+                   [0., 1.]])
+    f_a.F = block_diag(F1, F1, F1)
+    f_b.F = f_a.F
+    f_c.F = f_a.F
+    f_d.F = f_a.F
+
+    h = np.array([[1., 0.]])
+    f_a.H = block_diag(h, h, h)
+    f_b.H = f_a.H
+    f_c.H = f_a.H
+    f_d.H = f_a.H
+
+    f_a.R = np.eye(3) * (R_std**2)
+    f_b.R = f_a.R
+    f_c.R = f_a.R
+    f_d.R = f_a.R
+
+    q = Q_discrete_white_noise(dim=2, dt=dt, var=0.0001)
+    f_a.Q = block_diag(q, q, q)
+    f_b.Q = f_a.Q
+    f_c.Q = f_a.Q
+    f_d.Q = f_a.Q
+
+    measurements = np.zeros([N, 3])
+    results_a = np.zeros([N, 3])
+
+    # velocity vector
+    v = np.array([3.0, 4.0, 5.0])
+
+    z = np.zeros([3, 1])
+    for t in range(N):
+        # create measurement = t plus white noise
+        z[0, 0] = v[0] * t + random.randn() * 20
+        z[1, 0] = v[1] * t + random.randn() * 20
+        z[2, 0] = v[2] * t + random.randn() * 20
+        measurements[t, :] = z[:, 0]
+
+        # process as a single data vector
+        f_a.predict()
+        f_a.update(z)
+
+        # process one component at a time
+        f_b.predict()
+        f_b.update_sequential(0, z[0])
+        f_b.update_sequential(1, z[1])
+        f_b.update_sequential(2, z[2])
+
+        # process single component first
+        f_c.predict()
+        f_c.update_sequential(0, z[0])
+        f_c.update_sequential(1, z[1:])
+
+        # process double component first
+        f_d.predict()
+        f_d.update_sequential(0, z[:2])
+        f_d.update_sequential(2, z[2])
+
+        assert norm(f_a.x - f_b.x) < 1.e-12
+        assert norm(f_a.x - f_c.x) < 1.e-12
+        assert norm(f_a.x - f_d.x) < 1.e-12
+
+        assert norm(f_a.P - f_b.P) < 1.e-12
+        assert norm(f_a.P - f_c.P) < 1.e-12
+        assert norm(f_a.P - f_d.P) < 1.e-12
+
+        # save data
+        results_a[t, 0:3] = f_a.x[0:6:2, 0]
 
 def test_batch_filter():
     f = KalmanFilter(dim_x=2, dim_z=1)
@@ -341,19 +430,20 @@ def test_steadystate():
     dim = 7
 
     cv = kinematic_kf(dim=dim, order=5)
+    print(cv)
 
     cv.x[1] = 1.0
 
     for i in range(100):
         cv.predict()
-        cv.update([i]*dim)
+        cv.update([i])
 
     for i in range(100):
         cv.predict_steadystate()
-        cv.update_steadystate([i]*dim)
+        cv.update_steadystate([i])
         # test mahalanobis
         a = np.zeros(cv.y.shape)
-        maha = scipy_mahalanobis(a, cv.y, cv.SI)
+        maha = mahalanobis(a, cv.y, cv.S)
         assert cv.mahalanobis == approx(maha)
 
 
@@ -627,9 +717,53 @@ def test_z_checks():
     kf.update(np.array([[3, 4]]))
     kf.update(np.array([[3, 4]]).T)
 
+def test_update_correlated():
+    f = const_vel_filter(1.0, x0=2, R_std=1., Q_var=5.1)
+    f.M = np.array([[1], [0]])
+
+    for i in range(10):
+        f.predict()
+        f.update_correlated(3.)
+
+
+def test_batch_filter_missing_array_measurements():
+    # issue #284: measurements given as arrays, with None for missing ones
+    zs = [np.array([1.]), np.array([2.1]), None, np.array([3.9]), np.array([5.2])]
+
+    def make():
+        kf = KalmanFilter(dim_x=2, dim_z=1)
+        kf.x = np.array([[0.], [1.]])
+        kf.F = np.array([[1., 1.], [0., 1.]])
+        kf.H = np.array([[1., 0.]])
+        kf.R *= 0.5
+        kf.Q *= 0.01
+        return kf
+
+    # reference: step through by hand
+    kf = make()
+    expected = []
+    for z in zs:
+        kf.predict()
+        kf.update(z)
+        expected.append(kf.x.copy())
+
+    kf = make()
+    means, covs, _, _ = kf.batch_filter(zs)
+    assert len(means) == len(zs)
+    for m, e in zip(means, expected):
+        assert np.allclose(m, e)
+
+    kf = make()
+    means, covs, _, _ = batch_filter(kf.x, kf.P, zs, [kf.F] * len(zs),
+                                     [kf.Q] * len(zs), [kf.H] * len(zs),
+                                     [kf.R] * len(zs))
+    for m, e in zip(means, expected):
+        assert np.allclose(m, e)
+
 
 if __name__ == "__main__":
-    DO_PLOT = True
+    DO_PLOT = False
+    test_steadystate()
     test_functions()
     test_default_dims()
     test_z_checks()

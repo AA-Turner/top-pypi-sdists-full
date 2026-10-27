@@ -13,8 +13,14 @@ Supports all RAR format versions (1.4, 1.5-4.x, 5.0) with:
 from __future__ import annotations
 
 import dataclasses
+import weakref
 import zlib
 
+from bisect import bisect_right
+from functools import partial
+from typing import Callable, Iterator
+
+from refinery.lib.solid import SolidStream, SolidStreamTruncated
 from refinery.lib.types import buf
 from refinery.lib.unrar.headers import (
     RAR_HEADER_V14,
@@ -29,6 +35,17 @@ from refinery.lib.unrar.headers import (
     RarMainHeader,
     parse_headers,
 )
+
+_MAX_DICTIONARY = 0x1000000000
+"""
+The largest dictionary that the reference decoder accepts, 64 GB.
+"""
+
+_UNKNOWN_SIZE_ROOM = 1 << 64
+"""
+The room that a member of unknown size takes in the decompressed stream of its archive: more than
+any member can decompress to.
+"""
 
 
 class RarException(Exception):
@@ -75,11 +92,18 @@ class RarInvalidChecksum(RarException):
 class RarCorruptArchive(RarException):
     """
     Raised when the archive structure is corrupted. When the corruption is detected while
-    decompressing an entry, the partial attribute carries the output decoded up to that point.
+    decompressing an entry, the `entry` attribute is that entry, and the `partial` attribute carries
+    the output decoded for it up to that point.
     """
-    def __init__(self, message: str = 'The archive structure is corrupted.', partial: bytes | None = None):
+    def __init__(
+        self,
+        message: str = 'The archive structure is corrupted.',
+        partial: bytes | None = None,
+        entry: RarFileEntry | None = None,
+    ):
         super().__init__(message)
         self.partial = partial
+        self.entry = entry
 
 
 class RarVolumeMissing(RarException):
@@ -149,10 +173,11 @@ class RarFile:
         self._crypt_header: RarCryptHeader | None = None
         self._raw_entries: list[RarFileEntry] = []
         self._file_entries: list[RarFileEntry] = []
-        self._solid_engine = None
-        self._solid_index: int = -1
+        self._streams: weakref.WeakValueDictionary[str | None, SolidStream]
+        self._streams = weakref.WeakValueDictionary()
 
         self._parse()
+        self._layout()
 
     def _parse(self):
         """
@@ -226,6 +251,47 @@ class RarFile:
 
         self._file_entries = merged
 
+    def _layout(self):
+        """
+        Place the members in one decompressed stream and find the members where decompression can
+        start, which are all members that do not continue the decompression of a previous one. An
+        empty member that no later member continues is never decompressed, because nothing depends
+        on it; it shares its position with the next member, whose decompression it must not fail.
+        A member of unknown size takes more room than any member can fill and ends where its
+        stream ends.
+        """
+        self._index: dict[int, int] = {}
+        self._positions: list[int] = []
+        self._starts: list[int] = []
+        self._start_positions: list[int] = []
+        self._idle: set[int] = set()
+        position = 0
+        for k, entry in enumerate(self._file_entries):
+            self._index[id(entry)] = k
+            self._positions.append(position)
+            if entry.is_dir:
+                continue
+            if not entry.solid or not self._starts:
+                self._starts.append(k)
+                self._start_positions.append(position)
+            position += self._room(entry)
+        continued = False
+        for k in reversed(range(len(self._file_entries))):
+            if (entry := self._file_entries[k]).is_dir:
+                continue
+            if entry.size == 0 and not continued:
+                self._idle.add(k)
+            continued = entry.solid
+
+    @staticmethod
+    def _room(entry: RarFileEntry) -> int:
+        """
+        The room that the given member takes in the decompressed stream of the archive.
+        """
+        if (size := entry.size) is None:
+            return _UNKNOWN_SIZE_ROOM
+        return size
+
     @property
     def entries(self) -> list[RarFileEntry]:
         """
@@ -281,51 +347,89 @@ class RarFile:
             entry: File name, index, or RarFileEntry object
             password: Optional password override for encrypted entries
         """
+        return self.extractor(entry, password)()
+
+    def extractor(
+        self,
+        entry: str | int | RarFileEntry,
+        password: str | None = None,
+    ) -> Callable[[], buf]:
+        """
+        Return a function that returns the contents of an archive member. Members of a solid archive
+        are decompressed in order; the archive keeps the contents of a member that was decompressed
+        before its turn only while the function returned for it is alive.
+        """
         fe = self._resolve_entry(entry)
         if fe.is_dir:
-            return b''
-
+            return bytes
         pw = password or self._password
-
         if fe.is_encrypted and not pw:
-            raise RarMissingPassword(fe.name)
+            def missing() -> buf:
+                raise RarMissingPassword(fe.name)
+            return missing
+        if (stream := self._streams.get(pw)) is None:
+            stream = self._streams[pw] = SolidStream(partial(self._decode, pw), self._restart)
+        claim = stream.claim(self._positions[self._index[id(fe)]], self._room(fe))
 
-        entry_index = self._file_entries.index(fe)
+        def extract() -> buf:
+            try:
+                data = claim()
+            except SolidStreamTruncated as truncated:
+                data = truncated.partial
+            except RarCorruptArchive as error:
+                if (corrupt := error.entry) is None or corrupt is fe:
+                    raise
+                raise RarCorruptArchive(
+                    F'The member {corrupt.name} that this one continues is corrupt: {error}', entry=corrupt
+                ) from error
+            self._verify(data, fe, pw)
+            return data
 
-        if fe.solid and entry_index > 0:
-            if self._solid_index >= entry_index:
-                self._solid_engine = None
-                self._solid_index = -1
-            for i in range(self._solid_index + 1, entry_index):
-                prev = self._file_entries[i]
-                if prev.is_dir:
-                    continue
-                prev_data = self._get_compressed_data(prev)
-                if prev.is_encrypted:
-                    if pw is None:
-                        raise RarMissingPassword(prev.name)
-                    prev_data = self._decrypt(prev_data, prev, pw)
-                self._decompress(prev_data, prev)
+        return extract
 
-        data = self._get_compressed_data(fe)
+    def _chain(self, offset: int) -> int:
+        return self._starts[bisect_right(self._start_positions, offset) - 1]
 
-        if fe.is_encrypted:
-            assert pw is not None
-            data = self._decrypt(data, fe, pw)
+    def _restart(self, offset: int) -> int:
+        return self._positions[self._chain(offset)]
 
-        result = self._decompress(data, fe)
-        self._solid_index = entry_index
-
-        self._verify(result, fe, pw)
-
-        return result
+    def _decode(self, password: str | None, origin: int) -> Iterator[tuple[int, buf]]:
+        """
+        Decompress the members from the start of the chain that holds the given origin onward. An
+        empty piece announces the position of each member before it is decompressed, so that a
+        member which decompressed to fewer bytes than its size ends there and does not fail with
+        the member after it.
+        """
+        entries = self._file_entries
+        engine = None
+        for k in range(self._chain(origin), len(entries)):
+            entry = entries[k]
+            if entry.is_dir or k in self._idle:
+                continue
+            position = self._positions[k]
+            yield position, B''
+            try:
+                data = self._get_compressed_data(entry)
+                if entry.is_encrypted:
+                    if password is None:
+                        raise RarMissingPassword(entry.name)
+                    data = self._decrypt(data, entry, password)
+                output, engine = self._decompress(data, entry, engine)
+            except RarCorruptArchive as error:
+                raise RarCorruptArchive(str(error), error.partial, entry) from error
+            yield position, output
 
     def _resolve_entry(self, entry: str | int | RarFileEntry) -> RarFileEntry:
         """
         Resolve a user-provided entry reference to a RarFileEntry.
         """
         if isinstance(entry, RarFileEntry):
-            return entry
+            if id(entry) in self._index:
+                return entry
+            try:
+                return self._file_entries[self._file_entries.index(entry)]
+            except ValueError:
+                raise KeyError(F'Entry not found: {entry.name}') from None
         if isinstance(entry, int):
             if 0 <= entry < len(self._file_entries):
                 return self._file_entries[entry]
@@ -382,41 +486,74 @@ class RarFile:
         result: buf = decryptor.decrypt(data)
         return result
 
-    def _decompress(self, data: bytes | memoryview, entry: RarFileEntry) -> buf:
+    def _decompress(self, data: bytes | memoryview, entry: RarFileEntry, engine=None):
         """
-        Decompress data based on the compression method and format version.
+        Decompress data based on the compression method and format version. A member that continues
+        a solid chain is decompressed by the engine of the chain, with its own algorithm.
         """
         if entry.method == 0:
-            return data[:entry.size] if len(data) > entry.size else data
-
-        engine = self._solid_engine
-
-        if entry.solid and engine is not None:
-            engine.init_solid(data, entry.size)
-            return engine.decompress()
+            if (size := entry.size) is not None and len(data) > size:
+                data = data[:size]
+            return data, engine
 
         unp_ver = entry.unp_ver
+        win_size = entry.win_size or 0x400000
 
         if self._format == RarFormat.RARFMT50 or unp_ver >= 50:
+            if unp_ver > 51:
+                raise self._unsupported(entry)
+            if entry.win_size > _MAX_DICTIONARY:
+                raise RarCorruptArchive(
+                    F'The dictionary of {entry.name} exceeds the 64 GB limit of RAR.'
+                )
             from refinery.lib.unrar.unpack50 import Unpack50
-            win_size = entry.win_size if entry.win_size > 0 else 0x400000
-            engine = Unpack50(data, entry.size, win_size, entry.solid)
+            engine = self._engine(engine, Unpack50, data, entry, win_size, extended=unp_ver == 51)
         elif unp_ver >= 29:
             from refinery.lib.unrar.unpack30 import Unpack30
-            win_size = entry.win_size if entry.win_size > 0 else 0x400000
-            engine = Unpack30(data, entry.size, win_size, entry.solid)
+            engine = self._engine(engine, Unpack30, data, entry, win_size)
         elif unp_ver >= 20:
             from refinery.lib.unrar.unpack20 import Unpack20
-            engine = Unpack20(data, entry.size, entry.solid)
+            engine = self._engine(engine, Unpack20, data, entry)
         elif unp_ver >= 15:
             from refinery.lib.unrar.unpack15 import Unpack15
-            engine = Unpack15(data, entry.size, entry.solid)
+            engine = self._engine(engine, Unpack15, data, entry)
         else:
-            raise RarCorruptArchive(
-                F'Unsupported compression version {unp_ver} for {entry.name}')
+            raise self._unsupported(entry)
 
-        self._solid_engine = engine
-        return engine.decompress()
+        return engine.decompress(), engine
+
+    def _engine(
+        self,
+        engine,
+        algorithm: type,
+        data: bytes | memoryview,
+        entry: RarFileEntry,
+        *arguments,
+        **options,
+    ):
+        """
+        Continue the solid chain of the given engine with the entry, or start a new engine of the
+        given algorithm. Positional arguments only configure a new engine; keyword options also
+        apply to every member that continues its chain.
+        """
+        if not entry.solid or engine is None:
+            return algorithm(data, entry.size, *arguments, entry.solid, **options)
+        if type(engine) is not algorithm:
+            raise self._algorithm_changed(entry)
+        engine.init_solid(data, entry.size, **options)
+        return engine
+
+    @staticmethod
+    def _unsupported(entry: RarFileEntry) -> RarCorruptArchive:
+        return RarCorruptArchive(
+            F'Unsupported compression version {entry.unp_ver} for {entry.name}'
+        )
+
+    @staticmethod
+    def _algorithm_changed(entry: RarFileEntry) -> RarCorruptArchive:
+        return RarCorruptArchive(
+            F'The solid member {entry.name} uses another compression algorithm than its chain.'
+        )
 
     def _verify(self, data: buf, entry: RarFileEntry, password: str | None = None):
         """

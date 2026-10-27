@@ -250,6 +250,7 @@ class CfnCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -385,7 +386,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__393f500a888707295be5db6ececab65a69f1c1889e02c7043d1d8ad0ec5e7636)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtectionEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtectionEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsEncryptionKey")
@@ -398,7 +399,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8ae716ffcdd031c28de520d863a21a8cc04056fe6c3c1a6e658dd02ea3bae8eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsEncryptionKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsEncryptionKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="multiRegionProperties")
@@ -416,7 +417,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d1cd42de6387e3057eda85830c6674c4cac74a5be160e21869cc4c1b3274381c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiRegionProperties", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "multiRegionProperties", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyDocument")
@@ -429,7 +430,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6f00800ace49cc096f415d0c69454c275a5355d0dc03ea8f3bb1677520fc184f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyDocument", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -445,7 +446,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c9eb2f89b2e4104fba43d8d14808715e2f3435951317df69258fecf9b606d598)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dsql.CfnCluster.EncryptionDetailsProperty",

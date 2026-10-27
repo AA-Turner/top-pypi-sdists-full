@@ -1,6 +1,7 @@
 import base64
 import gzip
 import io
+import time
 import unittest
 import warnings
 
@@ -585,3 +586,119 @@ class CleanerTest(unittest.TestCase):
             with self.subTest(html=html):
                 cleaned = clean_html(html)
                 self.assertEqual('<div><style>/* deleted */</style></div>', cleaned)
+
+    def test_redos_css_expression(self):
+        # ReDoS: expression\s*\(.*?\) with re.S is quadratic when many
+        # expression( appear without a closing ).
+        many_open = 'expression(' * 10000
+        html = f'<style>{many_open}</style><p>x</p>'
+        start = time.time()
+        clean_html(html)
+        self.assertLess(time.time() - start, 2.0, 'CSS expression strip is quadratic')
+
+    def test_css_expression_still_stripped(self):
+        # Short expression() bodies must still be stripped.
+        result = clean_html('<style>width: expression(alert(1))</style>')
+        self.assertNotIn('alert', result)
+        # Legitimate CSS is preserved.
+        result = clean_html('<style>color: red</style>')
+        self.assertIn('color: red', result)
+        # Combination of style and expression. Style must be preserved if the
+        # expression fits into _replace_css_javascript.
+        result = clean_html('<style>color: red; width: expression(alert(1))</style>')
+        self.assertNotIn('alert', result)
+        self.assertIn('color: red', result)
+
+    def test_css_expression_long_body_dropped(self):
+        # expression() with body > 1024 chars is not stripped by the regex
+        # but _has_sneaky_javascript() sees the leftover expression( and drops
+        # the entire style — fail-closed.
+        long_body = 'x' * 1025
+        result = clean_html(f'<style>width: expression({long_body})</style>')
+        self.assertNotIn('expression', result)
+
+    def test_redos_conditional_comment(self):
+        # ReDoS: \[if\s+.*?]\s*> with re.S is quadratic when many
+        # [if appear without a closing ]>.
+        # Must use fragment_fromstring so lxml preserves the comment node.
+        many_if = '[if x' * 15000
+        html = f'<!--{many_if}--><p>ok</p>'
+        doc = lxml.html.fragment_fromstring(html, create_parent='div')
+        cleaner = Cleaner(comments=False)
+        start = time.time()
+        cleaner.clean_html(doc)
+        self.assertLess(time.time() - start, 2.0, 'Conditional comment check is quadratic')
+
+    def test_conditional_comment_still_detected(self):
+        # Real conditional comments must still be killed when comments=False.
+        # fragment_fromstring is used so lxml preserves the comment nodes.
+        cleaner = Cleaner(comments=False)
+        cases = [
+            '<!--[if IE]>evil<![endif]--><p>ok</p>',
+            '<!--[if lt IE 9]>evil<![endif]--><p>ok</p>',
+            '<!--[if !IE]>evil<![endif]--><p>ok</p>',
+            '<!--[if (gt IE 5)&(lt IE 8)]>evil<![endif]--><p>ok</p>',
+            '<!--[IF ie]>evil<![endif]--><p>ok</p>',
+            # A ']' inside the condition. The replaced '.*?' under re.S could
+            # cross it, so these must still be killed — this is why a bounded
+            # '[^\]]{0,2000}' body was rejected: it cannot cross a ']' and
+            # would let them through.
+            '<!--[if a]b]>evil<![endif]--><p>ok</p>',
+            '<!--[if x]]>evil<![endif]--><p>ok</p>',
+        ]
+        for html in cases:
+            with self.subTest(html=html):
+                doc = lxml.html.fragment_fromstring(html, create_parent='div')
+                result = lxml.html.tostring(cleaner.clean_html(doc)).decode()
+                self.assertNotIn('evil', result)
+
+    def test_redos_css_comments(self):
+        # ReDoS: /\*.*?\*/ with re.S is quadratic when many /* appear without */.
+        # Reachable with default config via <style> element content.
+        many_open = '/* ' * 15000
+        html = f'<style>{many_open}</style><p>x</p>'
+        start = time.time()
+        clean_html(html)
+        self.assertLess(time.time() - start, 2.0, 'CSS comment strip is quadratic')
+
+    def test_css_comments_dangerous_content_still_caught(self):
+        # Dangerous content inside CSS comments must still be detected.
+        cases = [
+            '<style>p {color: red;}/*<img src onerror=alert(1)>*/h2 {color: blue;}</style>',
+            '<style>/* javascript:evil */</style>',
+        ]
+        for html in cases:
+            with self.subTest(html=html):
+                result = clean_html(html)
+                self.assertNotIn('alert', result)
+                self.assertNotIn('javascript', result)
+
+    def test_css_comments_safe_content_preserved(self):
+        # Ordinary CSS with comments must survive unchanged.
+        result = clean_html('<style>/* safe comment */ p { color: red; }</style>')
+        self.assertIn('color: red', result)
+
+    def test_redos_image_dataurl_via_href(self):
+        # ReDoS: data:image/(.+?);base64, is quadratic when many 'data:image/'
+        # appear without ';base64,'. Reachable with default config via any link
+        # attribute (_remove_javascript_link -> _has_javascript_scheme).
+        payload = 'data:image/' * 15000
+        html = f'<a href="{payload}">x</a>'
+        start = time.time()
+        clean_html(html)
+        self.assertLess(time.time() - start, 2.0, 'image data-url scan is quadratic')
+
+    def test_redos_image_dataurl_via_style_element(self):
+        # Same ReDoS reachable via <style> content (_has_sneaky_javascript).
+        payload = 'data:image/' * 15000
+        html = f'<style>a{{background:{payload}}}</style>'
+        start = time.time()
+        clean_html(html)
+        self.assertLess(time.time() - start, 2.0, 'image data-url scan is quadratic')
+
+    def test_image_dataurl_svg_still_detected(self):
+        # The bounded regex must still flag unsafe svg/xml image data-urls
+        # and still accept ordinary raster image data-urls.
+        from lxml_html_clean.clean import _has_javascript_scheme
+        self.assertTrue(_has_javascript_scheme('data:image/svg+xml;base64,PHN2Zz4='))
+        self.assertFalse(_has_javascript_scheme('data:image/png;base64,AAAA'))

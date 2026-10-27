@@ -341,6 +341,7 @@ class CfnLoadBalancer(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -443,7 +444,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9cefee25e8b0f537b45df423ca07c96d91dbcfe75c2132742bd7a3f70638442d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "listeners", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "listeners", value)
 
     @builtins.property
     @jsii.member(jsii_name="accessLoggingPolicy")
@@ -461,7 +462,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__579f5fb75f3c27c7c35e0a5d723f8b4185ae0f87bba97bbc8456daeccad2b9f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accessLoggingPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accessLoggingPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="appCookieStickinessPolicy")
@@ -479,7 +480,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d25d1719b1837e71272b11e48b9a2282ed158041bf547f386ca9ff57a6f2f544)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "appCookieStickinessPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "appCookieStickinessPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZones")
@@ -495,7 +496,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__31a0aba84c157cc0228d869869b28e711084d1cf53521406326ea6b4ed41f17c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZones", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZones", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectionDrainingPolicy")
@@ -513,7 +514,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4162385b337d4c3391277d3ea3db6febdb7c9f850c44302c78269706ec797914)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionDrainingPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionDrainingPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectionSettings")
@@ -531,7 +532,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b809a660f8de6748c507d7ecd7dc1ec1ab66537dceffe59ecbb3a5fa08c50b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="crossZone")
@@ -549,7 +550,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ac935f76538de96a96670264bb3481821b35d2b7de1c274f54d5ed13f09e4b37)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "crossZone", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "crossZone", value)
 
     @builtins.property
     @jsii.member(jsii_name="healthCheck")
@@ -567,7 +568,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__162325f8340d091c52bfaa968a78fff804fb052111feb6ddf941dd55e301dac8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheck", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "healthCheck", value)
 
     @builtins.property
     @jsii.member(jsii_name="instances")
@@ -580,7 +581,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__67037d7ceea6f67274d44b3bf6321259087ba9e5770321888a3e086f24616372)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instances", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "instances", value)
 
     @builtins.property
     @jsii.member(jsii_name="lbCookieStickinessPolicy")
@@ -598,7 +599,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6c0a06792e2e236386216c72db832eccf650d8a051dcb1bf68c023c3edc22310)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lbCookieStickinessPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lbCookieStickinessPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="loadBalancerName")
@@ -611,7 +612,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9aa1ce8e882b1acb9715161212b83a48dfa0aa3b16a374a07c0507b97d20c106)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loadBalancerName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loadBalancerName", value)
 
     @builtins.property
     @jsii.member(jsii_name="policies")
@@ -629,7 +630,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf9bad7c093afad2982476996683bee331e6e2c5e031041354df4f08f71786ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policies", value)
 
     @builtins.property
     @jsii.member(jsii_name="scheme")
@@ -645,7 +646,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d037ecf708c4100ee148c7c54234b7f2d0f604bc7074f26d624ea4cfdc3919da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scheme", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scheme", value)
 
     @builtins.property
     @jsii.member(jsii_name="securityGroups")
@@ -661,7 +662,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b8d8135978f5262cee30861151cd751ef53e7800cebc4a854a0b24eab591a155)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "securityGroups", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "securityGroups", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnets")
@@ -677,7 +678,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__15492a4993f2ff5599338b08353c1b13581ea7713ffa3cee11ac0c9ebb8e408d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnets", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnets", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -693,7 +694,7 @@ class CfnLoadBalancer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1cabc87ef2c07843253cef27fbe61546f3a063e65468df0fe2a5261255590139)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_elasticloadbalancing.CfnLoadBalancer.AccessLoggingPolicyProperty",
@@ -2431,6 +2432,7 @@ class LoadBalancer(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

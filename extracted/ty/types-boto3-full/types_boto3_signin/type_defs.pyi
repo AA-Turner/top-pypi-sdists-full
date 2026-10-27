@@ -31,6 +31,8 @@ __all__ = (
     "CreateOAuth2TokenResponseTypeDef",
     "CreateOAuth2TokenWithIAMRequestTypeDef",
     "CreateOAuth2TokenWithIAMResponseTypeDef",
+    "CreateOAuth2TokenWithTokenExchangeRequestTypeDef",
+    "CreateOAuth2TokenWithTokenExchangeResponseTypeDef",
     "DeleteConsoleAuthorizationConfigurationInputTypeDef",
     "DeleteConsoleAuthorizationConfigurationOutputTypeDef",
     "DeleteResourcePermissionStatementInputTypeDef",
@@ -77,6 +79,13 @@ class ResponseMetadataTypeDef(TypedDict):
 class CreateOAuth2TokenWithIAMRequestTypeDef(TypedDict):
     grantType: str
     resource: str
+
+class CreateOAuth2TokenWithTokenExchangeRequestTypeDef(TypedDict):
+    grantType: str
+    subjectToken: NotRequired[str]
+    subjectTokenType: NotRequired[str]
+    resource: NotRequired[str]
+    scope: NotRequired[str]
 
 class DeleteConsoleAuthorizationConfigurationInputTypeDef(TypedDict):
     targetId: NotRequired[str]
@@ -140,6 +149,13 @@ class CreateOAuth2TokenRequestTypeDef(TypedDict):
 
 class CreateOAuth2TokenWithIAMResponseTypeDef(TypedDict):
     accessToken: str
+    tokenType: str
+    expiresIn: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateOAuth2TokenWithTokenExchangeResponseTypeDef(TypedDict):
+    accessToken: str
+    issuedTokenType: str
     tokenType: str
     expiresIn: int
     ResponseMetadata: ResponseMetadataTypeDef

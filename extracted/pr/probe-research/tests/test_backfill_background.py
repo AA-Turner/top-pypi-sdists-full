@@ -13,6 +13,7 @@ from probe.cli.backfill_coverage import CoverageError
 from probe.cli.backfill_ledger import MAX_UNIT_ATTEMPTS, Ledger, Unit
 from probe.cli.import_jobs import enqueue as enqueue_job
 from probe.sdk import journal
+from tests.backfill_plan_agent import patch_own_sleep
 from tests.test_backfill_scoped_orchestration import make_harness
 
 
@@ -231,7 +232,7 @@ def test_worker_retries_extended_outage_with_the_same_file_receipts(
         assert import_jobs.get_job(folder.name)["state"] == import_jobs.State.RUNNING
 
     monkeypatch.setattr(h.remote, "upload_fingerprinted", intermittent)
-    monkeypatch.setattr(import_jobs.time, "sleep", reconnect)
+    patch_own_sleep(monkeypatch, import_jobs, reconnect)
     assert import_jobs.run_worker(folder.name) == 0
     assert waits == [2, 4, 8]
     assert len(set(attempts)) == 1
@@ -268,7 +269,7 @@ def test_folder_worker_does_not_retry_failures_requiring_attention(
         monkeypatch.setattr(h.client, "flush", fail_flush)
     else:
         monkeypatch.setattr(h.remote, "upload_fingerprinted", fail_upload)
-    monkeypatch.setattr(import_jobs.time, "sleep", lambda _: pytest.fail("This failure needs attention"))
+    patch_own_sleep(monkeypatch, import_jobs, lambda _: pytest.fail("This failure needs attention"))
     assert import_jobs.run_worker(job["id"]) == 1
     saved = import_jobs.get_job(job["id"])
     assert saved["state"] == import_jobs.State.FAILED

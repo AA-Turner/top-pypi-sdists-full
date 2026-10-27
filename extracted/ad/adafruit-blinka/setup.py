@@ -10,7 +10,6 @@
 
 import io
 import os
-import sys
 
 from setuptools import setup, find_packages
 
@@ -21,48 +20,6 @@ here = os.path.abspath(os.path.dirname(__file__))
 # Note: this will only work if 'README.md' is present in your MANIFEST.in file!
 with io.open(os.path.join(here, "README.rst"), encoding="utf-8") as f:
     long_description = "\n" + f.read()
-
-board_reqs = []
-if os.path.exists("/proc/device-tree/compatible"):
-    with open("/proc/device-tree/compatible", "rb") as f:
-        compat = f.read()
-    # Jetson Nano, TX2, Xavier, etc
-    if b"nvidia,tegra" in compat:
-        board_reqs = ["Jetson.GPIO"]
-    # Pi 5 and Earlier
-    elif (
-        b"brcm,bcm2835" in compat
-        or b"brcm,bcm2836" in compat
-        or b"brcm,bcm2837" in compat
-        or b"brcm,bcm2838" in compat
-        or b"brcm,bcm2711" in compat
-        or b"brcm,bcm2712" in compat
-    ):
-        _pyver = (sys.version_info.major, sys.version_info.minor)
-        # adafruit-lgpio provides pre-built wheels for Python 3.13+ (aarch64 + armv7l)
-        if _pyver >= (3, 13):
-            lgpio_req = "adafruit-lgpio>=0.2.2.0"
-        else:
-            lgpio_req = "lgpio>=0.2.2.0"
-        try:
-            import lgpio
-        except ImportError:
-            print(
-                "\n*** lgpio is not installed. On Raspberry Pi OS, install it with:\n"
-                "    sudo apt-get install -y python3-lgpio\n"
-                "  Then recreate your virtual environment with --system-site-packages\n"
-                "  or install adafruit-lgpio from PyPI:\n"
-                "    pip install adafruit-lgpio\n"
-            )
-        board_reqs = [
-            "rpi_ws281x>=4.0.0",
-            lgpio_req,
-            "RPi.GPIO",
-            "Adafruit-Blinka-Raspberry-Pi5-Neopixel",
-        ]
-    # BeagleBone Black, Green, PocketBeagle, BeagleBone AI, etc.
-    elif b"ti,am335x" in compat:
-        board_reqs = ["Adafruit_BBIO"]
 
 setup(
     name="Adafruit-Blinka",
@@ -79,7 +36,7 @@ setup(
     python_requires=">=3.9.0",
     url="https://github.com/adafruit/Adafruit_Blinka",
     package_dir={"": "src"},
-    packages=find_packages("src") + ["micropython-stubs"],
+    packages=find_packages("src"),
     # py_modules lists top-level single file packages to include.
     # find_packages only finds packages in directories with __init__.py files.
     py_modules=[
@@ -89,7 +46,6 @@ setup(
         "busio",
         "digitalio",
         "keypad",
-        "micropython",
         "neopixel_write",
         "onewireio",
         "pulseio",
@@ -109,7 +65,7 @@ setup(
         "adafruit_blinka.microcontroller.amlogic.meson_g12_common.pulseio": [
             "libgpiod_pulsein",
         ],
-        "micropython-stubs": ["*.pyi"],
+        "micropython": ["py.typed"],
     },
     include_package_data=True,
     install_requires=[
@@ -117,11 +73,11 @@ setup(
         "Adafruit-PureIO>=1.1.7",
         "binho-host-adapter>=0.1.6",
         "pyftdi>=0.40.0",
+        "packaging>=20.0",
         "adafruit-circuitpython-typing",
         "sysv_ipc>=1.1.0;sys_platform=='linux' and platform_machine!='mips'",
         "toml>=0.10.2;python_version<'3.11'",
-    ]
-    + board_reqs,
+    ],
     license="MIT",
     classifiers=[
         # Trove classifiers

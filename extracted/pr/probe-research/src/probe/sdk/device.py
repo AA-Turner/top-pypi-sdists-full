@@ -193,9 +193,12 @@ def device_authorize(
 ) -> dict:
     """Run the device flow and return the whole mint response (``TokenCreated``).
 
-    This is the CLI's only way to mint a token: ``POST /v1/tokens`` is session-only
-    on purpose ("a leaked token must not be able to mint more tokens"), so a human
+    This is how the CLI mints a sign-in: ``POST /v1/tokens`` is session-only on
+    purpose ("a leaked token must not be able to mint more tokens"), so a human
     approves in the browser and the backend mints exactly one ``probe_pat`` here.
+    The one exception is narrow: an installation's own ``api`` credential may mint
+    that machine's daemon key and an agent's capture key
+    (``/v1/client-installations/current/*-credential``, ``setup.mint_from_sign_in``).
 
     The response carries ``token`` (the plaintext secret, shown exactly once) plus
     ``id``/``name``/``token_prefix``/``scopes`` — the identifying fields a caller

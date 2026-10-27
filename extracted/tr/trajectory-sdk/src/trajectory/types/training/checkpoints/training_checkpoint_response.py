@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from trajectory._models import BaseModel
 
 
@@ -19,6 +21,9 @@ class TrainingCheckpointResponse(BaseModel):
 
   base_model_slug: str
   """Base model slug the checkpoint was trained from."""
+
+  created_at: datetime
+  """Time the checkpoint was created, in UTC."""
 
   is_deployable: bool = False
   """Whether the checkpoint has saved Tinker weights for serving."""

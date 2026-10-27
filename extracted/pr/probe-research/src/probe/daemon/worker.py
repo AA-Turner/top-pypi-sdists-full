@@ -108,7 +108,6 @@ from probe.daemon import adapters, approvals as appr, bite as bite_mod, folders,
 from probe.daemon import alerts
 from probe.daemon import scope
 from probe.daemon import requests as requests_mod
-from probe.daemon import gate as gate_mod
 from probe.daemon import model as model_mod
 from probe.daemon.adapters.base import MODE_BYPASS, MODE_UNKNOWN, Adapter
 from probe.daemon import exclusions as exclusions_mod
@@ -188,6 +187,13 @@ PUSHED_SETTINGS = "pushed_settings"
 #: Lean history: {"conversation", "compactions"} the last lean run saw (a
 #: compaction since, in that conversation, breaks the cached prefix once: D13).
 LEAN_COMPACTIONS_SEEN = "lean_compactions_seen"
+#: Notes for the researcher (`Worker._relay_to_researcher`): the last logbook id
+#: looked at (only ever moves forward), and the value last told per scope.
+RELAY_SEEN = "relay_seen"
+RELAY_TOLD = "relay_told"
+#: With no RELAY_SEEN yet (a session's first look, or a daemon from before
+#: notes), only writes this recent are told: an upgrade never replays old ones.
+RELAY_FIRST_LOOK_S = 15 * 60
 #: Conversation mode: a run is paused after this many model rounds, so the events
 #: that queued meanwhile get in; the next bite carries on (the fact CARRY_ON).
 ROUNDS_BEFORE_YIELD = BITE_REQUESTS
@@ -538,10 +544,6 @@ class Worker:
         self.store.set_fact("cwd", str(session.cwd))
         self.exclusions = exclusions_mod.Filter(self.store, session.session_id, session.cwd)
         self._interrupted_yeses()
-        #: The ML gate (`gate.py`): pauses the daemon in a session that is not ML
-        #: work, where the state is a default. Never in a replay.
-        self.gate = (gate_mod.Gate(self.store, gate_mod.Marker(session.session_id), gate_mod.ask_probe,
-                                   trace=self.trace, clock=clock) if replay is None else None)
 
     def _end_conversation_for_bites(self) -> None:
         """Bites record what a conversation does not know about: switched back to
@@ -626,8 +628,6 @@ class Worker:
             return None
         if self.catching_up():
             return "reading the history the session held before its first worker"
-        if self.paused():
-            return "paused: the session is not ML work (the events stay queued)"
         sid = self.session.session_id
         if not lease.records(sid):
             return "the session's switch cannot be read"
@@ -636,13 +636,6 @@ class Worker:
         if self.released_reason in _RECOVERABLE:
             return None
         return lease.may_write(sid)
-
-    def paused(self) -> bool:
-        """The ML gate paused the daemon at its last check (`gate.py`)."""
-        return self.gate is not None and self.gate.paused
-
-    async def _gate_check(self) -> bool:
-        return await self.gate.check() if self.gate is not None else False
 
     def _switch_unreadable(self) -> int | None:
         """The switch cannot be read: no bite starts (`_bite_blocked`); after
@@ -1033,6 +1026,13 @@ class Worker:
         stamps = (_epoch(self.store.latest_ts(MAIN_STREAM)), self.chat_seen_at)
         return max((t for t in stamps if t is not None), default=None)
 
+    def agent_active_at(self) -> float | None:
+        """When the agent was last active in this session on this machine (epoch
+        seconds): its transcript's newest chat line (`_newest_chat`), or None
+        before any. The session-message poll tells Probe (G7), which moves a
+        message not yet shown to the machine whose agent was active last."""
+        return self._newest_chat()
+
     def _start_reader_log(self) -> None:
         """Where this store starts reading the reader's claim log, decided once and
         saved at once, so a later worker on the same store (resume, handover,
@@ -1271,17 +1271,53 @@ class Worker:
         if not mailbox.enabled(source=self.session.source):
             return  # nobody delivers a receipt: the agent's hooks read no mailbox
         # A bite that worked on a request is told with that request (its reply or
-        # its failure), so a receipt never tells the same write twice.
+        # its failure), so a receipt never tells the same write twice; a metric or
+        # a pick is told by its own note (`_relay_to_researcher`).
         run -= self.store.bites_of_requests(min(run), bite_id)
-        receipt = requests_mod.receipt_text(requests_mod.describe(self.store.writes_of_bites(run)))
+        rows = [r for r in self.store.writes_of_bites(run)
+                if (note := requests_mod.relay(r)) is None or note.text is None]
+        receipt = requests_mod.receipt_text(requests_mod.describe(rows))
         if receipt:
             self.store.add_writer_message(message_id=mailbox.new_message_id(), kind=mailbox.Kind.MESSAGE,
                                           text=receipt, bite=bite_id)
 
+    def _relay_to_researcher(self) -> None:
+        """One note for the researcher (`requests.relay`) per headline metric or
+        best pick the writer set: each logbook row looked at once, in order,
+        whatever run or request it was in. A value a person holds (the write
+        changed nothing) and a repeat of the value last told for the same scope
+        tell nothing; nor does anything where the agent's hooks read no mailbox."""
+        seen = self.store.fact(RELAY_SEEN)
+        first_look = not isinstance(seen, int)
+        rows = self.store.ran_writes_after(0 if first_look else seen)
+        if not rows:
+            return
+        since = time.time() - RELAY_FIRST_LOOK_S
+        told = self.store.fact(RELAY_TOLD)
+        told = told if isinstance(told, dict) else {}
+        deliver = mailbox.enabled(source=self.session.source)
+        with self.store.tx():
+            for row in rows:
+                note = requests_mod.relay(row)
+                if note is None or note.persons or (first_look and float(row["at"]) < since):
+                    continue
+                if note.text is None:  # a clear: the same value set again is news
+                    told.pop(note.scope, None)
+                    continue
+                if told.get(note.scope) == note.value:
+                    continue
+                told[note.scope] = note.value
+                if deliver:
+                    self.store.add_writer_message(message_id=mailbox.new_message_id(), kind=mailbox.Kind.MESSAGE,
+                                                  text=note.text, bite=row["bite"])
+            self.store.set_fact(RELAY_TOLD, told)
+            self.store.set_fact(RELAY_SEEN, int(rows[-1]["id"]))
+
     def publish_writer_messages(self) -> None:
         """Publish saved writer messages not yet in the mailbox (all of them after a
-        crash). Best effort: one the mailbox refuses stays unpublished for the
-        next poll, and never stops the worker."""
+        crash), the researcher's notes made first. Best effort: one the mailbox
+        refuses stays unpublished for the next poll, and never stops the worker."""
+        self._relay_to_researcher()
         sid = self.session.session_id
         for row in self.store.unpublished_writer_messages():
             try:
@@ -1752,7 +1788,7 @@ class Worker:
         from probe.daemon.agent import RunState
 
         return RunState(conversation=conversation, on_round=lambda response: self._record_round(bite_id, response),
-                        status=lambda: self.state_of_record(shown))
+                        status=lambda: self.state_of_record(shown), logbook=lambda: bite_mod.landed_block(self.store))
 
     def _record_round(self, bite_id: int | None, response) -> None:
         """One model response, as it arrives (T10): a `rounds` row and the device's
@@ -2403,35 +2439,13 @@ class Worker:
         self.publish_writer_messages()
         if self.audit is not None and not self.stopping:
             self.audit.maybe_start()
-        if self.paused():
-            # No bite runs the folder check while paused: run it here, so a
-            # notebook the agent writes is seen (an ML signal) and queued.
-            await self._check_folders(folders.working_folders(self.store, self.session.cwd, self.session.home))
-        await self._gate_check()
         # Renewed first: a yes settled below runs on a fresh lease, not the end of an old one.
-        # Renewed while paused too: a paused daemon is not a degraded one (the agent
-        # must not start recording a session that is not ML work).
         self._renew()
         await self.settle_answers()
         self._renew()
         if self.handing_over():
             log.info("handing over to the resumed session's worker")
             self._release(lease.REASON_HANDOVER)
-            return 0
-        if self.stopping and self.paused():
-            # The session ends paused: what is queued stays queued (recording it
-            # now would spend what the pause saved), and the researcher can still
-            # have it: `/probe on` in that session, resumed, records it.
-            unrecorded = self.store.queued()
-            log.info("the session ends paused by the ML gate: %s events stay unrecorded", unrecorded)
-            if self.gate is not None:
-                self.gate.note("ended_paused", unrecorded=unrecorded)
-            if unrecorded:
-                _device_error(f"session {self.session.session_id} ended while the daemon was paused by the ML gate: "
-                              f"{unrecorded} events were not recorded; `/probe on` in that session (resume it) "
-                              "records them")
-            self.fail_requests(requests_mod.REASON_SESSION_END)
-            self._release(lease.REASON_STOPPED)
             return 0
         left = None if self.finish_by is None else self.finish_by - self.clock()
         trigger = self.due() if left is None or left > 0 else None
@@ -2477,8 +2491,6 @@ class Worker:
         self.fail_requests(requests_mod.REASON_READ_ONLY)
         with self.store.tx():
             self.store.leave_unrecorded(self.read_only_from)
-        # The reader reads here: the ML gate may pause its unasked turns too.
-        await self._gate_check()
         if self.stopping or self._parent_gone():
             return 0  # ending: nothing to finish, what arrived is marked
         # The folder snapshot moves on silently, so a file written now is never

@@ -653,6 +653,66 @@ def test_a_crashed_last_run_is_named_on_start():
     assert started["crashed_last_run"] is True and started["last_run_ended"] == "unclean_exit"
 
 
+# -- lifeboat.acted (plan fool-proof-updates B5) -----------------------------------------
+
+
+def _with_acted(post, record):
+    """The lifeboat's `acted.json` as `record`, and its deletions counted."""
+    box = {"record": record, "cleared": 0}
+
+    def clear():
+        box["record"] = None
+        box["cleared"] += 1
+
+    post.read_acted = lambda: box["record"]
+    post.clear_acted = clear
+    return box
+
+
+ACTED = {"at": 1_700_000_500.7, "reason": "behind", "from": "0.325.0", "to": "0.330.0", "trigger": "lifeboat"}  # as handoff.py writes it
+
+
+def test_what_the_lifeboat_did_is_sent_once_with_consent_and_then_deleted():
+    post, sent, _, clock = _post(voters=[Live("s1", hosted_env={})])
+    box = _with_acted(post, dict(ACTED))
+    asyncio.run(post.tick())
+    (acted,) = [(props, url) for event, props, url in sent if event == "lifeboat.acted"]
+    assert acted == ({"reason": "behind", "from": "0.325.0", "to": "0.330.0", "trigger": "lifeboat",
+                      "at": 1_700_000_500}, HOSTED)
+    assert box["cleared"] == 1
+    box["record"] = dict(ACTED, reason="service_down")  # a new rescue, between cycles
+    clock.now += 3 * 3600
+    asyncio.run(post.tick())
+    assert _events(sent).count("lifeboat.acted") == 1, "looked for at the first tick and after a cycle only"
+    post.look_for_acted()
+    asyncio.run(post.tick())
+    assert [p["reason"] for e, p, _ in sent if e == "lifeboat.acted"] == ["behind", "service_down"]
+
+
+def test_nothing_of_the_lifeboats_record_but_its_allow_list_leaves_the_machine():
+    post, sent, _, _ = _post(voters=[Live("s1", hosted_env={})])
+    _with_acted(post, {"at": "yesterday", "reason": f"rescued from {SECRET_PATH}", "from": SECRET_PATH,
+                       "to": "0.330.0; rm -rf /", "trigger": SID, "log": SECRET_PATH, "error": "x" * 500})
+    asyncio.run(post.tick())
+    (props,) = [p for e, p, _ in sent if e == "lifeboat.acted"]
+    assert props == {"reason": "other", "from": None, "to": None, "trigger": "other", "at": None}
+
+
+def test_the_lifeboats_record_waits_for_consent():
+    post, sent, _, _ = _post(voters=[Live("s1", hosted_env={"PROBE_TELEMETRY": "off"})])
+    box = _with_acted(post, dict(ACTED))
+    asyncio.run(post.tick())
+    assert sent == [] and box["cleared"] == 0, "kept for a look the machine allows"
+
+
+def test_a_record_the_sender_did_not_take_is_kept():
+    post, sent, _, _ = _post(voters=[Live("s1", hosted_env={})])
+    post.emit = lambda event, props, url: event != "lifeboat.acted"
+    box = _with_acted(post, dict(ACTED))
+    asyncio.run(post.tick())
+    assert box["cleared"] == 0 and box["record"] == ACTED
+
+
 def test_the_digest_ignores_counts_that_move_all_day():
     one = snapshot(_stuffed_status(), outbox=_outbox())
     status = _stuffed_status()
@@ -691,3 +751,10 @@ def test_the_sender_takes_only_the_services_events(captured, monkeypatch):
     assert tm.emit_service_event("service.state", {"sessions": 1}, base_url=HOSTED) is False
     assert [r["event"] for r in captured] == ["service.state"]
     assert captured[0]["properties"]["via"] == "service"
+
+
+def test_the_sender_takes_the_lifeboats_event(captured):
+    from probe.cli import telemetry as tm
+
+    assert tm.emit_service_event("lifeboat.acted", {"reason": "behind", "from": "0.325.0"}, base_url=HOSTED) is True
+    assert [(r["event"], r["properties"]["from"]) for r in captured] == [("lifeboat.acted", "0.325.0")]

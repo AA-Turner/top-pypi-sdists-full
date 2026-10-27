@@ -11,8 +11,12 @@ import json
 from types import SimpleNamespace
 
 import mlx.core as mx
+import mlx.nn as nn
 import pytest
+from mlx.utils import tree_flatten
 
+from mlx_audio.lm.models.rope_utils import YarnRoPE
+from mlx_audio.lm.sample_utils import make_repetition_penalty
 from mlx_audio.stt.generate import save_as_json
 from mlx_audio.stt.models.granite_speech.config import (
     EncoderConfig,
@@ -29,6 +33,7 @@ from mlx_audio.stt.models.granite_speech.granite_speech import (
     Model,
     StructuredTranscriptError,
     UnsupportedTranscriptionTask,
+    _make_repetition_penalty,
     _parse_saa,
     _parse_timestamps,
     _resolve_prompt,
@@ -97,6 +102,69 @@ def test_projector_consumes_concatenated_features():
         CTCEncoder(config.encoder_config)(mx.zeros((1, 8, 4)))
     )
     assert out.shape == (1, config.window_size // config.downsample_rate, 12)
+
+
+def _tiny_plus_model(**text_config):
+    return Model(
+        ModelConfig(
+            model_type="granite_speech_plus",
+            encoder_config=_tiny_encoder_config(cat_hidden_layers=[1]),
+            projector_config=ProjectorConfig(
+                hidden_size=HIDDEN_DIM,
+                num_hidden_layers=1,
+                num_attention_heads=2,
+                intermediate_size=16,
+                encoder_hidden_size=2 * HIDDEN_DIM,
+            ),
+            text_config={
+                "hidden_size": 16,
+                "intermediate_size": 32,
+                "num_hidden_layers": 2,
+                "num_attention_heads": 2,
+                "num_key_value_heads": 1,
+                "vocab_size": 32,
+                "tie_word_embeddings": True,
+                **text_config,
+            },
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("rope_parameters", "rope_class"),
+    [
+        # October 2026 checkpoint (v2610).
+        (
+            {
+                "rope_type": "yarn",
+                "factor": 4.0,
+                "original_max_position_embeddings": 4096,
+                "rope_theta": 10000,
+            },
+            YarnRoPE,
+        ),
+        # April 2026 checkpoint (v2604).
+        ({"rope_type": "default", "rope_theta": 10000}, nn.RoPE),
+    ],
+)
+def test_decoder_rope_follows_rope_parameters(rope_parameters, rope_class):
+    model = _tiny_plus_model(rope_parameters=rope_parameters)
+    assert type(model.language_model.model.layers[0].self_attn.rope) is rope_class
+
+
+def test_sanitize_unnests_v2610_decoder_keys():
+    model = _tiny_plus_model()
+    native = dict(tree_flatten(model.parameters()))
+    nested = {
+        k.replace("language_model.model.", "language_model.model.model.", 1): v
+        for k, v in native.items()
+    }
+
+    sanitized = Model.sanitize(nested)
+
+    assert sanitized.keys() == native.keys()
+    assert Model.sanitize(sanitized).keys() == native.keys()
+    model.load_weights(list(sanitized.items()), strict=True)
 
 
 def test_non_aligned_attention_preserves_bfloat16():
@@ -314,6 +382,83 @@ def test_generate_returns_parsed_segments(monkeypatch, task, pieces, expected_se
 
     assert result.text == "".join(pieces)
     assert result.segments == expected_segments
+
+
+def _log_softmax(logits):
+    return logits - mx.logsumexp(logits, axis=-1, keepdims=True)
+
+
+def test_repetition_penalty_scales_log_probs_of_seen_tokens():
+    logits = mx.array([[4.0, 2.0, 0.0, -1.0]])
+    (processor,) = _make_repetition_penalty(2.0)
+
+    out = processor(mx.array([0, 2, 2]), logits)
+
+    expected = _log_softmax(logits) * mx.array([[2.0, 1.0, 2.0, 1.0]])
+    assert mx.allclose(out, expected).item()
+
+
+def test_repetition_penalty_keeps_confident_repeat():
+    # The same penalty on raw logits flips a confident repeat to the runner-up.
+    logits = mx.array([[8.0, 5.0, 0.0]])
+    seen = mx.array([0])
+
+    raw = make_repetition_penalty(2.0, context_size=100)
+    (log_prob,) = _make_repetition_penalty(2.0)
+
+    assert mx.argmax(raw(seen, mx.array(logits)), axis=-1).item() == 1
+    assert mx.argmax(log_prob(seen, logits), axis=-1).item() == 0
+
+
+def test_repetition_penalty_context_size_limits_window():
+    logits = mx.array([[1.0, 1.0, 1.0]])
+    (processor,) = _make_repetition_penalty(2.0, context_size=1)
+
+    out = processor(mx.array([0, 1, 2]), logits)
+
+    expected = _log_softmax(logits) * mx.array([[1.0, 1.0, 2.0]])
+    assert mx.allclose(out, expected).item()
+
+
+def test_repetition_penalty_disabled_and_validated():
+    assert _make_repetition_penalty(None) == []
+    for penalty in (0, -1.0, "2"):
+        with pytest.raises(ValueError):
+            _make_repetition_penalty(penalty)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_generate_applies_repetition_penalty_over_prompt(monkeypatch, stream):
+    import mlx_audio.lm.generate as lm_generate
+
+    captured = {}
+
+    def fake_generate_step(**kwargs):
+        captured.update(kwargs)
+        return iter([(99, None)])
+
+    monkeypatch.setattr(lm_generate, "generate_step", fake_generate_step)
+    stub_model = SimpleNamespace(
+        is_plus=True,
+        config=SimpleNamespace(model_type="granite_speech_plus"),
+        _tokenizer=SimpleNamespace(eos_token_id=99, decode=lambda ids, **kwargs: ""),
+        _load_audio=lambda audio: audio,
+        _extract_features=lambda audio: (mx.zeros((1, 1, 160)), 1),
+        get_audio_features=lambda features: mx.zeros((1, 1, 4)),
+        _build_prompt=lambda *args, **kwargs: mx.array([0, 1]),
+        _build_inputs_embeds=lambda *args, **kwargs: mx.zeros((1, 2, 4)),
+    )
+
+    if stream:
+        list(Model._stream_generate(stub_model, mx.zeros((1,)), repetition_penalty=2.0))
+    else:
+        Model.generate(stub_model, mx.zeros((1,)), repetition_penalty=2.0)
+
+    (processor,) = captured["logits_processors"]
+    logits = mx.array([[1.0, 1.0, 1.0]])
+    out = processor(captured["prompt"], logits)
+    expected = _log_softmax(logits) * mx.array([[2.0, 2.0, 1.0]])
+    assert mx.allclose(out, expected).item()
 
 
 def test_json_preserves_untimed_speaker_segments(tmp_path):

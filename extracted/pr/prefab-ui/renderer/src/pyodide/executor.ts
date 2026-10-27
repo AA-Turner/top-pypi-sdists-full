@@ -15,7 +15,9 @@ declare const __LOCAL_BUNDLE__: boolean;
 
 declare global {
   interface Window {
-    loadPyodide: () => Promise<PyodideInterface>;
+    loadPyodide: (options: {
+      enableRunUntilComplete: boolean;
+    }) => Promise<PyodideInterface>;
   }
 }
 
@@ -30,6 +32,23 @@ export interface PyodideInterface {
 
 export type PyodideStatus = "idle" | "loading" | "ready" | "error";
 
+export function normalizeExecuteData(data: unknown): Record<string, unknown> {
+  if (typeof data === "string") {
+    if (!data.trim()) return {};
+    try {
+      data = JSON.parse(data);
+    } catch {
+      return {};
+    }
+  }
+
+  if (data !== null && typeof data === "object" && !Array.isArray(data)) {
+    return data as Record<string, unknown>;
+  }
+
+  return {};
+}
+
 /** Debug callback — set by the bridge to route messages to the UI. */
 let debugFn: ((msg: string) => void) | null = null;
 export function setExecutorDebug(fn: (msg: string) => void) {
@@ -43,7 +62,7 @@ function log(msg: string) {
 let pyodide: PyodideInterface | null = null;
 let loadPromise: Promise<PyodideInterface> | null = null;
 
-const PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.27.4/full/pyodide.js";
+const PYODIDE_CDN = "https://cdn.jsdelivr.net/pyodide/v0.27.8/full/pyodide.js";
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -75,7 +94,8 @@ export function loadPyodideRuntime(
     log("Loading script from CDN...");
     await loadScript(PYODIDE_CDN);
     log("Script loaded, initializing...");
-    const py = await window.loadPyodide();
+    // Preserve the pre-0.27.7 event-loop behavior without stack switching.
+    const py = await window.loadPyodide({ enableRunUntilComplete: false });
     log("Initialized, loading pydantic...");
 
     // Pydantic must come from Pyodide's built-in packages (WASM build)
@@ -127,6 +147,7 @@ await micropip.install("prefab-ui", deps=False)
 export interface ExecuteResult {
   tree?: ComponentNode;
   state?: Record<string, unknown>;
+  tools?: unknown;
   css?: string[];
   stylesheets?: string[];
   mode?: string;
@@ -139,6 +160,7 @@ export interface ExecuteResult {
 interface RawExecuteResult {
   tree?: ComponentNode;
   state?: Record<string, unknown>;
+  tools?: unknown;
   css?: unknown;
   stylesheets?: unknown;
   mode?: unknown;
@@ -205,6 +227,7 @@ export function normalizeExecuteResult(
   return {
     tree: result.tree,
     state: result.state ?? {},
+    tools: result.tools,
     css: stringArray(result.css) ?? legacyTheme.css,
     stylesheets: stringArray(result.stylesheets),
     mode: normalizeMode(result.mode) ?? legacyTheme.mode,
@@ -220,10 +243,15 @@ export function normalizeExecuteResult(
  * 3. Finds the root component or PrefabApp
  * 4. Calls to_json() to extract the wire format
  */
-export async function executePrefabCode(code: string): Promise<ExecuteResult> {
+export async function executePrefabCode(
+  code: string,
+  data?: unknown,
+): Promise<ExecuteResult> {
   if (!pyodide) {
     return { error: "Pyodide not loaded" };
   }
+
+  const executeData = normalizeExecuteData(data);
 
   const harness = `
 import json as _json
@@ -299,8 +327,8 @@ try:
 
     _pg_prev_lines = _pg_lines
 
-    # Execute in a fresh namespace
-    _pg_ns = {}
+    # Execute with data keys available as globals
+    _pg_ns = _json.loads(${JSON.stringify(JSON.stringify(executeData))})
     exec(_pg_healed, _pg_ns)
 
     # Find result: prefer PrefabApp, then root components
@@ -326,7 +354,7 @@ try:
 
     _pg_wire = _pg_target.to_json()
     _pg_result = {"tree": _pg_wire.get("view")}
-    for _pg_key in ("state", "theme", "css", "stylesheets", "mode"):
+    for _pg_key in ("state", "tools", "theme", "css", "stylesheets", "mode"):
         if _pg_wire.get(_pg_key):
             _pg_result[_pg_key] = _pg_wire[_pg_key]
 

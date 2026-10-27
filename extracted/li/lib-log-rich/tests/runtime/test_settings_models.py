@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from io import StringIO
+from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from lib_log_rich.domain import LogLevel
-from lib_log_rich.domain.enums import ConsoleStream, GraylogProtocol, QueuePolicy
-from lib_log_rich.runtime._settings import (
+from lib_log_rich.domain.enums import ConsoleStream, ConsoleTheme, FormatPreset, GraylogProtocol, QueuePolicy
+from lib_log_rich.runtime.settings import (
     ConsoleAppearance,
     DumpDefaults,
     FeatureFlags,
     GraylogSettings,
     PayloadLimits,
+    RuntimeConfig,
     RuntimeSettings,
     coerce_console_styles_input,
 )
@@ -35,7 +38,7 @@ def test_coerce_console_styles_input_handles_enum_keys() -> None:
 
 def test_coerce_console_styles_input_returns_none_when_empty() -> None:
     assert coerce_console_styles_input({}) is None
-    assert coerce_console_styles_input(None) is None  # type: ignore[arg-type]
+    assert coerce_console_styles_input(None) is None
 
 
 def test_coerce_console_styles_input_drops_blank_keys() -> None:
@@ -107,7 +110,7 @@ def test_payload_limits_validates_positive_values() -> None:
 
 def test_runtime_settings_validators_normalise_inputs() -> None:
     appearance = ConsoleAppearance()
-    dump = DumpDefaults(format_preset="full")
+    dump = DumpDefaults(format_preset=FormatPreset.FULL)
     graylog = GraylogSettings(enabled=False)
     flags = FeatureFlags(queue=True, ring_buffer=False, journald=False, eventlog=False)
     limits = PayloadLimits()
@@ -248,3 +251,102 @@ def test_runtime_settings_validators_normalise_inputs() -> None:
     assert settings_none_rate.queue_put_timeout is None
     assert settings_none_rate.queue_stop_timeout is None
     assert settings_none_rate.scrub_patterns == {}
+
+
+def _runtime_config(**fields: Any) -> RuntimeConfig:
+    # Values arrive as a config file or CLI hands them over, so they are untyped here.
+    return RuntimeConfig(service="svc", environment="env", **fields)
+
+
+def test_runtime_config_category_defaults_are_enum_members() -> None:
+    config = _runtime_config()
+
+    assert config.graylog_protocol is GraylogProtocol.TCP
+    assert config.queue_full_policy is QueuePolicy.BLOCK
+    assert config.console_stream is ConsoleStream.STDERR
+    assert config.console_format_preset is None
+    assert config.dump_format_preset is None
+    assert config.console_theme is ConsoleTheme.DARK
+
+
+def test_runtime_config_parses_category_names_in_any_case() -> None:
+    config = _runtime_config(
+        graylog_protocol=" UDP ",
+        queue_full_policy="Drop",
+        console_stream="STDOUT",
+        console_format_preset="Short_Loc",
+        dump_format_preset="FULL_LOC",
+        console_theme=" Neon ",
+    )
+
+    assert config.graylog_protocol is GraylogProtocol.UDP
+    assert config.queue_full_policy is QueuePolicy.DROP
+    assert config.console_stream is ConsoleStream.STDOUT
+    assert config.console_format_preset is FormatPreset.SHORT_LOC
+    assert config.dump_format_preset is FormatPreset.FULL_LOC
+    assert config.console_theme is ConsoleTheme.NEON
+
+
+def test_runtime_config_treats_a_blank_preset_or_theme_as_unset() -> None:
+    config = _runtime_config(console_format_preset="", dump_format_preset="  ", console_theme=" ")
+
+    assert config.console_format_preset is None
+    assert config.dump_format_preset is None
+    assert config.console_theme is None
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "reason"),
+    [
+        ("graylog_protocol", "smtp", "Invalid Graylog protocol"),
+        ("queue_full_policy", "spill", "Invalid queue policy"),
+        ("console_stream", "printer", "Invalid console stream"),
+        ("console_format_preset", "nope", "Invalid format preset"),
+        ("dump_format_preset", "nope", "Invalid format preset"),
+        ("console_theme", "nope", "Invalid console theme: 'nope'; must be one of 'classic', 'dark', 'neon', 'pastel'"),
+    ],
+)
+def test_runtime_config_refuses_an_unknown_category_name(field: str, value: str, reason: str) -> None:
+    with pytest.raises(ValidationError, match=reason) as caught:
+        _runtime_config(**{field: value})
+
+    assert caught.value.errors()[0]["loc"] == (field,)
+
+
+def test_runtime_config_validates_a_payload_limits_mapping_into_the_model() -> None:
+    config = _runtime_config(payload_limits={"message_max_chars": 64})
+
+    assert isinstance(config.payload_limits, PayloadLimits)
+    assert config.payload_limits.message_max_chars == 64
+
+
+def test_runtime_config_refuses_an_invalid_payload_limits_mapping() -> None:
+    with pytest.raises(ValidationError, match="payload limit values must be positive"):
+        _runtime_config(payload_limits={"message_max_chars": 0})
+
+
+def test_console_appearance_holds_a_format_preset_member() -> None:
+    appearance = ConsoleAppearance(format_preset=FormatPreset.SHORT_LOC_ICON)
+
+    assert appearance.format_preset is FormatPreset.SHORT_LOC_ICON
+
+
+def test_console_appearance_built_directly_holds_level_names() -> None:
+    appearance = ConsoleAppearance(styles={" Warning ": "yellow", "eRRor": "red", "  ": "ignored"})
+
+    assert appearance.styles == {"WARNING": "yellow", "ERROR": "red"}
+
+
+def test_runtime_config_refuses_an_unknown_setting_and_names_it() -> None:
+    # A misspelled setting must not be dropped silently, or the intended value never applies.
+    with pytest.raises(ValidationError) as excinfo:
+        _runtime_config(ring_bufer_size=5)
+    assert "ring_bufer_size" in str(excinfo.value)
+    assert excinfo.value.errors()[0]["type"] == "extra_forbidden"
+
+
+def test_runtime_config_refuses_an_unknown_payload_limit_key_and_names_it() -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        _runtime_config(payload_limits={"message_max_chars": 10, "mesage_max_chars": 5})
+    assert "mesage_max_chars" in str(excinfo.value)
+    assert excinfo.value.errors()[0]["type"] == "extra_forbidden"

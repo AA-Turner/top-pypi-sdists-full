@@ -175,6 +175,7 @@ class CfnNamespace(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -206,7 +207,7 @@ class CfnNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__083038783d9a592008992f105965913f4b10d8bc23252afb9a929c22e7cebd06)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "namespace", value)
 
     @builtins.property
     @jsii.member(jsii_name="tableBucketArn")
@@ -219,7 +220,7 @@ class CfnNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8560b7f29623bc1f753b1cf34442c874c6958096b39accf37244c9341879fd81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableBucketArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableBucketArn", value)
 
 
 @jsii.data_type(
@@ -517,6 +518,7 @@ class CfnTable(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -581,7 +583,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fb40731dfd6256164661895ce0f48c78b8e18c58fb7f27fbb73a3ce7c916c1df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "namespace", value)
 
     @builtins.property
     @jsii.member(jsii_name="openTableFormat")
@@ -594,7 +596,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5892a05d87447cee97d5ab4f41ddb7d6837df87a8b4e6b9d577c79cfe927180a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "openTableFormat", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "openTableFormat", value)
 
     @builtins.property
     @jsii.member(jsii_name="tableBucketArn")
@@ -607,7 +609,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ad6ac8e43e44c04006a5ef80e152c8effbbdb7bf127bd063a6b732c4ee1f9a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableBucketArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableBucketArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tableName")
@@ -620,7 +622,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f410c91375a77f7ed3b5736522dbfb254643b931cd30ea49af6d7d51d9c5ddc5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableName", value)
 
     @builtins.property
     @jsii.member(jsii_name="compaction")
@@ -638,7 +640,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4ff6f95f778b64c53b87dfe6f8a117fa9d1583584d475eef7586c75859dcb219)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "compaction", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "compaction", value)
 
     @builtins.property
     @jsii.member(jsii_name="icebergMetadata")
@@ -656,7 +658,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6f0509a656c9927b41c3ead9b58d6c83257863d2b8d1104c542e1a8435be4160)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "icebergMetadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "icebergMetadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="snapshotManagement")
@@ -674,7 +676,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c6c432f4785ee47d59f072204756d42650b9fc3dd3e85a79139ab4f11fb72a43)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotManagement", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snapshotManagement", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageClassConfiguration")
@@ -692,7 +694,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ea3c2d362d15c7224a3738a3840e46d5cbefdc7e92912f6cd5b11579c5ccede3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageClassConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageClassConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -708,7 +710,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__325161e5105ae7e0c745e5ef4817aaec57d30e105c6645c3b5269abbe859cdf2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="withoutMetadata")
@@ -721,7 +723,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e5d21acaabd2bab58c6f59f334d1b06b0962eb6541244a042a933b5ce009a061)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "withoutMetadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "withoutMetadata", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3tables.CfnTable.CompactionProperty",
@@ -2093,6 +2095,7 @@ class CfnTableBucket(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2139,7 +2142,7 @@ class CfnTableBucket(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__42ef5079e6a92822a2e6ccbb91b02661f493a7d44dc79dfba0916840dbe44863)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableBucketName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableBucketName", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfiguration")
@@ -2157,7 +2160,7 @@ class CfnTableBucket(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__61499f569b4e5dc20b99defd26e29c6e9b7761b6630e1adec9c20e97e099dd4a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="metricsConfiguration")
@@ -2175,7 +2178,7 @@ class CfnTableBucket(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__31b7ae51d65703ba2d4aa73c08a7a5a34ad19b1ca27dd0de7d23e3e5bc20d595)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metricsConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metricsConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="replicationConfiguration")
@@ -2193,7 +2196,7 @@ class CfnTableBucket(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__14b361ac299ac02681f62fa559e4fa83032ef0e66dfd83ea8ab593ac9d7db6c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replicationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageClassConfiguration")
@@ -2211,7 +2214,7 @@ class CfnTableBucket(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__81704c8fd77fa700477675d5b83302d93072b2e166550281993e154ea1ac1c36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageClassConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageClassConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2227,7 +2230,7 @@ class CfnTableBucket(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3bd32e36df516fe785d94d21a1dc923e712becb1b93de4a82fa887f57a6b4823)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="unreferencedFileRemoval")
@@ -2245,7 +2248,7 @@ class CfnTableBucket(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02bf42691243dcbc8ea49c2499d3414260e70a80c4e38a371b64664c49f17e6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "unreferencedFileRemoval", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "unreferencedFileRemoval", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_s3tables.CfnTableBucket.EncryptionConfigurationProperty",
@@ -2816,6 +2819,7 @@ class CfnTableBucketPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2849,7 +2853,7 @@ class CfnTableBucketPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__60d686568fe0e9bc1be86d3585b33d6e6dcf5d8ec00b2b4b4ba9c5e48ea4cd82)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="tableBucketArn")
@@ -2862,7 +2866,7 @@ class CfnTableBucketPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9db770e8febae7602179359c1a5975b5ae8be6270348474fc3a1cca79c47ad2b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableBucketArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableBucketArn", value)
 
 
 @jsii.data_type(
@@ -3237,6 +3241,7 @@ class CfnTablePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3295,7 +3300,7 @@ class CfnTablePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e5ff64cf2723b6c321a7dae00772c6657abff46b53f326cb7ef2461494ecaead)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="tableArn")
@@ -3308,7 +3313,7 @@ class CfnTablePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__87d38159ba1fcdcd6a78891e84e79fef3b2492c5066559f8f91cd5cc6191efe4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableArn", value)
 
 
 @jsii.data_type(

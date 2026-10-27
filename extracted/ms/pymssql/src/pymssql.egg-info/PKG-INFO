@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymssql
-Version: 2.4.5
+Version: 2.4.6
 Summary: DB-API interface to Microsoft SQL Server for Python. (new Cython-based version)
 Author-email: Damien Churchill <damoxc@gmail.com>
 Maintainer-email: Mikhail Terekhov <termim@gmail.com>
@@ -615,6 +615,16 @@ Recent Changes
 ==============
 
 
+Version 2.4.6 - 2026-10-26 - Mikhail Terekhov
+=============================================
+
+General
+-------
+
+- Switch to MacOS-14 for building wheels
+- bulk-copy(): fix case of temp tables (fixes #1021), thanks amgcc
+
+
 Version 2.4.5 - 2026-10-19 - Mikhail Terekhov
 =============================================
 
@@ -624,12 +634,3 @@ General
 - Add native Windows arm64 wheel builds, thanks to knightmare2600
 - bulk-copy(): preserve supplied identity values (fixes #814)
 - bulk_copy(): encode Unicode for nvarchar bulk copy (fix #725,#917)
-
-
-Version 2.4.4 - 2026-10-09 - Mikhail Terekhov
-=============================================
-
-General
--------
-
-- Fixed unicode encoding problem #854 & #1000·thanks to maprangnaveya

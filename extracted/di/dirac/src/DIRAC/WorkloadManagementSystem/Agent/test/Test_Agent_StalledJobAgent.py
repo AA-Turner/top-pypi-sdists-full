@@ -1,5 +1,5 @@
-""" Test class for Stalled Job Agent
-"""
+"""Test class for Stalled Job Agent"""
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -50,7 +50,9 @@ def sja(mocker):
     )
 
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.StalledJobAgent.rescheduleJobs", return_value=MagicMock())
-    mocker.patch("DIRAC.WorkloadManagementSystem.Agent.StalledJobAgent.getJobParameters", return_value=MagicMock())
+    mocker.patch(
+        "DIRAC.WorkloadManagementSystem.Agent.StalledJobAgent.getJobParametersUtility", return_value=MagicMock()
+    )
     mocker.patch("DIRAC.WorkloadManagementSystem.Agent.StalledJobAgent.kill_delete_jobs", return_value=MagicMock())
 
     stalledJobAgent = StalledJobAgent()
@@ -70,3 +72,25 @@ def test__sjaFunctions(sja):
     assert sja._kickStuckJobs()["OK"]
     assert sja._failStalledJobs(0)["OK"]
     assert not sja._markStalledJobs(0)["OK"]
+
+
+def test__kickStuckJobs_recheck(sja, mocker):
+    """Jobs that move on between the selection and the rescheduling are left alone"""
+    stillStuck = {1}
+
+    def selectJobs(condDict, older=None):
+        if "JobID" in condDict:
+            return {"OK": True, "Value": [condDict["JobID"]] if condDict["JobID"] in stillStuck else []}
+        if condDict["Status"] == "Matched":
+            return {"OK": True, "Value": [1, 2]}
+        return {"OK": True, "Value": []}
+
+    sja.jobDB.selectJobs.side_effect = selectJobs
+    reschedule = mocker.patch(
+        "DIRAC.WorkloadManagementSystem.Agent.StalledJobAgent.rescheduleJobs", return_value={"OK": True}
+    )
+
+    assert sja._kickStuckJobs()["OK"]
+    reschedule.assert_called_once()
+    assert reschedule.call_args.args == ([1],)
+    assert reschedule.call_args.kwargs["source"] == "StalledJobAgent"

@@ -1041,6 +1041,7 @@ class CloudWatchAgentVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDWATCH_AGENT_IMAGE")
+    @builtins.classmethod
     def CLOUDWATCH_AGENT_IMAGE(cls) -> builtins.str:
         '''(experimental) Default CloudWatch Agent image for Linux.
 
@@ -1050,6 +1051,7 @@ class CloudWatchAgentVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDWATCH_AGENT_IMAGE_WIN2019")
+    @builtins.classmethod
     def CLOUDWATCH_AGENT_IMAGE_WIN2019(cls) -> builtins.str:
         '''(experimental) CloudWatch Agent image for Windows Server 2019.
 
@@ -1059,6 +1061,7 @@ class CloudWatchAgentVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDWATCH_AGENT_IMAGE_WIN2022")
+    @builtins.classmethod
     def CLOUDWATCH_AGENT_IMAGE_WIN2022(cls) -> builtins.str:
         '''(experimental) CloudWatch Agent image for Windows Server 2022.
 
@@ -1190,6 +1193,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_AWS_APPLICATION_SIGNALS")
+    @builtins.classmethod
     def OTEL_AWS_APPLICATION_SIGNALS(cls) -> builtins.str:
         '''(experimental) Flag to enable/disable AWS Application Signals.
 
@@ -1199,6 +1203,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_AWS_APPLICATION_SIGNALS_DISABLED")
+    @builtins.classmethod
     def OTEL_AWS_APPLICATION_SIGNALS_DISABLED(cls) -> builtins.str:
         '''(experimental) Value to disable AWS Application Signals.
 
@@ -1208,6 +1213,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_AWS_APPLICATION_SIGNALS_ENABLED")
+    @builtins.classmethod
     def OTEL_AWS_APPLICATION_SIGNALS_ENABLED(cls) -> builtins.str:
         '''(experimental) Value to enable AWS Application Signals.
 
@@ -1217,6 +1223,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_AWS_APPLICATION_SIGNALS_EXPORTER_ENDPOINT")
+    @builtins.classmethod
     def OTEL_AWS_APPLICATION_SIGNALS_EXPORTER_ENDPOINT(cls) -> builtins.str:
         '''(experimental) Endpoint configuration for AWS Application Signals exporter.
 
@@ -1226,6 +1233,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_AWS_APPLICATION_SIGNALS_EXPORTER_ENDPOINT_LOCAL_CWA")
+    @builtins.classmethod
     def OTEL_AWS_APPLICATION_SIGNALS_EXPORTER_ENDPOINT_LOCAL_CWA(cls) -> builtins.str:
         '''(experimental) Local CloudWatch Agent endpoint for metrics.
 
@@ -1235,6 +1243,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_AWS_APPLICATION_SIGNALS_RUNTIME")
+    @builtins.classmethod
     def OTEL_AWS_APPLICATION_SIGNALS_RUNTIME(cls) -> builtins.str:
         '''(experimental) Runtime configuration for AWS Application Signals.
 
@@ -1244,6 +1253,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_AWS_APPLICATION_SIGNALS_RUNTIME_DISABLED")
+    @builtins.classmethod
     def OTEL_AWS_APPLICATION_SIGNALS_RUNTIME_DISABLED(cls) -> builtins.str:
         '''(experimental) Value to disable AWS Application Signals runtime.
 
@@ -1253,6 +1263,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_AWS_APPLICATION_SIGNALS_RUNTIME_ENABLED")
+    @builtins.classmethod
     def OTEL_AWS_APPLICATION_SIGNALS_RUNTIME_ENABLED(cls) -> builtins.str:
         '''(experimental) Value to enable AWS Application Signals runtime.
 
@@ -1262,6 +1273,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_EXPORTER_OTLP_PROTOCOL")
+    @builtins.classmethod
     def OTEL_EXPORTER_OTLP_PROTOCOL(cls) -> builtins.str:
         '''(experimental) Protocol configuration for OpenTelemetry OTLP exporter.
 
@@ -1271,6 +1283,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_EXPORTER_OTLP_PROTOCOL_HTTP_PROTOBUF")
+    @builtins.classmethod
     def OTEL_EXPORTER_OTLP_PROTOCOL_HTTP_PROTOBUF(cls) -> builtins.str:
         '''(experimental) HTTP/Protobuf protocol setting for OTLP exporter.
 
@@ -1280,6 +1293,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_RESOURCE_ATTRIBUTES")
+    @builtins.classmethod
     def OTEL_RESOURCE_ATTRIBUTES(cls) -> builtins.str:
         '''(experimental) Resource attributes configuration for OpenTelemetry.
 
@@ -1289,6 +1303,7 @@ class CommonExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_SERVICE_NAME")
+    @builtins.classmethod
     def OTEL_SERVICE_NAME(cls) -> builtins.str:
         '''(experimental) Resource attribute configuration for service.name.
 
@@ -1323,6 +1338,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORECLR_ENABLE_PROFILING")
+    @builtins.classmethod
     def CORECLR_ENABLE_PROFILING(cls) -> builtins.str:
         '''(experimental) CoreCLR profiling enable flag.
 
@@ -1332,6 +1348,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORECLR_ENABLE_PROFILING_DISABLED")
+    @builtins.classmethod
     def CORECLR_ENABLE_PROFILING_DISABLED(cls) -> builtins.str:
         '''(experimental) Disable CoreCLR profiling.
 
@@ -1341,6 +1358,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORECLR_ENABLE_PROFILING_ENABLED")
+    @builtins.classmethod
     def CORECLR_ENABLE_PROFILING_ENABLED(cls) -> builtins.str:
         '''(experimental) Enable CoreCLR profiling.
 
@@ -1350,6 +1368,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORECLR_PROFILER")
+    @builtins.classmethod
     def CORECLR_PROFILER(cls) -> builtins.str:
         '''(experimental) CoreCLR profiler GUID.
 
@@ -1359,6 +1378,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORECLR_PROFILER_OTEL")
+    @builtins.classmethod
     def CORECLR_PROFILER_OTEL(cls) -> builtins.str:
         '''(experimental) OpenTelemetry CoreCLR profiler ID.
 
@@ -1368,6 +1388,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORECLR_PROFILER_PATH")
+    @builtins.classmethod
     def CORECLR_PROFILER_PATH(cls) -> builtins.str:
         '''(experimental) Path to CoreCLR profiler.
 
@@ -1377,6 +1398,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DOTNET_ADDITIONAL_DEPS")
+    @builtins.classmethod
     def DOTNET_ADDITIONAL_DEPS(cls) -> builtins.str:
         '''(experimental) Additional .NET dependencies configuration.
 
@@ -1386,6 +1408,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DOTNET_SHARED_STORE")
+    @builtins.classmethod
     def DOTNET_SHARED_STORE(cls) -> builtins.str:
         '''(experimental) .NET shared store configuration.
 
@@ -1395,6 +1418,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DOTNET_STARTUP_HOOKS")
+    @builtins.classmethod
     def DOTNET_STARTUP_HOOKS(cls) -> builtins.str:
         '''(experimental) .NET startup hooks configuration.
 
@@ -1404,6 +1428,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_DOTNET_AUTO_HOME")
+    @builtins.classmethod
     def OTEL_DOTNET_AUTO_HOME(cls) -> builtins.str:
         '''(experimental) .NET auto-instrumentation home directory.
 
@@ -1413,6 +1438,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_DOTNET_AUTO_PLUGINS")
+    @builtins.classmethod
     def OTEL_DOTNET_AUTO_PLUGINS(cls) -> builtins.str:
         '''(experimental) .NET auto-instrumentation plugins configuration.
 
@@ -1422,6 +1448,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_DOTNET_AUTO_PLUGINS_ADOT")
+    @builtins.classmethod
     def OTEL_DOTNET_AUTO_PLUGINS_ADOT(cls) -> builtins.str:
         '''(experimental) ADOT auto-instrumentation plugin for .NET.
 
@@ -1431,6 +1458,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_DOTNET_CONFIGURATOR")
+    @builtins.classmethod
     def OTEL_DOTNET_CONFIGURATOR(cls) -> builtins.str:
         '''(experimental) .NET OpenTelemetry configurator setting.
 
@@ -1440,6 +1468,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_DOTNET_CONFIGURATOR_AWS_CONFIGURATOR")
+    @builtins.classmethod
     def OTEL_DOTNET_CONFIGURATOR_AWS_CONFIGURATOR(cls) -> builtins.str:
         '''(experimental) AWS configurator for .NET OpenTelemetry.
 
@@ -1449,6 +1478,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_DOTNET_DISTRO")
+    @builtins.classmethod
     def OTEL_DOTNET_DISTRO(cls) -> builtins.str:
         '''(experimental) .NET OpenTelemetry distribution configuration.
 
@@ -1458,6 +1488,7 @@ class DotnetInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_DOTNET_DISTRO_AWS_DISTRO")
+    @builtins.classmethod
     def OTEL_DOTNET_DISTRO_AWS_DISTRO(cls) -> builtins.str:
         '''(experimental) AWS distribution for .NET OpenTelemetry.
 
@@ -1630,6 +1661,7 @@ class Injector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_ENVS")
+    @builtins.classmethod
     def DEFAULT_ENVS(cls) -> typing.List["EnvironmentExtension"]:
         '''
         :stability: experimental
@@ -1669,7 +1701,7 @@ class Injector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__94fc97bfd0d5618005048c5433172a3b7faa7b8c480e7f893f3bd76411bf09f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instrumentationVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "instrumentationVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="sharedVolumeName")
@@ -1684,7 +1716,7 @@ class Injector(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__acf91c135de73ebc450bad91aabf833d9815551c82d4173b7cb9645c03d4325b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sharedVolumeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sharedVolumeName", value)
 
 
 class _InjectorProxy(Injector):
@@ -2168,6 +2200,7 @@ class JavaInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="JAVA_TOOL_OPTIONS")
+    @builtins.classmethod
     def JAVA_TOOL_OPTIONS(cls) -> builtins.str:
         '''(experimental) Java tool options environment variable.
 
@@ -2252,6 +2285,7 @@ class JavaInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_MEMORY_LIMIT_MIB")
+    @builtins.classmethod
     def DEFAULT_MEMORY_LIMIT_MIB(cls) -> jsii.Number:
         '''(experimental) The default memory limit of the Java instrumentation.
 
@@ -2261,6 +2295,7 @@ class JavaInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IMAGE_REPO")
+    @builtins.classmethod
     def IMAGE_REPO(cls) -> builtins.str:
         '''(experimental) The image repository for Java instrumentation.
 
@@ -2270,6 +2305,7 @@ class JavaInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_32_6")
+    @builtins.classmethod
     def V1_32_6(cls) -> "JavaInstrumentationVersion":
         '''(experimental) ADOT Java Instrumentation version 1.32.6.
 
@@ -2279,6 +2315,7 @@ class JavaInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_33_0")
+    @builtins.classmethod
     def V1_33_0(cls) -> "JavaInstrumentationVersion":
         '''(experimental) ADOT Java Instrumentation version 1.33.0.
 
@@ -2288,6 +2325,7 @@ class JavaInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_10_0")
+    @builtins.classmethod
     def V2_10_0(cls) -> "JavaInstrumentationVersion":
         '''(experimental) ADOT Java Instrumentation version 2.10.0.
 
@@ -2324,6 +2362,7 @@ class LogsExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_LOGS_EXPORTER")
+    @builtins.classmethod
     def OTEL_LOGS_EXPORTER(cls) -> builtins.str:
         '''(experimental) Configuration for OpenTelemetry logs exporter.
 
@@ -2333,6 +2372,7 @@ class LogsExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_LOGS_EXPORTER_NONE")
+    @builtins.classmethod
     def OTEL_LOGS_EXPORTER_NONE(cls) -> builtins.str:
         '''(experimental) Disable logs export.
 
@@ -2342,6 +2382,7 @@ class LogsExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_LOGS_EXPORTER_OTLP")
+    @builtins.classmethod
     def OTEL_LOGS_EXPORTER_OTLP(cls) -> builtins.str:
         '''(experimental) Enable OTLP logs export.
 
@@ -2378,6 +2419,7 @@ class MetricsExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_METRICS_EXPORTER")
+    @builtins.classmethod
     def OTEL_METRICS_EXPORTER(cls) -> builtins.str:
         '''(experimental) Configuration for OpenTelemetry metrics exporter.
 
@@ -2387,6 +2429,7 @@ class MetricsExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_METRICS_EXPORTER_NONE")
+    @builtins.classmethod
     def OTEL_METRICS_EXPORTER_NONE(cls) -> builtins.str:
         '''(experimental) Disable metrics export.
 
@@ -2396,6 +2439,7 @@ class MetricsExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_METRICS_EXPORTER_OTLP")
+    @builtins.classmethod
     def OTEL_METRICS_EXPORTER_OTLP(cls) -> builtins.str:
         '''(experimental) Enable OTLP metrics export.
 
@@ -2533,6 +2577,7 @@ class NodeInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NODE_OPTIONS")
+    @builtins.classmethod
     def NODE_OPTIONS(cls) -> builtins.str:
         '''(experimental) Node.js options environment variable.
 
@@ -2582,6 +2627,7 @@ class NodeInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_MEMORY_LIMIT_MIB")
+    @builtins.classmethod
     def DEFAULT_MEMORY_LIMIT_MIB(cls) -> jsii.Number:
         '''(experimental) The default memory limit of the Node.js instrumentation.
 
@@ -2591,6 +2637,7 @@ class NodeInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IMAGE_REPO")
+    @builtins.classmethod
     def IMAGE_REPO(cls) -> builtins.str:
         '''(experimental) The image repository for Node.js instrumentation.
 
@@ -2600,6 +2647,7 @@ class NodeInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V0_5_0")
+    @builtins.classmethod
     def V0_5_0(cls) -> "NodeInstrumentationVersion":
         '''(experimental) ADOT Node.js Instrumentation version 0.5.0.
 
@@ -2609,6 +2657,7 @@ class NodeInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V0_6_0")
+    @builtins.classmethod
     def V0_6_0(cls) -> "NodeInstrumentationVersion":
         '''(experimental) ADOT Node.js Instrumentation version 0.6.0.
 
@@ -2703,6 +2752,7 @@ class PythonInjector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PYTHON_ENVS")
+    @builtins.classmethod
     def PYTHON_ENVS(cls) -> typing.List["EnvironmentExtension"]:
         '''
         :stability: experimental
@@ -2756,6 +2806,7 @@ class PythonInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_PYTHON_CONFIGURATOR")
+    @builtins.classmethod
     def OTEL_PYTHON_CONFIGURATOR(cls) -> builtins.str:
         '''(experimental) Python OpenTelemetry configurator setting.
 
@@ -2765,6 +2816,7 @@ class PythonInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_PYTHON_CONFIGURATOR_AWS_CONFIGURATOR")
+    @builtins.classmethod
     def OTEL_PYTHON_CONFIGURATOR_AWS_CONFIGURATOR(cls) -> builtins.str:
         '''(experimental) AWS configurator for Python OpenTelemetry.
 
@@ -2774,6 +2826,7 @@ class PythonInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_PYTHON_DISTRO")
+    @builtins.classmethod
     def OTEL_PYTHON_DISTRO(cls) -> builtins.str:
         '''(experimental) Python OpenTelemetry distribution configuration.
 
@@ -2783,6 +2836,7 @@ class PythonInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_PYTHON_DISTRO_AWS_DISTRO")
+    @builtins.classmethod
     def OTEL_PYTHON_DISTRO_AWS_DISTRO(cls) -> builtins.str:
         '''(experimental) AWS distribution for Python OpenTelemetry.
 
@@ -2792,6 +2846,7 @@ class PythonInstrumentation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PYTHONPATH")
+    @builtins.classmethod
     def PYTHONPATH(cls) -> builtins.str:
         '''(experimental) Python path environment variable.
 
@@ -2902,6 +2957,7 @@ class PythonInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_MEMORY_LIMIT_MIB")
+    @builtins.classmethod
     def DEFAULT_MEMORY_LIMIT_MIB(cls) -> jsii.Number:
         '''(experimental) The default memory limit of the Python instrumentation.
 
@@ -2911,6 +2967,7 @@ class PythonInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IMAGE_REPO")
+    @builtins.classmethod
     def IMAGE_REPO(cls) -> builtins.str:
         '''(experimental) The image repository for Python instrumentation.
 
@@ -2920,6 +2977,7 @@ class PythonInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V0_8_0")
+    @builtins.classmethod
     def V0_8_0(cls) -> "PythonInstrumentationVersion":
         '''(experimental) ADOT Python Instrumentation version 0.8.0.
 
@@ -2929,6 +2987,7 @@ class PythonInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V0_9_0")
+    @builtins.classmethod
     def V0_9_0(cls) -> "PythonInstrumentationVersion":
         '''(experimental) ADOT Python Instrumentation version 0.8.0.
 
@@ -3060,6 +3119,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+    @builtins.classmethod
     def OTEL_EXPORTER_OTLP_TRACES_ENDPOINT(cls) -> builtins.str:
         '''(experimental) Endpoint configuration for OTLP traces.
 
@@ -3069,6 +3129,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_EXPORTER_OTLP_TRACES_ENDPOINT_LOCAL_CWA")
+    @builtins.classmethod
     def OTEL_EXPORTER_OTLP_TRACES_ENDPOINT_LOCAL_CWA(cls) -> builtins.str:
         '''(experimental) Local CloudWatch Agent endpoint for traces.
 
@@ -3078,6 +3139,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_PROPAGATORS")
+    @builtins.classmethod
     def OTEL_PROPAGATORS(cls) -> builtins.str:
         '''(experimental) Configuration for trace context propagation.
 
@@ -3087,6 +3149,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_PROPAGATORS_APPLICATION_SIGNALS")
+    @builtins.classmethod
     def OTEL_PROPAGATORS_APPLICATION_SIGNALS(cls) -> builtins.str:
         '''(experimental) Supported propagation formats for Application Signals.
 
@@ -3096,6 +3159,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_TRACES_SAMPLER")
+    @builtins.classmethod
     def OTEL_TRACES_SAMPLER(cls) -> builtins.str:
         '''(experimental) Sampling configuration for traces.
 
@@ -3105,6 +3169,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_TRACES_SAMPLER_ALWAYS_OFF")
+    @builtins.classmethod
     def OTEL_TRACES_SAMPLER_ALWAYS_OFF(cls) -> builtins.str:
         '''(experimental) Sample no traces.
 
@@ -3114,6 +3179,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_TRACES_SAMPLER_ALWAYS_ON")
+    @builtins.classmethod
     def OTEL_TRACES_SAMPLER_ALWAYS_ON(cls) -> builtins.str:
         '''(experimental) Sample all traces.
 
@@ -3123,6 +3189,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_TRACES_SAMPLER_ARG")
+    @builtins.classmethod
     def OTEL_TRACES_SAMPLER_ARG(cls) -> builtins.str:
         '''(experimental) Arguments for trace sampler configuration.
 
@@ -3132,6 +3199,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_TRACES_SAMPLER_ARG_LOCAL_CWA")
+    @builtins.classmethod
     def OTEL_TRACES_SAMPLER_ARG_LOCAL_CWA(cls) -> builtins.str:
         '''(experimental) Local CloudWatch Agent endpoint for sampler.
 
@@ -3141,6 +3209,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_TRACES_SAMPLER_PARENT_BASED_ALWAYS_OFF")
+    @builtins.classmethod
     def OTEL_TRACES_SAMPLER_PARENT_BASED_ALWAYS_OFF(cls) -> builtins.str:
         '''(experimental) Parent-based always off sampling.
 
@@ -3150,6 +3219,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_TRACES_SAMPLER_PARENT_BASED_ALWAYS_ON")
+    @builtins.classmethod
     def OTEL_TRACES_SAMPLER_PARENT_BASED_ALWAYS_ON(cls) -> builtins.str:
         '''(experimental) Parent-based always on sampling.
 
@@ -3159,6 +3229,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_TRACES_SAMPLER_PARENT_BASED_TRACEID_RATIO")
+    @builtins.classmethod
     def OTEL_TRACES_SAMPLER_PARENT_BASED_TRACEID_RATIO(cls) -> builtins.str:
         '''(experimental) Parent-based trace ID ratio sampling.
 
@@ -3168,6 +3239,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_TRACES_SAMPLER_TRACEID_RATIO")
+    @builtins.classmethod
     def OTEL_TRACES_SAMPLER_TRACEID_RATIO(cls) -> builtins.str:
         '''(experimental) Trace ID ratio based sampling.
 
@@ -3177,6 +3249,7 @@ class TraceExporting(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OTEL_TRACES_SAMPLER_XRAY")
+    @builtins.classmethod
     def OTEL_TRACES_SAMPLER_XRAY(cls) -> builtins.str:
         '''(experimental) X-Ray sampling strategy.
 
@@ -3492,6 +3565,7 @@ class DotNetInjector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DOTNET_COMMON_ENVS")
+    @builtins.classmethod
     def DOTNET_COMMON_ENVS(cls) -> typing.List["EnvironmentExtension"]:
         '''
         :stability: experimental
@@ -3598,6 +3672,7 @@ class DotNetLinuxInjector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DOTNET_LINUX_ENVS")
+    @builtins.classmethod
     def DOTNET_LINUX_ENVS(cls) -> typing.List["EnvironmentExtension"]:
         '''
         :stability: experimental
@@ -3707,6 +3782,7 @@ class DotNetWindowsInjector(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DOTNET_WINDOWS_ENVS")
+    @builtins.classmethod
     def DOTNET_WINDOWS_ENVS(cls) -> typing.List["EnvironmentExtension"]:
         '''
         :stability: experimental
@@ -3773,6 +3849,7 @@ class DotnetInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_MEMORY_LIMIT_MIB")
+    @builtins.classmethod
     def DEFAULT_MEMORY_LIMIT_MIB(cls) -> jsii.Number:
         '''(experimental) The default memory limit of the .NET instrumentation.
 
@@ -3782,6 +3859,7 @@ class DotnetInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="IMAGE_REPO")
+    @builtins.classmethod
     def IMAGE_REPO(cls) -> builtins.str:
         '''(experimental) The image repository for .NET instrumentation.
 
@@ -3791,6 +3869,7 @@ class DotnetInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_6_0")
+    @builtins.classmethod
     def V1_6_0(cls) -> "DotnetInstrumentationVersion":
         '''(experimental) ADOT .NET Instrumentation version 1.6.0.
 
@@ -3800,6 +3879,7 @@ class DotnetInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_6_0_WINDOWS2019")
+    @builtins.classmethod
     def V1_6_0_WINDOWS2019(cls) -> "DotnetInstrumentationVersion":
         '''(experimental) ADOT .NET Instrumentation version 1.6.0 for Windows 2019.
 
@@ -3809,6 +3889,7 @@ class DotnetInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_6_0_WINDOWS2022")
+    @builtins.classmethod
     def V1_6_0_WINDOWS2022(cls) -> "DotnetInstrumentationVersion":
         '''(experimental) ADOT .NET Instrumentation version 1.6.0 for Windows 2022.
 
@@ -3818,6 +3899,7 @@ class DotnetInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_7_0")
+    @builtins.classmethod
     def V1_7_0(cls) -> "DotnetInstrumentationVersion":
         '''(experimental) ADOT .NET Instrumentation version 1.7.0.
 
@@ -3827,6 +3909,7 @@ class DotnetInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_7_0_WINDOWS2019")
+    @builtins.classmethod
     def V1_7_0_WINDOWS2019(cls) -> "DotnetInstrumentationVersion":
         '''(experimental) ADOT .NET Instrumentation version 1.7.0 for Windows 2019.
 
@@ -3836,6 +3919,7 @@ class DotnetInstrumentationVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_7_0_WINDOWS2022")
+    @builtins.classmethod
     def V1_7_0_WINDOWS2022(cls) -> "DotnetInstrumentationVersion":
         '''(experimental) ADOT .NET Instrumentation version 1.7.0 for Windows 2022.
 

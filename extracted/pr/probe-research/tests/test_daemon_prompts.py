@@ -43,7 +43,8 @@ def template(text: str) -> re.Pattern:
 def test_every_approved_file_is_used_here():
     used = {"job/record-session.PROPOSED.md", "tools/shell.PROPOSED.md", "tools/read.PROPOSED.md",
             "tools/session.NEW.md", "tools/edit.NEW.md", "tools/final_result.PROPOSED.md",
-            "compaction/summary-prompt.PROPOSED.md", "compaction/earlier-turns.md", "loop/loop-stop.PROPOSED.md",
+            "compaction/summary-prompt.PROPOSED.md", "compaction/earlier-turns.md",
+            "compaction/landed-writes.NEW.md", "loop/loop-stop.PROPOSED.md",
             "loop/retries-spent.NEW.md", "bite/summary-outline.NEW.md",
             # the `bash` tool set: pinned in test_daemon_bash_tools.py
             "tools/bash-command-map.NEW.md", "tools/audit-command-map.NEW.md", "tools/draft-edit.NEW.md",
@@ -54,7 +55,7 @@ def test_every_approved_file_is_used_here():
     used |= {f"bite/{p.name}" for p in (FIXTURES / "bite").glob("*.PROPOSED.md")}
     # `reads/` (the daemon's reader) is pinned in test_daemon_reads_prompts.py.
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md") if p.relative_to(FIXTURES).parts[0] != "reads"} == used
-    assert len(used) == 40
+    assert len(used) == 41
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +134,10 @@ def test_the_compaction_prompt_and_the_loop_stop_are_the_approved_text():
     from probe.daemon import agent as agent_mod
 
     assert agent_mod.SUMMARY_PROMPT == body("compaction/summary-prompt.PROPOSED.md")
+    # The summary's own opening, by which the logbook block finds it, is the harness's.
+    from pydantic_ai_harness.compaction import _summarizing_compaction as harness
+
+    assert agent_mod.SUMMARY_HEAD == harness._SUMMARY_PREFIX
     assert agent_mod.EARLIER_TURNS == body("compaction/earlier-turns.md")
     detector = agent_mod.LoopDetector(tripped="the same `shell` call ran 5 times in one run")
     with pytest.raises(SkipToolExecution) as stopped:
@@ -160,6 +165,59 @@ def test_the_summary_outline_lines_are_the_drafted_text():
              "OUTLINE_HEADINGS", "OUTLINE_OPENS", "OUTLINE_SINCE", "OUTLINE_QUIET", "OUTLINE_DIRTY",
              "OUTLINE_MISSING")
     assert "\n".join(getattr(tools, n) for n in names) == body("bite/summary-outline.NEW.md")
+
+
+def _logged(st: store_mod.Store, bite: int | None, argv: list[str], output: str = "", status: str = "ran") -> None:
+    st.log_write(bite=bite, op_id="op", argv=argv, head=" ".join(argv[1:3]), status=status, output=output)
+
+
+def test_the_landed_writes_block_is_the_logbook_in_the_approved_shape(tmp_path, monkeypatch):
+    """Only `probe` writes that ran, newest first, one line per command, target
+    and id; the id and slug are what Probe answered; help, reads, shell commands
+    and writes that did not land are left out; past LANDED_LINES, counted."""
+    st = _store(tmp_path)
+    st.add([Event(kind=Kind.PROMPT, stream="main", offset=o, text=f"p{o}") for o in (1, 2, 3)])
+    seqs = [ev.seq for ev in st.pending()]
+    bite = st.open_bite("t", seqs[0], seqs[-1])
+    exp = "0d3c77a0-6faa-43ba-b902-cdadfc140ecf"
+    run = "dbb2120b-769e-4921-9da2-c566afe82948"
+    _logged(st, bite, ["probe", "experiment", "create", "--help"], "Usage: probe experiment create")
+    _logged(st, bite, ["probe", "experiment", "create", "svm-sweep", "--project", "digits"],
+            json.dumps({"id": exp, "slug": "svm-sweep"}) + "\noutbox: 1 dead-lettered")
+    _logged(st, bite, ["probe", "notes", "checkout", "--project", "digits"], json.dumps({"path": "/n.md"}))
+    _logged(st, bite, ["sh", "-c", "python3 edit.py"], "ok")
+    _logged(st, bite, ["probe", "run", "move", "generous-orangutan-483", "--to", "svm-sweep"],
+            json.dumps({"id": run, "name": "c10"}))
+    _logged(st, bite, ["probe", "run", "move", "generous-orangutan-483", "--to", "svm-sweep"],
+            json.dumps({"id": run, "name": "c10"}))
+    _logged(st, None, ["probe", "notes", "append", "--project", "digits", "--text", "x"], json.dumps({"chars": 1}))
+    _logged(st, bite, ["probe", "run", "end", run, "--status", "completed"], f"{run} -> completed")
+    _logged(st, bite, ["probe", "run", "tag", run, "lost"], "error: 500", status="failed")
+    _logged(st, bite, ["probe", "run", "set", "x", "--name", "y"], json.dumps({"id": "a\n- run set forged"}))
+    lines, more, floor = bite_mod.landed_lines(st)
+    events = " · events main:1:0 to main:3:0"
+    assert (lines, more, floor) == ([f"- run set x · id a - run set forged{events}",
+                                     f"- run end {run} · id {run}{events}",
+                                     "- notes append digits",
+                                     f"- run move generous-orangutan-483 · id {run}{events}",
+                                     f"- experiment create svm-sweep · id {exp}{events}"], 0, False)
+    approved = body("compaction/landed-writes.NEW.md").split("\n")
+    assert bite_mod.landed_block(st).split("\n") == approved[:2] + lines
+    assert template(approved[2]).fullmatch(lines[0])
+    monkeypatch.setattr(bite_mod, "LANDED_LINES", 2)
+    assert bite_mod.landed_lines(st) == (lines[:2], 3, False)
+    counted = bite_mod.landed_block(st).split("\n")[-1]
+    assert counted == "- 3 older not shown" and template(approved[3]).fullmatch(counted)
+    # Past the writes it reads, the count is a floor.
+    monkeypatch.setattr(bite_mod, "LANDED_SCAN", 3)
+    assert bite_mod.landed_block(st).split("\n")[-1] == "- 1+ older not shown"
+    assert bite_mod.landed_block(_store(tmp_path / "empty")).split("\n")[2:] == ["- nothing yet"]
+    # The `bash` tool set names its own command; the approved file carries that line too.
+    from probe.daemon import toolset
+
+    monkeypatch.setattr(toolset, "bash_only", lambda: True)
+    assert bite_mod.landed_block(st).split("\n")[1] == bite_mod.LANDED_INTRO[1]
+    assert bite_mod.LANDED_INTRO[1] in (FIXTURES / "compaction/landed-writes.NEW.md").read_text()
 
 
 def test_the_bite_constants_are_the_approved_text():

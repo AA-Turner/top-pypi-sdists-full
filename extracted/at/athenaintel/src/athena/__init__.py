@@ -262,6 +262,7 @@ if typing.TYPE_CHECKING:
     from .databases import InsertDataRequestData
     from .environment import AthenaEnvironment
     from .meetings import (
+        ClipMeetingsRequestMedia,
         DownloadMeetingsRequestArtifact,
         ListMeetingsRequestDomainMatch,
         ListMeetingsRequestParticipantMatch,
@@ -333,6 +334,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChunkContentItem_Text": ".types",
     "ChunkResult": ".types",
     "ChunkResultChunkId": ".types",
+    "ClipMeetingsRequestMedia": ".meetings",
     "CollabAgentSendMessageResponseOut": ".types",
     "CollabTokenRequestAccess": ".assets",
     "CollabTokenResponse": ".types",
@@ -620,6 +622,7 @@ __all__ = [
     "ChunkContentItem_Text",
     "ChunkResult",
     "ChunkResultChunkId",
+    "ClipMeetingsRequestMedia",
     "CollabAgentSendMessageResponseOut",
     "CollabTokenRequestAccess",
     "CollabTokenResponse",

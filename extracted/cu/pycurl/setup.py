@@ -1,13 +1,16 @@
 """Setup script for the PycURL module distribution."""
 
-PROJECT_NAME = "pycurl"
 EXTENSION_NAME = "pycurl._pycurl"
-PY_PACKAGE = "curl"
-VERSION = "7.48.0"
+VERSION = "7.49.0"
 
-import glob, os, re, shlex, sys, subprocess
+import os
+import re
+import shlex
+import subprocess
+import sys
 from pathlib import Path
 from setuptools import setup
+from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.extension import Extension
 
 class ConfigurationError(Exception):
@@ -19,57 +22,8 @@ def fail(msg):
     sys.exit(10)
 
 
-def scan_argv(argv, s, default=None):
-    p = default
-    i = 1
-    while i < len(argv):
-        arg = argv[i]
-        if s.endswith('='):
-            if str.find(arg, s) == 0:
-                # --option=value
-                p = arg[len(s):]
-                if s != '--openssl-lib-name=':
-                    assert p, arg
-                del argv[i]
-            else:
-                i += 1
-        else:
-            if s == arg:
-                # --option
-                # set value to True
-                p = True
-                del argv[i]
-            else:
-                i = i + 1
-    ##print argv
-    return p
-
-
-def scan_argvs(argv, s):
-    if not s.endswith('='):
-        raise Exception('specification must end with =')
-    p = []
-    i = 1
-    while i < len(argv):
-        arg = argv[i]
-        if str.find(arg, s) == 0:
-            # --option=value
-            p.append(arg[len(s):])
-            if s != '--openssl-lib-name=':
-                assert p[-1], arg
-            del argv[i]
-        else:
-            i = i + 1
-    ##print argv
-    return p
-
-
 class ExtensionConfiguration:
-    def __init__(self, argv=[]):
-        # we mutate argv, this is necessary because
-        # setuptools does not recognize pycurl-specific options
-        self.argv = argv
-        self.original_argv = argv[:]
+    def __init__(self):
         self.include_dirs = []
         self.define_macros = [("PYCURL_VERSION", '"%s"' % VERSION)]
         self.library_dirs = []
@@ -85,22 +39,6 @@ class ExtensionConfiguration:
     @property
     def define_symbols(self):
         return [symbol for symbol, expansion in self.define_macros]
-
-    # append contents of an environment variable to library_dirs[]
-    def add_libdirs(self, envvar, sep, fatal=False):
-        v = os.environ.get(envvar)
-        if not v:
-            return
-        for dir in str.split(v, sep):
-            dir = str.strip(dir)
-            if not dir:
-                continue
-            dir = os.path.normpath(dir)
-            if os.path.isdir(dir):
-                if not dir in self.library_dirs:
-                    self.library_dirs.append(dir)
-            elif fatal:
-                fail("FATAL: bad directory %s in environment variable %s" % (dir, envvar))
 
     def detect_features(self):
         p = subprocess.Popen((self.curl_config(), '--features'),
@@ -121,27 +59,6 @@ class ExtensionConfiguration:
                 curl_has_ssl = True
         self.curl_has_ssl = curl_has_ssl
 
-    def ssl_options(self):
-        return {
-            '--with-openssl': self.using_openssl,
-            '--with-ssl': self.using_openssl,
-            '--with-wolfssl': self.using_wolfssl,
-            '--with-gnutls': self.using_gnutls,
-            '--with-nss': self.using_nss,
-            '--with-mbedtls': self.using_mbedtls,
-            '--with-sectransp': self.using_sectransp,
-        }
-
-    def detect_ssl_option(self):
-        for option in self.ssl_options():
-            if scan_argv(self.argv, option) is not None:
-                for other_option in self.ssl_options():
-                    if option != other_option:
-                        if scan_argv(self.argv, other_option) is not None:
-                            raise ConfigurationError('Cannot give both %s and %s' % (option, other_option))
-
-                return option
-
     def detect_ssl_backend(self):
         ssl_lib_detected = None
 
@@ -153,14 +70,8 @@ class ExtensionConfiguration:
             else:
                 raise ConfigurationError('Invalid value "%s" for PYCURL_SSL_LIBRARY' % ssl_lib)
 
-        option = self.detect_ssl_option()
-        if option:
-            ssl_lib_detected = option.replace('--with-', '')
-            self.ssl_options()[option]()
-
-        # ssl detection - ssl libraries are added
         if not ssl_lib_detected:
-            libcurl_dll_path = scan_argv(self.argv, "--libcurl-dll=")
+            libcurl_dll_path = os.environ.get('PYCURL_LIBCURL_DLL')
             if libcurl_dll_path is not None:
                 ssl_lib_detected = self.detect_ssl_lib_from_libcurl_dll(libcurl_dll_path)
 
@@ -199,13 +110,11 @@ class ExtensionConfiguration:
             return self._curl_config
         except AttributeError:
             curl_config = os.environ.get('PYCURL_CURL_CONFIG', "curl-config")
-            curl_config = scan_argv(self.argv, "--curl-config=", curl_config)
             self._curl_config = curl_config
             return curl_config
 
     def configure_unix(self):
         OPENSSL_DIR = os.environ.get('PYCURL_OPENSSL_DIR')
-        OPENSSL_DIR = scan_argv(self.argv, "--openssl-dir=", OPENSSL_DIR)
         if OPENSSL_DIR is not None:
             self.include_dirs.append(os.path.join(OPENSSL_DIR, "include"))
             self.library_dirs.append(os.path.join(OPENSSL_DIR, "lib"))
@@ -218,7 +127,7 @@ class ExtensionConfiguration:
             raise ConfigurationError(msg)
         stdout, stderr = p.communicate()
         if p.wait() != 0:
-            msg = "`%s' not found -- please install the libcurl development files or specify --curl-config=/path/to/curl-config" % self.curl_config()
+            msg = "`%s' not found -- please install the libcurl development files or set the PYCURL_CURL_CONFIG environment variable to the path to curl-config" % self.curl_config()
             if stderr:
                 msg += ":\n" + stderr.decode()
             raise ConfigurationError(msg)
@@ -309,7 +218,7 @@ OpenSSL, LibreSSL, BoringSSL, GnuTLS, NSS, mbedTLS, or Secure Transport \
 please specify the SSL backend manually. For other SSL backends please \
 ignore this message.''')
         else:
-            if self.detect_ssl_option():
+            if 'PYCURL_SSL_LIBRARY' in os.environ:
                 sys.stderr.write("Warning: SSL backend specified manually but libcurl does not use SSL\n")
 
         # libraries and options - all libraries and options are forwarded
@@ -325,8 +234,6 @@ ignore this message.''')
         if not self.libraries:
             self.libraries.append("curl")
 
-        # Recognize --avoid-stdio on Unix so that it can be tested
-        self.check_avoid_stdio()
         self.check_werror()
 
         try:
@@ -398,16 +305,14 @@ ignore this message.''')
 
     def configure_windows(self):
         OPENSSL_DIR = os.environ.get('PYCURL_OPENSSL_DIR')
-        OPENSSL_DIR = scan_argv(self.argv, "--openssl-dir=", OPENSSL_DIR)
         if OPENSSL_DIR is not None:
             self.include_dirs.append(os.path.join(OPENSSL_DIR, "include"))
             self.library_dirs.append(os.path.join(OPENSSL_DIR, "lib"))
-        # Windows users have to pass --curl-dir parameter to specify path
+        # Windows users have to set PYCURL_CURL_DIR to specify path
         # to libcurl, because there is no curl-config on windows at all.
         curl_dir = os.environ.get('PYCURL_CURL_DIR')
-        curl_dir = scan_argv(self.argv, "--curl-dir=", curl_dir)
         if curl_dir is None:
-            fail("Please specify --curl-dir=/path/to/built/libcurl")
+            fail("Please set the PYCURL_CURL_DIR environment variable to the path to built libcurl")
         if not os.path.exists(curl_dir):
             fail("Curl directory does not exist: %s" % curl_dir)
         if not os.path.isdir(curl_dir):
@@ -419,29 +324,26 @@ ignore this message.''')
         # dll, the import library name is libcurl_imp.lib.
         # For libcurl 7.46.0, the library name is libcurl.lib.
         # And static library name is libcurl_a.lib by default as of libcurl 7.46.0.
-        # override with: --libcurl-lib-name=libcurl_imp.lib
+        # override with: PYCURL_LIBCURL_LIB_NAME=libcurl_imp.lib
         curl_lib_name = os.environ.get('PYCURL_LIBCURL_LIB_NAME', 'libcurl.lib')
-        curl_lib_name = scan_argv(self.argv, '--libcurl-lib-name=', curl_lib_name)
 
-        # openssl 1.1.0 changed its library names
-        # from libeay32.lib/ssleay32.lib to libcrypto.lib/libssl.lib.
-        # at the same time they dropped thread locking callback interface,
-        # meaning the correct usage of this option is --openssl-lib-name=""
-        self.openssl_lib_name = os.environ.get('PYCURL_OPENSSL_LIB_NAME', 'libeay32.lib')
-        self.openssl_lib_name = scan_argv(self.argv, '--openssl-lib-name=', self.openssl_lib_name)
+        # OpenSSL 1.1.0 renamed its import libraries from
+        # libeay32.lib/ssleay32.lib to libcrypto.lib/libssl.lib, and dropped
+        # the thread locking callback interface at the same time, meaning we
+        # do not need to link against an OpenSSL import library at all by
+        # default. Override with PYCURL_OPENSSL_LIB_NAME if yours does.
+        self.openssl_lib_name = os.environ.get('PYCURL_OPENSSL_LIB_NAME', '')
 
         try:
             for lib in os.environ['PYCURL_LINK_ARG'].split(os.pathsep):
                 self.extra_link_args.append(lib)
         except KeyError:
             pass
-        for lib in scan_argvs(self.argv, '--link-arg='):
-            self.extra_link_args.append(lib)
 
-        if scan_argv(self.argv, "--use-libcurl-dll") is not None or os.environ.get('PYCURL_USE_LIBCURL_DLL') is not None:
+        if os.environ.get('PYCURL_USE_LIBCURL_DLL') is not None:
             libcurl_lib_path = os.path.join(curl_dir, "lib", curl_lib_name)
             self.extra_link_args.extend(["ws2_32.lib"])
-            if str.find(sys.version, "MSC") >= 0:
+            if "MSC" in sys.version:
                 # build a dll
                 self.extra_compile_args.append("-MD")
         else:
@@ -453,49 +355,23 @@ ignore this message.''')
             fail("libcurl.lib does not exist at %s.\nCurl directory must point to compiled libcurl (bin/include/lib subdirectories): %s" %(libcurl_lib_path, curl_dir))
         self.extra_objects.append(libcurl_lib_path)
 
-        if scan_argv(self.argv, '--with-openssl') is not None or scan_argv(self.argv, '--with-ssl') is not None:
-            self.using_openssl()
-        elif scan_argv(self.argv, '--with-schannel') is not None:
-            self.using_schannel()
-        elif 'PYCURL_SSL_LIBRARY' in os.environ:
+        if 'PYCURL_SSL_LIBRARY' in os.environ:
             ssl_lib = os.environ['PYCURL_SSL_LIBRARY']
             if ssl_lib in ['openssl', 'schannel']:
                 getattr(self, 'using_%s' % ssl_lib)()
             else:
                 raise ConfigurationError('Invalid value "%s" for PYCURL_SSL_LIBRARY' % ssl_lib)
 
-        self.check_avoid_stdio()
-
-        # make pycurl binary work on windows xp.
-        # we use inet_ntop which was added in vista and implement a fallback.
-        # our implementation will not be compiled with _WIN32_WINNT targeting
-        # vista or above, thus said binary won't work on xp.
-        # https://curl.haxx.se/mail/curlpython-2013-12/0007.html
-        self.extra_compile_args.append("-D_WIN32_WINNT=0x0501")
-
-        if str.find(sys.version, "MSC") >= 0:
+        if "MSC" in sys.version:
             self.extra_compile_args.append("-O2")
             self.extra_compile_args.append("-GF")        # enable read-only string pooling
             self.extra_compile_args.append("-WX")        # treat warnings as errors
-            p = subprocess.Popen(['cl.exe'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = p.communicate()
-            match = re.search(r'Version (\d+)', err.decode().split("\n")[0])
-            if match and int(match.group(1)) < 16:
-                # option removed in vs 2010:
-                # connect.microsoft.com/VisualStudio/feedback/details/475896/link-fatal-error-lnk1117-syntax-error-in-option-opt-nowin98/
-                self.extra_link_args.append("/opt:nowin98")  # use small section alignment
 
     if sys.platform == "win32":
         configure = configure_windows
     else:
         configure = configure_unix
 
-
-    def check_avoid_stdio(self):
-        if 'PYCURL_SETUP_OPTIONS' in os.environ and '--avoid-stdio' in os.environ['PYCURL_SETUP_OPTIONS']:
-            self.extra_compile_args.append("-DPYCURL_AVOID_STDIO")
-        if scan_argv(self.argv, '--avoid-stdio') is not None:
-            self.extra_compile_args.append("-DPYCURL_AVOID_STDIO")
 
     def check_werror(self):
         # Not CFLAGS, which unrelated builds (e.g. vcpkg) in the same environment also pick up.
@@ -545,9 +421,10 @@ ignore this message.''')
     def using_openssl(self):
         self.define_macros.append(('HAVE_CURL_OPENSSL', 1))
         if sys.platform == "win32":
-            # CRYPTO_num_locks is defined in libeay32.lib
-            # for openssl < 1.1.0; it is a noop for openssl >= 1.1.0
-            self.extra_link_args.append(self.openssl_lib_name)
+            # CRYPTO_num_locks was defined in libeay32.lib for openssl <
+            # 1.1.0; not needed for 1.1.0+, which is why the default is empty.
+            if self.openssl_lib_name:
+                self.extra_link_args.append(self.openssl_lib_name)
         else:
             # we also need ssl for the certificate functions
             # (SSL_CTX_get_cert_store)
@@ -595,19 +472,6 @@ ignore this message.''')
         self.ssl_lib_detected = 'schannel'
 
 
-def strip_pycurl_options(argv):
-    if sys.platform == 'win32':
-        options = [
-            '--curl-dir=', '--libcurl-lib-name=', '--use-libcurl-dll',
-            '--avoid-stdio', '--with-openssl', '--openssl-dir=',
-            '--with-schannel',
-        ]
-    else:
-        options = ['--openssl-dir=', '--curl-config=', '--avoid-stdio']
-    for option in options:
-        scan_argv(argv, option)
-
-
 ###############################################################################
 
 PRETTY_SSL_LIBS = {
@@ -621,170 +485,69 @@ PRETTY_SSL_LIBS = {
     'schannel': 'Schannel',
 }
 
-def get_extension(argv, split_extension_source=False):
-    if split_extension_source:
-        sources = [
-            os.path.join("src", "docstrings.c"),
-            os.path.join("src", "easy.c"),
-            os.path.join("src", "easycb.c"),
-            os.path.join("src", "easyinfo.c"),
-            os.path.join("src", "easyopt.c"),
-            os.path.join("src", "easyperform.c"),
-            os.path.join("src", "easyws.c"),
-            os.path.join("src", "module.c"),
-            os.path.join("src", "mime.c"),
-            os.path.join("src", "multi.c"),
-            os.path.join("src", "oscompat.c"),
-            os.path.join("src", "pythoncompat.c"),
-            os.path.join("src", "share.c"),
-            os.path.join("src", "stringcompat.c"),
-            os.path.join("src", "threadsupport.c"),
-            os.path.join("src", "url.c"),
-            os.path.join("src", "util.c"),
-        ]
-        depends = [
-            os.path.join("src", "pycurl.h"),
-        ]
-    else:
-        sources = [
-            os.path.join("src", "allpycurl.c"),
-        ]
-        depends = []
-    ext_config = ExtensionConfiguration(argv)
+def get_extension():
+    sources = [
+        os.path.join("src", "docstrings.c"),
+        os.path.join("src", "easy.c"),
+        os.path.join("src", "easycb.c"),
+        os.path.join("src", "easyinfo.c"),
+        os.path.join("src", "easyopt.c"),
+        os.path.join("src", "easyperform.c"),
+        os.path.join("src", "easyws.c"),
+        os.path.join("src", "module.c"),
+        os.path.join("src", "mime.c"),
+        os.path.join("src", "multi.c"),
+        os.path.join("src", "oscompat.c"),
+        os.path.join("src", "pythoncompat.c"),
+        os.path.join("src", "share.c"),
+        os.path.join("src", "stringcompat.c"),
+        os.path.join("src", "threadsupport.c"),
+        os.path.join("src", "url.c"),
+        os.path.join("src", "util.c"),
+    ]
+    depends = [
+        os.path.join("src", "pycurl.h"),
+    ]
+    return Extension(name=EXTENSION_NAME, sources=sources, depends=depends)
 
-    if ext_config.ssl_lib_detected:
-        print('Using SSL library: %s' % PRETTY_SSL_LIBS[ext_config.ssl_lib_detected])
-    else:
-        print('Not using an SSL library')
 
-    ext = Extension(
-        name=EXTENSION_NAME,
-        sources=sources,
-        depends=depends,
-        include_dirs=ext_config.include_dirs,
-        define_macros=ext_config.define_macros,
-        library_dirs=ext_config.library_dirs,
-        libraries=ext_config.libraries,
-        runtime_library_dirs=ext_config.runtime_library_dirs,
-        extra_objects=ext_config.extra_objects,
-        extra_compile_args=ext_config.extra_compile_args,
-        extra_link_args=ext_config.extra_link_args,
-    )
-    ##print(ext.__dict__); sys.exit(1)
-    return ext
+class BuildExt(_build_ext):
+    def run(self):
+        generate_docstrings()
+
+        config = ExtensionConfiguration()
+        if config.ssl_lib_detected:
+            print('Using SSL library: %s' % PRETTY_SSL_LIBS[config.ssl_lib_detected])
+        else:
+            print('Not using an SSL library')
+
+        for ext in self.extensions:
+            if ext.name != EXTENSION_NAME:
+                continue
+            ext.include_dirs.extend(config.include_dirs)
+            ext.define_macros.extend(config.define_macros)
+            ext.library_dirs.extend(config.library_dirs)
+            ext.libraries.extend(config.libraries)
+            ext.runtime_library_dirs.extend(config.runtime_library_dirs)
+            ext.extra_objects.extend(config.extra_objects)
+            ext.extra_compile_args.extend(config.extra_compile_args)
+            ext.extra_link_args.extend(config.extra_link_args)
+            for o in ext.extra_objects:
+                assert os.path.isfile(o), o
+
+        super().run()
 
 
 ###############################################################################
 
-# prepare data_files
+def generate_docstrings():
+    docstrings_dir = Path("doc", "docstrings")
+    docstrings = [
+        (entry.stem, entry.read_text(encoding="utf-8").strip())
+        for entry in sorted(docstrings_dir.glob("*.rst"))
+    ]
 
-def get_data_files():
-    # a list of tuples with (path to install to, a list of local files)
-    data_files = []
-    if sys.platform == "win32":
-        datadir = os.path.join("doc", PROJECT_NAME)
-    else:
-        datadir = os.path.join("share", "doc", PROJECT_NAME)
-    #
-    files = ["AUTHORS", "ChangeLog", "COPYING-LGPL", "COPYING-MIT",
-        "INSTALL.rst", "README.rst", "RELEASE-NOTES.rst"]
-    if files:
-        data_files.append((os.path.join(datadir), files))
-    files = glob.glob(os.path.join("examples", "*.py"))
-    if files:
-        data_files.append((os.path.join(datadir, "examples"), files))
-    files = glob.glob(os.path.join("examples", "quickstart", "*.py"))
-    if files:
-        data_files.append((os.path.join(datadir, "examples", "quickstart"), files))
-    #
-    assert data_files
-    for install_dir, files in data_files:
-        assert files
-        for f in files:
-            assert os.path.isfile(f), (f, install_dir)
-    return data_files
-
-
-###############################################################################
-
-def check_manifest():
-    import fnmatch
-
-    f = open('MANIFEST.in')
-    globs = []
-    try:
-        for line in f.readlines():
-            stripped = line.strip()
-            if stripped == '' or stripped.startswith('#'):
-                continue
-            assert stripped.startswith('include ')
-            glob = stripped[8:]
-            globs.append(glob)
-    finally:
-        f.close()
-
-    paths = []
-    start = os.path.abspath(os.path.dirname(__file__))
-    for root, dirs, files in os.walk(start):
-        if '.git' in dirs:
-            dirs.remove('.git')
-        for file in files:
-            if file.endswith('.pyc'):
-                continue
-            rel = os.path.join(root, file)[len(start)+1:]
-            paths.append(rel)
-
-    for path in paths:
-        included = False
-        for glob in globs:
-            if fnmatch.fnmatch(path, glob):
-                included = True
-                break
-        if not included:
-            print(path)
-
-AUTHORS_PARAGRAPH = 3
-
-def check_authors():
-    f = open('AUTHORS')
-    try:
-        contents = f.read()
-    finally:
-        f.close()
-
-    paras = contents.split("\n\n")
-    authors_para = paras[AUTHORS_PARAGRAPH]
-    authors = [author for author in authors_para.strip().split("\n")]
-
-    log = subprocess.check_output(['git', 'log', '--format=%an (%ae)']).decode()
-    for author in log.strip().split("\n"):
-        author = author.replace('@', ' at ').replace('(', '<').replace(')', '>')
-        if author not in authors:
-            authors.append(author)
-    authors.sort(key=lambda s: s.lower())
-    paras[AUTHORS_PARAGRAPH] = "\n".join(authors)
-    f = open('AUTHORS', 'w')
-    try:
-        f.write("\n\n".join(paras))
-    finally:
-        f.close()
-
-
-def convert_docstrings():
-    docstrings = []
-    for entry in sorted(os.listdir('doc/docstrings')):
-        if not entry.endswith('.rst'):
-            continue
-
-        name = entry.replace('.rst', '')
-        f = open('doc/docstrings/%s' % entry)
-        try:
-            text = f.read().strip()
-        finally:
-            f.close()
-        docstrings.append((name, text))
-    f = open('src/docstrings.c', 'w')
-    try:
+    with Path("src", "docstrings.c").open("w", encoding="utf-8") as f:
         f.write("/* Generated file - do not edit. */\n")
         # space to avoid having /* inside a C comment
         f.write("/* See doc/docstrings/ *.rst. */\n\n")
@@ -792,93 +555,21 @@ def convert_docstrings():
         for name, text in docstrings:
             text = text.replace("\"", "\\\"").replace("\n", "\\n\\\n")
             f.write("PYCURL_INTERNAL const char %s_doc[] = \"%s\";\n\n" % (name, text))
-    finally:
-        f.close()
-    f = open('src/docstrings.h', 'w')
-    try:
+
+    with Path("src", "docstrings.h").open("w", encoding="utf-8") as f:
         f.write("/* Generated file - do not edit. */\n")
         # space to avoid having /* inside a C comment
         f.write("/* See doc/docstrings/ *.rst. */\n\n")
         for name, text in docstrings:
             f.write("extern const char %s_doc[];\n" % name)
-    finally:
-        f.close()
-
-
-def gen_docstrings_sources():
-    sources = 'DOCSTRINGS_SOURCES ='
-    for entry in sorted(os.listdir('doc/docstrings')):
-        if entry.endswith('.rst'):
-            sources += " \\\n\tdoc/docstrings/%s" % entry
-    print(sources)
 
 ###############################################################################
 
 setup_args = dict(
     version=VERSION,
-    long_description_content_type='text/x-rst',
-    long_description=(Path(__file__).parent / 'README.rst').read_text(encoding='utf-8'),
+    ext_modules=[get_extension()],
+    cmdclass={'build_ext': BuildExt},
 )
 
-unix_help = '''\
-PycURL Unix options:
- --curl-config=/path/to/curl-config  use specified curl-config binary
- --libcurl-dll=[/path/to/]libcurl.so obtain SSL library from libcurl.so
- --openssl-dir=/path/to/openssl/dir  path to OpenSSL/LibreSSL/BoringSSL headers and libraries
- --with-openssl                      libcurl is linked against OpenSSL/LibreSSL/BoringSSL
- --with-ssl                          legacy alias for --with-openssl
- --with-gnutls                       libcurl is linked against GnuTLS
- --with-nss                          libcurl is linked against NSS
- --with-mbedtls                      libcurl is linked against mbedTLS
- --with-wolfssl                      libcurl is linked against wolfSSL
- --with-sectransp                    libcurl is linked against Secure Transport
-'''
-
-windows_help = '''\
-PycURL Windows options:
- --curl-dir=/path/to/compiled/libcurl  path to libcurl headers and libraries
- --use-libcurl-dll                     link against libcurl DLL, if not given
-                                       link against libcurl statically
- --libcurl-lib-name=libcurl_imp.lib    override libcurl import library name
- --openssl-dir=/path/to/openssl/dir    path to OpenSSL/LibreSSL/BoringSSL headers and libraries
- --with-openssl                        libcurl is linked against OpenSSL/LibreSSL/BoringSSL
- --with-ssl                            legacy alias for --with-openssl
- --link-arg=foo.lib                    also link against specified library
- --with-schannel                       libcurl is linked against Schannel
-'''
-
 if __name__ == "__main__":
-    if '--help' in sys.argv or '-h' in sys.argv:
-        # unfortunately this help precedes distutils help
-        if sys.platform == "win32":
-            print(windows_help)
-        else:
-            print(unix_help)
-        # invoke setup without configuring pycurl because
-        # configuration might fail, and we want to display help anyway.
-        # we need to remove our options because distutils complains about them
-        strip_pycurl_options(sys.argv)
-        setup(**setup_args)
-    elif len(sys.argv) > 1 and sys.argv[1] == 'manifest':
-        check_manifest()
-    elif len(sys.argv) > 1 and sys.argv[1] == 'docstrings':
-        convert_docstrings()
-    elif len(sys.argv) > 1 and sys.argv[1] == 'authors':
-        check_authors()
-    elif len(sys.argv) > 1 and sys.argv[1] == 'docstrings-sources':
-        gen_docstrings_sources()
-    else:
-        if sys.argv[1] not in ['clean'] and (not os.path.exists('src/docstrings.c') or not os.path.exists('src/docstrings.h')):
-            convert_docstrings()
-
-        setup_args['data_files'] = get_data_files()
-        if 'PYCURL_RELEASE' in os.environ and os.environ['PYCURL_RELEASE'].lower() in ['1', 'yes', 'true']:
-            split_extension_source = False
-        else:
-            split_extension_source = True
-        ext = get_extension(sys.argv, split_extension_source=split_extension_source)
-        setup_args['ext_modules'] = [ext]
-
-        for o in ext.extra_objects:
-            assert os.path.isfile(o), o
-        setup(**setup_args)
+    setup(**setup_args)

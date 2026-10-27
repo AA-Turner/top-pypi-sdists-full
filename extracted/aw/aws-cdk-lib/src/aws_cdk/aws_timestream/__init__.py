@@ -223,6 +223,7 @@ class CfnDatabase(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -269,7 +270,7 @@ class CfnDatabase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8cbde3c6f76ec33728e8896f7456e86f8a746129259457fcb60defa5e1d7bdf3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "databaseName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "databaseName", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -282,7 +283,7 @@ class CfnDatabase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a88a8e589058995e4c9588f4cb113f823707014eb42119b90c9719e50cb390e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -298,7 +299,7 @@ class CfnDatabase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c161fd44298031bcce0863494a5d3a09a73703fe8c50ee977b03cbe4cab5d4a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -395,6 +396,834 @@ class CfnDatabaseProps:
 
     def __repr__(self) -> str:
         return "CfnDatabaseProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_timestream_1b8764a5.IInfluxDBBackupRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnInfluxDBBackup(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBBackup",
+):
+    '''Resource type definition for AWS::Timestream::InfluxDBBackup.
+
+    An on-demand backup of an Amazon Timestream for InfluxDB DB instance or DB cluster.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbbackup.html
+    :cloudformationResource: AWS::Timestream::InfluxDBBackup
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_timestream as timestream
+        
+        cfn_influx_db_backup = timestream.CfnInfluxDBBackup(self, "MyCfnInfluxDBBackup",
+            db_resource_id="dbResourceId",
+            name="name",
+        
+            # the properties below are optional
+            retention_days=123,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        db_resource_id: builtins.str,
+        name: builtins.str,
+        retention_days: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Timestream::InfluxDBBackup``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param db_resource_id: The id of the DB instance or DB cluster to back up.
+        :param name: The name of the backup. Must be unique within the account and region.
+        :param retention_days: The number of days to retain the backup. Valid values are 1 to 3650.
+        :param tags: A list of key-value pairs to associate with the backup.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ed1e14338df6b2e5e56252a9777694ef8b424920536f7c3d6f6e8a79820382ea)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnInfluxDBBackupProps(
+            db_resource_id=db_resource_id,
+            name=name,
+            retention_days=retention_days,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForInfluxDBBackup")
+    @builtins.classmethod
+    def arn_for_influx_db_backup(
+        cls,
+        resource: "_aws_timestream_1b8764a5.IInfluxDBBackupRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3a727579368bd51d71e55c1d255c11edf107ad845a93812f267353b0d4a7fe88)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInfluxDBBackup", [resource]))
+
+    @jsii.member(jsii_name="isCfnInfluxDBBackup")
+    @builtins.classmethod
+    def is_cfn_influx_db_backup(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnInfluxDBBackup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__952d7cc7780b9beb9eaf10ca440a4867e69d191a600742e3469edcdc4fd19caf)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInfluxDBBackup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5e71bdbdd9d58d8f262388adb3f7e676ae475fa543e6c987655a91e8589f3a04)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c05e6b26f351b6e02cbc77c1ebed77dabe7acf12a98bd341257457f858fbcb80)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAllocatedStorage")
+    def attr_allocated_storage(self) -> jsii.Number:
+        '''The allocated storage of the resource at the time of backup, in GiB.
+
+        :cloudformationAttribute: AllocatedStorage
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrAllocatedStorage"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the backup.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClusterConfiguration")
+    def attr_cluster_configuration(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The cluster configuration of the resource at the time of backup.
+
+        :cloudformationAttribute: ClusterConfiguration
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrClusterConfiguration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time when the backup was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbInstanceType")
+    def attr_db_instance_type(self) -> builtins.str:
+        '''The DB instance type of the resource at the time of backup.
+
+        :cloudformationAttribute: DbInstanceType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbInstanceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbParameterGroupId")
+    def attr_db_parameter_group_id(self) -> builtins.str:
+        '''The identifier of the DB parameter group associated with the backup.
+
+        :cloudformationAttribute: DbParameterGroupId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbParameterGroupId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbStorageType")
+    def attr_db_storage_type(self) -> builtins.str:
+        '''The storage type of the resource at the time of backup.
+
+        :cloudformationAttribute: DbStorageType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbStorageType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDeploymentType")
+    def attr_deployment_type(self) -> builtins.str:
+        '''The deployment type of the resource that the backup was created from.
+
+        :cloudformationAttribute: DeploymentType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDeploymentType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEngineType")
+    def attr_engine_type(self) -> builtins.str:
+        '''The engine type of the resource that the backup was created from.
+
+        :cloudformationAttribute: EngineType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEngineType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExpiresAfter")
+    def attr_expires_after(self) -> builtins.str:
+        '''The date after which the backup will be automatically deleted, as a calendar date in YYYY-MM-DD format.
+
+        :cloudformationAttribute: ExpiresAfter
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExpiresAfter"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrFailoverMode")
+    def attr_failover_mode(self) -> builtins.str:
+        '''The failover mode of the resource at the time of backup.
+
+        :cloudformationAttribute: FailoverMode
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrFailoverMode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''Service-generated unique identifier of the backup.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrInfluxAuthParametersSecretArn")
+    def attr_influx_auth_parameters_secret_arn(self) -> builtins.str:
+        '''The ARN of the Secrets Manager secret containing the InfluxDB auth parameters.
+
+        :cloudformationAttribute: InfluxAuthParametersSecretArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrInfluxAuthParametersSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrKmsKeyId")
+    def attr_kms_key_id(self) -> builtins.str:
+        '''The Amazon Web Services KMS key ARN used for encryption of the resource at the time of backup.
+
+        :cloudformationAttribute: KmsKeyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrKmsKeyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLogDeliveryConfiguration")
+    def attr_log_delivery_configuration(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The log delivery configuration of the resource at the time of backup.
+
+        :cloudformationAttribute: LogDeliveryConfiguration
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrLogDeliveryConfiguration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMaintenanceSchedule")
+    def attr_maintenance_schedule(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The maintenance schedule of the resource at the time of backup.
+
+        :cloudformationAttribute: MaintenanceSchedule
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrMaintenanceSchedule"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNetworkType")
+    def attr_network_type(self) -> builtins.str:
+        '''The network type of the resource at the time of backup.
+
+        :cloudformationAttribute: NetworkType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNetworkType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPort")
+    def attr_port(self) -> jsii.Number:
+        '''The port number of the resource at the time of backup.
+
+        :cloudformationAttribute: Port
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrPort"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPubliclyAccessible")
+    def attr_publicly_accessible(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Indicates whether the resource was publicly accessible at the time of backup.
+
+        :cloudformationAttribute: PubliclyAccessible
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrPubliclyAccessible"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the backup.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrType")
+    def attr_type(self) -> builtins.str:
+        '''The type of backup.
+
+        Backups created through this resource type are always ON_DEMAND.
+
+        :cloudformationAttribute: Type
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcSecurityGroupIds")
+    def attr_vpc_security_group_ids(self) -> typing.List[builtins.str]:
+        '''The VPC security group IDs associated with the resource at the time of backup.
+
+        :cloudformationAttribute: VpcSecurityGroupIds
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrVpcSecurityGroupIds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcSubnetIds")
+    def attr_vpc_subnet_ids(self) -> typing.List[builtins.str]:
+        '''The VPC subnet IDs associated with the resource at the time of backup.
+
+        :cloudformationAttribute: VpcSubnetIds
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrVpcSubnetIds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="influxDbBackupRef")
+    def influx_db_backup_ref(
+        self,
+    ) -> "_aws_timestream_1b8764a5.InfluxDBBackupReference":
+        '''A reference to a InfluxDBBackup resource.'''
+        return typing.cast("_aws_timestream_1b8764a5.InfluxDBBackupReference", jsii.get(self, "influxDbBackupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbResourceId")
+    def db_resource_id(self) -> builtins.str:
+        '''The id of the DB instance or DB cluster to back up.'''
+        return typing.cast(builtins.str, jsii.get(self, "dbResourceId"))
+
+    @db_resource_id.setter
+    def db_resource_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a704ee2d555072141217681a1942a33fd403b563ed2a0acbce8a94ea478d908d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbResourceId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the backup.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6b849ea0dca767bd4fc51ce47633949fce3b3515cd2346147df1e024491c68dd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="retentionDays")
+    def retention_days(self) -> typing.Optional[jsii.Number]:
+        '''The number of days to retain the backup.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "retentionDays"))
+
+    @retention_days.setter
+    def retention_days(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7f645f9bc8f8a6e183ed06ff7edfc89913dca577e4755595e7ea8da676481a6c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "retentionDays", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of key-value pairs to associate with the backup.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f746d46a59382d91ebc2a6ea236a4010fbd7b2db6e5c47e2fdc10afabf13cca1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBBackup.ClusterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dedicated_compactor": "dedicatedCompactor",
+            "ingest_query_instances": "ingestQueryInstances",
+            "query_only_instances": "queryOnlyInstances",
+        },
+    )
+    class ClusterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            dedicated_compactor: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            ingest_query_instances: typing.Optional[jsii.Number] = None,
+            query_only_instances: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The cluster configuration of the resource at the time of backup.
+
+            :param dedicated_compactor: Indicates if the compactor instance is a standalone instance or not.
+            :param ingest_query_instances: The number of ingest and query instances in the cluster.
+            :param query_only_instances: The number of query-only instances in the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-clusterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_timestream as timestream
+                
+                cluster_configuration_property = timestream.CfnInfluxDBBackup.ClusterConfigurationProperty(
+                    dedicated_compactor=False,
+                    ingest_query_instances=123,
+                    query_only_instances=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0fc23e4f296461a758c3d99da9bfde9672aaa2db0231a62bc215668c04883e83)
+                check_type(argname="argument dedicated_compactor", value=dedicated_compactor, expected_type=type_hints["dedicated_compactor"])
+                check_type(argname="argument ingest_query_instances", value=ingest_query_instances, expected_type=type_hints["ingest_query_instances"])
+                check_type(argname="argument query_only_instances", value=query_only_instances, expected_type=type_hints["query_only_instances"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if dedicated_compactor is not None:
+                self._values["dedicated_compactor"] = dedicated_compactor
+            if ingest_query_instances is not None:
+                self._values["ingest_query_instances"] = ingest_query_instances
+            if query_only_instances is not None:
+                self._values["query_only_instances"] = query_only_instances
+
+        @builtins.property
+        def dedicated_compactor(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Indicates if the compactor instance is a standalone instance or not.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-clusterconfiguration.html#cfn-timestream-influxdbbackup-clusterconfiguration-dedicatedcompactor
+            '''
+            result = self._values.get("dedicated_compactor")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def ingest_query_instances(self) -> typing.Optional[jsii.Number]:
+            '''The number of ingest and query instances in the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-clusterconfiguration.html#cfn-timestream-influxdbbackup-clusterconfiguration-ingestqueryinstances
+            '''
+            result = self._values.get("ingest_query_instances")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def query_only_instances(self) -> typing.Optional[jsii.Number]:
+            '''The number of query-only instances in the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-clusterconfiguration.html#cfn-timestream-influxdbbackup-clusterconfiguration-queryonlyinstances
+            '''
+            result = self._values.get("query_only_instances")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClusterConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBBackup.LogDeliveryConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_configuration": "s3Configuration"},
+    )
+    class LogDeliveryConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            s3_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInfluxDBBackup.S3ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The log delivery configuration of the resource at the time of backup.
+
+            :param s3_configuration: Configuration for S3 bucket log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-logdeliveryconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_timestream as timestream
+                
+                log_delivery_configuration_property = timestream.CfnInfluxDBBackup.LogDeliveryConfigurationProperty(
+                    s3_configuration=timestream.CfnInfluxDBBackup.S3ConfigurationProperty(
+                        bucket_name="bucketName",
+                        enabled=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__7763661ad52e4e2f3c1945434b0cafa9c2f590a670f4c6098008c3793832ec4f)
+                check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "s3_configuration": s3_configuration,
+            }
+
+        @builtins.property
+        def s3_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfluxDBBackup.S3ConfigurationProperty"]:
+            '''Configuration for S3 bucket log delivery.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-logdeliveryconfiguration.html#cfn-timestream-influxdbbackup-logdeliveryconfiguration-s3configuration
+            '''
+            result = self._values.get("s3_configuration")
+            assert result is not None, "Required property 's3_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInfluxDBBackup.S3ConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogDeliveryConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBBackup.MaintenanceScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "preferred_maintenance_window": "preferredMaintenanceWindow",
+            "timezone": "timezone",
+        },
+    )
+    class MaintenanceScheduleProperty:
+        def __init__(
+            self,
+            *,
+            preferred_maintenance_window: builtins.str,
+            timezone: builtins.str,
+        ) -> None:
+            '''The maintenance schedule of the resource at the time of backup.
+
+            :param preferred_maintenance_window: The preferred maintenance window in the format ddd:HH:MM-ddd:HH:MM.
+            :param timezone: The IANA timezone identifier for the maintenance window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-maintenanceschedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_timestream as timestream
+                
+                maintenance_schedule_property = timestream.CfnInfluxDBBackup.MaintenanceScheduleProperty(
+                    preferred_maintenance_window="preferredMaintenanceWindow",
+                    timezone="timezone"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__45ecff4738d99ea0edc59aaadc454a1a672608a05ad9d7d6a18581af022da49c)
+                check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
+                check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "preferred_maintenance_window": preferred_maintenance_window,
+                "timezone": timezone,
+            }
+
+        @builtins.property
+        def preferred_maintenance_window(self) -> builtins.str:
+            '''The preferred maintenance window in the format ddd:HH:MM-ddd:HH:MM.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-maintenanceschedule.html#cfn-timestream-influxdbbackup-maintenanceschedule-preferredmaintenancewindow
+            '''
+            result = self._values.get("preferred_maintenance_window")
+            assert result is not None, "Required property 'preferred_maintenance_window' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def timezone(self) -> builtins.str:
+            '''The IANA timezone identifier for the maintenance window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-maintenanceschedule.html#cfn-timestream-influxdbbackup-maintenanceschedule-timezone
+            '''
+            result = self._values.get("timezone")
+            assert result is not None, "Required property 'timezone' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MaintenanceScheduleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBBackup.S3ConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket_name": "bucketName", "enabled": "enabled"},
+    )
+    class S3ConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            bucket_name: builtins.str,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ) -> None:
+            '''Configuration for S3 bucket log delivery.
+
+            :param bucket_name: The name of the S3 bucket to deliver logs to.
+            :param enabled: Indicates whether log delivery to the S3 bucket is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-s3configuration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_timestream as timestream
+                
+                s3_configuration_property = timestream.CfnInfluxDBBackup.S3ConfigurationProperty(
+                    bucket_name="bucketName",
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__518b045e53bc84da924796b7593f55914d64a185a072358fd9c0f90cb851f645)
+                check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "bucket_name": bucket_name,
+                "enabled": enabled,
+            }
+
+        @builtins.property
+        def bucket_name(self) -> builtins.str:
+            '''The name of the S3 bucket to deliver logs to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-s3configuration.html#cfn-timestream-influxdbbackup-s3configuration-bucketname
+            '''
+            result = self._values.get("bucket_name")
+            assert result is not None, "Required property 'bucket_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Indicates whether log delivery to the S3 bucket is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-timestream-influxdbbackup-s3configuration.html#cfn-timestream-influxdbbackup-s3configuration-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3ConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBBackupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "db_resource_id": "dbResourceId",
+        "name": "name",
+        "retention_days": "retentionDays",
+        "tags": "tags",
+    },
+)
+class CfnInfluxDBBackupProps:
+    def __init__(
+        self,
+        *,
+        db_resource_id: builtins.str,
+        name: builtins.str,
+        retention_days: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInfluxDBBackup``.
+
+        :param db_resource_id: The id of the DB instance or DB cluster to back up.
+        :param name: The name of the backup. Must be unique within the account and region.
+        :param retention_days: The number of days to retain the backup. Valid values are 1 to 3650.
+        :param tags: A list of key-value pairs to associate with the backup.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbbackup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_timestream as timestream
+            
+            cfn_influx_db_backup_props = timestream.CfnInfluxDBBackupProps(
+                db_resource_id="dbResourceId",
+                name="name",
+            
+                # the properties below are optional
+                retention_days=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__92f0f5507dda5dc05b5a3477a0061ef89628773d6dec7133e8ba7d0da14975df)
+            check_type(argname="argument db_resource_id", value=db_resource_id, expected_type=type_hints["db_resource_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument retention_days", value=retention_days, expected_type=type_hints["retention_days"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_resource_id": db_resource_id,
+            "name": name,
+        }
+        if retention_days is not None:
+            self._values["retention_days"] = retention_days
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def db_resource_id(self) -> builtins.str:
+        '''The id of the DB instance or DB cluster to back up.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbbackup.html#cfn-timestream-influxdbbackup-dbresourceid
+        '''
+        result = self._values.get("db_resource_id")
+        assert result is not None, "Required property 'db_resource_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the backup.
+
+        Must be unique within the account and region.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbbackup.html#cfn-timestream-influxdbbackup-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def retention_days(self) -> typing.Optional[jsii.Number]:
+        '''The number of days to retain the backup.
+
+        Valid values are 1 to 3650.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbbackup.html#cfn-timestream-influxdbbackup-retentiondays
+        '''
+        result = self._values.get("retention_days")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''A list of key-value pairs to associate with the backup.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-timestream-influxdbbackup.html#cfn-timestream-influxdbbackup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInfluxDBBackupProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -581,6 +1410,7 @@ class CfnInfluxDBCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -692,7 +1522,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bddb51bc7e48ee9839803252d7691864c62dd47a67b1db1037264c32ade39ddf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allocatedStorage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allocatedStorage", value)
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
@@ -705,7 +1535,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ed108173874d31132be43f69e88b051adcbb255996a3b4e35e80ff269d9f63c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bucket", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "bucket", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceType")
@@ -718,7 +1548,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__23e53a86129d583506ede51a48db103a0018c29c6f2dcfac0fbeb9f4531ba742)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbInstanceType", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbParameterGroupIdentifier")
@@ -734,7 +1564,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__467c28f68b6cef111d53a36ddb71f4b0e7d1ab528d241e063316bfe7335a5f9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbParameterGroupIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbParameterGroupIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbStorageType")
@@ -747,7 +1577,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c778d21b06b0fb18d5f4dce35cffce6b204ecc2a3131f4f04f96402fb9aa762c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbStorageType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbStorageType", value)
 
     @builtins.property
     @jsii.member(jsii_name="deploymentType")
@@ -760,7 +1590,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2109d480d931ad54e375735a13460e83d3ff947fac621effd55f1284b40adcee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deploymentType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deploymentType", value)
 
     @builtins.property
     @jsii.member(jsii_name="failoverMode")
@@ -773,7 +1603,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e8db63d23c673fdd93e19005fa2c6e862e6f0719dda9e9d9805b313db11a2575)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "failoverMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "failoverMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="logDeliveryConfiguration")
@@ -791,7 +1621,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3bcdc4478040881e6184512128e874c5748859c04d5ea5d21c23dd251fffc439)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logDeliveryConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logDeliveryConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="maintenanceSchedule")
@@ -809,7 +1639,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__119e1048bbeda990b6fe69b72c4f5bce2fbcfc6b3e1807c23446337ac285833a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maintenanceSchedule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maintenanceSchedule", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -822,7 +1652,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2048d0f5633422d82f2979387fb4e6ca2674e41f31b67d8c2b05755937ab933b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkType")
@@ -835,7 +1665,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__78cb008bfe2dc54fabe75317efa195c0596ed6fb8a93c8c90db6959dd2a4096e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkType", value)
 
     @builtins.property
     @jsii.member(jsii_name="organization")
@@ -848,7 +1678,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__60f14ef893074666eeb6c3285f3a11dd951a7a32ec8f25462c3ff9026a64d911)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "organization", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "organization", value)
 
     @builtins.property
     @jsii.member(jsii_name="password")
@@ -861,7 +1691,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f9f0e665f1d028640e4e75c223b6c6f9fe4e6b5f2a620e8232c11b200481441e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "password", value)
 
     @builtins.property
     @jsii.member(jsii_name="port")
@@ -874,7 +1704,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1569047b5356e160ce1414f092aba2e0210f0cc9c44fed9a85af65cf89e3b98f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "port", value)
 
     @builtins.property
     @jsii.member(jsii_name="publiclyAccessible")
@@ -892,7 +1722,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f2773bee62e5b8fc7665dfe67e3183a20998f681f3ff3d0951015bf3d8a354e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "publiclyAccessible", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -908,7 +1738,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b153d5da2cedbf75ba4f16eb905e07274c2c522264ca0ce9e4b6aae3927f51ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="username")
@@ -921,7 +1751,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__353aa73728bcdf61d06bddccc8587fba2a4b48036e20121d843572f1920c441b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "username", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSecurityGroupIds")
@@ -937,7 +1767,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0d941a108facac1b85cc821bce20a8f8022885be83d81e4c0352fa23146cc9fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSecurityGroupIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSubnetIds")
@@ -950,7 +1780,7 @@ class CfnInfluxDBCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__82c55a2c35cdfb40b9e1ed407cf997c1a8861272dd05c69e94a2bd033d143f27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSubnetIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSubnetIds", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBCluster.LogDeliveryConfigurationProperty",
@@ -1707,6 +2537,7 @@ class CfnInfluxDBInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1824,7 +2655,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a7917c52cc4a35c0f52c4af1b442c3aecef7f9cf89a52a828220b4da7b5539f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allocatedStorage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allocatedStorage", value)
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
@@ -1837,7 +2668,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25f86d26774eb87b60d2708f887741f934ac2ea1147687e8233a2ddaf6c61537)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bucket", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "bucket", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbInstanceType")
@@ -1850,7 +2681,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__25d6a3692ba3b5dd13335fb452825b4986a700bb07a6c30898693ba6eccd629c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbInstanceType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbInstanceType", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbParameterGroupIdentifier")
@@ -1866,7 +2697,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__87e751c5090ee404af7dbeb0c56f385cefee055153a9fae283b919e0ffe051e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbParameterGroupIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbParameterGroupIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="dbStorageType")
@@ -1879,7 +2710,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__82a77601407a22b185b040520ff63d954800f462813b7884892bbc7887ff27ed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbStorageType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dbStorageType", value)
 
     @builtins.property
     @jsii.member(jsii_name="deploymentType")
@@ -1892,7 +2723,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dac0663b012220243058f546574e79cb08c511efe9044e387e944759cb8b6c7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deploymentType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deploymentType", value)
 
     @builtins.property
     @jsii.member(jsii_name="logDeliveryConfiguration")
@@ -1910,7 +2741,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8f1952d4bf27eb9dea517af025bf1e2e4e2b6565bf7ed16673d4581a4927c005)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logDeliveryConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logDeliveryConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="maintenanceSchedule")
@@ -1928,7 +2759,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec355ad0023122464c4d76a9169799065a3f2799be6256c8ef0235686797b4b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maintenanceSchedule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maintenanceSchedule", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1941,7 +2772,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__850a764930865e073c6906c062d2d30700a4c783783240e878c9177e70352597)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="networkType")
@@ -1954,7 +2785,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cff240a2ab2df740f98a8f8170c5151f7ded157f1157909dc636caed4c9fe252)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "networkType", value)
 
     @builtins.property
     @jsii.member(jsii_name="organization")
@@ -1967,7 +2798,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cc951f5919f71c331ff63c7ad85284437f7a1518ff4ec8b7d4be3a209a958642)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "organization", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "organization", value)
 
     @builtins.property
     @jsii.member(jsii_name="password")
@@ -1980,7 +2811,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__74f7e1c43a2306182a51c50f7081008d44b95cb4e9c3b52de43127db091bb78d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "password", value)
 
     @builtins.property
     @jsii.member(jsii_name="port")
@@ -1993,7 +2824,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9ae9e68a1bb2222ab6cb849a3a301ca28375e9ce32277709782f39c7cb9ce7d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "port", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "port", value)
 
     @builtins.property
     @jsii.member(jsii_name="publiclyAccessible")
@@ -2011,7 +2842,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f4fc7c874876ac199eadc5d0947e02e2e8f42717e865d6b225956129df9bcf9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publiclyAccessible", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "publiclyAccessible", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2027,7 +2858,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__556b2bdc4c82a82b60258858bb30cfd977370fb3f02c1d33143bfe0960074cb2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="username")
@@ -2040,7 +2871,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f2582c99c01f09c7f93538ccbb766d4dd3de9c7e097227a603e9b91b36a8c6b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "username", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSecurityGroupIds")
@@ -2056,7 +2887,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__18027e20d25f4f16eb43769fcc515cf8bb253ed4d4d0d00d044ecc2d4b3755c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSecurityGroupIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcSubnetIds")
@@ -2069,7 +2900,7 @@ class CfnInfluxDBInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dde7e458ced60d76efcf984ac6b215dfcba103748eb36a29b5db081d8844ad9a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcSubnetIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcSubnetIds", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_timestream.CfnInfluxDBInstance.LogDeliveryConfigurationProperty",
@@ -2846,6 +3677,7 @@ class CfnScheduledQuery(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2969,7 +3801,7 @@ class CfnScheduledQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb7defeed6aa22df8fac8ffd2a8a11911c1c98afe084e662220ea2d6b749cf6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "errorReportConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "errorReportConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="notificationConfiguration")
@@ -2987,7 +3819,7 @@ class CfnScheduledQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6ac8f7698b5772e1a500b55701a8ec9f78516f145d63622ae68a8e5545f29e6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notificationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notificationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="queryString")
@@ -3000,7 +3832,7 @@ class CfnScheduledQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__350bef101d4375adfdded124038da261adba0b0cd8ff0163079f9a3e4ab2fa36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queryString", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queryString", value)
 
     @builtins.property
     @jsii.member(jsii_name="scheduleConfiguration")
@@ -3018,7 +3850,7 @@ class CfnScheduledQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__879b9ea129031bffd99904fa4ee3a65eea8e9b9983d6d2765f67314bbc2a58e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scheduleConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scheduleConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="scheduledQueryExecutionRoleArn")
@@ -3031,7 +3863,7 @@ class CfnScheduledQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c9604d93296dd77d676d4aaee7f32cfff5d41a5a5ddea40af8a47241cc11bc24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scheduledQueryExecutionRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scheduledQueryExecutionRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="clientToken")
@@ -3044,7 +3876,7 @@ class CfnScheduledQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b0dd0e140b14315dea4d20b97d7e43e67078325c22af76b9335246185be1bf2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientToken", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clientToken", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -3057,7 +3889,7 @@ class CfnScheduledQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e3fb74e7cb6c02c6c793efc3b537bfb39626eef1e4b767afbb9f9aefb9b9609)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="scheduledQueryName")
@@ -3070,7 +3902,7 @@ class CfnScheduledQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1d37c1a239896519d1c42b63f110aa1c29f1bf41df02b83bbe8b432c63d000a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scheduledQueryName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scheduledQueryName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3086,7 +3918,7 @@ class CfnScheduledQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce0d7d8459caf5a03fcbc9365acf392dda9e2785efecf27982e7378d5a93921b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetConfiguration")
@@ -3104,7 +3936,7 @@ class CfnScheduledQuery(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b44979dc34f6dc90d3fdf79577b6e0af6fc57980ca3d0760ff21b0db7ea27c39)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetConfiguration", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_timestream.CfnScheduledQuery.DimensionMappingProperty",
@@ -4555,6 +5387,7 @@ class CfnTable(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4610,7 +5443,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e86eb21a358133850347dfd746769a6d1446d47d303f3a0491f2235ed3136b11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "databaseName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "databaseName", value)
 
     @builtins.property
     @jsii.member(jsii_name="magneticStoreWriteProperties")
@@ -4623,7 +5456,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__58178ccb289368b799599c9ec47acf86a335f70eaf713c6562b4b5714d8354e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "magneticStoreWriteProperties", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "magneticStoreWriteProperties", value)
 
     @builtins.property
     @jsii.member(jsii_name="retentionProperties")
@@ -4639,7 +5472,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c7ed60d3a1390fe9d904e5be80332e4919f8cc331f6a9c78e2c46569bb125df6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "retentionProperties", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "retentionProperties", value)
 
     @builtins.property
     @jsii.member(jsii_name="schema")
@@ -4657,7 +5490,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__832c258b5c3c3bd9cc98c7c669b7ed9ed9cd2b8de1fd77074b5df43f071083cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schema", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "schema", value)
 
     @builtins.property
     @jsii.member(jsii_name="tableName")
@@ -4670,7 +5503,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dd18b0f7dd5d02d260ec7f2eaec2e2b9b2ab172a6763f2f391fc93ea1f562de6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tableName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tableName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -4686,7 +5519,7 @@ class CfnTable(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b21aea3e87d0ba84d4dcca0e9c65c1478588d9aacadd5d365ad9d63d17b025f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_timestream.CfnTable.MagneticStoreRejectedDataLocationProperty",
@@ -5402,6 +6235,8 @@ class CfnTableProps:
 __all__ = [
     "CfnDatabase",
     "CfnDatabaseProps",
+    "CfnInfluxDBBackup",
+    "CfnInfluxDBBackupProps",
     "CfnInfluxDBCluster",
     "CfnInfluxDBClusterProps",
     "CfnInfluxDBInstance",
@@ -5487,6 +6322,108 @@ def _typecheckingstub__fffb8befe8374295020dd254ed0c77820bb26fc0d94c59e0a34f89d6f
     *,
     database_name: typing.Optional[builtins.str] = None,
     kms_key_id: typing.Optional[typing.Union[builtins.str, _aws_kms_18db7412.IKeyRef]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed1e14338df6b2e5e56252a9777694ef8b424920536f7c3d6f6e8a79820382ea(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    db_resource_id: builtins.str,
+    name: builtins.str,
+    retention_days: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a727579368bd51d71e55c1d255c11edf107ad845a93812f267353b0d4a7fe88(
+    resource: _aws_timestream_1b8764a5.IInfluxDBBackupRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__952d7cc7780b9beb9eaf10ca440a4867e69d191a600742e3469edcdc4fd19caf(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e71bdbdd9d58d8f262388adb3f7e676ae475fa543e6c987655a91e8589f3a04(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c05e6b26f351b6e02cbc77c1ebed77dabe7acf12a98bd341257457f858fbcb80(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a704ee2d555072141217681a1942a33fd403b563ed2a0acbce8a94ea478d908d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b849ea0dca767bd4fc51ce47633949fce3b3515cd2346147df1e024491c68dd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f645f9bc8f8a6e183ed06ff7edfc89913dca577e4755595e7ea8da676481a6c(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f746d46a59382d91ebc2a6ea236a4010fbd7b2db6e5c47e2fdc10afabf13cca1(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0fc23e4f296461a758c3d99da9bfde9672aaa2db0231a62bc215668c04883e83(
+    *,
+    dedicated_compactor: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    ingest_query_instances: typing.Optional[jsii.Number] = None,
+    query_only_instances: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7763661ad52e4e2f3c1945434b0cafa9c2f590a670f4c6098008c3793832ec4f(
+    *,
+    s3_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInfluxDBBackup.S3ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45ecff4738d99ea0edc59aaadc454a1a672608a05ad9d7d6a18581af022da49c(
+    *,
+    preferred_maintenance_window: builtins.str,
+    timezone: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__518b045e53bc84da924796b7593f55914d64a185a072358fd9c0f90cb851f645(
+    *,
+    bucket_name: builtins.str,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92f0f5507dda5dc05b5a3477a0061ef89628773d6dec7133e8ba7d0da14975df(
+    *,
+    db_resource_id: builtins.str,
+    name: builtins.str,
+    retention_days: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

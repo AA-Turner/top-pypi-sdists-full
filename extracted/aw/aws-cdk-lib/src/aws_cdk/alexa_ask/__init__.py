@@ -177,6 +177,7 @@ class CfnSkill(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -221,7 +222,7 @@ class CfnSkill(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7f79ad56de5a233709bfa180b3886229464b9d28a88416bdaabab40400468843)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "authenticationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "authenticationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="skillPackage")
@@ -239,7 +240,7 @@ class CfnSkill(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1160f84c06aa4769b57c3cf0e89867f1c310c0c73387afad6e0e174defac367a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "skillPackage", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "skillPackage", value)
 
     @builtins.property
     @jsii.member(jsii_name="vendorId")
@@ -252,7 +253,7 @@ class CfnSkill(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e19323a763e3e7ce004953363ef3f20809f72e8931c75312b88fc85064e5d44)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vendorId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vendorId", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.alexa_ask.CfnSkill.AuthenticationConfigurationProperty",

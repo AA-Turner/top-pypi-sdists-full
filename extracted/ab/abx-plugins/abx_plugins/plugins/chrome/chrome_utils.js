@@ -38,13 +38,20 @@ ensureNodeModuleResolution(module);
 
 const exportFocusSessions = new WeakMap();
 
-async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true } = {}) {
+async function captureOriginalResponseBodies(page, { resourceTypes = null, session: suppliedSession = null, directory: sharedDirectory = null, documents = true, durableCollector: sharedCollector = null } = {}) {
   // Renderer response buffers apply MIME-driven decoding, corrupting binary
   // downloads mislabeled as text. Inline PDFs become viewer HTML too.
   // Preserve raw bytes from the original request without refetching resources.
   // Ordinary documents retain Network's text handling: Fetch body reads hold
   // navigation until EOF, preventing streamed HTML from rendering as it arrives.
   const session = suppliedSession || page.mainFrame().client;
+  // Durable mode redirects body reads to Chrome's network-service collector,
+  // which does not contain ServiceWorker/CacheStorage responses. Keep it on a
+  // separate session so the ordinary renderer can still supply those bytes;
+  // share the collector for network bodies even after their renderer detaches.
+  const durableCollector = resourceTypes
+    ? sharedCollector || await page.createCDPSession()
+    : null;
   const listeners = [];
   const listen = (event, callback) => {
     session.on(event, callback);
@@ -65,7 +72,9 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   });
   listen("Network.responseReceived", (event) => {
     const stream = streams.get(event.requestId);
-    if (!stream || stream.resourceType !== "Font") return;
+    if (!stream) return;
+    stream.fromServiceWorker = Boolean(event.response.fromServiceWorker);
+    if (stream.resourceType !== "Font") return;
     const responseHeaders = headerIdentity(event.response.headers);
     const requestHeaders = new Map(headerIdentity(stream.requestHeaders));
     // CDP omits transport-added Accept-Encoding, including on the original
@@ -173,7 +182,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
         // and let newer responses evict their raw bytes from Chrome's cache.
         // Durable bodies belong to the root session's collector. The owning
         // renderer can detach immediately after receiving the complete body.
-        const result = await mainClient.send("Network.getResponseBody", { requestId: event.requestId });
+        const result = await (stream.fromServiceWorker ? session : durableCollector).send("Network.getResponseBody", { requestId: event.requestId });
         const body = Buffer.from(result.body, result.base64Encoded ? "base64" : "utf8");
         if (body.length !== stream.receivedBytes) {
           throw new Error(`Original response bytes unavailable: expected ${stream.receivedBytes}, received ${body.length}`);
@@ -224,16 +233,18 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
   const setup = [];
   if (resourceTypes) {
     setup.push(session.send("Network.enable"));
-    setup.push(session.send("Network.configureDurableMessages", { maxTotalBufferSize: 100 * 1024 * 1024 }));
   }
   if (documents) setup.push(session.send("Fetch.enable", { patterns: [{ resourceType: "Document", requestStage: "Response" }] }));
   const children = new Map();
   const watched = new Map();
+  const ownedCollectors = new Set();
+  let closing = false;
+  let setupError;
   const mainClient = page.mainFrame().client;
   const attach = (child, documents = true) => {
     if (children.has(child)) return;
     watch(child);
-    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents });
+    const reader = captureOriginalResponseBodies(page, { resourceTypes, session: child, directory, documents, durableCollector });
     children.set(child, reader);
     reader.catch(() => {}); // The owning request or close() reports setup errors.
   };
@@ -248,17 +259,51 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
     watched.set(client, onAttached);
     client.on("Target.attachedToTarget", onAttached);
   };
+  const configureCollector = (client) => {
+    ownedCollectors.add(client);
+    const onAttached = ({ sessionId }) => {
+      const child = client.connection()?.session(sessionId);
+      if (!child) return;
+      // Register each child's network profile under this collector's root
+      // before it runs: synchronous XHR/short-lived workers can finish before
+      // their renderer can stream bytes. Always release our debugger pause.
+      const commandSession = closing ? client : child;
+      const work = closing ? client.send("Target.detachFromTarget", { sessionId }) : configureCollector(child).finally(async () => {
+        if (!child.detached) await child.send("Runtime.runIfWaitingForDebugger");
+      });
+      pending.add(work);
+      work.catch((error) => {
+        // Detach runs on the parent, while setup runs on the child. Chrome can
+        // dispose the parent before acknowledging a detach; its child object
+        // need not receive a separate disconnected event in Puppeteer.
+        if (error.name !== "TargetCloseError" || !commandSession.detached) setupError ||= error;
+      }).finally(() => pending.delete(work));
+    };
+    watched.set(client, onAttached);
+    client.on("Target.attachedToTarget", onAttached);
+    return Promise.all([
+      client.send("Network.enable"),
+      client.send("Network.configureDurableMessages", { maxTotalBufferSize: 100 * 1024 * 1024 }),
+      client.send("Target.setAutoAttach", {
+        autoAttach: true, waitForDebuggerOnStart: true, flatten: true,
+        filter: [{ type: "iframe" }, { type: "worker" }, { type: "shared_worker" }],
+      }),
+    ]);
+  };
+  if (durableCollector && !sharedCollector) setup.push(configureCollector(durableCollector));
   if (!suppliedSession) {
     watch(mainClient);
     for (const frame of page.frames()) {
       if (frame.client !== mainClient) attach(frame.client);
     }
   }
-  let setupError;
   try {
     await Promise.all(setup);
   } catch (error) {
-    if (!suppliedSession) throw error;
+    if (!suppliedSession) {
+      if (durableCollector && !durableCollector.detached) await durableCollector.detach();
+      throw error;
+    }
     // A short-lived child can close during setup. Retain its error for the
     // owning response, but still return its reader so cleanup can drain it.
     setupError = error;
@@ -281,11 +326,11 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       if (!stream && resourceTypes && resourceType !== "document" &&
           (!resourceTypes.length || resourceTypes.includes(resourceType))) {
         // Puppeteer's requestfinished can precede this CDP session's queued
-        // request events. Read the durable body before deciding it was untracked.
+        // request events. Read its owning body store before deciding it was untracked.
         let result;
         let error;
         try {
-          result = await mainClient.send("Network.getResponseBody", { requestId: id });
+          result = await (response.fromServiceWorker() ? session : durableCollector).send("Network.getResponseBody", { requestId: id });
         } catch (caught) {
           error = caught;
         }
@@ -316,6 +361,31 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       return body;
     },
     async close() {
+      closing = true;
+      // Detaching a parent does not dispose its nested Puppeteer sessions.
+      // Release owned descendants first, otherwise their pending commands can
+      // outlive the parent forever. Late attachments are detached above without
+      // configuring more descendants. Detach through the owning parent: the
+      // browser-level detach API cannot find nested auto-attached sessions.
+      // Borrowed renderer sessions stay intact.
+      for (const client of [...ownedCollectors].reverse()) {
+        if (client === durableCollector || client.detached) continue;
+        const parent = client.parentSession();
+        try {
+          await parent.send("Target.detachFromTarget", { sessionId: client.id() });
+        } catch (error) {
+          // The command belongs to the parent. Closing that owner already
+          // releases its capture session, even if the child's local flag is stale.
+          if (error.name !== "TargetCloseError" || !parent?.detached) setupError ||= error;
+        }
+      }
+      if (durableCollector && !sharedCollector && !durableCollector.detached) {
+        // Stop pausing new targets before removing their setup listeners.
+        // Existing durable bodies remain owned by the root until readers drain.
+        await durableCollector.send("Target.setAutoAttach", {
+          autoAttach: false, waitForDebuggerOnStart: false, flatten: true,
+        });
+      }
       for (const [client, onAttached] of watched) client.off("Target.attachedToTarget", onAttached);
       const closed = await Promise.allSettled([...children.values()].map(async (reader) => (await reader).close()));
       page.off("close", onClosed);
@@ -329,6 +399,7 @@ async function captureOriginalResponseBodies(page, { resourceTypes = null, sessi
       for (const [event, callback] of listeners) session.off(event, callback);
       onClosed();
       await Promise.allSettled([...streams.values()].map((stream) => stream.saved));
+      if (durableCollector && !sharedCollector && !durableCollector.detached) await durableCollector.detach();
       if (directory && !sharedDirectory) await fs.promises.rm(await directory, { recursive: true, force: true });
       // An unused worker can exit during Network setup. Its destruction is
       // not a failed response; any owned HTTP work still reports the error.
@@ -388,6 +459,7 @@ function resolveChromeLaunchOptions(options = {}) {
   const linuxWithoutDisplay =
     process.platform === "linux" && !String(process.env.DISPLAY || "").trim();
   return {
+    CRAWL_DIR: path.resolve(getOption(options, "CRAWL_DIR", getCrawlDir())),
     CHROME_USER_DATA_DIR: path.resolve(getOption(options, "CHROME_USER_DATA_DIR", path.join(personaDir, "chrome_profile"))),
     CHROME_DOWNLOADS_DIR: path.resolve(getOption(options, "CHROME_DOWNLOADS_DIR", path.join(personaDir, "chrome_downloads"))),
     CHROMEWEBSTORE_EXTENSIONS_DIR: getOption(options, "CHROMEWEBSTORE_EXTENSIONS_DIR", "") || getExtensionsDir(),
@@ -1091,6 +1163,28 @@ async function killZombieChrome(snapDir = null, options = {}) {
 // Chrome launching
 // ============================================================================
 
+async function getCrawlRandomSeed(crawlDir) {
+  // Persist independently of session markers: restarting Chrome or launching
+  // concurrent snapshot-isolated browsers must retain the same crawl seed.
+  const seedFile = path.join(crawlDir, "chrome", "crawl_seed.txt");
+  const releaseLock = await acquireSessionLock(`${seedFile}.lock`);
+  try {
+    if (fs.existsSync(seedFile)) {
+      const seed = Number(fs.readFileSync(seedFile, "utf8").trim());
+      if (!Number.isInteger(seed) || seed <= 0 || seed >= 2 ** 31) {
+        throw new Error(`Invalid Chrome crawl seed in ${seedFile}`);
+      }
+      return seed;
+    }
+    // V8 accepts a signed 32-bit seed; zero asks V8 to use system randomness.
+    const seed = crypto.randomInt(1, 2 ** 31);
+    writeFileAtomic(seedFile, `${seed}\n`);
+    return seed;
+  } finally {
+    releaseLock();
+  }
+}
+
 /**
  * Launch Chromium and return the live browser process + browser-level CDP endpoint.
  *
@@ -1133,6 +1227,7 @@ async function launchChromium(options = {}) {
     CHROME_CHECK_SSL_VALIDITY,
     CHROME_ARGS,
     CHROME_ARGS_EXTRA,
+    CRAWL_DIR,
   } = resolveChromeLaunchOptions(options);
   const userDataDir = CHROME_USER_DATA_DIR;
 
@@ -1230,6 +1325,24 @@ async function launchChromium(options = {}) {
   // Combine all args: base (from config) + dynamic (runtime) + extra (user overrides)
   // Dynamic args come after base so they can override if needed
   const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
+
+  const randomSeed = await getCrawlRandomSeed(CRAWL_DIR);
+  // Chromium uses the last --js-flags switch. Merge V8 flags and replace any
+  // supplied seed so all locally launched browsers use the recorded crawl seed.
+  const jsFlags = [];
+  for (let index = 0; index < chromiumArgs.length; index += 1) {
+    const arg = chromiumArgs[index];
+    if (arg === "--js-flags" || arg.startsWith("--js-flags=")) {
+      const value = arg === "--js-flags"
+        ? chromiumArgs.splice(index + 1, 1)[0] || ""
+        : arg.slice("--js-flags=".length);
+      jsFlags.push(value.replace(/(^|\s)--random[-_]seed(?:=|\s+)\S+/g, "$1").trim());
+      chromiumArgs.splice(index, 1);
+      index -= 1;
+    }
+  }
+  jsFlags.push(`--random-seed=${randomSeed}`);
+  chromiumArgs.push(`--js-flags=${jsFlags.filter(Boolean).join(" ")}`);
 
   // All tabs of one browser share Chrome's HTTP/1.1 connection pool, which
   // allows only 6 connections per host. With CHROME_ISOLATION=crawl those tabs
@@ -1403,6 +1516,7 @@ async function launchChromium(options = {}) {
         port: debugPort,
         process: chromiumProcess,
         userDataDir,
+        randomSeed,
       };
 
       return result;
@@ -2432,6 +2546,7 @@ function readBrowserMetadata(chromeSessionDir) {
       return null;
     }
     return {
+      ...(Object.hasOwn(parsed, "random_seed") ? { random_seed: parsed.random_seed } : {}),
       ready: parsed.ready === true,
       extensions: Array.isArray(parsed.extensions) ? parsed.extensions : [],
       ...(parsed.userAgentOverride ? { userAgentOverride: parsed.userAgentOverride } : {}),
@@ -2441,11 +2556,12 @@ function readBrowserMetadata(chromeSessionDir) {
   }
 }
 
-function writeBrowserMetadata(chromeSessionDir, extensions = [], userAgentOverride = null) {
+function writeBrowserMetadata(chromeSessionDir, extensions = [], userAgentOverride = null, randomSeed = undefined) {
   writeFileAtomic(
     path.join(path.resolve(chromeSessionDir), "browser.json"),
     JSON.stringify(
       {
+        ...(randomSeed !== undefined ? { random_seed: randomSeed } : {}),
         ready: true,
         extensions: Array.isArray(extensions) ? extensions : [],
         ...(userAgentOverride ? { userAgentOverride } : {}),
@@ -5412,6 +5528,7 @@ async function ensureChromeSession(options = {}) {
     : cdpUrl;
   let resolvedUserDataDir = userDataDir;
   let launchedNewBrowser = false;
+  let randomSeed = reusingSession ? existingSession.state?.browser?.random_seed ?? null : null;
 
   if (!resolvedCdpUrl) {
     if (!processIsLocal) {
@@ -5446,6 +5563,7 @@ async function ensureChromeSession(options = {}) {
       throw new Error(result.error || "Failed to launch Chromium");
     }
 
+    randomSeed = result.randomSeed;
     resolvedPid = result.pid;
     resolvedCdpUrl = result.cdpUrl;
     resolvedUserDataDir = result.userDataDir || resolvedUserDataDir;
@@ -5551,7 +5669,7 @@ async function ensureChromeSession(options = {}) {
     : null;
   importState.save();
   // Snapshot hooks inherit browser.json; navigation re-applies this identity.
-  writeBrowserMetadata(outputDir, installedExtensions, personaHydration?.userAgentOverride);
+  writeBrowserMetadata(outputDir, installedExtensions, personaHydration?.userAgentOverride, randomSeed);
 
     return {
       stopPersonaHydration: personaHydration?.stop || null,

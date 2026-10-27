@@ -690,6 +690,7 @@ class IdentityPool(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -1474,30 +1475,35 @@ class IdentityPoolProviderUrl(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON")
+    @builtins.classmethod
     def AMAZON(cls) -> "IdentityPoolProviderUrl":
         '''Amazon Provider url.'''
         return typing.cast("IdentityPoolProviderUrl", jsii.sget(cls, "AMAZON"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="APPLE")
+    @builtins.classmethod
     def APPLE(cls) -> "IdentityPoolProviderUrl":
         '''Apple Provider url.'''
         return typing.cast("IdentityPoolProviderUrl", jsii.sget(cls, "APPLE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOK")
+    @builtins.classmethod
     def FACEBOOK(cls) -> "IdentityPoolProviderUrl":
         '''Facebook Provider url.'''
         return typing.cast("IdentityPoolProviderUrl", jsii.sget(cls, "FACEBOOK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLE")
+    @builtins.classmethod
     def GOOGLE(cls) -> "IdentityPoolProviderUrl":
         '''Google Provider url.'''
         return typing.cast("IdentityPoolProviderUrl", jsii.sget(cls, "GOOGLE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TWITTER")
+    @builtins.classmethod
     def TWITTER(cls) -> "IdentityPoolProviderUrl":
         '''Twitter Provider url.'''
         return typing.cast("IdentityPoolProviderUrl", jsii.sget(cls, "TWITTER"))

@@ -2144,18 +2144,21 @@ class AllowedMethods(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALLOW_ALL")
+    @builtins.classmethod
     def ALLOW_ALL(cls) -> "AllowedMethods":
         '''All supported HTTP methods.'''
         return typing.cast("AllowedMethods", jsii.sget(cls, "ALLOW_ALL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALLOW_GET_HEAD")
+    @builtins.classmethod
     def ALLOW_GET_HEAD(cls) -> "AllowedMethods":
         '''HEAD and GET.'''
         return typing.cast("AllowedMethods", jsii.sget(cls, "ALLOW_GET_HEAD"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALLOW_GET_HEAD_OPTIONS")
+    @builtins.classmethod
     def ALLOW_GET_HEAD_OPTIONS(cls) -> "AllowedMethods":
         '''HEAD, GET, and OPTIONS.'''
         return typing.cast("AllowedMethods", jsii.sget(cls, "ALLOW_GET_HEAD_OPTIONS"))
@@ -2539,20 +2542,18 @@ class BehaviorOptions(AddBehaviorOptions):
 
         Example::
 
-            # s3_bucket: s3.Bucket
-            # Add a cloudfront Function to a Distribution
-            cf_function = cloudfront.Function(self, "Function",
-                code=cloudfront.FunctionCode.from_inline("function handler(event) { return event.request }"),
-                runtime=cloudfront.FunctionRuntime.JS_2_0
+            # Creates a distribution from a Network Load Balancer
+            # vpc: ec2.Vpc
+            
+            # Create a network load balancer in a VPC. 'internetFacing' can be 'false'.
+            nlb = elbv2.NetworkLoadBalancer(self, "NLB",
+                vpc=vpc,
+                internet_facing=False,
+                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
+                security_groups=[ec2.SecurityGroup(self, "NLB-SG", vpc=vpc)]
             )
-            cloudfront.Distribution(self, "distro",
-                default_behavior=cloudfront.BehaviorOptions(
-                    origin=origins.S3Origin(s3_bucket),
-                    function_associations=[cloudfront.FunctionAssociation(
-                        function=cf_function,
-                        event_type=cloudfront.FunctionEventType.VIEWER_REQUEST
-                    )]
-                )
+            cloudfront.Distribution(self, "myDist",
+                default_behavior=cloudfront.BehaviorOptions(origin=origins.VpcOrigin.with_network_load_balancer(nlb))
             )
         '''
         if __debug__:
@@ -3239,12 +3240,14 @@ class CachedMethods(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CACHE_GET_HEAD")
+    @builtins.classmethod
     def CACHE_GET_HEAD(cls) -> "CachedMethods":
         '''HEAD and GET.'''
         return typing.cast("CachedMethods", jsii.sget(cls, "CACHE_GET_HEAD"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CACHE_GET_HEAD_OPTIONS")
+    @builtins.classmethod
     def CACHE_GET_HEAD_OPTIONS(cls) -> "CachedMethods":
         '''HEAD, GET, and OPTIONS.'''
         return typing.cast("CachedMethods", jsii.sget(cls, "CACHE_GET_HEAD_OPTIONS"))
@@ -3383,6 +3386,7 @@ class CfnAnycastIpList(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3458,7 +3462,7 @@ class CfnAnycastIpList(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a4b11521f2249d686f7716f70cecd2cba09492081133c8221ca460031dc8ec09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ipCount", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ipCount", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3471,7 +3475,7 @@ class CfnAnycastIpList(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ac37e78a6ea86b3ef0227ef8ab78147385ce1b63a99049def4d84be02aff3daa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="ipAddressType")
@@ -3484,7 +3488,7 @@ class CfnAnycastIpList(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bdda08ac166df373a10568e7cb5f553dce85744030b95b9b2c0b38cd83c4b095)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ipAddressType", value)
 
     @builtins.property
     @jsii.member(jsii_name="ipamCidrConfigs")
@@ -3502,7 +3506,7 @@ class CfnAnycastIpList(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb8862dea2d5fd91e3c6f5ebd9a93fb04ff09f68785beb38891d47f54af027a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ipamCidrConfigs", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ipamCidrConfigs", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3515,7 +3519,7 @@ class CfnAnycastIpList(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1d1dfdc7936ba000dfdec659315150c3bf594d4b2b99b2d3b37e510f78d7e57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnAnycastIpList.AnycastIpListProperty",
@@ -4222,6 +4226,7 @@ class CfnCachePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4278,7 +4283,7 @@ class CfnCachePolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__368f0f7bddba18df11229a8928c7cef7fa894a962c8f2f2c356a58aafc898f60)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cachePolicyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cachePolicyConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnCachePolicy.CachePolicyConfigProperty",
@@ -5082,6 +5087,7 @@ class CfnCloudFrontOriginAccessIdentity(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5140,7 +5146,7 @@ class CfnCloudFrontOriginAccessIdentity(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dbd0afebd21ffa009f133a600072844fc5616264b7a1829c3dea492b21c75315)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cloudFrontOriginAccessIdentityConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cloudFrontOriginAccessIdentityConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnCloudFrontOriginAccessIdentity.CloudFrontOriginAccessIdentityConfigProperty",
@@ -5390,6 +5396,7 @@ class CfnConnectionFunction(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5492,7 +5499,7 @@ class CfnConnectionFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f91f30d431a3289e382a71e77a193266471c212da0928aefbd2ea3fe8e8ca09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionFunctionCode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionFunctionCode", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectionFunctionConfig")
@@ -5510,7 +5517,7 @@ class CfnConnectionFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a190bc553d27810667604241932472662bc3d435d87fa496b0cfe37d3ec226f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionFunctionConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionFunctionConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -5523,7 +5530,7 @@ class CfnConnectionFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__78ae37727d04d8cb49769abd230aa782dbaea839387aeb2e47999fe47eb3c272)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoPublish")
@@ -5541,7 +5548,7 @@ class CfnConnectionFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fd7af04b6b8fb3353601d7578802317d6edea2e95afc52a8e61c68731b0181c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoPublish", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoPublish", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5557,7 +5564,7 @@ class CfnConnectionFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__be5848ec2c27bb1e627996d0449bee0b0681f66da99e0c56dc637aea36e004ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnConnectionFunction.ConnectionFunctionConfigProperty",
@@ -6049,6 +6056,7 @@ class CfnConnectionGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6160,7 +6168,7 @@ class CfnConnectionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46cb5b39bb34a52a464d8364089e47d3ba47e4a293aaa3f92857d624e7902898)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="anycastIpListId")
@@ -6173,7 +6181,7 @@ class CfnConnectionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2633385b8f4da7c2341c3b54e4d30ea9345b38862ced8c6f1d893c36ec7c669d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "anycastIpListId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "anycastIpListId", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -6191,7 +6199,7 @@ class CfnConnectionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__41addbff9b29ce6c4465d1d973785d727f6742a1723e79dcdce59a1087df694f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="ipv6Enabled")
@@ -6209,7 +6217,7 @@ class CfnConnectionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2678e60f75fc9c3a75819708e1b8cda159dd49a5c52a78d805d37bb94bd0efa5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ipv6Enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ipv6Enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6225,7 +6233,7 @@ class CfnConnectionGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f9f02fbda8fa97b38f114c9910b9d9cef69228aa69dfe80217e98e1707226ce0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -6574,6 +6582,7 @@ class CfnContinuousDeploymentPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6630,7 +6639,7 @@ class CfnContinuousDeploymentPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f4581f42e1117e6de93836f594986c28a2378e8200e2f4a535cce028879382c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "continuousDeploymentPolicyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "continuousDeploymentPolicyConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnContinuousDeploymentPolicy.ContinuousDeploymentPolicyConfigProperty",
@@ -7584,6 +7593,7 @@ class CfnDistribution(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7646,7 +7656,7 @@ class CfnDistribution(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5e8ff8a9cdfd4490d2e3cfaa371fe6e07d1dd8cd413e3d3ac95e589565d9ed0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "distributionConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "distributionConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7662,7 +7672,7 @@ class CfnDistribution(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__56e2d827e2f2ba5a0841aa9995f521ce75ad3be3fba3d8a6a555ca39d319d2f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistribution.CacheBehaviorProperty",
@@ -13288,6 +13298,7 @@ class CfnDistributionTenant(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -13389,7 +13400,7 @@ class CfnDistributionTenant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__01b4d19a34e50ac410f9509edd30a04265cf1cbbd17b788ad5aa7507c63f00f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "distributionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "distributionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="domains")
@@ -13402,7 +13413,7 @@ class CfnDistributionTenant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7e4ea73186e7ded8d4be1abca7ad4ad20e62ac773ff4030551f69552bebf4111)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domains", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domains", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -13415,7 +13426,7 @@ class CfnDistributionTenant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__21d549f43b17cc6909f030b9a70862b4d3cc9f8321d3c0808f5a34ad3a82bdac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectionGroupId")
@@ -13428,7 +13439,7 @@ class CfnDistributionTenant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__260bd4d44d34feabb54c786083ced4eca1f6825ffa23ac7256d4a56686f6f06e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionGroupId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionGroupId", value)
 
     @builtins.property
     @jsii.member(jsii_name="customizations")
@@ -13446,7 +13457,7 @@ class CfnDistributionTenant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ecc1c2d6ca5ed07f9220424e298d73ccc2d9ff84388993cacf60c02fc6431d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customizations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "customizations", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -13464,7 +13475,7 @@ class CfnDistributionTenant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4faa42cfcdbcfaf7031a5ad328e3b92614cc4b898e43367bd53e66b4edb53dd8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="managedCertificateRequest")
@@ -13482,7 +13493,7 @@ class CfnDistributionTenant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5137481a2aef0ac0e79363b8e827531e762d17f59cfa3b092f770cb0813fedc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedCertificateRequest", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "managedCertificateRequest", value)
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
@@ -13500,7 +13511,7 @@ class CfnDistributionTenant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c5ac60c7274f522196384c452007fc5b615ae79ffad1520970925978b4606156)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "parameters", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -13516,7 +13527,7 @@ class CfnDistributionTenant(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2cea18d7ff4ed5a97170964e15f6e2d6e58a5f394ede6d8f1dd4c80f19f719e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant.CertificateProperty",
@@ -14328,6 +14339,708 @@ class CfnDistributionTenantProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudfront_1f2facf0.IFieldLevelEncryptionConfigRef)
+class CfnFieldLevelEncryptionConfig(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionConfig",
+):
+    '''Resource Type definition for AWS::CloudFront::FieldLevelEncryptionConfig.
+
+    A field-level encryption configuration, which specifies the query arg profiles and content type profiles CloudFront uses to encrypt sensitive fields in viewer requests.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionconfig.html
+    :cloudformationResource: AWS::CloudFront::FieldLevelEncryptionConfig
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudfront as cloudfront
+        
+        cfn_field_level_encryption_config = cloudfront.CfnFieldLevelEncryptionConfig(self, "MyCfnFieldLevelEncryptionConfig",
+            caller_reference="callerReference",
+            content_type_profile_config=cloudfront.CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty(
+                content_type_profiles=[cloudfront.CfnFieldLevelEncryptionConfig.ContentTypeProfileProperty(
+                    content_type="contentType",
+                    format="format",
+                    profile_id="profileId"
+                )],
+                forward_when_content_type_is_unknown=False
+            ),
+            query_arg_profile_config=cloudfront.CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty(
+                forward_when_query_arg_profile_is_unknown=False,
+                query_arg_profiles=[cloudfront.CfnFieldLevelEncryptionConfig.QueryArgProfileProperty(
+                    profile_id="profileId",
+                    query_arg="queryArg"
+                )]
+            ),
+        
+            # the properties below are optional
+            comment="comment"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        caller_reference: builtins.str,
+        content_type_profile_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        query_arg_profile_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        comment: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudFront::FieldLevelEncryptionConfig``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param caller_reference: A unique value that identifies the create request. Any string unique within the account works; CloudFront refuses to change it once set, so supplying a different value replaces the configuration. It is also the only value CloudFront returns that identifies a configuration as this stack's, so cleaning up after a failed create depends on the template keeping it.
+        :param content_type_profile_config: How CloudFront handles content types, including the profile paired with each one.
+        :param query_arg_profile_config: How CloudFront handles query arguments, including the profile paired with each one.
+        :param comment: An optional comment describing the field-level encryption configuration. CloudFront stores an omitted comment and an explicitly empty one identically as an empty string, and Read normalizes that empty string back to absent -- so omitting Comment round-trips, while asking for an empty string does not and would report perpetual drift. ``minLength: 1`` refuses the empty string at template validation; omission is the way to express no comment. The service documents a maximum of 128 characters, and ``maxLength`` moves that refusal from the API to template validation.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d468d0caa0d272fb110cc3834d0fd8bcbc95605a7168612b08a4d6e6fa4ff9f4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnFieldLevelEncryptionConfigProps(
+            caller_reference=caller_reference,
+            content_type_profile_config=content_type_profile_config,
+            query_arg_profile_config=query_arg_profile_config,
+            comment=comment,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForFieldLevelEncryptionConfig")
+    @builtins.classmethod
+    def arn_for_field_level_encryption_config(
+        cls,
+        resource: "_aws_cloudfront_1f2facf0.IFieldLevelEncryptionConfigRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__78ad70fece6f6b0dcbc5acf19e8f091dcfd89a74bdff9e1850d4bf5ad4f940cc)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForFieldLevelEncryptionConfig", [resource]))
+
+    @jsii.member(jsii_name="isCfnFieldLevelEncryptionConfig")
+    @builtins.classmethod
+    def is_cfn_field_level_encryption_config(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnFieldLevelEncryptionConfig.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1d17b0e511c29f73f9f952ec6e5a8d1fe7e0b9eab8bd113e1353067f7b05bfe9)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnFieldLevelEncryptionConfig", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4453f0a605091530af022ac7c196e5fa070570d4534b7ef5f9155a6028dd1565)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f7a984420c3ea1182ecd100d5dc87f80db1c5dca2b9139c609b42383df7818de)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the field-level encryption configuration.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The identifier CloudFront assigns to the field-level encryption configuration.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The time the field-level encryption configuration was last changed.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fieldLevelEncryptionConfigRef")
+    def field_level_encryption_config_ref(
+        self,
+    ) -> "_aws_cloudfront_1f2facf0.FieldLevelEncryptionConfigReference":
+        '''A reference to a FieldLevelEncryptionConfig resource.'''
+        return typing.cast("_aws_cloudfront_1f2facf0.FieldLevelEncryptionConfigReference", jsii.get(self, "fieldLevelEncryptionConfigRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="callerReference")
+    def caller_reference(self) -> builtins.str:
+        '''A unique value that identifies the create request.'''
+        return typing.cast(builtins.str, jsii.get(self, "callerReference"))
+
+    @caller_reference.setter
+    def caller_reference(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e841a49551ec950b0bde9a5da5853e8d180b56bd7ea6d2e9eb86d095d709a4cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "callerReference", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="contentTypeProfileConfig")
+    def content_type_profile_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty"]:
+        '''How CloudFront handles content types, including the profile paired with each one.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty"], jsii.get(self, "contentTypeProfileConfig"))
+
+    @content_type_profile_config.setter
+    def content_type_profile_config(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cb39287f1b29f48b11616bf57b15ff53e573c7210b35542cdf22e8411098a9a9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contentTypeProfileConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="queryArgProfileConfig")
+    def query_arg_profile_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty"]:
+        '''How CloudFront handles query arguments, including the profile paired with each one.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty"], jsii.get(self, "queryArgProfileConfig"))
+
+    @query_arg_profile_config.setter
+    def query_arg_profile_config(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7f9fa90783cb52c8cdc8e077d34d802ed3865d220296bbe2b3253a15e822a31d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queryArgProfileConfig", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="comment")
+    def comment(self) -> typing.Optional[builtins.str]:
+        '''An optional comment describing the field-level encryption configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "comment"))
+
+    @comment.setter
+    def comment(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c563aaebdbffc1870356e8e43939d77c6ecd47fec2b4341e6e9de290e1dc2705)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "comment", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "content_type_profiles": "contentTypeProfiles",
+            "forward_when_content_type_is_unknown": "forwardWhenContentTypeIsUnknown",
+        },
+    )
+    class ContentTypeProfileConfigProperty:
+        def __init__(
+            self,
+            *,
+            content_type_profiles: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFieldLevelEncryptionConfig.ContentTypeProfileProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            forward_when_content_type_is_unknown: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ) -> None:
+            '''How CloudFront handles content types, including the profile paired with each one.
+
+            :param content_type_profiles: The content types paired with a profile. Required, and at least one item, because the service synthesizes one default item when the list is absent or empty, so neither state round-trips.
+            :param forward_when_content_type_is_unknown: Whether CloudFront forwards a request when the content type names a profile that does not exist.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-contenttypeprofileconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                content_type_profile_config_property = cloudfront.CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty(
+                    content_type_profiles=[cloudfront.CfnFieldLevelEncryptionConfig.ContentTypeProfileProperty(
+                        content_type="contentType",
+                        format="format",
+                        profile_id="profileId"
+                    )],
+                    forward_when_content_type_is_unknown=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0e10dd8f0d07ee4dd12cdfdf1e2e0e559ee3160bdcb225256bd3a60f73028820)
+                check_type(argname="argument content_type_profiles", value=content_type_profiles, expected_type=type_hints["content_type_profiles"])
+                check_type(argname="argument forward_when_content_type_is_unknown", value=forward_when_content_type_is_unknown, expected_type=type_hints["forward_when_content_type_is_unknown"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "content_type_profiles": content_type_profiles,
+                "forward_when_content_type_is_unknown": forward_when_content_type_is_unknown,
+            }
+
+        @builtins.property
+        def content_type_profiles(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.ContentTypeProfileProperty"]]]:
+            '''The content types paired with a profile.
+
+            Required, and at least one item, because the service synthesizes one default item when the list is absent or empty, so neither state round-trips.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-contenttypeprofileconfig.html#cfn-cloudfront-fieldlevelencryptionconfig-contenttypeprofileconfig-contenttypeprofiles
+            '''
+            result = self._values.get("content_type_profiles")
+            assert result is not None, "Required property 'content_type_profiles' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.ContentTypeProfileProperty"]]], result)
+
+        @builtins.property
+        def forward_when_content_type_is_unknown(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether CloudFront forwards a request when the content type names a profile that does not exist.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-contenttypeprofileconfig.html#cfn-cloudfront-fieldlevelencryptionconfig-contenttypeprofileconfig-forwardwhencontenttypeisunknown
+            '''
+            result = self._values.get("forward_when_content_type_is_unknown")
+            assert result is not None, "Required property 'forward_when_content_type_is_unknown' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContentTypeProfileConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionConfig.ContentTypeProfileProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "content_type": "contentType",
+            "format": "format",
+            "profile_id": "profileId",
+        },
+    )
+    class ContentTypeProfileProperty:
+        def __init__(
+            self,
+            *,
+            content_type: builtins.str,
+            format: builtins.str,
+            profile_id: builtins.str,
+        ) -> None:
+            '''A content type paired with the field-level encryption profile that encrypts it.
+
+            :param content_type: The content type CloudFront encrypts. The service accepts only application/x-www-form-urlencoded.
+            :param format: The encryption format CloudFront uses for this content type.
+            :param profile_id: The identifier of the field-level encryption profile CloudFront uses for this content type. Required, so that it cannot be omitted: the service accepts a content-type profile with the member absent on create and refuses one on update, and an update sends the whole profile list, so a configuration created that way could never be updated again. Supply an empty string to configure a content type and forward it WITHOUT field-level encryption. That mode is available through this resource and round-trips: create, update and read all accept and return the empty string, and it is the service's own encoding for the state -- asked for a content-type list with no items, CloudFront returns one item whose ProfileId is empty. Note that this is not the same as omitting the content type from the configuration, because ForwardWhenContentTypeIsUnknown governs only content types absent from it.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-contenttypeprofile.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                content_type_profile_property = cloudfront.CfnFieldLevelEncryptionConfig.ContentTypeProfileProperty(
+                    content_type="contentType",
+                    format="format",
+                    profile_id="profileId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__15d98590841fff32d5932c28fb3a12f21eb335b92bf00e22f61810427a243ead)
+                check_type(argname="argument content_type", value=content_type, expected_type=type_hints["content_type"])
+                check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+                check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "content_type": content_type,
+                "format": format,
+                "profile_id": profile_id,
+            }
+
+        @builtins.property
+        def content_type(self) -> builtins.str:
+            '''The content type CloudFront encrypts.
+
+            The service accepts only application/x-www-form-urlencoded.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-contenttypeprofile.html#cfn-cloudfront-fieldlevelencryptionconfig-contenttypeprofile-contenttype
+            '''
+            result = self._values.get("content_type")
+            assert result is not None, "Required property 'content_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def format(self) -> builtins.str:
+            '''The encryption format CloudFront uses for this content type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-contenttypeprofile.html#cfn-cloudfront-fieldlevelencryptionconfig-contenttypeprofile-format
+            '''
+            result = self._values.get("format")
+            assert result is not None, "Required property 'format' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def profile_id(self) -> builtins.str:
+            '''The identifier of the field-level encryption profile CloudFront uses for this content type.
+
+            Required, so that it cannot be omitted: the service accepts a content-type profile with the member absent on create and refuses one on update, and an update sends the whole profile list, so a configuration created that way could never be updated again. Supply an empty string to configure a content type and forward it WITHOUT field-level encryption. That mode is available through this resource and round-trips: create, update and read all accept and return the empty string, and it is the service's own encoding for the state -- asked for a content-type list with no items, CloudFront returns one item whose ProfileId is empty. Note that this is not the same as omitting the content type from the configuration, because ForwardWhenContentTypeIsUnknown governs only content types absent from it.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-contenttypeprofile.html#cfn-cloudfront-fieldlevelencryptionconfig-contenttypeprofile-profileid
+            '''
+            result = self._values.get("profile_id")
+            assert result is not None, "Required property 'profile_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContentTypeProfileProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "forward_when_query_arg_profile_is_unknown": "forwardWhenQueryArgProfileIsUnknown",
+            "query_arg_profiles": "queryArgProfiles",
+        },
+    )
+    class QueryArgProfileConfigProperty:
+        def __init__(
+            self,
+            *,
+            forward_when_query_arg_profile_is_unknown: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+            query_arg_profiles: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFieldLevelEncryptionConfig.QueryArgProfileProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''How CloudFront handles query arguments, including the profile paired with each one.
+
+            :param forward_when_query_arg_profile_is_unknown: Whether CloudFront forwards a request when the query argument names a profile that does not exist.
+            :param query_arg_profiles: The query arguments paired with a profile. Required because the service returns an empty list rather than preserving absence, so an omitted value cannot round-trip. An empty list is accepted and is preserved.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-queryargprofileconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                query_arg_profile_config_property = cloudfront.CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty(
+                    forward_when_query_arg_profile_is_unknown=False,
+                    query_arg_profiles=[cloudfront.CfnFieldLevelEncryptionConfig.QueryArgProfileProperty(
+                        profile_id="profileId",
+                        query_arg="queryArg"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__92f20dce29d9fa6a5201724443160afcb2432fe79d7f8d6a85cd34033cb4e256)
+                check_type(argname="argument forward_when_query_arg_profile_is_unknown", value=forward_when_query_arg_profile_is_unknown, expected_type=type_hints["forward_when_query_arg_profile_is_unknown"])
+                check_type(argname="argument query_arg_profiles", value=query_arg_profiles, expected_type=type_hints["query_arg_profiles"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "forward_when_query_arg_profile_is_unknown": forward_when_query_arg_profile_is_unknown,
+                "query_arg_profiles": query_arg_profiles,
+            }
+
+        @builtins.property
+        def forward_when_query_arg_profile_is_unknown(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether CloudFront forwards a request when the query argument names a profile that does not exist.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-queryargprofileconfig.html#cfn-cloudfront-fieldlevelencryptionconfig-queryargprofileconfig-forwardwhenqueryargprofileisunknown
+            '''
+            result = self._values.get("forward_when_query_arg_profile_is_unknown")
+            assert result is not None, "Required property 'forward_when_query_arg_profile_is_unknown' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        @builtins.property
+        def query_arg_profiles(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.QueryArgProfileProperty"]]]:
+            '''The query arguments paired with a profile.
+
+            Required because the service returns an empty list rather than preserving absence, so an omitted value cannot round-trip. An empty list is accepted and is preserved.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-queryargprofileconfig.html#cfn-cloudfront-fieldlevelencryptionconfig-queryargprofileconfig-queryargprofiles
+            '''
+            result = self._values.get("query_arg_profiles")
+            assert result is not None, "Required property 'query_arg_profiles' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.QueryArgProfileProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "QueryArgProfileConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionConfig.QueryArgProfileProperty",
+        jsii_struct_bases=[],
+        name_mapping={"profile_id": "profileId", "query_arg": "queryArg"},
+    )
+    class QueryArgProfileProperty:
+        def __init__(
+            self,
+            *,
+            profile_id: builtins.str,
+            query_arg: builtins.str,
+        ) -> None:
+            '''A query argument paired with the field-level encryption profile that encrypts it.
+
+            :param profile_id: The identifier of the field-level encryption profile CloudFront uses for this query argument.
+            :param query_arg: The query argument that CloudFront encrypts with the paired profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-queryargprofile.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudfront as cloudfront
+                
+                query_arg_profile_property = cloudfront.CfnFieldLevelEncryptionConfig.QueryArgProfileProperty(
+                    profile_id="profileId",
+                    query_arg="queryArg"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e4932126694afbc95df534cbd7e53017aef5fc1bb029b4771f26da9bd75436ff)
+                check_type(argname="argument profile_id", value=profile_id, expected_type=type_hints["profile_id"])
+                check_type(argname="argument query_arg", value=query_arg, expected_type=type_hints["query_arg"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "profile_id": profile_id,
+                "query_arg": query_arg,
+            }
+
+        @builtins.property
+        def profile_id(self) -> builtins.str:
+            '''The identifier of the field-level encryption profile CloudFront uses for this query argument.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-queryargprofile.html#cfn-cloudfront-fieldlevelencryptionconfig-queryargprofile-profileid
+            '''
+            result = self._values.get("profile_id")
+            assert result is not None, "Required property 'profile_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def query_arg(self) -> builtins.str:
+            '''The query argument that CloudFront encrypts with the paired profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-queryargprofile.html#cfn-cloudfront-fieldlevelencryptionconfig-queryargprofile-queryarg
+            '''
+            result = self._values.get("query_arg")
+            assert result is not None, "Required property 'query_arg' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "QueryArgProfileProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "caller_reference": "callerReference",
+        "content_type_profile_config": "contentTypeProfileConfig",
+        "query_arg_profile_config": "queryArgProfileConfig",
+        "comment": "comment",
+    },
+)
+class CfnFieldLevelEncryptionConfigProps:
+    def __init__(
+        self,
+        *,
+        caller_reference: builtins.str,
+        content_type_profile_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        query_arg_profile_config: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        comment: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnFieldLevelEncryptionConfig``.
+
+        :param caller_reference: A unique value that identifies the create request. Any string unique within the account works; CloudFront refuses to change it once set, so supplying a different value replaces the configuration. It is also the only value CloudFront returns that identifies a configuration as this stack's, so cleaning up after a failed create depends on the template keeping it.
+        :param content_type_profile_config: How CloudFront handles content types, including the profile paired with each one.
+        :param query_arg_profile_config: How CloudFront handles query arguments, including the profile paired with each one.
+        :param comment: An optional comment describing the field-level encryption configuration. CloudFront stores an omitted comment and an explicitly empty one identically as an empty string, and Read normalizes that empty string back to absent -- so omitting Comment round-trips, while asking for an empty string does not and would report perpetual drift. ``minLength: 1`` refuses the empty string at template validation; omission is the way to express no comment. The service documents a maximum of 128 characters, and ``maxLength`` moves that refusal from the API to template validation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudfront as cloudfront
+            
+            cfn_field_level_encryption_config_props = cloudfront.CfnFieldLevelEncryptionConfigProps(
+                caller_reference="callerReference",
+                content_type_profile_config=cloudfront.CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty(
+                    content_type_profiles=[cloudfront.CfnFieldLevelEncryptionConfig.ContentTypeProfileProperty(
+                        content_type="contentType",
+                        format="format",
+                        profile_id="profileId"
+                    )],
+                    forward_when_content_type_is_unknown=False
+                ),
+                query_arg_profile_config=cloudfront.CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty(
+                    forward_when_query_arg_profile_is_unknown=False,
+                    query_arg_profiles=[cloudfront.CfnFieldLevelEncryptionConfig.QueryArgProfileProperty(
+                        profile_id="profileId",
+                        query_arg="queryArg"
+                    )]
+                ),
+            
+                # the properties below are optional
+                comment="comment"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0e200c4c708fe0a49748db8126695ff2373dbba1e00de916cdb3cf279644776c)
+            check_type(argname="argument caller_reference", value=caller_reference, expected_type=type_hints["caller_reference"])
+            check_type(argname="argument content_type_profile_config", value=content_type_profile_config, expected_type=type_hints["content_type_profile_config"])
+            check_type(argname="argument query_arg_profile_config", value=query_arg_profile_config, expected_type=type_hints["query_arg_profile_config"])
+            check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "caller_reference": caller_reference,
+            "content_type_profile_config": content_type_profile_config,
+            "query_arg_profile_config": query_arg_profile_config,
+        }
+        if comment is not None:
+            self._values["comment"] = comment
+
+    @builtins.property
+    def caller_reference(self) -> builtins.str:
+        '''A unique value that identifies the create request.
+
+        Any string unique within the account works; CloudFront refuses to change it once set, so supplying a different value replaces the configuration. It is also the only value CloudFront returns that identifies a configuration as this stack's, so cleaning up after a failed create depends on the template keeping it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionconfig.html#cfn-cloudfront-fieldlevelencryptionconfig-callerreference
+        '''
+        result = self._values.get("caller_reference")
+        assert result is not None, "Required property 'caller_reference' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def content_type_profile_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty"]:
+        '''How CloudFront handles content types, including the profile paired with each one.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionconfig.html#cfn-cloudfront-fieldlevelencryptionconfig-contenttypeprofileconfig
+        '''
+        result = self._values.get("content_type_profile_config")
+        assert result is not None, "Required property 'content_type_profile_config' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty"], result)
+
+    @builtins.property
+    def query_arg_profile_config(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty"]:
+        '''How CloudFront handles query arguments, including the profile paired with each one.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionconfig.html#cfn-cloudfront-fieldlevelencryptionconfig-queryargprofileconfig
+        '''
+        result = self._values.get("query_arg_profile_config")
+        assert result is not None, "Required property 'query_arg_profile_config' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty"], result)
+
+    @builtins.property
+    def comment(self) -> typing.Optional[builtins.str]:
+        '''An optional comment describing the field-level encryption configuration.
+
+        CloudFront stores an omitted comment and an explicitly empty one identically as an empty string, and Read normalizes that empty string back to absent -- so omitting Comment round-trips, while asking for an empty string does not and would report perpetual drift. ``minLength: 1`` refuses the empty string at template validation; omission is the way to express no comment. The service documents a maximum of 128 characters, and ``maxLength`` moves that refusal from the API to template validation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionconfig.html#cfn-cloudfront-fieldlevelencryptionconfig-comment
+        '''
+        result = self._values.get("comment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnFieldLevelEncryptionConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudfront_1f2facf0.IFieldLevelEncryptionProfileRef)
 class CfnFieldLevelEncryptionProfile(
     _aws_cdk_0cae9daa.CfnResource,
@@ -14439,6 +15152,7 @@ class CfnFieldLevelEncryptionProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -14504,7 +15218,7 @@ class CfnFieldLevelEncryptionProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__893d7673ac549e671fb9cb0bb6d0b5cc08ad73def28725b07a151e910af2cb7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fieldLevelEncryptionProfileConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fieldLevelEncryptionProfileConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnFieldLevelEncryptionProfile.EncryptionEntityProperty",
@@ -14935,6 +15649,7 @@ class CfnFunction(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -15006,7 +15721,7 @@ class CfnFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__97599332fb85693253c87028142c0596a8f097fc2e5e5c08def898b5d875a746)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "functionCode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "functionCode", value)
 
     @builtins.property
     @jsii.member(jsii_name="functionConfig")
@@ -15024,7 +15739,7 @@ class CfnFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e1085109b32e0c76599f999f799894997c5e13b7588671859ed027f4d0eceaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "functionConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "functionConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -15037,7 +15752,7 @@ class CfnFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__49e27efb9a632d18d709cce44f4c9025bc32523c224dcb735351068e4a2f071f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="autoPublish")
@@ -15055,7 +15770,7 @@ class CfnFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__827ae5409caf9c9196670ea90d3ee72840fe49ac20cace1bd57d5f83fc2617cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoPublish", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoPublish", value)
 
     @builtins.property
     @jsii.member(jsii_name="functionMetadata")
@@ -15073,7 +15788,7 @@ class CfnFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fe3c43f2af2adeb7b33e657cb565ba1627c04114bab013dcd445631d30026b9e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "functionMetadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "functionMetadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -15089,7 +15804,7 @@ class CfnFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f230438436f507ff08bcf6c3c32930bacf493acc04c728895c105eec7015f67e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnFunction.FunctionConfigProperty",
@@ -15552,6 +16267,7 @@ class CfnKeyGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -15606,7 +16322,7 @@ class CfnKeyGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f5ed72b1e268631c85b0ecd81a9bcb5dda1c9af4f25021249f63cf35b6102f2a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyGroupConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyGroupConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnKeyGroup.KeyGroupConfigProperty",
@@ -15884,6 +16600,7 @@ class CfnKeyValueStore(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -15950,7 +16667,7 @@ class CfnKeyValueStore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__31c81f83ed9c5a25440ffda441f09dcb33411d9684b0a3146646cb289054da0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="comment")
@@ -15963,7 +16680,7 @@ class CfnKeyValueStore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e7ef3d5363a87ed84c6584e05c362a97bac2792589a6003e1851446b936205f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "comment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "comment", value)
 
     @builtins.property
     @jsii.member(jsii_name="importSource")
@@ -15981,7 +16698,7 @@ class CfnKeyValueStore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bfd48a97d25e7b681206f3f821672b491cdb6e27eb4858257cc5f853e5674c56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "importSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "importSource", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -15997,7 +16714,7 @@ class CfnKeyValueStore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9c88f367ad914ee64fa713b8b0ce72ead6f57eff5fb92453a2f77a39db475e44)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnKeyValueStore.ImportSourceProperty",
@@ -16283,6 +17000,7 @@ class CfnMonitoringSubscription(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -16316,7 +17034,7 @@ class CfnMonitoringSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7800c3e8dc8908a3f056fdb42d3210ab64e0eab502963a833ad4c34e4f9fd397)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "distributionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "distributionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="monitoringSubscription")
@@ -16334,7 +17052,7 @@ class CfnMonitoringSubscription(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6a73e9da7bd64c6f8edfeda9db92c61f11177fd45e61323cc95783240a1f833)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitoringSubscription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitoringSubscription", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnMonitoringSubscription.MonitoringSubscriptionProperty",
@@ -16653,6 +17371,7 @@ class CfnOriginAccessControl(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -16700,7 +17419,7 @@ class CfnOriginAccessControl(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0ce66d3b823fd9ddad2c2b62c7851eb33500f3dcb8168e58af67867c2f6aae9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "originAccessControlConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "originAccessControlConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnOriginAccessControl.OriginAccessControlConfigProperty",
@@ -17041,6 +17760,7 @@ class CfnOriginRequestPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -17099,7 +17819,7 @@ class CfnOriginRequestPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__708e0c2a481cb4e4b68fc467580d318614020b97e17eaa433b6804731ced5237)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "originRequestPolicyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "originRequestPolicyConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnOriginRequestPolicy.CookiesConfigProperty",
@@ -17672,6 +18392,7 @@ class CfnPublicKey(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -17726,7 +18447,7 @@ class CfnPublicKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__58d675c3580a784a3be69561798d55507bf948f7a586b6ccaa1aca861f3e22dd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publicKeyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "publicKeyConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnPublicKey.PublicKeyConfigProperty",
@@ -18023,6 +18744,7 @@ class CfnRealtimeLogConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -18072,7 +18794,7 @@ class CfnRealtimeLogConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a399b0f2984cadefbe5ab1596b0a4763a8f456c302dc65036725f1ad9a543e5b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "endPoints", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "endPoints", value)
 
     @builtins.property
     @jsii.member(jsii_name="fields")
@@ -18085,7 +18807,7 @@ class CfnRealtimeLogConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f4acb3fc802e66b33d46f5f1737506960b7058ccd04caba1ad1db22c81983a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fields", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fields", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -18098,7 +18820,7 @@ class CfnRealtimeLogConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4611dc2e52a8827da74b1cab9e79ef1a4b59423fda9e0b7a1f949d411f767a55)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="samplingRate")
@@ -18111,7 +18833,7 @@ class CfnRealtimeLogConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fae7e2f43229ce281266cc0e965c660b0c47348bdab2a464e668be589b0b8256)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "samplingRate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "samplingRate", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnRealtimeLogConfig.EndPointProperty",
@@ -18563,6 +19285,7 @@ class CfnResponseHeadersPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -18621,7 +19344,7 @@ class CfnResponseHeadersPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9664ad8baf2a412170daf27d190c8b070be288076aab09583c9dbfb1818b4229)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "responseHeadersPolicyConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "responseHeadersPolicyConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnResponseHeadersPolicy.AccessControlAllowHeadersProperty",
@@ -20611,6 +21334,7 @@ class CfnStreamingDistribution(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -20672,7 +21396,7 @@ class CfnStreamingDistribution(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dc8a8d78e195f1bab99bca7ea58d3b6a029844997b8e6940d737f147d8dcc6d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamingDistributionConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamingDistributionConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -20688,7 +21412,7 @@ class CfnStreamingDistribution(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3a91a3a4fec8e270215622a8e9c4af00c6cfb4cfbe6700e58871b60ab722463f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnStreamingDistribution.LoggingProperty",
@@ -21357,6 +22081,7 @@ class CfnTrustStore(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -21448,7 +22173,7 @@ class CfnTrustStore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3cff4ad62bdd9b19fb1a62d7a0bee5ad7a83138acdf52336edda9683763fd872)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="caCertificatesBundleSource")
@@ -21466,7 +22191,7 @@ class CfnTrustStore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66149a337b49bef3f17a72be067686394c884438665fe2a91d2956adb0d7e84a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "caCertificatesBundleSource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "caCertificatesBundleSource", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -21482,7 +22207,7 @@ class CfnTrustStore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8891d288761cbb98e0953cae118faa2d9e32c0832073d4be7c5ae3579a20ff68)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="useClientCertificateOcspEndpoint")
@@ -21500,7 +22225,7 @@ class CfnTrustStore(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e33500adacee9b6a022871eb04815bb5a9abd1653a1b1e1b925ae27cb48e6fcc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "useClientCertificateOcspEndpoint", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "useClientCertificateOcspEndpoint", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnTrustStore.CaCertificatesBundleS3LocationProperty",
@@ -21923,6 +22648,7 @@ class CfnVpcOrigin(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -22019,7 +22745,7 @@ class CfnVpcOrigin(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9265e1489f928e735dda183f6e028e321fecb788c24bb3ae245d1548533ba74e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcOriginEndpointConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcOriginEndpointConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -22035,7 +22761,7 @@ class CfnVpcOrigin(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cc93ea0e93a8ae8f83cf244dcb1cb75eec5e49566a07e24c8943e0e19484ca81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnVpcOrigin.VpcOriginEndpointConfigProperty",
@@ -23087,20 +23813,18 @@ class DistributionProps:
 
         Example::
 
-            # s3_bucket: s3.Bucket
-            # Add a cloudfront Function to a Distribution
-            cf_function = cloudfront.Function(self, "Function",
-                code=cloudfront.FunctionCode.from_inline("function handler(event) { return event.request }"),
-                runtime=cloudfront.FunctionRuntime.JS_2_0
+            # Creates a distribution from a Network Load Balancer
+            # vpc: ec2.Vpc
+            
+            # Create a network load balancer in a VPC. 'internetFacing' can be 'false'.
+            nlb = elbv2.NetworkLoadBalancer(self, "NLB",
+                vpc=vpc,
+                internet_facing=False,
+                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
+                security_groups=[ec2.SecurityGroup(self, "NLB-SG", vpc=vpc)]
             )
-            cloudfront.Distribution(self, "distro",
-                default_behavior=cloudfront.BehaviorOptions(
-                    origin=origins.S3Origin(s3_bucket),
-                    function_associations=[cloudfront.FunctionAssociation(
-                        function=cf_function,
-                        event_type=cloudfront.FunctionEventType.VIEWER_REQUEST
-                    )]
-                )
+            cloudfront.Distribution(self, "myDist",
+                default_behavior=cloudfront.BehaviorOptions(origin=origins.VpcOrigin.with_network_load_balancer(nlb))
             )
         '''
         if isinstance(default_behavior, dict):
@@ -24057,7 +24781,7 @@ class FunctionProps:
         :param comment: A comment to describe the function. Default: - same as ``functionName``
         :param function_name: A name to identify the function. Default: - generated from the ``id``
         :param key_value_store: The Key Value Store to associate with this function. In order to associate a Key Value Store, the ``runtime`` must be ``cloudfront-js-2.0`` or newer. Default: - no key value store is associated
-        :param runtime: The runtime environment for the function. Default: FunctionRuntime.JS_1_0 (unless ``keyValueStore`` is specified, then ``FunctionRuntime.JS_2_0``)
+        :param runtime: The runtime environment for the function. Default: - FunctionRuntime.JS_2_0 if ``keyValueStore`` is specified or the ``@aws-cdk/aws-cloudfront:defaultFunctionRuntimeV2_0`` feature flag is enabled; otherwise, FunctionRuntime.JS_1_0.
 
         :exampleMetadata: infused
 
@@ -24145,7 +24869,11 @@ class FunctionProps:
     def runtime(self) -> typing.Optional["FunctionRuntime"]:
         '''The runtime environment for the function.
 
-        :default: FunctionRuntime.JS_1_0 (unless ``keyValueStore`` is specified, then ``FunctionRuntime.JS_2_0``)
+        :default:
+
+        - FunctionRuntime.JS_2_0 if ``keyValueStore`` is specified or the
+        ``@aws-cdk/aws-cloudfront:defaultFunctionRuntimeV2_0`` feature flag is enabled;
+        otherwise, FunctionRuntime.JS_1_0.
         '''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional["FunctionRuntime"], result)
@@ -24197,12 +24925,14 @@ class FunctionRuntime(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="JS_1_0")
+    @builtins.classmethod
     def JS_1_0(cls) -> "FunctionRuntime":
         '''cloudfront-js-1.0.'''
         return typing.cast("FunctionRuntime", jsii.sget(cls, "JS_1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="JS_2_0")
+    @builtins.classmethod
     def JS_2_0(cls) -> "FunctionRuntime":
         '''cloudfront-js-2.0.'''
         return typing.cast("FunctionRuntime", jsii.sget(cls, "JS_2_0"))
@@ -25454,6 +26184,7 @@ class KeyGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -25641,6 +26372,7 @@ class KeyValueStore(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -26071,6 +26803,7 @@ class MediaPackageV2OriginAccessControl(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -26302,6 +27035,7 @@ class OriginAccessIdentity(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -27455,16 +28189,13 @@ class OriginRequestPolicy(
 
     Example::
 
-        oac = cloudfront.FunctionUrlOriginAccessControl(self, "WebFunctionOAC",
-            signing=cloudfront.Signing.SIGV4_ALWAYS_AMZ_AUTH
-        )
+        # Using an existing origin request policy for a Distribution
+        # bucket_origin: origins.S3Origin
         
-        cloudfront.Distribution(self, "MyDistribution",
+        cloudfront.Distribution(self, "myDistManagedPolicy",
             default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.HttpOrigin("bcdfghjklmnpqrst.b7t.lambda-web.us-east-1.on.aws",
-                    origin_access_control_id=oac.origin_access_control_id
-                ),
-                origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
+                origin=bucket_origin,
+                origin_request_policy=cloudfront.OriginRequestPolicy.CORS_S3_ORIGIN
             )
         )
     '''
@@ -27526,42 +28257,49 @@ class OriginRequestPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALL_VIEWER")
+    @builtins.classmethod
     def ALL_VIEWER(cls) -> "IOriginRequestPolicy":
         '''This policy includes all values (query strings, headers, and cookies) in the viewer request.'''
         return typing.cast("IOriginRequestPolicy", jsii.sget(cls, "ALL_VIEWER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALL_VIEWER_AND_CLOUDFRONT_2022")
+    @builtins.classmethod
     def ALL_VIEWER_AND_CLOUDFRONT_2022(cls) -> "IOriginRequestPolicy":
         '''This policy includes all values (headers, cookies, and query strings) in the viewer request, and all CloudFront headers that were released through June 2022 (CloudFront headers released after June 2022 are not included).'''
         return typing.cast("IOriginRequestPolicy", jsii.sget(cls, "ALL_VIEWER_AND_CLOUDFRONT_2022"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ALL_VIEWER_EXCEPT_HOST_HEADER")
+    @builtins.classmethod
     def ALL_VIEWER_EXCEPT_HOST_HEADER(cls) -> "IOriginRequestPolicy":
         '''This policy includes all values (query strings, and cookies) except the header in the viewer request.'''
         return typing.cast("IOriginRequestPolicy", jsii.sget(cls, "ALL_VIEWER_EXCEPT_HOST_HEADER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORS_CUSTOM_ORIGIN")
+    @builtins.classmethod
     def CORS_CUSTOM_ORIGIN(cls) -> "IOriginRequestPolicy":
         '''This policy includes the header that enables cross-origin resource sharing (CORS) requests when the origin is a custom origin.'''
         return typing.cast("IOriginRequestPolicy", jsii.sget(cls, "CORS_CUSTOM_ORIGIN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORS_S3_ORIGIN")
+    @builtins.classmethod
     def CORS_S3_ORIGIN(cls) -> "IOriginRequestPolicy":
         '''This policy includes the headers that enable cross-origin resource sharing (CORS) requests when the origin is an Amazon S3 bucket.'''
         return typing.cast("IOriginRequestPolicy", jsii.sget(cls, "CORS_S3_ORIGIN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELEMENTAL_MEDIA_TAILOR")
+    @builtins.classmethod
     def ELEMENTAL_MEDIA_TAILOR(cls) -> "IOriginRequestPolicy":
         '''This policy is designed for use with an origin that is an AWS Elemental MediaTailor endpoint.'''
         return typing.cast("IOriginRequestPolicy", jsii.sget(cls, "ELEMENTAL_MEDIA_TAILOR"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HOST_HEADER_ONLY")
+    @builtins.classmethod
     def HOST_HEADER_ONLY(cls) -> "IOriginRequestPolicy":
         '''This policy includes only the Host header from the origin request.
 
@@ -27571,12 +28309,14 @@ class OriginRequestPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="USER_AGENT_REFERER_HEADERS")
+    @builtins.classmethod
     def USER_AGENT_REFERER_HEADERS(cls) -> "IOriginRequestPolicy":
         '''This policy includes only the User-Agent and Referer headers.
 
@@ -27943,6 +28683,7 @@ class PublicKey(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -28121,6 +28862,7 @@ class RealtimeLogConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -29027,24 +29769,28 @@ class ResponseHeadersPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORS_ALLOW_ALL_ORIGINS")
+    @builtins.classmethod
     def CORS_ALLOW_ALL_ORIGINS(cls) -> "IResponseHeadersPolicy":
         '''Use this managed policy to allow simple CORS requests from any origin.'''
         return typing.cast("IResponseHeadersPolicy", jsii.sget(cls, "CORS_ALLOW_ALL_ORIGINS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORS_ALLOW_ALL_ORIGINS_AND_SECURITY_HEADERS")
+    @builtins.classmethod
     def CORS_ALLOW_ALL_ORIGINS_AND_SECURITY_HEADERS(cls) -> "IResponseHeadersPolicy":
         '''Use this managed policy to allow simple CORS requests from any origin and add a set of security headers to all responses that CloudFront sends to viewers.'''
         return typing.cast("IResponseHeadersPolicy", jsii.sget(cls, "CORS_ALLOW_ALL_ORIGINS_AND_SECURITY_HEADERS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT")
+    @builtins.classmethod
     def CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT(cls) -> "IResponseHeadersPolicy":
         '''Use this managed policy to allow CORS requests from any origin, including preflight requests.'''
         return typing.cast("IResponseHeadersPolicy", jsii.sget(cls, "CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT_AND_SECURITY_HEADERS")
+    @builtins.classmethod
     def CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT_AND_SECURITY_HEADERS(
         cls,
     ) -> "IResponseHeadersPolicy":
@@ -29053,12 +29799,14 @@ class ResponseHeadersPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SECURITY_HEADERS")
+    @builtins.classmethod
     def SECURITY_HEADERS(cls) -> "IResponseHeadersPolicy":
         '''Use this managed policy to add a set of security headers to all responses that CloudFront sends to viewers.'''
         return typing.cast("IResponseHeadersPolicy", jsii.sget(cls, "SECURITY_HEADERS"))
@@ -30001,6 +30749,7 @@ class S3OriginAccessControl(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -30359,36 +31108,45 @@ class Signing(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudfront.Sig
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NEVER")
+    @builtins.classmethod
     def NEVER(cls) -> "Signing":
         '''Do not sign any origin requests.'''
         return typing.cast("Signing", jsii.sget(cls, "NEVER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SIGV4_ALWAYS")
+    @builtins.classmethod
     def SIGV4_ALWAYS(cls) -> "Signing":
         '''Sign all origin requests using the AWS Signature Version 4 signing protocol.'''
         return typing.cast("Signing", jsii.sget(cls, "SIGV4_ALWAYS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SIGV4_ALWAYS_AMZ_AUTH")
+    @builtins.classmethod
     def SIGV4_ALWAYS_AMZ_AUTH(cls) -> "Signing":
-        '''Sign all origin requests using the AWS Signature Version 4 signing protocol, and pass the viewer's Authorization header to the origin unchanged.
-
-        Use with regional AWS Lambda Web Function endpoints.
-        '''
+        '''Sign all origin requests using the AWS Signature Version 4 signing protocol, and pass the viewer's Authorization header to the origin unchanged.'''
         return typing.cast("Signing", jsii.sget(cls, "SIGV4_ALWAYS_AMZ_AUTH"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SIGV4_NO_OVERRIDE")
+    @builtins.classmethod
     def SIGV4_NO_OVERRIDE(cls) -> "Signing":
         '''Sign only if the viewer request doesn't contain the Authorization header using the AWS Signature Version 4 signing protocol.'''
         return typing.cast("Signing", jsii.sget(cls, "SIGV4_NO_OVERRIDE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SIGV4A_ALWAYS")
+    @builtins.classmethod
     def SIGV4_A_ALWAYS(cls) -> "Signing":
         '''Sign all origin requests using the AWS Signature Version 4A signing protocol.'''
         return typing.cast("Signing", jsii.sget(cls, "SIGV4A_ALWAYS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SIGV4A_ALWAYS_AMZ_AUTH")
+    @builtins.classmethod
+    def SIGV4_A_ALWAYS_AMZ_AUTH(cls) -> "Signing":
+        '''Sign all origin requests using the AWS Signature Version 4A signing protocol, and pass the viewer's Authorization header to the origin unchanged.'''
+        return typing.cast("Signing", jsii.sget(cls, "SIGV4A_ALWAYS_AMZ_AUTH"))
 
     @builtins.property
     @jsii.member(jsii_name="behavior")
@@ -31119,6 +31877,7 @@ class VpcOrigin(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -31894,12 +32653,14 @@ class CachePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMPLIFY")
+    @builtins.classmethod
     def AMPLIFY(cls) -> "ICachePolicy":
         '''This policy is designed for use with an origin that is an AWS Amplify web app.'''
         return typing.cast("ICachePolicy", jsii.sget(cls, "AMPLIFY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CACHING_DISABLED")
+    @builtins.classmethod
     def CACHING_DISABLED(cls) -> "ICachePolicy":
         '''Disables caching.
 
@@ -31909,6 +32670,7 @@ class CachePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CACHING_OPTIMIZED")
+    @builtins.classmethod
     def CACHING_OPTIMIZED(cls) -> "ICachePolicy":
         '''Optimize cache efficiency by minimizing the values that CloudFront includes in the cache key.
 
@@ -31918,6 +32680,7 @@ class CachePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CACHING_OPTIMIZED_FOR_UNCOMPRESSED_OBJECTS")
+    @builtins.classmethod
     def CACHING_OPTIMIZED_FOR_UNCOMPRESSED_OBJECTS(cls) -> "ICachePolicy":
         '''Optimize cache efficiency by minimizing the values that CloudFront includes in the cache key.
 
@@ -31928,24 +32691,28 @@ class CachePolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ELEMENTAL_MEDIA_PACKAGE")
+    @builtins.classmethod
     def ELEMENTAL_MEDIA_PACKAGE(cls) -> "ICachePolicy":
         '''Designed for use with an origin that is an AWS Elemental MediaPackage endpoint.'''
         return typing.cast("ICachePolicy", jsii.sget(cls, "ELEMENTAL_MEDIA_PACKAGE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="USE_ORIGIN_CACHE_CONTROL_HEADERS")
+    @builtins.classmethod
     def USE_ORIGIN_CACHE_CONTROL_HEADERS(cls) -> "ICachePolicy":
         '''Designed for use with an origin that returns Cache-Control HTTP response headers and does not serve different content based on values present in the query string.'''
         return typing.cast("ICachePolicy", jsii.sget(cls, "USE_ORIGIN_CACHE_CONTROL_HEADERS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="USE_ORIGIN_CACHE_CONTROL_HEADERS_QUERY_STRINGS")
+    @builtins.classmethod
     def USE_ORIGIN_CACHE_CONTROL_HEADERS_QUERY_STRINGS(cls) -> "ICachePolicy":
         '''Designed for use with an origin that returns Cache-Control HTTP response headers and serves different content based on values present in the query string.'''
         return typing.cast("ICachePolicy", jsii.sget(cls, "USE_ORIGIN_CACHE_CONTROL_HEADERS_QUERY_STRINGS"))
@@ -32147,6 +32914,7 @@ class CloudFrontWebDistribution(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(deprecated) Uniquely identifies this class.
 
@@ -33245,6 +34013,7 @@ class Distribution(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -33328,7 +34097,7 @@ class Function(
         :param comment: A comment to describe the function. Default: - same as ``functionName``
         :param function_name: A name to identify the function. Default: - generated from the ``id``
         :param key_value_store: The Key Value Store to associate with this function. In order to associate a Key Value Store, the ``runtime`` must be ``cloudfront-js-2.0`` or newer. Default: - no key value store is associated
-        :param runtime: The runtime environment for the function. Default: FunctionRuntime.JS_1_0 (unless ``keyValueStore`` is specified, then ``FunctionRuntime.JS_2_0``)
+        :param runtime: The runtime environment for the function. Default: - FunctionRuntime.JS_2_0 if ``keyValueStore`` is specified or the ``@aws-cdk/aws-cloudfront:defaultFunctionRuntimeV2_0`` feature flag is enabled; otherwise, FunctionRuntime.JS_1_0.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__036fe4f21793a85724c37ca1ffc5912522571664ab980383ee3babc485339b2e)
@@ -33378,6 +34147,7 @@ class Function(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -33439,25 +34209,17 @@ class FunctionUrlOriginAccessControl(
 
     Example::
 
-        import aws_cdk.aws_lambda as lambda_
-        # fn: lambda.Function
+        # regional_endpoint_domain_name: str
         
         
-        fn_url = fn.add_function_url(
-            auth_type=lambda_.FunctionUrlAuthType.AWS_IAM
+        oac = cloudfront.FunctionUrlOriginAccessControl(self, "WebFunctionOAC",
+            signing=cloudfront.Signing.SIGV4_ALWAYS_AMZ_AUTH
         )
         
-        # Define a custom OAC
-        oac = cloudfront.FunctionUrlOriginAccessControl(self, "MyOAC",
-            origin_access_control_name="CustomLambdaOAC",
-            signing=cloudfront.Signing.SIGV4_ALWAYS
-        )
-        
-        # Set up Lambda Function URL with OAC in CloudFront Distribution
         cloudfront.Distribution(self, "MyDistribution",
             default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.FunctionUrlOrigin.with_origin_access_control(fn_url,
-                    origin_access_control=oac
+                origin=origins.HttpOrigin(regional_endpoint_domain_name,
+                    origin_access_control_id=oac.origin_access_control_id
                 )
             )
         )
@@ -33514,6 +34276,7 @@ class FunctionUrlOriginAccessControl(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -33563,25 +34326,17 @@ class FunctionUrlOriginAccessControlProps(OriginAccessControlBaseProps):
 
         Example::
 
-            import aws_cdk.aws_lambda as lambda_
-            # fn: lambda.Function
+            # regional_endpoint_domain_name: str
             
             
-            fn_url = fn.add_function_url(
-                auth_type=lambda_.FunctionUrlAuthType.AWS_IAM
+            oac = cloudfront.FunctionUrlOriginAccessControl(self, "WebFunctionOAC",
+                signing=cloudfront.Signing.SIGV4_ALWAYS_AMZ_AUTH
             )
             
-            # Define a custom OAC
-            oac = cloudfront.FunctionUrlOriginAccessControl(self, "MyOAC",
-                origin_access_control_name="CustomLambdaOAC",
-                signing=cloudfront.Signing.SIGV4_ALWAYS
-            )
-            
-            # Set up Lambda Function URL with OAC in CloudFront Distribution
             cloudfront.Distribution(self, "MyDistribution",
                 default_behavior=cloudfront.BehaviorOptions(
-                    origin=origins.FunctionUrlOrigin.with_origin_access_control(fn_url,
-                        origin_access_control=oac
+                    origin=origins.HttpOrigin(regional_endpoint_domain_name,
+                        origin_access_control_id=oac.origin_access_control_id
                     )
                 )
             )
@@ -33762,6 +34517,8 @@ __all__ = [
     "CfnDistributionProps",
     "CfnDistributionTenant",
     "CfnDistributionTenantProps",
+    "CfnFieldLevelEncryptionConfig",
+    "CfnFieldLevelEncryptionConfigProps",
     "CfnFieldLevelEncryptionProfile",
     "CfnFieldLevelEncryptionProfileProps",
     "CfnFunction",
@@ -35171,6 +35928,109 @@ def _typecheckingstub__a7e7108347c4dbf8d509df9b928e7c2257744baad28d87264b1969519
     managed_certificate_request: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDistributionTenant.ManagedCertificateRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parameters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDistributionTenant.ParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d468d0caa0d272fb110cc3834d0fd8bcbc95605a7168612b08a4d6e6fa4ff9f4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    caller_reference: builtins.str,
+    content_type_profile_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    query_arg_profile_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    comment: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__78ad70fece6f6b0dcbc5acf19e8f091dcfd89a74bdff9e1850d4bf5ad4f940cc(
+    resource: _aws_cloudfront_1f2facf0.IFieldLevelEncryptionConfigRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d17b0e511c29f73f9f952ec6e5a8d1fe7e0b9eab8bd113e1353067f7b05bfe9(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4453f0a605091530af022ac7c196e5fa070570d4534b7ef5f9155a6028dd1565(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f7a984420c3ea1182ecd100d5dc87f80db1c5dca2b9139c609b42383df7818de(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e841a49551ec950b0bde9a5da5853e8d180b56bd7ea6d2e9eb86d095d709a4cd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb39287f1b29f48b11616bf57b15ff53e573c7210b35542cdf22e8411098a9a9(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f9fa90783cb52c8cdc8e077d34d802ed3865d220296bbe2b3253a15e822a31d(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c563aaebdbffc1870356e8e43939d77c6ecd47fec2b4341e6e9de290e1dc2705(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e10dd8f0d07ee4dd12cdfdf1e2e0e559ee3160bdcb225256bd3a60f73028820(
+    *,
+    content_type_profiles: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFieldLevelEncryptionConfig.ContentTypeProfileProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    forward_when_content_type_is_unknown: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15d98590841fff32d5932c28fb3a12f21eb335b92bf00e22f61810427a243ead(
+    *,
+    content_type: builtins.str,
+    format: builtins.str,
+    profile_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92f20dce29d9fa6a5201724443160afcb2432fe79d7f8d6a85cd34033cb4e256(
+    *,
+    forward_when_query_arg_profile_is_unknown: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+    query_arg_profiles: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFieldLevelEncryptionConfig.QueryArgProfileProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4932126694afbc95df534cbd7e53017aef5fc1bb029b4771f26da9bd75436ff(
+    *,
+    profile_id: builtins.str,
+    query_arg: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e200c4c708fe0a49748db8126695ff2373dbba1e00de916cdb3cf279644776c(
+    *,
+    caller_reference: builtins.str,
+    content_type_profile_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFieldLevelEncryptionConfig.ContentTypeProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    query_arg_profile_config: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFieldLevelEncryptionConfig.QueryArgProfileConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    comment: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

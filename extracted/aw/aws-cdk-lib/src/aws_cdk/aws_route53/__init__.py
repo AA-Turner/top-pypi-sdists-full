@@ -938,18 +938,21 @@ class Alpn(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_route53.Alpn"):
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="H2")
+    @builtins.classmethod
     def H2(cls) -> "Alpn":
         '''HTTP2.'''
         return typing.cast("Alpn", jsii.sget(cls, "H2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="H3")
+    @builtins.classmethod
     def H3(cls) -> "Alpn":
         '''HTTP3 (QUIC).'''
         return typing.cast("Alpn", jsii.sget(cls, "H3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HTTP1_1")
+    @builtins.classmethod
     def HTTP1_1(cls) -> "Alpn":
         '''HTTP/1.1.'''
         return typing.cast("Alpn", jsii.sget(cls, "HTTP1_1"))
@@ -1161,6 +1164,7 @@ class CfnCidrCollection(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1210,7 +1214,7 @@ class CfnCidrCollection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e50d4b886f4c0718571d1dc70a97b0a1880f116a72668e2684b19ec718caa527)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="locations")
@@ -1228,7 +1232,7 @@ class CfnCidrCollection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d1ed42461528e34721c33b3493a2297bae3e47c0fe29589882e2a685605d968)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "locations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "locations", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_route53.CfnCidrCollection.LocationProperty",
@@ -1470,6 +1474,7 @@ class CfnDNSSEC(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1501,7 +1506,7 @@ class CfnDNSSEC(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__49aa879587d46704e9e1a930ff6b1127ca5bcd3a356f6eb50d8324ca68c299b4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneId", value)
 
 
 @jsii.data_type(
@@ -1652,6 +1657,7 @@ class CfnDelegationSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1890,6 +1896,7 @@ class CfnHealthCheck(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1943,7 +1950,7 @@ class CfnHealthCheck(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8b0df7baae49dfed1fb95576ba5c0e5d51660f268bef2a4d82fca32324f94689)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "healthCheckConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckTags")
@@ -1961,7 +1968,7 @@ class CfnHealthCheck(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1d1493e762a114933a5a3775c215007c8d522e932362ff7c530eb00b515208ff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "healthCheckTags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_route53.CfnHealthCheck.AlarmIdentifierProperty",
@@ -2722,6 +2729,7 @@ class CfnHostedZone(
         from aws_cdk import aws_route53 as route53
         
         cfn_hosted_zone = route53.CfnHostedZone(self, "MyCfnHostedZone",
+            delegation_set_id="delegationSetId",
             hosted_zone_config=route53.CfnHostedZone.HostedZoneConfigProperty(
                 comment="comment"
             ),
@@ -2748,6 +2756,7 @@ class CfnHostedZone(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        delegation_set_id: typing.Optional[builtins.str] = None,
         hosted_zone_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.HostedZoneConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         hosted_zone_features: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.HostedZoneFeaturesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         hosted_zone_tags: typing.Optional[typing.Sequence[typing.Union["CfnHostedZone.HostedZoneTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2759,6 +2768,7 @@ class CfnHostedZone(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
+        :param delegation_set_id: 
         :param hosted_zone_config: A complex type that contains an optional comment. If you don't want to specify a comment, omit the ``HostedZoneConfig`` and ``Comment`` elements.
         :param hosted_zone_features: The features configuration for the hosted zone, including accelerated recovery settings and status information.
         :param hosted_zone_tags: Adds, edits, or deletes tags for a health check or a hosted zone. For information about using tags for cost allocation, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ in the *Billing and Cost Management User Guide* .
@@ -2771,6 +2781,7 @@ class CfnHostedZone(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnHostedZoneProps(
+            delegation_set_id=delegation_set_id,
             hosted_zone_config=hosted_zone_config,
             hosted_zone_features=hosted_zone_features,
             hosted_zone_tags=hosted_zone_tags,
@@ -2833,6 +2844,7 @@ class CfnHostedZone(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2880,6 +2892,18 @@ class CfnHostedZone(
         return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="delegationSetId")
+    def delegation_set_id(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "delegationSetId"))
+
+    @delegation_set_id.setter
+    def delegation_set_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0bd59564861539362c7dcdad6f45957f25ab7660ede82f803bd41bb0b8d2a510)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "delegationSetId", value)
+
+    @builtins.property
     @jsii.member(jsii_name="hostedZoneConfig")
     def hosted_zone_config(
         self,
@@ -2895,7 +2919,7 @@ class CfnHostedZone(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e764c4ae257c91c5d5b032fbe4eb718b4851ccc5750ef5bd3b5214ef2b4684fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneFeatures")
@@ -2913,7 +2937,7 @@ class CfnHostedZone(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__103df913d9dc30b8a72229c8397bf39942dc00698e6ee32c9e98ec8f10e62aea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneFeatures", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneFeatures", value)
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneTagsRaw")
@@ -2931,7 +2955,7 @@ class CfnHostedZone(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__93e68861780d2e75a54677985f3c250e924418dc9e1ac1cc200b770e633acbb6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneTagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneTagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2944,7 +2968,7 @@ class CfnHostedZone(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__91099dfc3159698491b9498cddba1ba706c12aeede11ee9ccadf937019c2ae08)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="queryLoggingConfig")
@@ -2962,7 +2986,7 @@ class CfnHostedZone(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02d1784db152ce69ef63512574d41672ddd53e2038e23c71ff72325772d8b489)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "queryLoggingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "queryLoggingConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcs")
@@ -2980,7 +3004,7 @@ class CfnHostedZone(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__45fa6589ea7645f299a1666ba66ea7f49172916fae56fe49b48ee2d8bfa87241)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcs", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcs", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_route53.CfnHostedZone.HostedZoneConfigProperty",
@@ -3301,6 +3325,7 @@ class CfnHostedZone(
     jsii_type="aws-cdk-lib.aws_route53.CfnHostedZoneProps",
     jsii_struct_bases=[],
     name_mapping={
+        "delegation_set_id": "delegationSetId",
         "hosted_zone_config": "hostedZoneConfig",
         "hosted_zone_features": "hostedZoneFeatures",
         "hosted_zone_tags": "hostedZoneTags",
@@ -3313,6 +3338,7 @@ class CfnHostedZoneProps:
     def __init__(
         self,
         *,
+        delegation_set_id: typing.Optional[builtins.str] = None,
         hosted_zone_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.HostedZoneConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         hosted_zone_features: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnHostedZone.HostedZoneFeaturesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         hosted_zone_tags: typing.Optional[typing.Sequence[typing.Union["CfnHostedZone.HostedZoneTagProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3322,6 +3348,7 @@ class CfnHostedZoneProps:
     ) -> None:
         '''Properties for defining a ``CfnHostedZone``.
 
+        :param delegation_set_id: 
         :param hosted_zone_config: A complex type that contains an optional comment. If you don't want to specify a comment, omit the ``HostedZoneConfig`` and ``Comment`` elements.
         :param hosted_zone_features: The features configuration for the hosted zone, including accelerated recovery settings and status information.
         :param hosted_zone_tags: Adds, edits, or deletes tags for a health check or a hosted zone. For information about using tags for cost allocation, see `Using Cost Allocation Tags <https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/cost-alloc-tags.html>`_ in the *Billing and Cost Management User Guide* .
@@ -3339,6 +3366,7 @@ class CfnHostedZoneProps:
             from aws_cdk import aws_route53 as route53
             
             cfn_hosted_zone_props = route53.CfnHostedZoneProps(
+                delegation_set_id="delegationSetId",
                 hosted_zone_config=route53.CfnHostedZone.HostedZoneConfigProperty(
                     comment="comment"
                 ),
@@ -3361,6 +3389,7 @@ class CfnHostedZoneProps:
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__490d21becaf73ea78f8b34688d2d62e4e21d941f510e74d0a5acce1c9a8a35c3)
+            check_type(argname="argument delegation_set_id", value=delegation_set_id, expected_type=type_hints["delegation_set_id"])
             check_type(argname="argument hosted_zone_config", value=hosted_zone_config, expected_type=type_hints["hosted_zone_config"])
             check_type(argname="argument hosted_zone_features", value=hosted_zone_features, expected_type=type_hints["hosted_zone_features"])
             check_type(argname="argument hosted_zone_tags", value=hosted_zone_tags, expected_type=type_hints["hosted_zone_tags"])
@@ -3368,6 +3397,8 @@ class CfnHostedZoneProps:
             check_type(argname="argument query_logging_config", value=query_logging_config, expected_type=type_hints["query_logging_config"])
             check_type(argname="argument vpcs", value=vpcs, expected_type=type_hints["vpcs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if delegation_set_id is not None:
+            self._values["delegation_set_id"] = delegation_set_id
         if hosted_zone_config is not None:
             self._values["hosted_zone_config"] = hosted_zone_config
         if hosted_zone_features is not None:
@@ -3380,6 +3411,14 @@ class CfnHostedZoneProps:
             self._values["query_logging_config"] = query_logging_config
         if vpcs is not None:
             self._values["vpcs"] = vpcs
+
+    @builtins.property
+    def delegation_set_id(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-hostedzone.html#cfn-route53-hostedzone-delegationsetid
+        '''
+        result = self._values.get("delegation_set_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def hosted_zone_config(
@@ -3619,6 +3658,7 @@ class CfnKeySigningKey(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3650,7 +3690,7 @@ class CfnKeySigningKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a977d3e0b2b3f9a9e1ffa361297317c52032e041b63d5aea96d7b3236e1bcc76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneId", value)
 
     @builtins.property
     @jsii.member(jsii_name="keyManagementServiceArn")
@@ -3663,7 +3703,7 @@ class CfnKeySigningKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b11e2fadcc2e7f8dd0b969ae638b6fef820af613ac524490a21fcfa87cbe4b1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyManagementServiceArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyManagementServiceArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3676,7 +3716,7 @@ class CfnKeySigningKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c99ca2799db6059925703f6f02ff9fa298bf7e6106b621b1f66a86e2928f1a56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -3689,7 +3729,7 @@ class CfnKeySigningKey(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8a53087887c17259968953d4112cc4979b6d97d83c742c614204a0840acd1951)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
 
 @jsii.data_type(
@@ -3917,6 +3957,7 @@ class CfnQueryLoggingConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3968,7 +4009,7 @@ class CfnQueryLoggingConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2386866dfda33acf8a875b71c48fbfff99519c1978c7886dd46946d322d65432)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cloudWatchLogsLogGroupArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cloudWatchLogsLogGroupArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneId")
@@ -3981,7 +4022,7 @@ class CfnQueryLoggingConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ecfcd75a623c718e49e11cce2d1e80482a5051318ddc72cc5f5acaa071d4a970)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneId", value)
 
 
 @jsii.data_type(
@@ -4222,6 +4263,7 @@ class CfnRecordSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4253,7 +4295,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__173457195308ceadf9faa78064a52b9ebc4a356fcff5446dce5527a0f82366c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -4266,7 +4308,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0d764bdec1a7fb5aef453f572d560d1b8aed69fb8dcfec021e5660608a78cd63)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="aliasTarget")
@@ -4284,7 +4326,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b0a16cf391736226a70d1a59be2ffd652193be54e61b33e07b2b502b7444ebc0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "aliasTarget", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "aliasTarget", value)
 
     @builtins.property
     @jsii.member(jsii_name="cidrRoutingConfig")
@@ -4302,7 +4344,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9573d618d7f59fad50ecf9e676d892ccfe65d8be595e465b068eec35f7931458)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cidrRoutingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cidrRoutingConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="comment")
@@ -4315,7 +4357,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d8e87d623f2ac71368cf9931ccdeb8214817a43ef5c3db34b4027a16981eba4e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "comment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "comment", value)
 
     @builtins.property
     @jsii.member(jsii_name="failover")
@@ -4328,7 +4370,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__79006fc8c23dbed3ebc1e2c4a59dbaef71eada9146612d1d44ad17bf006a1f70)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "failover", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "failover", value)
 
     @builtins.property
     @jsii.member(jsii_name="geoLocation")
@@ -4346,7 +4388,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e7b257b8973ecbc1eff717cef5d9e9a86a7e93521a1f67acf22b2e8461e1b642)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "geoLocation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "geoLocation", value)
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckId")
@@ -4359,7 +4401,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6008831249a60a522c31e8ed28371a87feee29b69976deadfbbb7939c49e5a0a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "healthCheckId", value)
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneId")
@@ -4372,7 +4414,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3afc428680f9605da623df52766517926597c1cedf85b11836d156e5b0492fff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneId", value)
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneName")
@@ -4385,7 +4427,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a7ed3b70491b7ea26f2195c97e2146c9f0e7366194f534e8a71a2dbcde9c7634)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneName", value)
 
     @builtins.property
     @jsii.member(jsii_name="multiValueAnswer")
@@ -4403,7 +4445,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cc829fb8c432409e77ff577c111238c3b8554f78a040b7ecdffeb62edb27cf24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiValueAnswer", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "multiValueAnswer", value)
 
     @builtins.property
     @jsii.member(jsii_name="region")
@@ -4416,7 +4458,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e8e56811d430d9adaea085bb5b15a937d1a1a06eb6f77c3eb66770f6f8b5073)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "region", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceRecords")
@@ -4432,7 +4474,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b020353bfb0b9ee7bc698effc5888164835bd548ead89bdc9fd99a31474d7cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceRecords", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceRecords", value)
 
     @builtins.property
     @jsii.member(jsii_name="setIdentifier")
@@ -4445,7 +4487,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b95c315d1a586fa24b707f1b31210ab6858b88d54fc32c5fab80e08220930c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "setIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "setIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="ttl")
@@ -4461,7 +4503,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6235e7f8dad691c76887db81a7b5573fb5ed22b4706905208bbca87c9087002d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ttl", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ttl", value)
 
     @builtins.property
     @jsii.member(jsii_name="weight")
@@ -4474,7 +4516,7 @@ class CfnRecordSet(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__166c0517a88d98d1b7fe07fa34082de049ec954fde21b5c1376524e3c7146134)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "weight", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "weight", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_route53.CfnRecordSet.AliasTargetProperty",
@@ -5003,6 +5045,7 @@ class CfnRecordSetGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5043,7 +5086,7 @@ class CfnRecordSetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c97ac966771356be453e30c879df180c0ddc8815675496dd0165606bedf4c9e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "comment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "comment", value)
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneId")
@@ -5056,7 +5099,7 @@ class CfnRecordSetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1424150c5729da24929b30da713b6d33d1015579282157aecedd97e989f6938f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneId", value)
 
     @builtins.property
     @jsii.member(jsii_name="hostedZoneName")
@@ -5069,7 +5112,7 @@ class CfnRecordSetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9f9f2119ab4a72afe07344595f0bb4fb1b9015e2e273b9dea6abcfbafa762ed4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneName", value)
 
     @builtins.property
     @jsii.member(jsii_name="recordSets")
@@ -5087,7 +5130,7 @@ class CfnRecordSetGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9fb00744f239be86927ab07333f9aa97d44af1dbaabd6b50dc186a5a6f344824)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recordSets", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recordSets", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_route53.CfnRecordSetGroup.AliasTargetProperty",
@@ -6957,6 +7000,7 @@ class CfnTrafficPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7024,7 +7068,7 @@ class CfnTrafficPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee13947e0a466abca45500ebb62154582f2ab0a35f6dad4e70112b29905bfc3d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "document", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "document", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -7037,7 +7081,7 @@ class CfnTrafficPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__509bafd31b9c4f2a1963300229fea1e9402b486e4738f3ea00f02346c661cfe1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="comment")
@@ -7050,7 +7094,7 @@ class CfnTrafficPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__191b2d85ad82d1e5e8be3034d0cab6e57b350ea879eec123b1fbb2cf42f98a51)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "comment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "comment", value)
 
 
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_route53_af70581a.ITrafficPolicyInstanceRef)
@@ -7169,6 +7213,7 @@ class CfnTrafficPolicyInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7242,7 +7287,7 @@ class CfnTrafficPolicyInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d8024f32008528eb0d0b2c2ae3afd40556136bc41fc3136a64529d228d03bd7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hostedZoneId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hostedZoneId", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -7255,7 +7300,7 @@ class CfnTrafficPolicyInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40dcf02fedf1d489f4aba6d518e6863f3abd0186541cff1ef36ccdcbfba01a10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="trafficPolicyId")
@@ -7268,7 +7313,7 @@ class CfnTrafficPolicyInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13fc3d25844c138335987197ac01fe559302d226fafd9839008b3bda9787bbf6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "trafficPolicyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "trafficPolicyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="trafficPolicyVersion")
@@ -7281,7 +7326,7 @@ class CfnTrafficPolicyInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__97c705249e0bb3159a4647ae15f972e705541990243dc77c4942243df751d041)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "trafficPolicyVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "trafficPolicyVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="ttl")
@@ -7294,7 +7339,7 @@ class CfnTrafficPolicyInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40b78a55417652cad922bbf8069692477a691e40d96bf9c26be1960bed85b9b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ttl", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ttl", value)
 
 
 @jsii.data_type(
@@ -9525,6 +9570,7 @@ class KeySigningKey(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -10386,6 +10432,7 @@ class RecordSet(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -11347,6 +11394,7 @@ class SrvRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -11876,6 +11924,7 @@ class SvcbRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -12536,6 +12585,7 @@ class TxtRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -12906,7 +12956,7 @@ class VpcEndpointServiceDomainName(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb8d9c4cf0d124563d17362021e80fc8fa146791616e752bd4a8ccb6df767280)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
 
 @jsii.data_type(
@@ -13173,6 +13223,7 @@ class ZoneDelegationRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -13732,6 +13783,7 @@ class ARecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -14424,6 +14476,7 @@ class AaaaRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -15144,6 +15197,7 @@ class CaaRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -15581,6 +15635,7 @@ class CnameRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -15996,6 +16051,7 @@ class DsRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -16447,6 +16503,7 @@ class HealthCheck(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -16564,6 +16621,7 @@ class HttpsRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -17345,6 +17403,7 @@ class MxRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -17759,6 +17818,7 @@ class NsRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -18169,6 +18229,7 @@ class CaaAmazonRecord(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -18379,6 +18440,7 @@ class HostedZone(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -18548,6 +18610,7 @@ class PrivateHostedZone(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -18718,6 +18781,7 @@ class PublicHostedZone(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -19103,6 +19167,7 @@ def _typecheckingstub__07dce28bc78bd7a648e7920a0cb1bee52b579eae30c6d32918696dd2f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    delegation_set_id: typing.Optional[builtins.str] = None,
     hosted_zone_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.HostedZoneConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hosted_zone_features: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.HostedZoneFeaturesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hosted_zone_tags: typing.Optional[typing.Sequence[typing.Union[CfnHostedZone.HostedZoneTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19133,6 +19198,12 @@ def _typecheckingstub__ec471122074c4efc9cfaeb7b7bef0731889f8080ae94fce69befda5f9
 
 def _typecheckingstub__3ef86462d5cfa65a428a6e6bb1b1ba218d87770c0e1448ff8d57375ca2a36ae7(
     props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bd59564861539362c7dcdad6f45957f25ab7660ede82f803bd41bb0b8d2a510(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19212,6 +19283,7 @@ def _typecheckingstub__c68e5afe07b3a7edc63a606f85f787c4486a2bfba1793f83271989294
 
 def _typecheckingstub__490d21becaf73ea78f8b34688d2d62e4e21d941f510e74d0a5acce1c9a8a35c3(
     *,
+    delegation_set_id: typing.Optional[builtins.str] = None,
     hosted_zone_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.HostedZoneConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hosted_zone_features: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnHostedZone.HostedZoneFeaturesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hosted_zone_tags: typing.Optional[typing.Sequence[typing.Union[CfnHostedZone.HostedZoneTagProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

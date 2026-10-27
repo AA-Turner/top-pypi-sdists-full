@@ -9,6 +9,8 @@ from . import (
     get_login_vault_app,
     get_login_vault_default,
     get_login_vault_exit_upstream,
+    get_login_vault_grant,
+    get_login_vault_grant_token,
     import_login_vault_settings,
     list_login_vault_accounts,
     list_login_vault_defaults,
@@ -42,4 +44,6 @@ __all__ = [
     "ban_login_vault_exit",
     "unban_login_vault_exit",
     "import_login_vault_settings",
+    "get_login_vault_grant",
+    "get_login_vault_grant_token",
 ]

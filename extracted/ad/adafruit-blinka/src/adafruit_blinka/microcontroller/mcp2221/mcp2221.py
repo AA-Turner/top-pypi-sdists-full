@@ -39,6 +39,7 @@ RESP_I2C_WRITINGNOSTOP = 0x45  # ???
 MCP2221_RETRY_MAX = 50
 MCP2221_MAX_I2C_DATA_LEN = 60
 MASK_ADDR_NACK = 0x40
+_HID_RECOVERY = "Reconnect the MCP2221 and restart the program."
 
 
 class MCP2221:
@@ -56,6 +57,7 @@ class MCP2221:
     def __init__(self):
         self._hid = hid.device()
         self._hid.open(MCP2221.VID, MCP2221.PID)
+        self._hid_in_sync = True
         # make sure the device gets closed before exit
         atexit.register(self.close)
         if MCP2221_RESET_DELAY >= 0:
@@ -75,14 +77,33 @@ class MCP2221:
 
     def _hid_xfer(self, report, response=True):
         """Perform HID Transfer"""
+        if not self._hid_in_sync:
+            raise OSError("MCP2221 HID session is out of sync. " + _HID_RECOVERY)
+        if not 1 <= len(report) <= 64:
+            raise ValueError("HID command must contain between 1 and 64 bytes")
+        if not response and report != b"\x70\xAB\xCD\xEF":
+            raise ValueError("Only the MCP2221 reset command has no HID response")
+        if response and report[0] == 0x70:
+            raise ValueError("MCP2221 reset must not request a HID response")
         # first byte is report ID, which =0 for MCP2221
-        # remaing bytes = 64 byte report data
+        # remaining bytes = 64 byte report data
         # https://github.com/libusb/hidapi/blob/083223e77952e1ef57e6b77796536a3359c1b2a3/hidapi/hidapi.h#L185
-        self._hid.write(b"\0" + report + b"\0" * (64 - len(report)))
+        frame = b"\0" + report + b"\0" * (64 - len(report))
+        # A failed/interrupted transfer may leave an indistinguishable old reply.
+        # Do not reuse this session unless the complete exchange is confirmed.
+        self._hid_in_sync = False
+        written = self._hid.write(frame)
+        if not isinstance(written, int) or written != len(frame):
+            raise OSError("MCP2221 HID write was incomplete. " + _HID_RECOVERY)
         time.sleep(MCP2221_HID_DELAY)
         if response:
-            # return is 64 byte response report
-            return self._hid.read(64)
+            reply = self._hid.read(64)
+            if len(reply) != 64 or reply[0] != frame[1]:
+                raise OSError("Invalid MCP2221 HID response. " + _HID_RECOVERY)
+            # Command status belongs to the caller, e.g. I2C busy/NACK handling.
+            self._hid_in_sync = True
+            return reply
+        self._hid_in_sync = True
         return None
 
     # ----------------------------------------------------------------
@@ -96,12 +117,17 @@ class MCP2221:
         """Set Current Pin Mode"""
         # already set to that mode?
         mode &= 0x07
-        if mode == (self._gp_config[pin] & 0x07):
+        if mode == (self._gp_config[pin] & 0x07) and self._hid_in_sync:
             return
-        # update GP mode for pin
-        self._gp_config[pin] = mode
-        # empty report, this is safe since 0's = no change
+        # Read current references before a GPIO SRAM write reinitializes VRM.
+        # MCP2221A datasheet, Section 1.8.1.1 and Tables 3-36/3-39.
+        sram = self._hid_xfer(b"\x61")
+        if len(sram) != 64 or sram[0] != 0x61 or sram[1] != 0:
+            raise OSError("Couldn't get SRAM settings")
+        # Explicitly preserve both references, leaving DAC output unchanged.
         report = bytearray(b"\x60" + b"\x00" * 63)
+        report[3] = 0x80 | ((sram[6] >> 5) & 0x07)
+        report[5] = 0x80 | ((sram[7] >> 2) & 0x07)
         # set the alter GP flag byte
         report[7] = 0xFF
         # add GP setttings
@@ -109,8 +135,10 @@ class MCP2221:
         report[9] = self._gp_config[1]
         report[10] = self._gp_config[2]
         report[11] = self._gp_config[3]
-        # and make it so
+        report[8 + pin] = mode
         self._hid_xfer(report)
+        # Cache only confirmed settings; failed exchanges remain blocked.
+        self._gp_config[pin] = mode
 
     def _pretty_report(self, register):
         report = self._hid_xfer(register)
@@ -151,31 +179,35 @@ class MCP2221:
     # ----------------------------------------------------------------
     def gpio_set_direction(self, pin, mode):
         """Set Current GPIO Pin Direction"""
+        config = self._gp_config[pin]
         if mode:
             # set bit 3 for INPUT
-            self._gp_config[pin] |= 1 << 3
+            config |= 1 << 3
         else:
             # clear bit 3 for OUTPUT
-            self._gp_config[pin] &= ~(1 << 3)
+            config &= ~(1 << 3)
         report = bytearray(b"\x50" + b"\x00" * 63)  # empty set GPIO report
         offset = 4 * (pin + 1)
         report[offset] = 0x01  # set pin direction
         report[offset + 1] = mode  # to this
         self._hid_xfer(report)
+        self._gp_config[pin] = config
 
     def gpio_set_pin(self, pin, value):
         """Set Current GPIO Pin Value"""
+        config = self._gp_config[pin]
         if value:
             # set bit 4
-            self._gp_config[pin] |= 1 << 4
+            config |= 1 << 4
         else:
             # clear bit 4
-            self._gp_config[pin] &= ~(1 << 4)
+            config &= ~(1 << 4)
         report = bytearray(b"\x50" + b"\x00" * 63)  # empty set GPIO report
         offset = 2 + 4 * pin
         report[offset] = 0x01  # set pin value
         report[offset + 1] = value  # to this
         self._hid_xfer(report)
+        self._gp_config[pin] = config
 
     def gpio_get_pin(self, pin):
         """Get Current GPIO Pin Value"""
@@ -191,7 +223,7 @@ class MCP2221:
     def _i2c_status(self):
         resp = self._hid_xfer(b"\x10")
         if resp[1] != 0:
-            raise RuntimeError("Couldn't get I2C status")
+            raise OSError("Couldn't get I2C status")
         return resp
 
     def _i2c_state(self):
@@ -200,7 +232,7 @@ class MCP2221:
     def _i2c_cancel(self):
         resp = self._hid_xfer(b"\x10\x00\x10")
         if resp[1] != 0x00:
-            raise RuntimeError("Couldn't cancel I2C")
+            raise OSError("Couldn't cancel I2C")
         if resp[2] == 0x10:
             # bus release will need "a few hundred microseconds"
             time.sleep(0.001)
@@ -230,10 +262,10 @@ class MCP2221:
                     RESP_I2C_WRDATA_TOUT,
                     RESP_I2C_STOP_TOUT,
                 ):
-                    raise RuntimeError("Unrecoverable I2C state failure")
+                    raise OSError("Unrecoverable I2C state failure")
                 retries += 1
                 if retries >= MCP2221_RETRY_MAX:
-                    raise RuntimeError("I2C write error, max retries reached.")
+                    raise OSError("I2C write error, max retries reached.")
                 time.sleep(0.001)
                 continue  # try again
             # yay chunk sent!
@@ -261,10 +293,10 @@ class MCP2221:
                 RESP_I2C_WRDATA_TOUT,
                 RESP_I2C_STOP_TOUT,
             ):
-                raise RuntimeError("Unrecoverable I2C state failure")
+                raise OSError("Unrecoverable I2C state failure")
             time.sleep(0.001)
         else:
-            raise RuntimeError("I2C write error: max retries reached.")
+            raise OSError("I2C write error: max retries reached.")
         # whew success!
 
     def _i2c_read(self, cmd, address, buffer, start=0, end=None):
@@ -281,7 +313,7 @@ class MCP2221:
 
         # check for success
         if resp[1] != 0x00:
-            raise RuntimeError("Unrecoverable I2C read failure")
+            raise OSError("Unrecoverable I2C read failure")
 
         # and now the read part
         while (end - start) > 0:
@@ -293,9 +325,9 @@ class MCP2221:
                     time.sleep(0.001)
                     continue
                 if resp[1] != 0x00:
-                    raise RuntimeError("Unrecoverable I2C read failure")
+                    raise OSError("Unrecoverable I2C read failure")
                 if resp[2] == RESP_ADDR_NACK:
-                    raise RuntimeError("I2C NACK")
+                    raise OSError("I2C NACK")
                 if resp[3] == 0x00 and resp[2] == 0x00:
                     break
                 if resp[3] == RESP_READ_ERR:
@@ -304,7 +336,7 @@ class MCP2221:
                 if resp[2] in (RESP_READ_COMPL, RESP_READ_PARTIAL):
                     break
             else:
-                raise RuntimeError("I2C read error: max retries reached.")
+                raise OSError("I2C read error: max retries reached.")
 
             # move data into buffer
             chunk = min(end - start, 60)
@@ -361,6 +393,8 @@ class MCP2221:
             try:
                 self.i2c_writeto(addr, b"\x00")
             except OSError:  # no reply!
+                if not self._hid_in_sync:
+                    raise
                 # We got a NACK, which could be correct
                 continue
             # store if success

@@ -21,6 +21,11 @@ pub type ModifierKinds = EnumSet<ModifierKind>;
 /// [`super::Inline::modifier_kind`]. Each is written with one or more of
 /// [`crate::syntax::Syntax::MODIFIERS`].
 #[derive(Debug, EnumSetType)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize),
+	serde(rename_all = "snake_case")
+)]
 pub enum ModifierKind {
 	Bold,
 	Italic,

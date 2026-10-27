@@ -1,43 +1,108 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.5
 Name: keplergl
-Version: 0.3.7
-Summary: This is a simple jupyter widget for kepler.gl, an advanced geospatial visualization tool, to render large-scale interactive maps.
-Home-page: https://github.com/keplergl/kepler.gl/tree/master/bindings/kepler.gl-jupyter
-Author: Shan He
-Author-email: shan@uber.com
-Keywords: ipython,jupyter,widgets,geospatial,visualization,webGL
-Classifier: Development Status :: 4 - Beta
-Classifier: Framework :: IPython
-Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Science/Research
-Classifier: Topic :: Multimedia :: Graphics
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: ipywidgets>=8.1.5
-Requires-Dist: traittypes>=0.2.1
-Requires-Dist: traitlets>=4.3.2
-Requires-Dist: geopandas>=0.14.3
-Requires-Dist: Shapely>=1.6.4.post2
-Requires-Dist: jupyter_packaging>=0.12.3
-Requires-Dist: jupyter>=1.0.0
-Requires-Dist: jupyterlab>=4.1.6
-Requires-Dist: notebook>=6.0.1
-Requires-Dist: pyarrow>=16.0.0
-Requires-Dist: geoarrow-pyarrow>=0.1.2
+Version: 0.4.0
+Summary: Kepler.gl Jupyter Widget
+Author: Uber Technologies, Inc.
+License: MIT
+Classifier: Framework :: Jupyter
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Requires-Dist: anywidget>=0.9.0
 Requires-Dist: geoarrow-pandas>=0.1.1
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: requires-dist
-Dynamic: summary
+Requires-Dist: geoarrow-pyarrow>=0.1.2
+Requires-Dist: geopandas>=0.14.3
+Requires-Dist: pyarrow>=16.0.0
+Requires-Dist: traitlets>=5.0
+Provides-Extra: dev
+Requires-Dist: jupyterlab>=4.5.11; extra == 'dev'
+Requires-Dist: notebook>=7.0; extra == 'dev'
+Requires-Dist: pytest-cov>=4.0; extra == 'dev'
+Requires-Dist: pytest>=8.0; extra == 'dev'
+Description-Content-Type: text/markdown
 
-A jupyter widget for kepler.gl, an advanced geospatial visualization tool, to render large-scale interactive maps.
+# kepler.gl for Jupyter
+
+[![PyPI version](https://img.shields.io/pypi/v/keplergl.svg)](https://pypi.org/project/keplergl/)
+[![PyPI prerelease](https://img.shields.io/pypi/v/keplergl.svg?include_prereleases&label=prerelease)](https://pypi.org/project/keplergl/#history)
+
+This is the [kepler.gl](http://kepler.gl) Jupyter widget, an advanced geospatial visualization tool for rendering large-scale interactive maps in Jupyter Notebook and JupyterLab.
+
+
+
+## Installation
+
+```shell
+pip install keplergl
+```
+
+### Prerequisites
+- Python >= 3.9
+- JupyterLab >= 4.0 or Notebook >= 7.0
+
+## Quick Start
+
+```python
+from keplergl import KeplerGl
+
+# Create a map
+map = KeplerGl(height=400)
+
+# Add data
+map.add_data(data=df, name='my_data')
+
+# Display the map
+map
+```
+
+## Features
+
+- **Multiple data formats**: Load CSV, GeoJSON, Pandas DataFrame, and GeoPandas GeoDataFrame
+- **GeoArrow support**: Use `use_arrow=True` for faster data loading and rendering with large datasets
+- **GeoDataFrame datetime support**: GeoDataFrames with `datetime` columns are serialized automatically — no manual conversion needed
+- **Empty geometry handling**: GeoDataFrames with empty or all-null geometry columns are handled gracefully
+- **Theme customization**: Set the UI theme to `"light"`, `"dark"`, or `"base"` via the `theme` parameter
+- **App name customization**: Set a custom application name with `app_name` — displayed in the side panel header and used as the HTML `<title>` when exporting
+- **HTML export**: Export maps to standalone HTML files with `save_to_html()`, supporting custom themes, app names, and a configurable JSON encoder for non-native types
+
+## Documentation
+
+For full documentation, visit [https://docs.kepler.gl/docs/keplergl-jupyter](https://docs.kepler.gl/docs/keplergl-jupyter).
+
+## AI Assistant Skill Setup
+
+If you use AI coding assistants, add your project skill/instructions file in this directory:
+
+- **Claude Code**: `CLAUDE.md`
+- **Codex-compatible tools**:
+  - `AGENTS.md` for workspace-wide instructions
+  - `.agents/skills/<skill-name>/SKILL.md` for reusable Codex skills
+
+You can keep `CLAUDE.md` and `AGENTS.md` content aligned so both tools use the same project guidance.
+
+For Codex skills, a minimal structure is:
+
+```text
+.agents/skills/keplergl-python/
+├── SKILL.md
+├── assets/
+│   ├── keplergl-icon-small.svg
+│   └── keplergl-icon-large.png
+└── agents/
+    └── openai.yaml
+```
+
+You can source icon assets from existing repository art, for example:
+
+- `website/src/static/favicon.png`
+
+And reference them in `.agents/skills/<skill-name>/agents/openai.yaml`:
+
+```yaml
+interface:
+  icon_small: "../assets/keplergl-icon-small.svg"
+  icon_large: "../assets/keplergl-icon-large.png"
+```
+
+## License
+
+MIT

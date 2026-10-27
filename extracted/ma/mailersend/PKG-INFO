@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mailersend
-Version: 2.1.1
+Version: 2.2.0
 Summary: The official MailerLite Python SDK
 Author-email: MailerLite <tech@mailerlite.com>
 License-File: LICENSE

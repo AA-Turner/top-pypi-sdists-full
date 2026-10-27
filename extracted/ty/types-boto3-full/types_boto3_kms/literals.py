@@ -32,6 +32,7 @@ __all__ = (
     "DataKeySpecType",
     "DescribeCustomKeyStoresPaginatorName",
     "DryRunModifierTypeType",
+    "EncapsulationAlgorithmSpecType",
     "EncryptionAlgorithmSpecType",
     "ExpirationModelTypeType",
     "GrantOperationType",
@@ -122,6 +123,9 @@ DataKeyPairSpecType = Literal[
     "ECC_NIST_P384",
     "ECC_NIST_P521",
     "ECC_SECG_P256K1",
+    "ML_KEM_1024",
+    "ML_KEM_512",
+    "ML_KEM_768",
     "RSA_2048",
     "RSA_3072",
     "RSA_4096",
@@ -130,15 +134,18 @@ DataKeyPairSpecType = Literal[
 DataKeySpecType = Literal["AES_128", "AES_256"]
 DescribeCustomKeyStoresPaginatorName = Literal["describe_custom_key_stores"]
 DryRunModifierTypeType = Literal["IGNORE_CIPHERTEXT"]
+EncapsulationAlgorithmSpecType = Literal["ML_KEM"]
 EncryptionAlgorithmSpecType = Literal[
     "RSAES_OAEP_SHA_1", "RSAES_OAEP_SHA_256", "SM2PKE", "SYMMETRIC_DEFAULT"
 ]
 ExpirationModelTypeType = Literal["KEY_MATERIAL_DOES_NOT_EXPIRE", "KEY_MATERIAL_EXPIRES"]
 GrantOperationType = Literal[
     "CreateGrant",
+    "Decapsulate",
     "Decrypt",
     "DeriveSharedSecret",
     "DescribeKey",
+    "Encapsulate",
     "Encrypt",
     "GenerateDataKey",
     "GenerateDataKeyPair",
@@ -159,8 +166,10 @@ IncludeKeyMaterialType = Literal["ALL_KEY_MATERIAL", "ROTATIONS_ONLY"]
 KeyAgreementAlgorithmSpecType = Literal["ECDH"]
 KeyEncryptionMechanismType = Literal["RSAES_OAEP_SHA_256"]
 KeyLastUsageTrackingOperationType = Literal[
+    "Decapsulate",
     "Decrypt",
     "DeriveSharedSecret",
+    "Encapsulate",
     "Encrypt",
     "GenerateDataKey",
     "GenerateDataKeyPair",
@@ -189,6 +198,9 @@ KeySpecType = Literal[
     "ML_DSA_44",
     "ML_DSA_65",
     "ML_DSA_87",
+    "ML_KEM_1024",
+    "ML_KEM_512",
+    "ML_KEM_768",
     "RSA_2048",
     "RSA_3072",
     "RSA_4096",
@@ -205,7 +217,13 @@ KeyStateType = Literal[
     "Unavailable",
     "Updating",
 ]
-KeyUsageTypeType = Literal["ENCRYPT_DECRYPT", "GENERATE_VERIFY_MAC", "KEY_AGREEMENT", "SIGN_VERIFY"]
+KeyUsageTypeType = Literal[
+    "ENCAPSULATE_DECAPSULATE",
+    "ENCRYPT_DECRYPT",
+    "GENERATE_VERIFY_MAC",
+    "KEY_AGREEMENT",
+    "SIGN_VERIFY",
+]
 ListAliasesPaginatorName = Literal["list_aliases"]
 ListGrantsPaginatorName = Literal["list_grants"]
 ListKeyPoliciesPaginatorName = Literal["list_key_policies"]

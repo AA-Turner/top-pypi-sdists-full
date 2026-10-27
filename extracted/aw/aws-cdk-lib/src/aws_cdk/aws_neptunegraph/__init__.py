@@ -240,6 +240,7 @@ class CfnGraph(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -310,7 +311,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__be08bf40b529ebc7ced68a048b332cc2239437062acb120b333ae55ee1a28087)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisionedMemory", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "provisionedMemory", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtection")
@@ -328,7 +329,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d4dc803566213a64093ff7c2e80aeb4a54bbf259b51aa0f56875846630453c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="graphName")
@@ -344,7 +345,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e36e1cbffa42257001fdc31d1dd6378f3a98ce8e7f3bcd68a4772b9cb33cbbe7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "graphName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "graphName", value)
 
     @builtins.property
     @jsii.member(jsii_name="importTask")
@@ -362,7 +363,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__13f3ce8813d8cb6e7b44792fe5ad9ea3ff0a54eb7905b10a3d92e5b720263b30)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "importTask", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "importTask", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyIdentifier")
@@ -375,7 +376,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66eae9326926bf2762131d397fd2ef48f5c33238e6f606a97cfb83b84eadd586)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="publicConnectivity")
@@ -396,7 +397,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9704e1ee452151e117b8f45f27e9257936bf4012fb73bd4445e9f623dce33af6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "publicConnectivity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "publicConnectivity", value)
 
     @builtins.property
     @jsii.member(jsii_name="replicaCount")
@@ -409,7 +410,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f28b1503d0209026da409a25c88bd8a02abf6c3c5ad8dd42afd261c716df1e27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicaCount", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replicaCount", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -425,7 +426,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__49f939472207baf1bb12ed3155e6d6c9c7b0a5427a254d271f09e144b617f439)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="vectorSearchConfiguration")
@@ -443,7 +444,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f52f361f4f645382b2e53faccee1b1e685b8665ddcc9f188eae9dec9c26ae9af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vectorSearchConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vectorSearchConfiguration", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_neptunegraph.CfnGraph.ImportOptionsProperty",
@@ -1254,6 +1255,7 @@ class CfnGraphSnapshot(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1336,7 +1338,7 @@ class CfnGraphSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d0a2037a6ee434a7e65b019496dbfd45f74914d1a417fd92a7d81edd1da67ffc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "graphIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "graphIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="snapshotName")
@@ -1349,7 +1351,7 @@ class CfnGraphSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1759ae4be2e5644b66f054d3c4adc3cca6727598fd99f15e86703859a38aaedd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snapshotName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1365,7 +1367,7 @@ class CfnGraphSnapshot(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__978655c50014b4b38ffb448afc36c36654ddcd652fe6d17e30faf72998b5c1c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -1568,6 +1570,7 @@ class CfnPrivateGraphEndpoint(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1623,7 +1626,7 @@ class CfnPrivateGraphEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3c521eedd758be47324602ff294b6442e60a3e36064525b070eda655dce79b56)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "graphIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "graphIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcId")
@@ -1636,7 +1639,7 @@ class CfnPrivateGraphEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c8cead657efa4cbd411fd2fce0f1d5a3ce1d6da29415a8974e2a94651164cccd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcId", value)
 
     @builtins.property
     @jsii.member(jsii_name="securityGroupIds")
@@ -1652,7 +1655,7 @@ class CfnPrivateGraphEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__682bcd6c1c60a24355d9121c725518329acfd29ac4c1e75c30476fa597fb3235)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "securityGroupIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "securityGroupIds", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnetIds")
@@ -1665,7 +1668,7 @@ class CfnPrivateGraphEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b4fc8bb9e26efd06ea5bc87d6e7358de98fcb83d1fb96fc3f74ed77165366cd5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnetIds", value)
 
 
 @jsii.data_type(

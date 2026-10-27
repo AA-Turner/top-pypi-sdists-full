@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: foxglove-sdk
-Version: 0.30.2
+Version: 0.30.3
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Rust
 Requires-Dist: anywidget ; extra == 'notebook'
@@ -39,7 +39,7 @@ with the Foxglove app.
 
 ## Get Started
 
-See https://foxglove-sdk-api-docs.pages.dev/python/
+See https://sdk-docs.foxglove.dev/python/
 
 ## Requirements
 

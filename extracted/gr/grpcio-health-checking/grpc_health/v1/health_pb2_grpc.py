@@ -5,7 +5,7 @@ import warnings
 
 from grpc_health.v1 import health_pb2 as grpc__health_dot_v1_dot_health__pb2
 
-GRPC_GENERATED_VERSION = '1.84.1'
+GRPC_GENERATED_VERSION = '1.85.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -26,7 +26,10 @@ if _version_not_supported:
 
 
 class HealthStub:
-    """Missing associated documentation comment in .proto file."""
+    """Health is gRPC's mechanism for checking whether a server is able to handle
+    RPCs. Its semantics are documented in
+    https://github.com/grpc/grpc/blob/master/doc/health-checking.md.
+    """
 
     def __init__(self, channel):
         """Constructor.
@@ -39,6 +42,11 @@ class HealthStub:
                 request_serializer=grpc__health_dot_v1_dot_health__pb2.HealthCheckRequest.SerializeToString,
                 response_deserializer=grpc__health_dot_v1_dot_health__pb2.HealthCheckResponse.FromString,
                 _registered_method=True)
+        self.List = channel.unary_unary(
+                '/grpc.health.v1.Health/List',
+                request_serializer=grpc__health_dot_v1_dot_health__pb2.HealthListRequest.SerializeToString,
+                response_deserializer=grpc__health_dot_v1_dot_health__pb2.HealthListResponse.FromString,
+                _registered_method=True)
         self.Watch = channel.unary_stream(
                 '/grpc.health.v1.Health/Watch',
                 request_serializer=grpc__health_dot_v1_dot_health__pb2.HealthCheckRequest.SerializeToString,
@@ -47,11 +55,36 @@ class HealthStub:
 
 
 class HealthServicer:
-    """Missing associated documentation comment in .proto file."""
+    """Health is gRPC's mechanism for checking whether a server is able to handle
+    RPCs. Its semantics are documented in
+    https://github.com/grpc/grpc/blob/master/doc/health-checking.md.
+    """
 
     def Check(self, request, context):
-        """If the requested service is unknown, the call will fail with status
-        NOT_FOUND.
+        """Check gets the health of the specified service. If the requested service
+        is unknown, the call will fail with status NOT_FOUND. If the caller does
+        not specify a service name, the server should respond with its overall
+        health status.
+
+        Clients should set a deadline when calling Check, and can declare the
+        server unhealthy if they do not receive a timely response.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def List(self, request, context):
+        """List provides a non-atomic snapshot of the health of all the available
+        services.
+
+        The server may respond with a RESOURCE_EXHAUSTED error if too many services
+        exist.
+
+        Clients should set a deadline when calling List, and can declare the server
+        unhealthy if they do not receive a timely response.
+
+        Clients should keep in mind that the list of health services exposed by an
+        application can change over the lifetime of the process.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -86,6 +119,11 @@ def add_HealthServicer_to_server(servicer, server):
                     request_deserializer=grpc__health_dot_v1_dot_health__pb2.HealthCheckRequest.FromString,
                     response_serializer=grpc__health_dot_v1_dot_health__pb2.HealthCheckResponse.SerializeToString,
             ),
+            'List': grpc.unary_unary_rpc_method_handler(
+                    servicer.List,
+                    request_deserializer=grpc__health_dot_v1_dot_health__pb2.HealthListRequest.FromString,
+                    response_serializer=grpc__health_dot_v1_dot_health__pb2.HealthListResponse.SerializeToString,
+            ),
             'Watch': grpc.unary_stream_rpc_method_handler(
                     servicer.Watch,
                     request_deserializer=grpc__health_dot_v1_dot_health__pb2.HealthCheckRequest.FromString,
@@ -100,7 +138,10 @@ def add_HealthServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class Health:
-    """Missing associated documentation comment in .proto file."""
+    """Health is gRPC's mechanism for checking whether a server is able to handle
+    RPCs. Its semantics are documented in
+    https://github.com/grpc/grpc/blob/master/doc/health-checking.md.
+    """
 
     @staticmethod
     def Check(request,
@@ -119,6 +160,33 @@ class Health:
             '/grpc.health.v1.Health/Check',
             grpc__health_dot_v1_dot_health__pb2.HealthCheckRequest.SerializeToString,
             grpc__health_dot_v1_dot_health__pb2.HealthCheckResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def List(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/grpc.health.v1.Health/List',
+            grpc__health_dot_v1_dot_health__pb2.HealthListRequest.SerializeToString,
+            grpc__health_dot_v1_dot_health__pb2.HealthListResponse.FromString,
             options,
             channel_credentials,
             insecure,

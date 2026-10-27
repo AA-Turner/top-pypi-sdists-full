@@ -105,10 +105,19 @@ class RunOptions(BaseModel):
   train_batch_size: int | None = None
   """Eligible task-instance groups per optimizer update."""
 
-  samples_per_instance: int | None = None
+  group_size: int | None = None
   """
     Rollout samples generated for each training instance; GSPO and GRPO require at least 2,
     while Reinforce++ requires 1.
+    """
+
+  samples_per_instance: int | None = None
+  """Deprecated alias for group_size; use group_size for new requests."""
+
+  min_samples_per_group: int | None = None
+  """
+    Minimum valid samples required for a training group; must not exceed group_size. Omit to
+    preserve the model default, capped at the group size.
     """
 
   max_active_rollouts: int | None = None

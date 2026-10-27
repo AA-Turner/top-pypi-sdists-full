@@ -41,13 +41,13 @@ else:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_iotevents.AlarmModelReference",
     jsii_struct_bases=[],
-    name_mapping={"alarm_model_name": "alarmModelName"},
+    name_mapping={"alarm_model_id": "alarmModelId"},
 )
 class AlarmModelReference:
-    def __init__(self, *, alarm_model_name: builtins.str) -> None:
+    def __init__(self, *, alarm_model_id: builtins.str) -> None:
         '''A reference to a AlarmModel resource.
 
-        :param alarm_model_name: The AlarmModelName of the AlarmModel resource.
+        :param alarm_model_id: The Id of the AlarmModel resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -58,21 +58,21 @@ class AlarmModelReference:
             from aws_cdk.interfaces import aws_iotevents as interfaces_iotevents
             
             alarm_model_reference = interfaces_iotevents.AlarmModelReference(
-                alarm_model_name="alarmModelName"
+                alarm_model_id="alarmModelId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d3f5fb40489a6692b5219544b6e9b6f22fb245be10dcaf37b5d5df5a1624c951)
-            check_type(argname="argument alarm_model_name", value=alarm_model_name, expected_type=type_hints["alarm_model_name"])
+            check_type(argname="argument alarm_model_id", value=alarm_model_id, expected_type=type_hints["alarm_model_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "alarm_model_name": alarm_model_name,
+            "alarm_model_id": alarm_model_id,
         }
 
     @builtins.property
-    def alarm_model_name(self) -> builtins.str:
-        '''The AlarmModelName of the AlarmModel resource.'''
-        result = self._values.get("alarm_model_name")
-        assert result is not None, "Required property 'alarm_model_name' is missing"
+    def alarm_model_id(self) -> builtins.str:
+        '''The Id of the AlarmModel resource.'''
+        result = self._values.get("alarm_model_id")
+        assert result is not None, "Required property 'alarm_model_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -333,7 +333,7 @@ publication.publish()
 
 def _typecheckingstub__d3f5fb40489a6692b5219544b6e9b6f22fb245be10dcaf37b5d5df5a1624c951(
     *,
-    alarm_model_name: builtins.str,
+    alarm_model_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,40 +1,34 @@
 [build-system]
-requires = [
-    "hatchling",
-    "versioningit >= 3.3.0",
-]
+requires = ["hatchling", "versioningit >= 3.3.0"]
 build-backend = "hatchling.build"
 
 [project]
 name = "pg8000"
-authors = [{name = "The Contributors"}]
+authors = [{ name = "The Contributors" }]
 description = "PostgreSQL interface library"
 readme = "README.md"
 requires-python = ">=3.9"
-keywords= ["postgresql", "dbapi"]
-license = {text = "BSD 3-Clause License"}
+keywords = ["postgresql", "dbapi"]
+license = { text = "BSD 3-Clause License" }
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: Implementation",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
-    "Operating System :: OS Independent",
-    "Topic :: Database :: Front-Ends",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Operating System :: OS Independent",
+  "Topic :: Database :: Front-Ends",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = [
-    "scramp >= 1.4.5",
-    'python-dateutil >= 2.8.2',
-]
+dependencies = ["scramp == 1.5.0", 'python-dateutil >= 2.8.2']
 dynamic = ["version"]
 
 [project.urls]
@@ -65,25 +59,55 @@ description = "Run test under {base_python}"
 passenv = ["PGPORT"]
 allowlist_externals = ["rm"]
 commands = [
-    ["black", "--check", "."],
-    ["flake8", "."],
-    ["validate-pyproject", "pyproject.toml"],
-    ["python", "-m", "pytest", "-v", "-x", "-W error", "test"],
-    ["rm", "-rf", "dist"],
-    ["python", "-m", "build"],
-    ["twine", "check", "dist/*"],
+  [
+    "black",
+    "--check",
+    ".",
+  ],
+  [
+    "flake8",
+    ".",
+  ],
+  [
+    "validate-pyproject",
+    "pyproject.toml",
+  ],
+  [
+    "python",
+    "-m",
+    "pytest",
+    "-v",
+    "-x",
+    "-W error",
+    "test",
+  ],
+  [
+    "rm",
+    "-rf",
+    "dist",
+  ],
+  [
+    "python",
+    "-m",
+    "build",
+  ],
+  [
+    "twine",
+    "check",
+    "dist/*",
+  ],
 ]
 deps = [
-    "black",
-    "build",
-    "pytest",
-    "pytest-mock",
-    "pytest-benchmark",
-    "flake8",
-    "flake8-alphabetize",
-    "Flake8-pyproject",
-    "pytz",
-    "docutils",
-    "twine",
-    "validate-pyproject",
+  "black",
+  "build",
+  "pytest",
+  "pytest-mock",
+  "pytest-benchmark",
+  "flake8",
+  "flake8-alphabetize",
+  "Flake8-pyproject",
+  "pytz",
+  "docutils",
+  "twine",
+  "validate-pyproject",
 ]

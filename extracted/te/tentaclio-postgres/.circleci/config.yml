@@ -10,21 +10,27 @@ executors:
   standard:
     parameters:
       python-version:
-        default: "3.11"
+        default: &default-python "3.13.17"
+        type: string
+      sha256-digest:
+        default: &default-sha256-digest "sha256:2b43e59737792e1d77c4dfb413525e5476b7b04954f9f73652032ee3af5a3d43"  # cimg/python:3.13.17
         type: string
     docker:
-      - image: cimg/python:<< parameters.python-version >>
+      - image: cimg/python:<< parameters.python-version >>@<< parameters.sha256-digest >>
 
   standard-postgres:
     parameters:
       python-version:
-        default: "3.11"
+        default: *default-python
+        type: string
+      sha256-digest:
+        default: *default-sha256-digest
         type: string
     docker:
-      - image: cimg/python:<< parameters.python-version >>
+      - image: cimg/python:<< parameters.python-version >>@<< parameters.sha256-digest >>
         environment:
           TENTACLIO__CONN__POSTGRES_TEST: postgresql://:@localhost:5432/tentaclio-db
-      - image: cimg/postgres:18.4
+      - image: cimg/postgres:18.6@sha256:d4c42df0416f6fb66db64b1f4694d08cf25eb5c387ace62fa47eda1b7a538242
         environment:
           # CircleCI img run under `circleci` user
           POSTGRES_USER: circleci
@@ -72,7 +78,7 @@ commands:
       - configure_github
       - run:
           name: Install Python packages
-          command: make sync
+          command: uv sync --locked
       - save_cache:
           key: virtualenv-<< parameters.python-version >>-{{ .Environment.CACHE_VERSION }}-{{ .Branch }}-{{ checksum "uv.lock" }}
           paths:
@@ -83,11 +89,15 @@ jobs:
   lint:
     parameters:
       python-version:
-        default: "3.11"
+        default: *default-python
+        type: string
+      sha256-digest:
+        default: *default-sha256-digest
         type: string
     executor:
       name: standard
       python-version: << parameters.python-version >>
+      sha256-digest: << parameters.sha256-digest >>
     steps:
       - checkout_source
       - update_virtualenv:
@@ -100,9 +110,12 @@ jobs:
     parameters:
       python-version:
         type: string
+      sha256-digest:
+        type: string
     executor:
       name: standard
       python-version: << parameters.python-version >>
+      sha256-digest: << parameters.sha256-digest >>
     steps:
       - checkout_source
       - update_virtualenv:
@@ -115,9 +128,12 @@ jobs:
     parameters:
       python-version:
         type: string
+      sha256-digest:
+        type: string
     executor:
       name: standard-postgres
       python-version: << parameters.python-version >>
+      sha256-digest: << parameters.sha256-digest >>
     steps:
       - checkout_source
       - update_virtualenv:
@@ -137,19 +153,87 @@ workflows:
             tags:
               only: /.*/
       - unit:
-          matrix:
-            parameters:
-              python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+          name: unit-3.11
+          python-version: &python311 "3.11.17"
+          sha256-digest: &sha256-python311 "sha256:5ce8a1b7b8a325beb7a8041d5573d27f5bdc292d0ff5bf48c49a8cc5d9dd5bdd"  # cimg/python:3.11.17
+          filters:
+            tags:
+              only: /.*/
+      - unit:
+          name: unit-3.12
+          python-version: &python312 "3.12.15"
+          sha256-digest: &sha256-python312 "sha256:e2a7e6b86e8262f313fd4832c68a61bf60084403d87009dac12d342efbfffb61"  # cimg/python:3.12.15
+          filters:
+            tags:
+              only: /.*/
+      - unit:
+          name: unit-3.13
+          python-version: &python313 "3.13.17"
+          sha256-digest: &sha256-python313 "sha256:2b43e59737792e1d77c4dfb413525e5476b7b04954f9f73652032ee3af5a3d43"  # cimg/python:3.13.17
+          filters:
+            tags:
+              only: /.*/
+      - unit:
+          name: unit-3.14
+          python-version: &python314 "3.14.9"
+          sha256-digest: &sha256-python314 "sha256:55b4b277ea43a3cecad39964aaa20fc3af93a5a5d4b371fc63aae0860a618bcd"  # cimg/python:3.14.9
+          filters:
+            tags:
+              only: /.*/
+      - unit:
+          name: unit-3.15
+          python-version: &python315 "3.15.1"
+          sha256-digest: &sha256-python315 "sha256:cce73515b1ef05ddbb6dc34b562d59bb0a13de10db12baf31ffe7c1388973d39"  # cimg/python:3.15.1
           filters:
             tags:
               only: /.*/
       - functional:
-          matrix:
-            parameters:
-              python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+          name: functional-3.11
+          python-version: *python311
+          sha256-digest: *sha256-python311
           filters:
             tags:
               only: /.*/
           requires:
             - lint
-            - unit-<< matrix.python-version >>
+            - unit-3.11
+      - functional:
+          name: functional-3.12
+          python-version: *python312
+          sha256-digest: *sha256-python312
+          filters:
+            tags:
+              only: /.*/
+          requires:
+            - lint
+            - unit-3.12
+      - functional:
+          name: functional-3.13
+          python-version: *python313
+          sha256-digest: *sha256-python313
+          filters:
+            tags:
+              only: /.*/
+          requires:
+            - lint
+            - unit-3.13
+      - functional:
+          name: functional-3.14
+          python-version: *python314
+          sha256-digest: *sha256-python314
+          filters:
+            tags:
+              only: /.*/
+          requires:
+            - lint
+            - unit-3.14
+      - functional:
+          name: functional-3.15
+          python-version: *python315
+          sha256-digest: *sha256-python315
+          filters:
+            tags:
+              only: /.*/
+          requires:
+            - lint
+            - unit-3.15

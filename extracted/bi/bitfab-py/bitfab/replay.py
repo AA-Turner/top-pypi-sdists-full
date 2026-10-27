@@ -14,7 +14,7 @@ import sys
 import time
 import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Literal, Protocol, TypedDict, cast
 
 from typing_extensions import NotRequired
 
@@ -725,11 +725,61 @@ def _db_branch_settings(
     return settings or None
 
 
-class _CodeChangeUnset:
-    pass
+CodeChangeType = Literal[
+    "working-tree", "last-branch", "default-branch", "skip", "manual"
+]
+
+CODE_CHANGE_TYPES: tuple[CodeChangeType, ...] = (
+    "working-tree",
+    "last-branch",
+    "default-branch",
+    "skip",
+    "manual",
+)
+
+CODE_CHANGE_CHOICES = (
+    '"working-tree" (uncommitted changes vs HEAD), "last-branch" (the diff '
+    'against the branch this one was cut from), "default-branch" (the diff '
+    'against the default branch), "skip" (no code change), or "manual" (pass '
+    "the files yourself)"
+)
 
 
-_CODE_CHANGE_UNSET = _CodeChangeUnset()
+def is_code_change_type(value: object) -> bool:
+    return isinstance(value, str) and value in CODE_CHANGE_TYPES
+
+
+def validate_code_change(
+    code_change: object,
+    code_change_description: str | None,
+    code_change_files: list[CodeChangeFile] | None,
+) -> CodeChangeType:
+    if code_change is None:
+        raise ValueError(
+            "replay needs a code_change naming the code this run tests: "
+            f"{CODE_CHANGE_CHOICES}."
+        )
+    if not is_code_change_type(code_change):
+        raise ValueError(
+            f"Unknown code_change {json.dumps(code_change, default=repr)}. "
+            f"Pass {CODE_CHANGE_CHOICES}."
+        )
+    if code_change == "manual" and code_change_files is None:
+        raise ValueError(
+            'code_change "manual" needs code_change_files: the path and '
+            "before/after contents of each edited file."
+        )
+    if code_change != "manual" and code_change_files is not None:
+        raise ValueError(
+            'code_change_files only applies with code_change "manual" '
+            f'(got "{code_change}").'
+        )
+    if code_change == "skip" and code_change_description is not None:
+        raise ValueError(
+            'code_change "skip" attaches no code change, so it cannot take a '
+            "code_change_description."
+        )
+    return cast(CodeChangeType, code_change)
 
 
 def _in_replay_item() -> bool:
@@ -877,10 +927,9 @@ def replay(
     notes: str | None = None,
     metadata: dict[str, str] | None = None,
     max_concurrency: int | _ConcurrencyUnset | None = _CONCURRENCY_UNSET,
-    code_change_description: str | _CodeChangeUnset | None = _CODE_CHANGE_UNSET,
-    code_change_files: list[CodeChangeFile] | _CodeChangeUnset | None = (
-        _CODE_CHANGE_UNSET
-    ),
+    code_change: CodeChangeType | None = None,
+    code_change_description: str | None = None,
+    code_change_files: list[CodeChangeFile] | None = None,
     experiment_group_id: str | None = None,
     experiment_group_name: str | None = None,
     dataset_id: str | None = None,
@@ -960,19 +1009,31 @@ def replay(
             ``client.experiments``.
         max_concurrency: Maximum number of items to process in parallel.
             Set to 1 for sequential execution, or None for unlimited. Defaults to 10.
-        code_change_description: Optional rationale for the code change being
-            tested in this replay. Stored on the resulting experiment. When
-            supplied without ``code_change_files``, this text is preserved while
-            the SDK automatically captures the files. Pass ``None`` when the
-            replay should have no description; use ``code_change_files=None``
-            to suppress automatic file capture.
-        code_change_files: Optional list of files edited as part of this code
-            change. Each entry is ``{"path", "before", "after"}`` with the file
-            path and full ``before``/``after`` contents, typically captured by
-            reading each file before and after editing. Use ``""`` for newly
-            created (``before``) or deleted (``after``) files. Omit this
-            argument to capture automatically, or pass ``None`` to suppress
-            file capture for this replay.
+        code_change: Required. Which code change this replay tests, stored on
+            the resulting experiment so it can be reviewed alongside the
+            results. A replay without it is refused before any request is sent.
+
+            - ``"working-tree"``: the uncommitted changes in the git working
+              tree, vs HEAD
+            - ``"last-branch"``: the diff against the branch this one was cut
+              from, such as the branch below it in a stack, else the default
+              branch
+            - ``"default-branch"``: the diff against where HEAD split from the
+              default branch (``origin/HEAD``, else ``origin/main``,
+              ``origin/master``, ``main``, ``master``)
+            - ``"skip"``: no code change, such as for a baseline run
+            - ``"manual"``: the files passed in ``code_change_files``
+
+            The three git choices include uncommitted edits and untracked
+            files, and warn and attach nothing when they find no changed files.
+        code_change_description: Description of the code change being tested
+            in this replay. Defaults to one generated from the captured files.
+            Not accepted with ``"skip"``.
+        code_change_files: The edited files when ``code_change`` is
+            ``"manual"``, and only then. Each entry is
+            ``{"path", "before", "after"}`` with the file path and full
+            ``before``/``after`` contents. Use ``""`` for newly created
+            (``before``) or deleted (``after``) files.
         experiment_group_id: Optional UUID that groups multiple replay runs
             into a single experiment batch. The run joins that group, and an ID
             no group has yet creates it. The experiments page can stream
@@ -1111,6 +1172,9 @@ def replay(
         ``test_run_url`` are deprecated aliases carrying the same values)
     """
     explicit_options = _explicit_replay_options(locals())
+    resolved_code_change_type = validate_code_change(
+        code_change, code_change_description, code_change_files
+    )
     if judge_assertions is not None:
         warn_once("deprecated-judge-assertions", JUDGE_ASSERTIONS_DEPRECATION)
         skip_assertion_judging = skip_assertion_judging or not judge_assertions
@@ -1192,23 +1256,11 @@ def replay(
     # before it could report its resolved inputs.
     include_db_branch_lease = _db_branch_enabled(db_branch) and not dry_run
 
-    # code_change_files controls capture: omitted auto-captures, a list wins,
-    # and explicit None opts out. Preserve a caller-supplied description while
-    # filling only the omitted files.
-    if code_change_files is _CODE_CHANGE_UNSET:
-        captured = _resolve_auto_code_change(name)
-        if captured is not None:
-            code_change_files = captured[1]
-            if code_change_description is _CODE_CHANGE_UNSET:
-                code_change_description = captured[0]
-
-    resolved_code_change_description = (
-        None
-        if code_change_description is _CODE_CHANGE_UNSET
-        else code_change_description
-    )
-    resolved_code_change_files = (
-        None if code_change_files is _CODE_CHANGE_UNSET else code_change_files
+    resolved_code_change_description, resolved_code_change_files = _resolve_code_change(
+        resolved_code_change_type,
+        code_change_description,
+        code_change_files,
+        name,
     )
 
     db_branch_settings = _db_branch_settings(db_branch)
@@ -1549,29 +1601,38 @@ _CC_MAX_FILE_BYTES = 500_000
 _CC_MAX_TOTAL_BYTES = 2_000_000
 
 
-def _resolve_auto_code_change(
-    label: str | None = None,
-) -> tuple[str | None, list[CodeChangeFile] | None] | None:
-    """Auto-capture the code change to attach when the caller passed none.
+def _resolve_code_change(
+    code_change: CodeChangeType,
+    description: str | None,
+    files: list[CodeChangeFile] | None,
+    label: str | None,
+) -> tuple[str | None, list[CodeChangeFile] | None]:
+    if code_change == "skip":
+        return None, None
+    if code_change == "manual":
+        return description, files if files is not None else []
+    captured = _capture_code_change(code_change, label)
+    if captured is None:
+        logger.warning(
+            'Bitfab: code_change "%s" found no changed files, so this replay has '
+            "no code change attached.",
+            code_change,
+        )
+        return description, None
+    return (description if description is not None else captured[0]), captured[1]
 
-    Lives in ``replay()`` (the one call guaranteed to run on every replay) so it
-    works no matter how the replay was launched. Precedence: a
-    ``BITFAB_CODE_CHANGE_PATH`` override, else the ``git diff`` of the working
-    tree vs HEAD (or vs the merge-base with ``BITFAB_CODE_CHANGE_BASE``). A
-    clean working tree falls back to the point where HEAD split from the default
-    branch, so committed branch work still shows. All
-    best-effort: any failure yields ``None`` and the replay proceeds with no
-    code change. An explicit ``code_change_files`` always wins over this.
-    """
-    if os.environ.get("BITFAB_DISABLE_CODE_CHANGE_CAPTURE"):
-        return None
+
+def _capture_code_change(
+    code_change: CodeChangeType, label: str | None
+) -> tuple[str | None, list[CodeChangeFile]] | None:
     from_env = _read_code_change_file()
     if from_env is not None:
-        return from_env
-    return _capture_code_change_from_git(os.getcwd(), label)
+        env_description, env_files = from_env
+        return (env_description, env_files) if env_files else None
+    return _capture_code_change_from_git(os.getcwd(), code_change, label)
 
 
-def _read_code_change_file() -> tuple[str | None, list[CodeChangeFile] | None] | None:
+def _read_code_change_file() -> tuple[str | None, list[CodeChangeFile]] | None:
     path = os.environ.get("BITFAB_CODE_CHANGE_PATH")
     if not path:
         return None
@@ -1580,14 +1641,10 @@ def _read_code_change_file() -> tuple[str | None, list[CodeChangeFile] | None] |
             parsed = json.load(f)
         files = parsed.get("files")
         if not isinstance(files, list) or not all(isinstance(x, dict) for x in files):
-            # A malformed payload (non-list, or entries that aren't mappings)
-            # must yield no code change, never crash replay() downstream.
-            files = None
+            return None
         description = parsed.get("description")
         if not isinstance(description, str):
             description = None
-        if files is None and description is None:
-            return None
         return description, files
     except Exception:
         return None
@@ -1601,19 +1658,20 @@ def _cc_ref_exists(root: str, ref: str) -> bool:
     return _git(root, ["rev-parse", "--verify", f"{ref}^{{object}}"]) is not None
 
 
-def _cc_resolve_base(root: str) -> tuple[str, str] | None:
-    """Return (base, against): HEAD by default, so only uncommitted edits show.
-
-    ``BITFAB_CODE_CHANGE_BASE`` moves the base to the merge-base with that ref.
-    """
-    forced = os.environ.get("BITFAB_CODE_CHANGE_BASE")
-    if forced and _cc_ref_exists(root, forced):
-        mb = _git(root, ["merge-base", "HEAD", forced])
-        if mb and mb.strip():
-            return mb.strip(), f"vs {forced}"
-        rp = _git(root, ["rev-parse", "--verify", forced])
-        return (rp.strip(), f"vs {forced}") if rp and rp.strip() else None
+def _cc_resolve_base(root: str, code_change: CodeChangeType) -> tuple[str, str] | None:
+    if code_change == "last-branch":
+        return _cc_resolve_branch_point(root)
+    if code_change == "default-branch":
+        return _cc_resolve_default_branch_point(root)
     return ("HEAD", "uncommitted (vs HEAD)") if _cc_ref_exists(root, "HEAD") else None
+
+
+def _cc_resolve_default_branch_point(root: str) -> tuple[str, str] | None:
+    default = _cc_default_branch(root)
+    if not default:
+        return None
+    base = (_git(root, ["merge-base", "HEAD", default]) or "").strip()
+    return (base, f"vs {default}") if base else None
 
 
 def _cc_list_changes(root: str, base: str) -> list[tuple[str, str, str]]:
@@ -1754,22 +1812,17 @@ def _cc_working_bytes(root: str, path: str) -> int:
 
 
 def _capture_code_change_from_git(
-    cwd: str, label: str | None = None
-) -> tuple[str | None, list[CodeChangeFile] | None] | None:
+    cwd: str, code_change: CodeChangeType, label: str | None = None
+) -> tuple[str | None, list[CodeChangeFile]] | None:
     try:
         root = _git(cwd, ["rev-parse", "--show-toplevel"])
         if not root or not root.strip():
             return None
         root = root.strip()
-        resolved = _cc_resolve_base(root)
+        resolved = _cc_resolve_base(root, code_change)
         if not resolved:
             return None
         entries = _cc_list_changes(root, resolved[0])
-        if not entries and resolved[0] == "HEAD":
-            branch_point = _cc_resolve_branch_point(root)
-            if branch_point:
-                resolved = branch_point
-                entries = _cc_list_changes(root, branch_point[0])
         if not entries:
             return None
         base, against = resolved
@@ -1779,17 +1832,12 @@ def _capture_code_change_from_git(
         for status, before_path, path in entries:
             if len(files) >= _CC_MAX_FILES:
                 break
-            # Skip oversized files by size BEFORE reading their full contents,
-            # so a huge changed file can't OOM/stall replay just to be discarded.
             before_bytes = (
                 0 if status == "A" else _cc_blob_bytes(root, base, before_path)
             )
             after_bytes = 0 if status == "D" else _cc_working_bytes(root, path)
             if before_bytes > _CC_MAX_FILE_BYTES or after_bytes > _CC_MAX_FILE_BYTES:
                 continue
-            # Normalize CRLF -> LF on both sides: git's blob is already
-            # LF-normalized (autocrlf clean), so a raw CRLF working file would
-            # otherwise skew every line as changed.
             before = (
                 ""
                 if status == "A"
@@ -1800,7 +1848,6 @@ def _capture_code_change_from_git(
             ).replace("\r\n", "\n")
             if before == after:
                 continue
-            # Bytes, not chars, to match Ruby's bytesize and the byte cap.
             size = len(before.encode("utf-8")) + len(after.encode("utf-8"))
             if (
                 total + size > _CC_MAX_TOTAL_BYTES

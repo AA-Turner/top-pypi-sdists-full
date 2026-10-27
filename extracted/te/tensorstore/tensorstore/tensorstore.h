@@ -221,12 +221,14 @@ class TensorStore {
   ///   staleness bounds, overriding the current bounds (if applicable).
   ///
   /// - ContextBindingMode: Indicates whether context resources should be
-  ///   unbound, meaning that they refer to an unresolved context resource spec
-  ///   (e.g. a desired number of concurrent requests, memory limits on cache
-  ///   pool), rather than a specific context resource (specific concurrency
-  ///   pool, specific cache pool).  Defaults to `unbind_context`.  If
-  ///   `retain_context` is specified, the returned `Spec` may be used to
-  ///   re-open the TensorStore using the identical context resources.
+  ///   stripped or unbound.  Defaults to `strip_context`, such that the
+  ///   returned `Spec` does not specify any context resources.  If
+  ///   `unbind_context` is specified, context resources are unbound, meaning
+  ///   that they refer to an unresolved context resource spec (e.g. a desired
+  ///   number of concurrent requests, memory limits on cache pool), rather than
+  ///   a specific context resource (specific concurrency pool, specific cache
+  ///   pool).  If `retain_context` is specified, the returned `Spec` may be
+  ///   used to re-open the TensorStore using the identical context resources.
   ///
   /// \param option Any option compatible with `SpecRequestOptions`.
   /// \error `absl::StatusCode::kInvalidArgument` if `!valid()`.
@@ -596,7 +598,10 @@ Resize(
       // generation bug in MSVC 14.35.32215 that leads to `inclusive_min` and
       // `exclusive_max` not being passed properly.
       [&, inclusive_min, exclusive_max](auto&& store) -> Future<Store> {
-        using internal::TensorStoreAccess;
+        auto& handle = internal::TensorStoreAccess::handle(store);
+        if (!handle.driver) {
+          return absl::InvalidArgumentError("TensorStore is not valid");
+        }
         if (inclusive_min.size() != store.rank() ||
             exclusive_max.size() != store.rank()) {
           return internal_tensorstore::ResizeRankError(store.rank());
@@ -604,7 +609,6 @@ Resize(
         // FIXME: do compile-time checking of Mode
         TENSORSTORE_RETURN_IF_ERROR(
             internal::ValidateSupportsWrite(store.read_write_mode()));
-        auto& handle = internal::TensorStoreAccess::handle(store);
         TENSORSTORE_ASSIGN_OR_RETURN(
             auto open_transaction,
             internal::AcquireOpenTransactionPtrOrError(handle.transaction));

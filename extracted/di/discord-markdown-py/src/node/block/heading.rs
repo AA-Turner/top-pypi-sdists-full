@@ -2,9 +2,9 @@ use nom::{
 	Parser,
 	branch::alt,
 	character::complete::{char, line_ending, space0, space1},
-	combinator::{eof, map, value},
-	multi::{fold_many_m_n, many0},
-	sequence::{preceded, separated_pair, terminated},
+	combinator::{eof, map},
+	multi::{fold_many_m_n, fold_many0},
+	sequence::terminated,
 };
 
 use derive_where::derive_where;
@@ -13,9 +13,10 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
+	lossless::TokenKind,
 	node::{Element, Sequence, block::inline_block},
 	scope::Scope,
-	span::Span,
+	span::{Span, Syntax, WithToken},
 	unparse::Unparse,
 };
 
@@ -61,21 +62,31 @@ where
 	E: ParseError<'data>,
 {
 	// `space1` on the final line, so every iteration consumes input
-	let blank_line = preceded(
-		context.line_prefix(),
-		alt((value((), (space0, line_ending)), value((), (space1, eof)))),
-	);
+	let blank_line = (
+		context.line_prefix().token::<S>(TokenKind::QuotePrefix),
+		alt((
+			(
+				space0.token::<S>(TokenKind::Indent),
+				line_ending.token::<S>(TokenKind::LineEnding),
+			)
+				.map(|(space, line_ending)| space.join(line_ending)),
+			terminated(space1.token::<S>(TokenKind::Indent), eof),
+		)),
+	)
+		.map(|(prefix, rest)| prefix.join(rest));
 
 	map(
-		terminated(
-			separated_pair(
-				fold_many_m_n(1, MAX_HEADING_LEVEL, char('#'), || 0u8, |acc, _| acc + 1),
-				space1, // TODO: should this be exactly 1 space?
-				inline_block(context.with_scope(Scope::Block)),
-			),
-			many0(blank_line),
+		(
+			fold_many_m_n(1, MAX_HEADING_LEVEL, char('#'), || 0u8, |acc, _| acc + 1)
+				.with_token::<S>(TokenKind::HeadingMarker),
+			space1.token::<S>(TokenKind::Whitespace), // TODO: should this be exactly 1 space?
+			inline_block(context.with_scope(Scope::Block)),
+			fold_many0(blank_line, S::Syntax::default, Syntax::join),
 		),
-		|(level, content)| Heading { level, content },
+		|((level, marker), space, mut content, blank_lines): (_, _, Sequence<S, _>, _)| {
+			content.span.attach(marker.join(space).join(blank_lines));
+			Heading { level, content }
+		},
 	)
 }
 

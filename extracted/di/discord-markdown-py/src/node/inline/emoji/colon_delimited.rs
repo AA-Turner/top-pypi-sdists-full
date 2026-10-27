@@ -11,8 +11,7 @@ use discord_emoji::{EMOJI_BY_SHORTNAME, EMOJI_SHORTNAME_CHARS};
 use nom::{
 	IResult, Parser,
 	branch::alt,
-	bytes::complete::{tag, take_while1},
-	character::satisfy,
+	bytes::complete::{tag, take_while_m_n, take_while1},
 	combinator::recognize,
 	error::ParseError,
 	sequence::delimited,
@@ -72,7 +71,11 @@ fn parse_skin_tone<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data
 where
 	E: ParseError<Input<'data>>,
 {
-	recognize((tag("skin-tone-"), satisfy(|ch| ch.is_ascii_digit())))
+	// Multi-person emoji have up to 25 tones, one per pair of skin tones.
+	recognize((
+		tag("skin-tone-"),
+		take_while_m_n(1, 2, |ch: char| ch.is_ascii_digit()),
+	))
 }
 
 #[cfg(test)]
@@ -107,5 +110,24 @@ mod test {
 
 		assert_eq!(rem, "");
 		assert_eq!(res, "🦶🏻");
+	}
+
+	#[test]
+	fn parse_with_two_digit_skin_tone() {
+		let s = ":couple_mm::skin-tone-20:";
+		let (rem, res) = emoji()
+			.parse_complete(s.into())
+			.finish()
+			.map_err(handle_nom_err(s))
+			.expect("able to parse");
+
+		assert_eq!(rem, "");
+		assert_eq!(res, "👨🏾‍❤️‍👨🏿");
+	}
+
+	#[test]
+	fn rejects_three_digit_skin_tone() {
+		let s = ":couple_mm::skin-tone-200:";
+		assert!(emoji::<()>().parse_complete(s.into()).is_err());
 	}
 }

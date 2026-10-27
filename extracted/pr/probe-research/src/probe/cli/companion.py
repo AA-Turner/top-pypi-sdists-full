@@ -138,9 +138,11 @@ def read_daemon_log(session_id: str, *, status: str | None = None) -> list[dict]
 
 
 def provision_daemon(base_url: str, *, open_browser: bool = True,
-                     say: Callable[[str], None] | None = None, force: bool = False) -> list[str]:
-    """Everything daemon mode needs on this machine: its own key (one browser
-    approval) and its AI libraries (the `daemon` extra). The one path both
+                     say: Callable[[str], None] | None = None, force: bool = False,
+                     sign_in: bool = False) -> list[str]:
+    """Everything daemon mode needs on this machine: its own key (minted from
+    this device's sign-in when `sign_in` -- the caller showed the daemon's
+    consent -- else one browser approval) and its AI libraries (the `daemon` extra). The one path both
     `probe companion authorize` and the wizard's "Who records" row
     (`setup.apply_recorder`) take. Offline or a failed install leaves capture running: daemon mode reports
     itself unavailable (`probe daemon status`, `probe doctor`) and the agent records.
@@ -163,7 +165,7 @@ def provision_daemon(base_url: str, *, open_browser: bool = True,
     # approved again -- unless `force`, for a key the server now refuses -- and
     # the libraries install without any approval.
     if force or not wizard.companion_token_held():
-        for line in _authorize_companion(base_url, open_browser=open_browser):
+        for line in _authorize_companion(base_url, open_browser=open_browser, sign_in=sign_in):
             emit(line)
     if not wizard.companion_token_held() or ai_libraries():
         return lines

@@ -189,6 +189,7 @@ class CfnApplication(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -284,7 +285,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__88f3ebd2c52381656a5da764f2e0c95fe3d92356f1f4701aa43d1258221ca4fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identitySource", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identitySource", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -300,7 +301,7 @@ class CfnApplication(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b391672f08db62f459bf7d90ac7d5eded75fcc1909fb440c1773742b0486e52a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_accountaccess.CfnApplication.IdentityCenterProperty",
@@ -625,6 +626,7 @@ class CfnEntitlement(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -683,7 +685,7 @@ class CfnEntitlement(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__034730d5688d92e52ff5b9b6fbe38251f6dc81e9d536249e931010d50adb335f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "applicationArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="entitlement")
@@ -700,7 +702,7 @@ class CfnEntitlement(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5ef955b4664a76db4f2fc500ba939a410c2fe5138f11b0300017bce25e6a1690)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "entitlement", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "entitlement", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_accountaccess.CfnEntitlement.EntitlementProperty",

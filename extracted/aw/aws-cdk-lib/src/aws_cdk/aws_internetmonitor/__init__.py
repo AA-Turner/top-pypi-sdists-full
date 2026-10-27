@@ -282,6 +282,7 @@ class CfnMonitor(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -366,7 +367,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ef54ce1b63c1e0317ca73d33869cf2089b1ed66ab1da2e0c8fe45043287b6817)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "monitorName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "monitorName", value)
 
     @builtins.property
     @jsii.member(jsii_name="healthEventsConfig")
@@ -384,7 +385,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1fcad87a381a34c71141a2be73ac8e81c442bd9d4616b8a8a55279c77a30bf9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthEventsConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "healthEventsConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="includeLinkedAccounts")
@@ -402,7 +403,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__80a74cd4b87837dd8170028ab147883219b1546ce841f056d4ef2aa4f1fd501b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "includeLinkedAccounts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "includeLinkedAccounts", value)
 
     @builtins.property
     @jsii.member(jsii_name="internetMeasurementsLogDelivery")
@@ -420,7 +421,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__edd584d7d64cd02983ca8858b15c31728e9294c416931001fc1a9ce5732ebad9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "internetMeasurementsLogDelivery", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "internetMeasurementsLogDelivery", value)
 
     @builtins.property
     @jsii.member(jsii_name="linkedAccountId")
@@ -433,7 +434,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d352b84b30decfade63d633da845bdcbfabe043a48b4897bbe891f6584cf0e2b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "linkedAccountId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "linkedAccountId", value)
 
     @builtins.property
     @jsii.member(jsii_name="maxCityNetworksToMonitor")
@@ -446,7 +447,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__44b26920fe092fdfabe5783619b4c150b5a44928ea63b71966ac31bfc9220c93)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxCityNetworksToMonitor", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maxCityNetworksToMonitor", value)
 
     @builtins.property
     @jsii.member(jsii_name="resources")
@@ -459,7 +460,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b341be6dedc5e43e3921317eb724e72355e140557e075d7a60632555b8e832c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resources", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourcesToAdd")
@@ -475,7 +476,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6eb4096ee765fe908d059e9b8acdca0ec1f047ddb2fe5ede304ab5ee82444f95)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcesToAdd", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcesToAdd", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourcesToRemove")
@@ -491,7 +492,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9387e3cfcac600ed38b66e78df668311b567c717d8143713922de9b400262882)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcesToRemove", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcesToRemove", value)
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -504,7 +505,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f131dc53d07b00ba7900326b379a6d12c142d61ae7d7045e4e4abbd87c853da1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -520,7 +521,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8356cdf68080604804446d5b83fa308a2aa120e493bdc0ac24c31dbdc37894b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="trafficPercentageToMonitor")
@@ -536,7 +537,7 @@ class CfnMonitor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b04e25dfeda5e88ea0ba9a753d013df9fa970065f64b69b4e930f01e15363029)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "trafficPercentageToMonitor", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "trafficPercentageToMonitor", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_internetmonitor.CfnMonitor.HealthEventsConfigProperty",

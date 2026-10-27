@@ -5,27 +5,35 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-from refinery.lib.scripts import Node, _clone_node, _remove_from_parent, _replace_in_parent
-from refinery.lib.scripts.js.analysis.cache import model_cache
+from refinery.lib.scripts import (
+    Node,
+    _clone_node,
+    _replace_in_parent,
+    is_attached,
+)
+from refinery.lib.scripts.js.analysis.cache import ModelCache, model_cache
 from refinery.lib.scripts.js.analysis.dominance import DominanceModel
 from refinery.lib.scripts.js.analysis.effects import EffectModel
-from refinery.lib.scripts.js.analysis.reaching import ReachingModel
 from refinery.lib.scripts.js.analysis.model import (
-    Binding,
     FUNCTION_NODES,
+    Binding,
     Role,
     SemanticModel,
     enclosing_function,
-    is_invocation_target,
-    is_member_write_target,
     pattern_identifiers,
     reference_role,
 )
+from refinery.lib.scripts.js.analysis.reaching import ReachingModel
 from refinery.lib.scripts.js.deobfuscation.helpers import (
-    ScopeProcessingTransformer,
+    GLOBAL_VALUE_NAMES,
+    BatchedScopeTransformer,
+    a_host_reaches_the_binding,
     collect_identifier_names,
     is_literal,
+    names_global_value,
     remove_declarator,
+    substitute_use_position,
+    value_to_node,
     walk_scope,
 )
 from refinery.lib.scripts.js.model import (
@@ -36,7 +44,6 @@ from refinery.lib.scripts.js.model import (
     JsAwaitExpression,
     JsCallExpression,
     JsClassExpression,
-    JsExpressionStatement,
     JsForInStatement,
     JsForOfStatement,
     JsFunctionDeclaration,
@@ -50,13 +57,15 @@ from refinery.lib.scripts.js.model import (
     JsScript,
     JsStringLiteral,
     JsTaggedTemplateExpression,
+    JsUnaryExpression,
     JsUpdateExpression,
     JsVariableDeclaration,
-    strip_parens,
     JsVariableDeclarator,
     JsVarKind,
     JsYieldExpression,
+    strip_parens,
 )
+from refinery.lib.scripts.js.numbers import exact_integer
 
 
 def _pattern_identifiers(pattern: Node) -> set[str]:
@@ -72,9 +81,26 @@ class _CandidateEntry(NamedTuple):
     value: Node
 
 
-class _MemberArrayEntry(NamedTuple):
-    assignment: JsAssignmentExpression
-    array: JsArrayExpression
+class _Substitution(NamedTuple):
+    target: Node
+    value: Node
+    key: str
+
+
+class _DeclaratorRemoval(NamedTuple):
+    declarator: JsVariableDeclarator
+    key: str
+
+
+class _ScopePlan(NamedTuple):
+    scope: Node
+    substitutions: list[_Substitution]
+    declarator_removals: list[_DeclaratorRemoval]
+    decl_ids: set[int]
+
+    @property
+    def planned(self) -> set[str]:
+        return _planned_keys(self.substitutions)
 
 
 def _candidate_decl_ids(candidates: dict[str, list[_CandidateEntry]]) -> set[int]:
@@ -97,6 +123,13 @@ def _is_primitive_and_pure(node: Node) -> bool:
     `refinery.lib.scripts.js.analysis.effects.side_effect_free` — it rejects expressions
     that allocate objects or access properties, because inlining such expressions into a new
     location can change reference identity or trigger getters at a different point in execution.
+
+    The deliberate complement of `EffectModel._fresh_kind`, over primitives rather than containers, and not
+    to be merged with it: this admits exactly the values that have no identity to duplicate, where that one
+    admits containers whose identity is known to be new. Their answers are disjoint by construction.
+
+    A `delete` is observable — it removes a binding or property — so its unary form is rejected while
+    the operator's other uses, none of which touch what they name, stay admitted.
     """
     for n in node.walk():
         if isinstance(n, (
@@ -115,6 +148,8 @@ def _is_primitive_and_pure(node: Node) -> bool:
             JsClassExpression,
         )):
             return False
+        if isinstance(n, JsUnaryExpression) and n.operator == 'delete':
+            return False
     return True
 
 
@@ -124,7 +159,6 @@ def _count_scope_references(
     decl_ids: set[int],
     *,
     walk_full: bool = False,
-    count_member_access: bool = False,
 ) -> dict[str, int]:
     """
     Count identifier references within *scope* for each name in *names*, excluding declaration
@@ -132,18 +166,10 @@ def _count_scope_references(
     `x <<= e`) reads its target, so its left side is counted as a reference and the variable stays
     live. When *walk_full* is True, the entire subtree
     is traversed (including nested function bodies); otherwise only the current scope is walked.
-    When *count_member_access* is True, computed member accesses like `name[idx]` are counted
-    separately (the identifier inside the member is counted and the walk continues so the member
-    node itself is not double-counted).
     """
     walker = scope.walk() if walk_full else walk_scope(scope, include_root_body=True)
     counts: dict[str, int] = {}
     for node in walker:
-        if count_member_access and isinstance(node, JsMemberExpression) and node.computed:
-            obj = node.object
-            if isinstance(obj, JsIdentifier) and id(obj) not in decl_ids and obj.name in names:
-                counts[obj.name] = counts.get(obj.name, 0) + 1
-                continue
         if not isinstance(node, JsIdentifier):
             continue
         if id(node) in decl_ids:
@@ -156,66 +182,42 @@ def _count_scope_references(
             continue
         if isinstance(parent, JsMemberExpression) and parent.property is node and not parent.computed:
             continue
-        if count_member_access:
-            if isinstance(parent, JsMemberExpression) and parent.object is node and parent.computed:
-                continue
         counts[name] = counts.get(name, 0) + 1
     return counts
 
 
-def _is_literal_array(node: Node) -> bool:
+def _constant_node(node: Node | None, model: SemanticModel) -> Node | None:
     """
-    Return whether *node* is a `refinery.lib.scripts.js.model.JsArrayExpression` where every element
-    is a literal.
+    The node a read of a constant holding *node* is replaced with, or `None` where *node* is no
+    constant. A literal writes itself. A name that still denotes `undefined`, `NaN` or `Infinity`
+    where it stands (`refinery.lib.scripts.js.deobfuscation.helpers.names_global_value`) writes the
+    value it denotes, never the name, which may mean another binding at the read.
+    """
+    if node is None:
+        return None
+    if is_literal(node):
+        return node
+    if isinstance(node, JsIdentifier) and names_global_value(node, model):
+        return value_to_node(GLOBAL_VALUE_NAMES[node.name])
+    return None
+
+
+def _is_constant_array(node: Node, model: SemanticModel) -> bool:
+    """
+    Whether *node* is a `refinery.lib.scripts.js.model.JsArrayExpression` every element of which is
+    a constant (`_constant_node`).
     """
     if not isinstance(node, JsArrayExpression):
         return False
-    return all(el is not None and is_literal(el) for el in node.elements)
+    return all(_constant_node(el, model) is not None for el in node.elements)
 
 
-def _is_member_array_safe(scope: Node, prefix_name: str, prop_name: str) -> bool:
+def _is_constant_value(node: Node, model: SemanticModel) -> bool:
     """
-    Verify that `prefix.prop` (a member-expression array) is never mutated after its initial
-    assignment. Checks that: (1) the property is never written to via an element write —
-    `prefix.prop[i] = ...`, but also `prefix.prop[i]++`, `delete prefix.prop[i]`, and any other write
-    target, decided by the shared `is_member_write_target` climb rather than a hand-rolled
-    assignment-only test that a compound, update, or `delete` slips past; (2) the property value is
-    never passed as an argument or assigned to another variable (aliased); (3) no method calls that
-    could mutate the array exist (`prefix.prop.push(...)` etc.).
+    Whether *node* is a constant value eligible for multi-use inlining: a scalar constant or an
+    array of them.
     """
-    for node in scope.walk():
-        if not isinstance(node, JsMemberExpression):
-            continue
-        if node.object is None or node.property is None:
-            continue
-        obj = node.object
-        if not isinstance(obj, JsIdentifier) or obj.name != prefix_name:
-            continue
-        if not isinstance(node.property, JsIdentifier) or node.property.name != prop_name:
-            continue
-        parent = node.parent
-        if isinstance(parent, JsMemberExpression) and parent.object is node:
-            if parent.computed:
-                if is_member_write_target(parent):
-                    return False
-            else:
-                if is_invocation_target(parent):
-                    return False
-            continue
-        if isinstance(parent, JsAssignmentExpression) and parent.left is node:
-            continue
-        if isinstance(parent, JsCallExpression):
-            if not is_invocation_target(node):
-                return False
-    return True
-
-
-def _is_constant_value(node: Node) -> bool:
-    """
-    Return whether *node* is a constant value eligible for multi-use inlining: a scalar literal or
-    an all-literal array.
-    """
-    return is_literal(node) or _is_literal_array(node)
+    return _constant_node(node, model) is not None or _is_constant_array(node, model)
 
 
 def _is_intrinsic_alias_value(effects: EffectModel, node: Node) -> bool:
@@ -230,75 +232,149 @@ def _is_intrinsic_alias_value(effects: EffectModel, node: Node) -> bool:
 
 
 def _is_const_qualified(declarator: JsVariableDeclarator) -> bool:
-    """
-    Return whether a declarator belongs to a `const` declaration.
-    """
     parent = declarator.parent
     return isinstance(parent, JsVariableDeclaration) and parent.kind is JsVarKind.CONST
 
 
-def _collect_call_sites(
-    scope: Node,
-    effects: EffectModel,
-) -> tuple[dict[int, list[Node]], list[Node]]:
+def _calls_a_function_of_this_file_by_an_unstated_name(scope: Node, effects: EffectModel) -> bool:
     """
-    Map each statically resolvable callee within *scope* to the call expressions that target it,
-    and list those callees once each in first-seen order. A call whose target
-    `EffectModel.static_callee` cannot pin down (a method, a reassigned or redeclared binding, an
-    unresolved name) contributes nothing.
+    Whether *scope* holds a call naming its callee by an identifier this file binds while the model
+    declines to say which function that name holds.
+
+    Such a call may run any function written here, one that writes a candidate included, and
+    `_collect_call_sites` cannot report it: that answers with the functions a call may reach, and
+    this one reaches none it can name. Where it is true, a candidate survives only if no function of
+    this file writes it at all, which is what the substitution needs: it is the only guard standing
+    between a non-escaping mutator and a constant inlined past its write.
     """
-    call_sites: dict[int, list[Node]] = {}
+    return any(
+        effects.a_name_this_file_binds_holds_the_callee(node)
+        for node in walk_scope(scope, include_root_body=True)
+        if isinstance(node, JsCallExpression)
+    )
+
+
+def _collect_called_functions(scope: Node, effects: EffectModel) -> list[Node]:
+    """
+    The statically resolvable callees within *scope*, each listed once in first-seen order. A call
+    whose target `EffectModel.static_callee` cannot pin down (a method, a reassigned or redeclared
+    binding, an unresolved name) contributes nothing.
+    """
     called_funcs: list[Node] = []
+    seen: set[int] = set()
     for node in walk_scope(scope, include_root_body=True):
         if isinstance(node, JsCallExpression):
             target = effects.static_callee(node)
-            if target is not None:
-                if id(target) not in call_sites:
-                    called_funcs.append(target)
-                call_sites.setdefault(id(target), []).append(node)
-    return call_sites, called_funcs
+            if target is not None and id(target) not in seen:
+                seen.add(id(target))
+                called_funcs.append(target)
+    return called_funcs
 
 
-class JsConstantInlining(ScopeProcessingTransformer):
+def _reader_qualifies(
+    value: Node, reader: Node, binding: Binding,
+    effects: EffectModel, dominance: DominanceModel,
+) -> bool:
+    """
+    Whether a candidate that is not `const`-qualified — a `var` carrying its own initializer,
+    whose value a call could rewrite — may be inlined into the reader function *reader* holding
+    *value*, the question both arms of the cross-function substitution ask, stated once so the
+    computed-member and plain-identifier arms cannot disagree. The reader must not write the
+    binding, and the value must run before every one of its invocations, of which it must have at
+    least one (`runs_before_every_invocation`): a reader nothing invokes answers the ordering
+    vacuously and is refused, while an anonymous IIFE or arrow is always orderable, its single
+    reference point being the function expression itself — the closure cannot be invoked before it
+    is created. A `const`-qualified candidate, or an intrinsic alias, needs neither: its value
+    cannot be replaced short of a dynamic rebind, which the candidate collection has already
+    refused.
+    """
+    if effects.function_can_mutate(reader, binding):
+        return False
+    return dominance.runs_before_every_invocation(value, reader)
+
+
+def _planned_keys(substitutions: list[_Substitution]) -> set[str]:
+    return {sub.key for sub in substitutions}
+
+
+class JsConstantInlining(BatchedScopeTransformer[_ScopePlan]):
     """
     Inline variables that are assigned once and never mutated. Literal-valued variables are inlined
     at all use sites; single-use variables with side-effect-free initializers are inlined when no
     intervening mutation could alter the referenced identifiers. All-literal arrays declared with
     `const` are inlined element-by-element when accessed with numeric literal indices.
+
+    One invocation decides in rounds: each round traverses the tree once, every scope decides one
+    round of edits against the model snapshot the round opened with, and the round's plans apply
+    once the traversal ends, inner scopes first. A round that lands no edit ends the invocation.
+
+    Every edit the batch applies removes something — a read, an index access, a declarator — and
+    installs no binding, so the emission registry has no reader here: the one bare name a
+    substitution can write is an intrinsic alias, checked unshadowed at the site it goes.
+
+    Non-interference, per fact the decisions read:
+
+    - `ReachingModel.value_preserved` — whether a definition's value reaches a read unchanged.
+      Batch edits remove reads, write sites, and declarators; none adds a kill, so a value that
+      reached a read unchanged still does. A declined read — one a kill stood between — may become
+      inlinable once the edit removing the kill applies, which the next round decides; the refusal
+      the batch acted on stays valid.
+    - `DominanceModel.runs_before_function` and `runs_before_every_invocation` — whether a value
+      runs before a function, or before every invocation of one. Batch edits remove statements and
+      reads, so the set of invocation points can only shrink; a value that preceded them all still
+      does.
+    - The effect summaries — `EffectModel.mutated_bindings`, `EffectModel.function_escapes`,
+      `EffectModel.static_callee`, `EffectModel.function_can_mutate` — over functions the batch
+      never rewrites. Removing a call site removes a mutation opportunity rather than adding one,
+      so a function that could not write a binding still cannot.
+    - The reference counts that gate removals: no removal decision reads one — a count taken
+      before the round's plans apply cannot see the reads another plan of the same round deletes,
+      and a substitution whose value is an identifier adds a read the entry snapshot never saw —
+      so the plan counts at apply time, on the tree its substitutions leave behind, and
+      `is_attached` refuses the substitutions an earlier plan detached.
+    - The values the substitutions write: each is a node of the entry tree, an initializer that a
+      substitution of the same round can rewrite in place before the one writing it lands. In
+      `var x = p; var y = x; f(); g(y);` the round substitutes `p` for the `x` in `y`'s initializer
+      and that initializer for the `y` in `g(y)`, so a copy taken at apply time would carry the
+      read of `p` past `f()`. The plan holds a copy made at decision and writes what it checked.
     """
 
     def __init__(self, max_inline_length: int = 64):
         super().__init__()
         self.max_inline_length = max_inline_length
         self._root: JsScript | None = None
+        self._edits_applied = 0
 
     def visit_JsScript(self, node: JsScript):
         self._root = node
-        return super().visit_JsScript(node)
+        while True:
+            self._edits_applied = 0
+            super().visit_JsScript(node)
+            if not self._edits_applied:
+                break
+        return None
 
     def _process_scope(self, scope: Node) -> None:
         assert self._root is not None
-        effects = model_cache(self, self._root).effects
-        while True:
-            candidates, mutated = self._collect_candidates(scope, effects)
-            member_arrays = self._collect_member_array_candidates(scope)
-            if not candidates and not member_arrays:
-                return
-            inlined = self._substitute_constants(scope, candidates)
-            if member_arrays:
-                self._substitute_member_arrays(scope, member_arrays, inlined)
-            if inlined:
-                self._remove_dead(scope, candidates, inlined)
-                self._remove_dead_member_arrays(scope, member_arrays, inlined)
-                continue
-            inlined = self._substitute_expressions(scope, candidates, mutated)
-            if inlined:
-                self._remove_dead(scope, candidates, inlined)
-                continue
+        cache = model_cache(self, self._root)
+        candidates, mutated = self._collect_candidates(scope, cache.effects)
+        if not candidates:
             return
+        decl_ids = _candidate_decl_ids(candidates)
+        substitutions = self._decide_constants(scope, candidates, decl_ids, cache)
+        if not substitutions:
+            substitutions = self._decide_expressions(scope, candidates, mutated, decl_ids, cache)
+        if not substitutions:
+            return
+        self._submit(_ScopePlan(
+            scope,
+            [sub._replace(value=_clone_node(sub.value)) for sub in substitutions],
+            self._decide_dead_declarators(candidates, _planned_keys(substitutions), cache),
+            decl_ids,
+        ))
 
-    @staticmethod
     def _collect_candidates(
+        self,
         scope: Node,
         effects: EffectModel,
     ) -> tuple[dict[str, list[_CandidateEntry]], set[str]]:
@@ -309,12 +385,18 @@ class JsConstantInlining(ScopeProcessingTransformer):
 
         Also returns the set of fully rejected (mutated) names — those reassigned, updated,
         destructured, or written by an escaping function, whose value cannot be pinned to a single
-        definition. A candidate a dynamic scope could rewrite with no static write site is rejected
-        the same way, through `binding_maybe_reassigned_dynamically`: a `with`-body write the model
-        attributes to it, or a direct `eval` in its owning function that could rebind it through a
-        string; a write through a global-object alias is rejected alongside. The points past which a
-        surviving candidate's value no longer holds are not enumerated here; the reaching query
-        derives them from the effect model at each use.
+        definition. A candidate a dynamic scope could rewrite with no static write site is no longer
+        rejected outright: the reaching query orders every located rebind hazard
+        (`SemanticModel.binding_reflection_kill_sites`) against each read, so the reads that stand
+        before the hazard fold and the ones after it stay. The one rebind that keeps its rejection
+        is the nodeless one — the write a call makes on entry, which the text does not spell and
+        no ordering can place (`binding_dynamic_rebind_sites` answering `None`) — and a candidate
+        the analyst declared a host reaches by name is rejected the same way: the host reads it once
+        the file has run, and may have rewritten it before any read the substitution would fold, so
+        neither its declarator nor any read of it may be replaced. A write through a global-object
+        alias is rejected alongside. The points past which a surviving candidate's value no longer
+        holds are not enumerated here; the reaching query derives them from the effect model at
+        each use.
         """
         candidates: dict[str, list[_CandidateEntry]] = {}
         rejected: set[str] = set()
@@ -415,7 +497,11 @@ class JsConstantInlining(ScopeProcessingTransformer):
         functions = [node for node in scope.walk() if isinstance(node, FUNCTION_NODES)]
 
         for cand_name, binding in list(candidate_bindings.items()):
-            if binding.has_global_member_write or model.binding_maybe_reassigned_dynamically(binding):
+            if (
+                binding.has_global_member_write
+                or model.binding_dynamic_rebind_sites(binding) is None
+                or a_host_reaches_the_binding(model, binding, self.options)
+            ):
                 _reject(cand_name)
 
         for func in functions:
@@ -443,49 +529,53 @@ class JsConstantInlining(ScopeProcessingTransformer):
             return None
         return model.binding_of(decl.id)
 
-    def _substitute_constants(
+    def _decide_constants(
         self,
         scope: Node,
         candidates: dict[str, list[_CandidateEntry]],
-    ) -> dict[str, int]:
+        decl_ids: set[int],
+        cache: ModelCache,
+    ) -> list[_Substitution]:
         """
-        Inline constant (literal and literal-array) variable references. A reference is inlined only
-        where the definition's value provably reaches it unchanged (`ReachingModel.value_preserved`).
-        Handles both scalar references and computed index access into all-literal arrays.
+        Decide the constant (literal and literal-array) inlines of one round. A reference is inlined
+        only where the definition's value provably reaches it unchanged
+        (`ReachingModel.value_preserved`), covering both scalar references and computed index access
+        into all-literal arrays. The value each decision records is the entry snapshot's own node,
+        which `_process_scope` copies into the plan, or the node `_constant_node` writes for a name
+        denoting a global value. A string too long to paste is inlined only where its binding is
+        read once, wherever that read stands: the reads counted are the binding's own, in a `with`
+        body too, so a name a nested function binds for itself never counts against it.
         """
-        inlined: dict[str, int] = {}
-        bloat_blocked: set[str] = set()
-
-        decl_ids = _candidate_decl_ids(candidates)
-        ref_counts = _count_scope_references(
-            scope, set(candidates), decl_ids, count_member_access=True,
-        )
-
-        for name, entries in candidates.items():
-            if len(entries) != 1:
-                continue
-            value = entries[0].value
-            count = ref_counts.get(name, 0)
-            if count <= 1:
-                continue
-            if isinstance(value, JsStringLiteral) and len(value.value) > self.max_inline_length:
-                bloat_blocked.add(name)
-
-        assert self._root is not None
-        cache = model_cache(self, self._root)
         effects = cache.effects
-        dominance = cache.dominance
         reaching = cache.reaching
         model = effects.model
 
+        bloat_blocked: set[str] = set()
+        for name, entries in candidates.items():
+            if len(entries) != 1:
+                continue
+            entry = entries[0]
+            value = entry.value
+            if not isinstance(value, JsStringLiteral) or value.value is None:
+                continue
+            if len(value.value) <= self.max_inline_length:
+                continue
+            binding = self._candidate_binding(entry, model)
+            if binding is not None and len(binding.reads) + len(binding.dynamic_refs) > 1:
+                bloat_blocked.add(name)
+
         constant_names = {
             name for name, entries in candidates.items()
-            if any(_is_constant_value(e.value) or _is_intrinsic_alias_value(effects, e.value) for e in entries)
+            if any(
+                _is_constant_value(e.value, model) or _is_intrinsic_alias_value(effects, e.value)
+                for e in entries
+            )
         }
         if not constant_names:
-            return inlined
+            return []
 
-        for node in list(walk_scope(scope, include_root_body=True)):
+        substitutions: list[_Substitution] = []
+        for node in walk_scope(scope, include_root_body=True):
             if isinstance(node, JsMemberExpression) and node.computed:
                 obj = node.object
                 if (
@@ -493,12 +583,14 @@ class JsConstantInlining(ScopeProcessingTransformer):
                     and id(obj) not in decl_ids
                     and obj.name in constant_names
                     and obj.name not in bloat_blocked
-                    and self._index_array_immutable(obj, effects)
+                    and self._index_array_immutable(obj, effects, direct_eval_ordered=True)
                 ):
                     entry = candidates[obj.name][0]
                     binding = self._candidate_binding(entry, model)
                     if binding is not None and reaching.value_preserved(binding, entry.value, node):
-                        self._apply_index_access_inline(node, entry, obj.name, inlined)
+                        element = self._index_access_element(node, entry, model)
+                        if element is not None:
+                            substitutions.append(_Substitution(node, element, obj.name))
                     continue
             if not isinstance(node, JsIdentifier):
                 continue
@@ -513,84 +605,101 @@ class JsConstantInlining(ScopeProcessingTransformer):
             if isinstance(parent, JsMemberExpression) and parent.object is node and parent.computed:
                 continue
             entry = candidates[name][0]
-            if not is_literal(entry.value):
+            value = _constant_node(entry.value, model)
+            if value is None:
                 continue
             binding = self._candidate_binding(entry, model)
             if binding is None or model.resolve(node) is not binding:
                 continue
             if not reaching.value_preserved(binding, entry.value, node):
                 continue
-            _replace_in_parent(node, _clone_node(entry.value))
-            self.mark_changed()
-            inlined[name] = inlined.get(name, 0) + 1
+            substitutions.append(_Substitution(node, value, name))
 
-        self._substitute_const_across_functions(
-            scope, candidates, decl_ids, bloat_blocked, inlined, effects, dominance,
-        )
+        substitutions.extend(self._decide_const_across_functions(
+            scope, candidates, decl_ids, bloat_blocked, cache,
+        ))
 
-        return inlined
+        return substitutions
 
     @staticmethod
-    def _index_array_immutable(obj: JsIdentifier, effects: EffectModel) -> bool:
+    def _index_array_immutable(
+        obj: JsIdentifier, effects: EffectModel, direct_eval_ordered: bool = False,
+    ) -> bool:
         """
         Whether the array binding referenced by *obj* is an immutable, non-escaping container, so that
         `obj[idx]` may be inlined to its literal element. Resolved through the binding (not the textual
         name), so shadowing is respected; the model memoizes the judgment for the model's lifetime. A
         name that does not resolve to a local binding (a free or global array) is treated as unsafe.
+        *direct_eval_ordered* carries the caller's promise that it has ordered the direct-`eval`
+        sites against the read it is folding — the `value_preserved` check the same arm
+        makes — so a local array in a function holding a direct `eval` stays inlinable where the
+        read is ordered before every eval site.
         """
         binding = effects.model.resolve(obj)
         if binding is None:
             return False
-        return effects.binding_is_immutable_container(binding)
+        return effects.binding_is_immutable_container(
+            binding, direct_eval_ordered=direct_eval_ordered)
 
-    def _apply_index_access_inline(
-        self,
+    @staticmethod
+    def _index_access_element(
         member: JsMemberExpression,
         entry: _CandidateEntry,
-        name: str,
-        inlined: dict[str, int],
-    ) -> None:
+        model: SemanticModel,
+    ) -> Node | None:
+        """
+        The node an index access into a candidate's array of constants is replaced with
+        (`_constant_node`), or `None` when the access names no in-bounds constant element.
+        """
         prop = member.property
         if not isinstance(prop, JsNumericLiteral):
-            return
-        idx = int(prop.value)
+            return None
+        idx = exact_integer(prop.value)
+        if idx is None:
+            return None
         value = entry.value
         if not isinstance(value, JsArrayExpression):
-            return
+            return None
         if not (0 <= idx < len(value.elements)):
-            return
-        element = value.elements[idx]
-        if element is None or not is_literal(element):
-            return
-        _replace_in_parent(member, _clone_node(element))
-        self.mark_changed()
-        inlined[name] = inlined.get(name, 0) + 1
+            return None
+        return _constant_node(value.elements[idx], model)
 
-    def _substitute_const_across_functions(
+    def _decide_const_across_functions(
         self,
         scope: Node,
         candidates: dict[str, list[_CandidateEntry]],
         decl_ids: set[int],
         bloat_blocked: set[str],
-        inlined: dict[str, int],
-        effects: EffectModel,
-        dominance: DominanceModel,
-    ) -> None:
+        cache: ModelCache,
+    ) -> list[_Substitution]:
         """
-        For constant-valued candidates, walk the full subtree to inline references inside nested
-        function bodies. A `const`-qualified candidate, or an uninitialized `var` later assigned a
-        single constant, is inlined into a function only when the value provably runs before every
-        invocation of that function (`DominanceModel.runs_before_function`) — otherwise a call could
-        read the value early: a stale read for the `var` form, a temporal-dead-zone throw for the
-        `const` form. A `var`/`let` candidate that carries its own initializer is additionally
-        restricted to a named function declaration actually called in the current scope that the effect
-        model proves does not mutate the binding. The interprocedural runs-before check subsumes the
-        earlier escape and statement-position heuristics: a function cannot be invoked before a reference
-        to it has been evaluated, so it orders the value against every point the function is referenced —
-        recursing up the call graph for a reference that lies inside another function — and inlines only
-        when the value dominates all of them, refusing whenever a reference cannot be ordered (its
-        binding is reassigned or redeclared, or it lies on a call cycle).
+        Decide the constant-valued inlines of one round that cross into nested function bodies. A
+        `const`-qualified candidate, or an uninitialized `var` later assigned a single constant, is
+        inlined into a function only when the value provably runs before every invocation of that
+        function (`DominanceModel.runs_before_function`) — otherwise a call could read the value
+        early: a stale read for the `var` form, a temporal-dead-zone throw for the `const` form. A
+        `var`/`let` candidate that carries its own initializer is additionally restricted by
+        `_reader_qualifies` to a reader that neither writes the binding nor runs an invocation the
+        value does not precede — a named function invoked in scope, an anonymous IIFE, an arrow, or
+        a function stored in a binding, each of whose invocation points is enumerable and ordered;
+        an uncalled named function is refused, since its ordering answer is the vacuous one an
+        empty set of reference points gives. The interprocedural runs-before check subsumes the
+        earlier escape and statement-position heuristics: a function cannot be invoked before a
+        reference to it has been evaluated, so it orders the value against every point the function
+        is referenced — recursing up the call graph for a reference that lies inside another
+        function, and ordering functions that call each other by the references from outside
+        their cycle — and inlines only when the value dominates all of them, refusing whenever a
+        reference cannot be ordered (its binding is reassigned or redeclared).
+
+        A candidate a dynamic scope could rewrite is refused here
+        (`binding_maybe_reassigned_dynamically`): this consumer's ordering runs the value before an
+        *invocation*, and an invocation cannot be ordered against the site that rewrites the value
+        — a name read once can be stored and invoked arbitrarily later, past the hazard — so the
+        reads that fold on the located hazards are the same-function ones, which the reaching
+        query answers at the use itself.
         """
+        effects = cache.effects
+        dominance = cache.dominance
         model = effects.model
         cross_candidates: dict[str, list[_CandidateEntry]] = {}
         cross_bindings: dict[str, Binding] = {}
@@ -604,7 +713,7 @@ class JsConstantInlining(ScopeProcessingTransformer):
             if entry.declarator is None or not isinstance(entry.declarator.id, JsIdentifier):
                 continue
             intrinsic_alias = _is_intrinsic_alias_value(effects, entry.value)
-            if not (_is_constant_value(entry.value) or intrinsic_alias):
+            if not (_is_constant_value(entry.value, model) or intrinsic_alias):
                 continue
             binding = model.binding_of(entry.declarator.id)
             if binding is None:
@@ -615,24 +724,29 @@ class JsConstantInlining(ScopeProcessingTransformer):
                 const_names.add(name)
 
         if not cross_candidates:
-            return
+            return []
 
         outer = model.scope_of(scope)
         assert outer is not None
         owner = enclosing_function(scope)
 
-        call_sites, called_funcs = _collect_call_sites(scope, effects)
+        called_funcs = _collect_called_functions(scope, effects)
+        a_callee_is_unstated = _calls_a_function_of_this_file_by_an_unstated_name(scope, effects)
 
         for name in [
             candidate for candidate, binding in cross_bindings.items()
-            if any(effects.function_can_mutate(func, binding) for func in called_funcs)
+            if model.binding_maybe_reassigned_dynamically(binding)
+            or binding.copies_received
+            or (a_callee_is_unstated and effects.some_function_can_mutate(binding))
+            or any(effects.function_can_mutate(func, binding) for func in called_funcs)
         ]:
             del cross_candidates[name]
             del cross_bindings[name]
         if not cross_candidates:
-            return
+            return []
 
-        for node in list(scope.walk()):
+        substitutions: list[_Substitution] = []
+        for node in scope.walk():
             if isinstance(node, JsMemberExpression) and node.computed:
                 obj = node.object
                 if (
@@ -647,19 +761,21 @@ class JsConstantInlining(ScopeProcessingTransformer):
                         continue
                     if model.resolve(obj) is not cross_bindings[name]:
                         continue
-                    if name not in const_names and (
-                        not isinstance(enclosing, JsFunctionDeclaration)
-                        or id(enclosing) not in call_sites
-                        or effects.function_can_mutate(enclosing, cross_bindings[name])
+                    if name in const_names:
+                        if not dominance.runs_before_function(
+                            cross_candidates[name][0].value, enclosing,
+                        ):
+                            continue
+                    elif not _reader_qualifies(
+                        cross_candidates[name][0].value, enclosing,
+                        cross_bindings[name], effects, dominance,
                     ):
-                        continue
-                    if not dominance.runs_before_function(cross_candidates[name][0].value, enclosing):
                         continue
                     if model.is_shadowed(name, obj, outer):
                         continue
-                    self._apply_index_access_inline(
-                        node, cross_candidates[name][0], name, inlined,
-                    )
+                    element = self._index_access_element(node, cross_candidates[name][0], model)
+                    if element is not None:
+                        substitutions.append(_Substitution(node, element, name))
                     continue
             if not isinstance(node, JsIdentifier):
                 continue
@@ -679,20 +795,20 @@ class JsConstantInlining(ScopeProcessingTransformer):
                 continue
             entry = cross_candidates[name][0]
             intrinsic_alias = _is_intrinsic_alias_value(effects, entry.value)
-            if not (is_literal(entry.value) or intrinsic_alias):
+            value = entry.value if intrinsic_alias else _constant_node(entry.value, model)
+            if value is None:
                 continue
             enclosing = enclosing_function(node)
             if enclosing is None or enclosing is owner:
                 continue
             if model.resolve(node) is not cross_bindings[name]:
                 continue
-            if name not in const_names and (
-                not isinstance(enclosing, JsFunctionDeclaration)
-                or id(enclosing) not in call_sites
-                or effects.function_can_mutate(enclosing, cross_bindings[name])
+            if name in const_names:
+                if not dominance.runs_before_function(entry.value, enclosing):
+                    continue
+            elif not _reader_qualifies(
+                entry.value, enclosing, cross_bindings[name], effects, dominance,
             ):
-                continue
-            if not dominance.runs_before_function(entry.value, enclosing):
                 continue
             if model.is_shadowed(name, node, outer):
                 continue
@@ -702,32 +818,33 @@ class JsConstantInlining(ScopeProcessingTransformer):
                 and model.lookup(entry.value.name, model.scope_of(node)) is not None
             ):
                 continue
-            _replace_in_parent(node, _clone_node(entry.value))
-            self.mark_changed()
-            inlined[name] = inlined.get(name, 0) + 1
+            substitutions.append(_Substitution(node, value, name))
+        return substitutions
 
-    def _substitute_expressions(
+    def _decide_expressions(
         self,
         scope: Node,
         candidates: dict[str, list[_CandidateEntry]],
         mutated: set[str],
-    ) -> dict[str, int]:
+        decl_ids: set[int],
+        cache: ModelCache,
+    ) -> list[_Substitution]:
         """
-        Inline single-use, side-effect-free, non-literal expressions. Relocating the initializer to its
-        use is sound only when the value it computed still holds there — which means the candidate's own
-        binding reaches the use unchanged *and* every variable the initializer reads holds, at the use,
-        the value it held at the definition. `ReachingModel.value_preserved` decides each: the candidate
-        binding for ordering and its own kills, then one query per resolved free variable. The
-        `_is_primitive_and_pure` gate keeps the initializer free of side effects and reference identity,
-        and the `mutated` gate rejects a free variable written through a name no binding resolves (a
-        global reassigned in scope), which the binding-keyed reaching query cannot see. A candidate whose
-        initializer reads a bare name through a `with` body's dynamic scope needs no separate gate here:
-        such an initializer is inside the `with` body, so the candidate's own binding is written in a
-        dynamic scope and `_collect_candidates` already rejects it through
-        `binding_maybe_reassigned_dynamically`.
+        Decide the single-use, side-effect-free, non-literal expression inlines of one round.
+        Relocating the initializer to its use is sound only when the value it computed still holds
+        there — which means the candidate's own binding reaches the use unchanged *and* every
+        variable the initializer reads holds, at the use, the value it held at the definition.
+        `ReachingModel.value_preserved` decides each: the candidate binding for ordering and its
+        own kills, then one query per resolved free variable. The `_is_primitive_and_pure` gate
+        keeps the initializer free of side effects and reference identity, and the `mutated` gate
+        rejects a free variable written through a name no binding resolves (a global reassigned in
+        scope), which the binding-keyed reaching query cannot see. A candidate whose initializer
+        reads a bare name through a `with` body's dynamic scope needs no separate gate here: such
+        an initializer is inside the `with` body, so the candidate's own binding is written in a
+        dynamic scope and the reaching query orders that hazard against the relocated read.
         """
-        decl_ids = _candidate_decl_ids(candidates)
         ref_counts = _count_scope_references(scope, set(candidates), decl_ids)
+        model = cache.effects.model
 
         to_inline: dict[str, _CandidateEntry] = {}
         for name, entries in candidates.items():
@@ -736,7 +853,7 @@ class JsConstantInlining(ScopeProcessingTransformer):
             entry = entries[0]
             init = entry.value
             count = ref_counts.get(name, 0)
-            if is_literal(init) or _is_literal_array(init) or count != 1:
+            if _is_constant_value(init, model) or count != 1:
                 continue
             if not _is_primitive_and_pure(init):
                 continue
@@ -745,15 +862,12 @@ class JsConstantInlining(ScopeProcessingTransformer):
             to_inline[name] = entry
 
         if not to_inline:
-            return {}
+            return []
 
-        assert self._root is not None
-        cache = model_cache(self, self._root)
         reaching = cache.reaching
-        model = cache.effects.model
 
-        inlined: dict[str, int] = {}
-        for node in list(walk_scope(scope, include_root_body=True)):
+        substitutions: list[_Substitution] = []
+        for node in walk_scope(scope, include_root_body=True):
             if not isinstance(node, JsIdentifier):
                 continue
             if id(node) in decl_ids:
@@ -769,179 +883,99 @@ class JsConstantInlining(ScopeProcessingTransformer):
                 continue
             if not self._free_variables_preserved(entry.value, node, model, reaching):
                 continue
-            _replace_in_parent(node, _clone_node(entry.value))
-            self.mark_changed()
-            inlined[name] = inlined.get(name, 0) + 1
-        return inlined
+            substitutions.append(_Substitution(node, entry.value, name))
+        return substitutions
 
     @staticmethod
     def _free_variables_preserved(
         value: Node, use: Node, model: SemanticModel, reaching: ReachingModel,
     ) -> bool:
         """
-        Whether every variable *value* reads holds, at *use*, the value it held where *value* was defined
-        — so re-evaluating *value* at *use* yields the same result. Each identifier that resolves to a
-        binding is checked with `ReachingModel.value_preserved`; an identifier that resolves to no
-        binding (a global) is left to the caller's `mutated` gate.
+        Whether re-evaluating *value* at *use* yields the same result it had where *value* was
+        defined. Each name *value* reads must resolve, from *use*'s scope, to the binding it read
+        where it was defined — a name a block or function around *use* shadows would read a
+        different binding there, so a global read at the definition becomes a local read once
+        substituted — and, where that binding exists, must still hold the value it held
+        (`ReachingModel.value_preserved`). A free name that stays free preserves its value by the
+        caller's `mutated` gate, so only its resolution is checked here. This is the twin of
+        `JsCallWrapperInliner._forwarded_callee_reaches`, which guards the same capture for a
+        forwarded callee.
         """
+        use_scope = model.scope_of(use)
         for ident in value.walk():
-            if not isinstance(ident, JsIdentifier):
+            if not isinstance(ident, JsIdentifier) or not model.is_reference(ident):
                 continue
             binding = model.resolve(ident)
+            if model.lookup(ident.name, use_scope) is not binding:
+                return False
             if binding is not None and not reaching.value_preserved(binding, value, use):
                 return False
         return True
 
-    def _remove_dead(
+    def _decide_dead_declarators(
         self,
-        scope: Node,
         candidates: dict[str, list[_CandidateEntry]],
-        inlined: dict[str, int],
-    ) -> None:
+        planned: set[str],
+        cache: ModelCache,
+    ) -> list[_DeclaratorRemoval]:
         """
-        Remove declarators for variables where all references have been inlined. For `const`
-        qualified candidates, check the full subtree since cross-function inlining may have
-        replaced references inside nested functions.
+        Decide which declarators of the round-inlined names are up for removal. No reference count
+        is read here — one taken before the round's plans apply cannot see the reads another plan of
+        the same round deletes — so every name the round substitutes is proposed and the plan counts
+        references at apply time. Only a declarator that holds the inlined value is proposed: where
+        the value came from a store after a bare `var b;`, removing the declaration would leave that
+        store writing a global, and a dead store goes with its declaration in
+        `refinery.lib.scripts.js.deobfuscation.unused.JsUnusedCodeRemoval`. An exported binding
+        keeps its declarator even with every local read inlined, because an importer still reads it
+        across the module boundary; removing it would leave an `export` naming a binding the module
+        no longer declares. A binding that code the model cannot read could name keeps its
+        declarator for the same reason: every read this file spells may have folded, and the surface
+        — a direct `eval`, a span of source the model never read, a `with` body — reads the binding
+        through no reference the inlining counted, so removing the declaration would turn its value
+        into a `ReferenceError`. An opaque global write is not such a surface: it stores a property
+        and runs nothing, and the reads it could replace were ordered against it before they folded,
+        so the property it may write is the same residual the fold already concedes.
         """
-        decl_ids = _candidate_decl_ids(candidates)
-        ref_counts = _count_scope_references(
-            scope, set(inlined), decl_ids, walk_full=True,
-        )
-
-        for name in inlined:
-            remaining = ref_counts.get(name, 0)
-            if remaining > 0:
-                continue
+        model = cache.model
+        removals: list[_DeclaratorRemoval] = []
+        for name in planned:
             entries = candidates.get(name)
             if entries is None:
                 continue
             for entry in entries:
-                if entry.declarator is None:
+                if entry.declarator is None or entry.declarator.init is None:
                     continue
-                remove_declarator(entry.declarator)
-                self.mark_changed()
+                binding = self._candidate_binding(entry, model)
+                if binding is not None and (
+                    binding.exported
+                    or model.reachable_by_opaque_reflection(binding)
+                    or bool(binding.dynamic_refs)
+                ):
+                    continue
+                removals.append(_DeclaratorRemoval(entry.declarator, name))
+        return removals
 
-    @staticmethod
-    def _collect_member_array_candidates(scope: Node) -> dict[str, _MemberArrayEntry]:
-        """
-        Collect member-expression assignments of all-literal arrays: `X.Y = [literals...]`.
-        Returns a dict keyed by `"X.Y"` to `_MemberArrayEntry`. Only single-assignment,
-        non-aliased properties qualify.
-        """
-        candidates: dict[str, _MemberArrayEntry] = {}
-        rejected: set[str] = set()
-        prefix_rejected: set[str] = set()
-
-        for node in walk_scope(scope, include_root_body=True):
-            if not isinstance(node, JsAssignmentExpression) or node.operator != '=':
+    def _apply_plan(self, plan: _ScopePlan) -> None:
+        for sub in plan.substitutions:
+            if not is_attached(sub.target):
                 continue
-            lhs = node.left
-            if not isinstance(lhs, JsMemberExpression) or lhs.computed:
+            if isinstance(sub.target, JsIdentifier):
+                substituted = substitute_use_position(sub.target, sub.value)
+            else:
+                substituted = _replace_in_parent(sub.target, sub.value)
+            if not substituted:
                 continue
-            if not isinstance(lhs.object, JsIdentifier) or not isinstance(lhs.property, JsIdentifier):
-                continue
-            key = F'{lhs.object.name}.{lhs.property.name}'
-            if key in rejected:
-                continue
-            rhs = node.right
-            if not isinstance(rhs, JsArrayExpression) or not _is_literal_array(rhs):
-                rejected.add(key)
-                candidates.pop(key, None)
-                continue
-            if key in candidates:
-                rejected.add(key)
-                candidates.pop(key)
-                continue
-            candidates[key] = _MemberArrayEntry(node, rhs)
-
-        if not candidates:
-            return candidates
-
-        prefix_names = {k.split('.', 1)[0] for k in candidates}
-        for node in walk_scope(scope, include_root_body=True):
-            if isinstance(node, JsAssignmentExpression) and node.operator == '=':
-                if isinstance(node.left, JsIdentifier) and node.left.name in prefix_names:
-                    prefix_rejected.add(node.left.name)
-            if isinstance(node, JsUpdateExpression) and isinstance(node.argument, JsIdentifier):
-                if node.argument.name in prefix_names:
-                    prefix_rejected.add(node.argument.name)
-
-        if prefix_rejected:
-            candidates = {
-                k: v for k, v in candidates.items()
-                if k.split('.', 1)[0] not in prefix_rejected
-            }
-
-        for key in list(candidates):
-            prefix, prop = key.split('.', 1)
-            if not _is_member_array_safe(scope, prefix, prop):
-                del candidates[key]
-
-        return candidates
-
-    def _substitute_member_arrays(
-        self,
-        scope: Node,
-        member_arrays: dict[str, _MemberArrayEntry],
-        inlined: dict[str, int],
-    ) -> None:
-        """
-        Inline `X.Y[N]` → element for all collected member-array candidates. Walks the full
-        subtree (including nested function bodies) since these arrays are scope-level constants.
-        """
-        for node in list(scope.walk()):
-            if not isinstance(node, JsMemberExpression) or not node.computed:
-                continue
-            prop = node.property
-            if not isinstance(prop, JsNumericLiteral):
-                continue
-            obj = node.object
-            if not isinstance(obj, JsMemberExpression) or obj.computed:
-                continue
-            if not isinstance(obj.object, JsIdentifier) or not isinstance(obj.property, JsIdentifier):
-                continue
-            key = F'{obj.object.name}.{obj.property.name}'
-            entry = member_arrays.get(key)
-            if entry is None:
-                continue
-            idx = int(prop.value)
-            if not (0 <= idx < len(entry.array.elements)):
-                continue
-            element = entry.array.elements[idx]
-            if element is None or not is_literal(element):
-                continue
-            _replace_in_parent(node, _clone_node(element))
             self.mark_changed()
-            inlined[key] = inlined.get(key, 0) + 1
-
-    def _remove_dead_member_arrays(
-        self,
-        scope: Node,
-        member_arrays: dict[str, _MemberArrayEntry],
-        inlined: dict[str, int],
-    ) -> None:
-        """
-        Remove the assignment statement for member arrays where all references were inlined.
-        """
-        remaining: dict[str, int] = {}
-        for node in scope.walk():
-            if not isinstance(node, JsMemberExpression) or not node.computed:
-                continue
-            obj = node.object
-            if not isinstance(obj, JsMemberExpression) or obj.computed:
-                continue
-            if not isinstance(obj.object, JsIdentifier) or not isinstance(obj.property, JsIdentifier):
-                continue
-            key = F'{obj.object.name}.{obj.property.name}'
-            if key in member_arrays:
-                remaining[key] = remaining.get(key, 0) + 1
-
-        for key, entry in member_arrays.items():
-            if key not in inlined:
-                continue
-            if remaining.get(key, 0) > 0:
-                continue
-            stmt = entry.assignment.parent
-            if isinstance(stmt, JsExpressionStatement):
-                _remove_from_parent(stmt)
+            self._edits_applied += 1
+        if plan.declarator_removals:
+            ref_counts = _count_scope_references(
+                plan.scope, plan.planned, plan.decl_ids, walk_full=True,
+            )
+            for removal in plan.declarator_removals:
+                if ref_counts.get(removal.key, 0) > 0:
+                    continue
+                if not is_attached(removal.declarator):
+                    continue
+                remove_declarator(removal.declarator)
                 self.mark_changed()
+                self._edits_applied += 1

@@ -92,8 +92,8 @@ def load_config() -> Dict[str, str]:
     5. ~/.featrix_default_key
 
     Supports two file formats:
-    1. JSON: {"api_key": "sk_live_...", "base_url": "https://..."}
-    2. Env-style: api_key=sk_live_...
+    1. JSON: {"api_key": "fx_...", "base_url": "https://..."}
+    2. Env-style: api_key=fx_...
 
     Returns:
         Dict with 'api_key' and optionally 'base_url'.

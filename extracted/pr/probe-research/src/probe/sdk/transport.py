@@ -40,7 +40,7 @@ from ..client_headers import (
 import functools
 from urllib.parse import urlsplit
 
-from .._shared import update_request
+from .._shared import capture_repair, update_request
 from . import client_status
 from . import diagnostics as _diagnostics
 from . import durable
@@ -1097,6 +1097,9 @@ class Transport:
                 # Probe staff asked this machine to update (the CLI's next command
                 # hands it to the updater): one lookup when the header is absent.
                 update_request.note(resp.headers)
+                # Probe staff asked to repair this machine's session capture (the
+                # CLI's next command fetches the credentials): the same one lookup.
+                capture_repair.note(resp.headers)
             if resp.status_code >= 400:
                 if attempt > 1 and method.upper() == "DELETE" and _is_trash_notice(resp):
                     # A RETRIED delete that finds the thing in the trash: the

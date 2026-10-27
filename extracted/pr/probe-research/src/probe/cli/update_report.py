@@ -55,7 +55,7 @@ import httpx
 
 from probe import version_policy
 from probe._compat import StrEnum
-from probe._shared import scrub, update_request
+from probe._shared import capture_repair, scrub, update_request
 from probe.cli import autoupdate, updater, versions
 from probe.cli.capabilities import tracking_plugin_name
 from probe.client_headers import client_version_headers, device_headers
@@ -177,11 +177,21 @@ _HARNESS = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 
 
 def trigger_from_env(default: Trigger) -> Trigger:
-    """The trigger a spawner named in `TRIGGER_ENV`, else `default`."""
-    try:
-        return Trigger(os.environ.get(TRIGGER_ENV, ""))
-    except ValueError:
-        return default
+    """What asked for this update: in a release a hand-off exec'd, the trigger
+    the release before it ran under (`PROBE_HANDOFF_TRIGGER`, the report's
+    attempt trigger: `lifeboat` for a lifeboat rescue); else the one a spawner
+    named in `TRIGGER_ENV`; else `default`. A word `Trigger` does not know is
+    passed over. (The adopt takes PROBE_HANDOFF_TRIGGER out of the environment
+    and keeps it: `adopt.handed_trigger`.)"""
+    from probe._shared import handoff
+    from probe.core import adopt
+
+    for value in (adopt.handed_trigger(), os.environ.get(handoff.TRIGGER_ENV), os.environ.get(TRIGGER_ENV)):
+        try:
+            return Trigger(value or "")
+        except ValueError:
+            continue
+    return default
 
 
 # ---------------------------------------------------------------------------
@@ -688,8 +698,10 @@ def _deliver(base_url: str, headers: dict[str, str], body: dict, timeout: float)
     except Exception:  # noqa: BLE001 - offline, DNS, TLS, timeout: all the same here
         return None
     # The refresher's report flush is often the one request a machine that only
-    # runs hooks makes with its device: it hears "update now" here too.
+    # runs hooks makes with its device: it hears "update now" here too, and a
+    # staff capture repair (research-os control/073).
     update_request.note(response.headers)
+    capture_repair.note(response.headers)
     return response.status_code
 
 

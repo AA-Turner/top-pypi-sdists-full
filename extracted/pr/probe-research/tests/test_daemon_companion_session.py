@@ -6,7 +6,7 @@ session named by `X-Probe-Agent` + `X-Probe-Agent-Session`
 (`app/runs/agent_session.agent_session_from_request`), the pair the reader's
 MCP calls already carry. The worker binds its session at start
 (`model.bind_session`); the daemon's one HTTP client adds the pair to every
-companion request (the chat gateway, the ML gate, the command check), and the
+companion request (the chat gateway, the command check), and the
 trace shipper sends it with the session's own traces -- never with another
 session's orphans.
 """
@@ -20,7 +20,7 @@ import threading
 import httpx
 import pytest
 
-from probe.daemon import command_check, gate, runctx
+from probe.daemon import command_check, runctx
 from probe.daemon import model as model_mod
 from probe.daemon import shipper as ship
 from probe.daemon import trace as trace_mod
@@ -52,8 +52,6 @@ def wire(monkeypatch):
 
     def answer(request: httpx.Request) -> httpx.Response:
         sent.append(request)
-        if request.url.path.endswith("/classify"):
-            return httpx.Response(200, json={"p_ml": 0.9, "act": True, "mode": "on"})
         if request.url.path.endswith("/command-check"):
             return httpx.Response(200, json={"approve": True, "scores": {"q": 0.9}, "mode": "on"})
         return httpx.Response(200, json={})
@@ -66,24 +64,21 @@ def _named(request: httpx.Request) -> tuple[str | None, str | None]:
     return request.headers.get(AGENT_HEADER), request.headers.get(AGENT_SESSION_HEADER)
 
 
-def test_the_gate_the_command_check_and_the_gateway_name_the_watched_session(wire):
+def test_the_command_check_and_the_gateway_name_the_watched_session(wire):
     model_mod.bind_session("claude_code", SID)
 
     async def calls() -> None:
-        await gate.ask_probe("a digest")
         await real_command_check(command="ls", cwd="/w", reason="look", working_folders=["/w"])
         await model_mod._http_client().post(f"{BASE}{model_mod.ROUTE_PREFIX}/chat/completions", json={})
 
     asyncio.run(calls())
-    assert [r.url.path for r in wire] == [
-        gate.ROUTE, command_check.ROUTE, f"{model_mod.ROUTE_PREFIX}/chat/completions",
-    ]
+    assert [r.url.path for r in wire] == [command_check.ROUTE, f"{model_mod.ROUTE_PREFIX}/chat/completions"]
     assert all(_named(r) == ("claude_code", SID) for r in wire)
 
 
 def test_no_bound_session_names_none_and_other_routes_are_untouched(wire):
     async def calls() -> None:
-        await gate.ask_probe("a digest")
+        await model_mod._http_client().post(f"{BASE}{model_mod.ROUTE_PREFIX}/chat/completions", json={})
         model_mod.bind_session("codex", SID)
         await model_mod._http_client().get(f"{BASE}/v1/runs")
 
@@ -110,7 +105,7 @@ def test_a_malformed_pair_names_nothing(agent, session):
 def test_a_session_the_caller_named_is_kept():
     model_mod.bind_session("claude_code", SID)
     request = httpx.Request(
-        "POST", f"{BASE}{model_mod.ROUTE_PREFIX}/classify",
+        "POST", f"{BASE}{command_check.ROUTE}",
         headers={AGENT_HEADER: "pi", AGENT_SESSION_HEADER: OTHER},
     )
     asyncio.run(model_mod._name_watched_session(request))

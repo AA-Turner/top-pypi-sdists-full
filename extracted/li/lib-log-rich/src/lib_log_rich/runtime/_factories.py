@@ -22,8 +22,12 @@ application layer agnostic of specific adapter implementations.
 
 from __future__ import annotations
 
+import getpass
+import os
+import socket
 import sys
 import traceback
+from collections.abc import Mapping
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -35,6 +39,7 @@ from lib_log_rich.adapters import (
     DumpAdapter,
     GraylogAdapter,
     JournaldAdapter,
+    JsonlCheckpoint,
     RegexScrubber,
     RichConsoleAdapter,
     SlidingWindowRateLimiter,
@@ -49,36 +54,26 @@ from lib_log_rich.application.ports import (
     SystemIdentityPort,
 )
 from lib_log_rich.application.use_cases._types import ProcessResult
-from lib_log_rich.application.use_cases.dump import create_capture_dump
+from lib_log_rich.application.use_cases.dump import CaptureDump, create_capture_dump
 from lib_log_rich.domain import (
     ContextBinder,
-    DumpFilter,
-    DumpFormat,
     LogContext,
     LogEvent,
     LogLevel,
     RingBuffer,
 )
+from lib_log_rich.domain.enums import ConsoleStream, ConsoleTheme, DropReason
 from lib_log_rich.domain.identity import SystemIdentity
 
-# FeatureFlags is a real runtime import (not TYPE_CHECKING-only): tests construct instances of it
-# via this module's re-export, so it must stay a genuine attribute here.
-from .settings.models import DEFAULT_RING_BUFFER_FALLBACK, FeatureFlags
+from .settings.models import DEFAULT_RING_BUFFER_FALLBACK
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, MutableMapping
+    from collections.abc import MutableMapping
     from pathlib import Path
 
-    from ._settings import ConsoleAppearance, DumpDefaults, GraylogSettings, RuntimeSettings
+    from lib_log_rich.application.use_cases._types import MessageArgs, ProcessCallable
 
-try:
-    import getpass
-    import os
-    import socket
-except ImportError:  # pragma: no cover - limited runtimes may omit these modules
-    getpass = None  # type: ignore[assignment]
-    socket = None  # type: ignore[assignment]
-    os = None  # type: ignore[assignment]
+    from .settings import ConsoleAppearance, DumpDefaults, FeatureFlags, GraylogSettings, RuntimeSettings
 
 
 class SystemClock(ClockPort):
@@ -116,18 +111,6 @@ class SystemIdentityProvider(SystemIdentityPort):
         """
         return _cached_system_identity()
 
-    def _resolve_user_name(self) -> str | None:
-        """Resolve current user name from getpass or environment."""
-        return _cached_user_name()
-
-    def _resolve_hostname(self) -> str | None:
-        """Resolve short hostname from socket."""
-        return _cached_hostname()
-
-    def _resolve_process_id(self) -> int:
-        """Resolve current process ID."""
-        return _cached_process_id()
-
 
 @lru_cache(maxsize=1)
 def _cached_system_identity() -> SystemIdentity:
@@ -141,20 +124,20 @@ def _cached_system_identity() -> SystemIdentity:
 
 @lru_cache(maxsize=1)
 def _cached_user_name() -> str | None:
-    """Cache user name resolution for process lifetime."""
-    if getpass is not None:
-        with suppress(Exception):  # pragma: no cover - environment dependent
-            return getpass.getuser()
-    if os is not None:
-        return os.getenv("USER") or os.getenv("USERNAME")
+    """Cache user name resolution for process lifetime.
+
+    ``getpass.getuser()`` reads LOGNAME, USER, LNAME and USERNAME before the password
+    database, so when it fails no environment fallback is left to try. Before 3.13 it
+    could raise more than ``OSError`` (a ``KeyError`` from ``pwd``, for one).
+    """
+    with suppress(Exception):
+        return getpass.getuser()
     return None
 
 
 @lru_cache(maxsize=1)
 def _cached_hostname() -> str | None:
     """Cache hostname resolution for process lifetime."""
-    if socket is None:
-        return None
     hostname_value = ""
     with suppress(Exception):  # pragma: no cover - environment dependent
         hostname_value = socket.gethostname() or ""
@@ -164,7 +147,7 @@ def _cached_hostname() -> str | None:
 @lru_cache(maxsize=1)
 def _cached_process_id() -> int:
     """Cache process ID for process lifetime."""
-    return os.getpid() if os is not None else 0  # pragma: no cover - fallback for runtimes without os
+    return os.getpid()
 
 
 def clear_identity_cache() -> None:
@@ -175,31 +158,6 @@ def clear_identity_cache() -> None:
     _cached_process_id.cache_clear()
 
 
-def _ensure_log_level(level: object) -> LogLevel:
-    """Normalise caller-supplied level inputs to :class:`LogLevel`.
-
-    Parameters
-    ----------
-    level:
-        A domain enum value, stdlib logging integer, human-readable string, or
-        any object to validate.
-
-    Returns
-    -------
-    LogLevel
-        The matching enum instance.
-
-    Raises
-    ------
-    TypeError
-        If ``level`` is neither an enum, string, nor integer.
-    ValueError
-        If conversion from string or integer fails.
-
-    """
-    return LogLevel.coerce(level)
-
-
 ExcInfoTuple = tuple[type[BaseException], BaseException, TracebackType | None]
 _EXC_INFO_TUPLE_LEN = 3  # (type, value, traceback), mirroring sys.exc_info()
 
@@ -207,7 +165,7 @@ _EXC_INFO_TUPLE_LEN = 3  # (type, value, traceback), mirroring sys.exc_info()
 class LoggerProxy:
     """Lightweight facade emulating :class:`logging.Logger` call signatures."""
 
-    def __init__(self, name: str, process: Callable[..., ProcessResult]) -> None:
+    def __init__(self, name: str, process: ProcessCallable) -> None:
         """Initialize the logger proxy with a name and process callable."""
         self._name = name
         self._process = process
@@ -352,7 +310,7 @@ class LoggerProxy:
     ) -> ProcessResult:
         """Dispatch a message at ``level`` using automatic enum normalisation."""
         return self._log(
-            level,
+            LogLevel.coerce(level),
             msg,
             args=args,
             exc_info=exc_info,
@@ -363,7 +321,7 @@ class LoggerProxy:
 
     def _log(
         self,
-        level: LogLevel | str | int,
+        level: LogLevel,
         message: object,
         *,
         args: tuple[object, ...],
@@ -373,16 +331,15 @@ class LoggerProxy:
         extra: Mapping[str, Any] | None,
     ) -> ProcessResult:
         payload: MutableMapping[str, Any] = {} if extra is None else dict(extra)
-        normalised = _ensure_log_level(level)
-        if normalised < self._level:
-            return ProcessResult(ok=False, reason="logger_level")
+        if level < self._level:
+            return ProcessResult(ok=False, reason=DropReason.LOGGER_LEVEL)
         resolved_exc_info = _normalise_exc_info(exc_info)
         resolved_stack_info = _normalise_stack_info(stack_info)
         return self._process(
             logger_name=self._name,
-            level=normalised,
+            level=level,
             message=message,
-            args=args,
+            args=_unwrap_single_mapping(args),
             exc_info=resolved_exc_info,
             stack_info=resolved_stack_info,
             stacklevel=stacklevel,
@@ -391,7 +348,16 @@ class LoggerProxy:
 
     def setLevel(self, level: LogLevel | str | int) -> None:  # noqa: N802 - mirrors stdlib logging.Logger.setLevel for drop-in familiarity
         """Adjust the proxy-level threshold, mirroring :mod:`logging` semantics."""
-        self._level = _ensure_log_level(level)
+        self._level = LogLevel.coerce(level)
+
+
+def _unwrap_single_mapping(args: tuple[object, ...]) -> MessageArgs:
+    # logging.LogRecord passes a lone non-empty mapping through as the args, so
+    # "%(key)s"-style messages format; anything else stays positional. Same rule here,
+    # or getLogger(x).info("%(a)s", {"a": 1}) renders a formatting-failed message.
+    if len(args) == 1 and isinstance(args[0], Mapping) and args[0]:
+        return cast("Mapping[str, object]", args[0])
+    return args
 
 
 def _normalise_exc_info_from_current() -> ExcInfoTuple | None:
@@ -446,18 +412,15 @@ def create_dump_renderer(
     *,
     ring_buffer: RingBuffer,
     dump_defaults: DumpDefaults,
-    theme: str | None,
+    theme: ConsoleTheme | None,
     console_styles: Mapping[str, str] | None,
-) -> Callable[
-    [DumpFormat, Path | None, LogLevel | None, str | None, str | None, str | None, str | None, Mapping[str, str] | None, DumpFilter | None, bool],
-    str,
-]:
+) -> CaptureDump:
     """Bind dump collaborators into a callable for rendering ring buffer dumps.
 
     Args:
         ring_buffer: Buffer containing events to render.
         dump_defaults: Default format settings for dumps.
-        theme: Optional theme name for styling.
+        theme: Optional palette for styling.
         console_styles: Optional style overrides.
 
     Returns:
@@ -515,11 +478,11 @@ def create_runtime_binder(service: str, environment: str, identity: SystemIdenti
         process_id=resolved.process_id,
         process_id_chain=(resolved.process_id,),
     )
-    binder.deserialize({"version": 1, "stack": [base.to_dict(include_none=True)]})
+    binder.seed(base)
     return binder
 
 
-def create_ring_buffer(*, enabled: bool, size: int) -> RingBuffer:
+def create_ring_buffer(*, enabled: bool, size: int, checkpoint: Path | None = None) -> RingBuffer:
     """Construct the runtime ring buffer with sensible fallbacks.
 
     Even when retention is disabled we keep a small buffer for diagnostics (used
@@ -529,9 +492,14 @@ def create_ring_buffer(*, enabled: bool, size: int) -> RingBuffer:
     Args:
         enabled: Whether retention is requested.
         size: Maximum events to retain when enabled.
+        checkpoint: JSONL file the buffer is hydrated from now and appended to on
+            every ring-buffer flush; ``None`` keeps the buffer in memory only.
 
     Returns:
         Instantiated buffer sized according to the configuration.
+
+    Raises:
+        ValueError: When the checkpoint file holds a record the checkpoint refuses.
 
     Example:
         >>> create_ring_buffer(enabled=True, size=50).max_events
@@ -541,38 +509,17 @@ def create_ring_buffer(*, enabled: bool, size: int) -> RingBuffer:
 
     """
     capacity = size if enabled else DEFAULT_RING_BUFFER_FALLBACK
-    return RingBuffer(max_events=capacity)
+    # A disabled ring buffer is never flushed (the runtime passes it to no flush path),
+    # so a checkpoint is wired only when retention is on.
+    store = JsonlCheckpoint(checkpoint) if enabled and checkpoint is not None else None
+    return RingBuffer(max_events=capacity, checkpoint=store)
 
 
 def _resolve_stream_target(console: ConsoleAppearance) -> IO[str] | None:
     """Extract stream target from console config."""
-    if console.stream == "custom" and console.stream_target is not None:
+    if console.stream is ConsoleStream.CUSTOM and console.stream_target is not None:
         return cast("IO[str]", console.stream_target)
     return None
-
-
-def _create_console_with_streams(console: ConsoleAppearance, target: IO[str] | None) -> ConsolePort:
-    """Create console adapter with stream parameters."""
-    return RichConsoleAdapter(
-        force_color=console.force_color,
-        no_color=console.no_color,
-        styles=console.styles,
-        format_preset=console.format_preset,
-        format_template=console.format_template,
-        stream=console.stream,
-        stream_target=target,
-    )
-
-
-def _create_console_legacy(console: ConsoleAppearance) -> ConsolePort:
-    """Create console adapter without stream parameters (backwards compatibility)."""
-    return RichConsoleAdapter(
-        force_color=console.force_color,
-        no_color=console.no_color,
-        styles=console.styles,
-        format_preset=console.format_preset,
-        format_template=console.format_template,
-    )
 
 
 def create_console(console: ConsoleAppearance) -> ConsolePort:
@@ -585,21 +532,23 @@ def create_console(console: ConsoleAppearance) -> ConsolePort:
         Configured console adapter instance.
 
     Example:
-        >>> from lib_log_rich.runtime._settings import ConsoleAppearance
-        >>> appearance = ConsoleAppearance(force_color=False, no_color=False, styles=None, format_preset='full', format_template=None)
+        >>> from lib_log_rich.runtime.settings import ConsoleAppearance
+        >>> from lib_log_rich.domain.enums import FormatPreset
+        >>> appearance = ConsoleAppearance(force_color=False, no_color=False, styles=None, format_preset=FormatPreset.FULL, format_template=None)
         >>> adapter = create_console(appearance)
         >>> hasattr(adapter, 'emit')
         True
 
     """
-    target = _resolve_stream_target(console)
-    try:
-        return _create_console_with_streams(console, target)
-    except TypeError as exc:
-        # Backwards compatibility: custom factories may not accept stream parameters
-        if "stream" not in str(exc):
-            raise
-        return _create_console_legacy(console)
+    return RichConsoleAdapter(
+        force_color=console.force_color,
+        no_color=console.no_color,
+        styles=console.styles,
+        format_preset=console.format_preset,
+        format_template=console.format_template,
+        stream=console.stream,
+        stream_target=_resolve_stream_target(console),
+    )
 
 
 def create_structured_backends(flags: FeatureFlags) -> list[StructuredBackendPort]:
@@ -615,7 +564,7 @@ def create_structured_backends(flags: FeatureFlags) -> list[StructuredBackendPor
         Concrete adapters to be wired into the fan-out pipeline.
 
     Example:
-        >>> from lib_log_rich.runtime._settings import FeatureFlags
+        >>> from lib_log_rich.runtime.settings import FeatureFlags
         >>> create_structured_backends(FeatureFlags(queue=True, ring_buffer=True, journald=False, eventlog=False))
         []
         >>> create_structured_backends(FeatureFlags(queue=True, ring_buffer=True, journald=True, eventlog=False))  # doctest: +SKIP
@@ -643,7 +592,7 @@ def create_graylog_adapter(settings: GraylogSettings) -> GraylogAdapter | None:
         Configured adapter when enabled, otherwise ``None``.
 
     Example:
-        >>> from lib_log_rich.runtime._settings import GraylogSettings
+        >>> from lib_log_rich.runtime.settings import GraylogSettings
         >>> adapter = create_graylog_adapter(GraylogSettings(enabled=True, endpoint=('host', 12201)))
         >>> adapter is not None
         True
@@ -664,31 +613,24 @@ def create_graylog_adapter(settings: GraylogSettings) -> GraylogAdapter | None:
 def compute_thresholds(settings: RuntimeSettings, graylog: GraylogAdapter | None) -> tuple[LogLevel, LogLevel, LogLevel]:
     """Resolve logging thresholds per sink, applying safe defaults.
 
-    Settings resolution already parses thresholds into :class:`LogLevel`; this
-    still accepts names or integers for callers that build settings-like
-    objects by hand. Graylog defaults to ``CRITICAL`` when the adapter is
-    disabled.
+    Graylog's threshold is ``CRITICAL`` when the adapter is disabled.
 
     Args:
-        settings: Runtime settings, or any object carrying the three levels.
+        settings: Runtime settings, whose levels are already parsed.
         graylog: Graylog adapter instance or ``None`` when disabled.
 
     Returns:
         Levels for console, structured backends, and Graylog respectively.
 
     Example:
-        >>> from types import SimpleNamespace
-        >>> settings = SimpleNamespace(console_level='INFO', backend_level='WARNING', graylog_level='ERROR')
-        >>> compute_thresholds(settings, None)[0]
-        <LogLevel.INFO: 20>
+        >>> from lib_log_rich.runtime.settings import build_runtime_settings, RuntimeConfig
+        >>> settings = build_runtime_settings(config=RuntimeConfig(service="svc", environment="dev", graylog_level=LogLevel.ERROR))
+        >>> compute_thresholds(settings, None)[2]
+        <LogLevel.CRITICAL: 50>
 
     """
-    console_level = coerce_level(settings.console_level)
-    backend_level = coerce_level(settings.backend_level)
-    graylog_level = coerce_level(settings.graylog_level)
-    if graylog is None:
-        graylog_level = LogLevel.CRITICAL
-    return console_level, backend_level, graylog_level
+    graylog_level = settings.graylog_level if graylog is not None else LogLevel.CRITICAL
+    return settings.console_level, settings.backend_level, graylog_level
 
 
 def create_scrubber(patterns: dict[str, str]) -> RegexScrubber:
@@ -726,41 +668,12 @@ def create_rate_limiter(rate_limit: tuple[int, float] | None) -> RateLimiterPort
     return SlidingWindowRateLimiter(max_events=max_events, interval=timedelta(seconds=interval_seconds))
 
 
-def coerce_level(level: str | int | LogLevel) -> LogLevel:
-    """Convert user-supplied level representations into :class:`LogLevel`.
-
-    Configuration files and CLI flags provide strings, while adapters operate on
-    the enum to access severity metadata (icons, numeric codes). Some callers
-    pass through integers sourced from :mod:`logging` constants, so the helper
-    also accepts numerics for parity with the stdlib API.
-
-    Args:
-        level: String name (case-insensitive), stdlib integer, or existing
-            :class:`LogLevel`.
-
-    Returns:
-        Normalised level instance.
-
-    Example:
-        >>> import logging
-        >>> coerce_level('warning')
-        <LogLevel.WARNING: 30>
-        >>> coerce_level(LogLevel.ERROR)
-        <LogLevel.ERROR: 40>
-        >>> coerce_level(logging.INFO)
-        <LogLevel.INFO: 20>
-
-    """
-    return _ensure_log_level(level)
-
-
 __all__ = [
     "AllowAllRateLimiter",
     "LoggerProxy",
     "SystemClock",
     "SystemIdentityProvider",
     "UuidProvider",
-    "coerce_level",
     "compute_thresholds",
     "create_console",
     "create_dump_renderer",

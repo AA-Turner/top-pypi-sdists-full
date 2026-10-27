@@ -236,150 +236,6 @@ def test_creation_goes_through_the_near_miss_guard(tmp_path):
     assert client.ensured == [("odyssey", "odyssey")]
 
 
-# -- the prompt (the actual deliverable) ------------------------------------
-
-
-def test_by_default_the_agent_decides_the_projects(tmp_path):
-    """A folder is not automatically one project. `/workspace` with three
-    researchers under it is at least three, and collapsing that into one named
-    after the directory is a wrong answer no naming discipline fixes."""
-    prompt = backfill.build_prompt(folder=tmp_path, census=backfill.Census(files=47, bytes=1))
-    assert "YOU DECIDE THE PROJECTS" in prompt
-    assert "probe project list" in prompt
-    assert "REUSE BEFORE YOU CREATE" in prompt
-
-
-def test_the_agent_is_told_to_name_for_the_work_not_the_directory(tmp_path):
-    prompt = backfill.build_prompt(folder=tmp_path, census=backfill.Census(files=1, bytes=1))
-    assert "Name them for the WORK, not the directory" in prompt
-    # The counter-examples matter more than the rule.
-    assert "`workspace`, `data` and `michael` are not" in prompt
-
-
-def test_reuse_is_argued_for_not_just_asserted(tmp_path):
-    # The failure is invisible when it happens, so the prompt has to say WHY.
-    prompt = backfill.build_prompt(folder=tmp_path, census=backfill.Census(files=1, bytes=1))
-    assert "nobody can undo" in prompt
-    assert "odyssey_infill_v3" in prompt  # the near-miss that splits a record
-
-
-def test_an_explicit_project_pins_everything_to_it(tmp_path):
-    prompt = backfill.build_prompt(
-        folder=tmp_path, census=backfill.Census(files=1, bytes=1), project="odyssey"
-    )
-    assert "--project odyssey" in prompt
-    assert "Do not create any other project" in prompt
-    assert "YOU DECIDE THE PROJECTS" not in prompt
-
-
-def test_the_summary_must_name_every_project_it_used(tmp_path):
-    # It is how the import gets checked; without it nothing can be counted back.
-    prompt = backfill.build_prompt(folder=tmp_path, census=backfill.Census(files=9, bytes=1))
-    assert '"projects": ["<slug>", ...]' in prompt
-
-
-def test_the_prompt_never_names_a_door_that_does_not_open(tmp_path):
-    """Step 2 used to offer `probe note add` (no such command — it is
-    `probe notes write`) and `--meta` (run-anchor only; ScopedUploadRequest
-    forbids extras, and this import creates no runs). With both routes closed
-    the agent improvised, concatenating descriptions into --name until it hit
-    the length cap. Telling it to do the thing that works beats leaving it to
-    discover that the instructions are fiction."""
-    prompt = backfill.build_prompt(folder=tmp_path, census=backfill.Census(files=3, bytes=99))
-    assert "probe note add" not in prompt
-    assert "--name" in prompt
-    assert "probe notes write" in prompt
-
-
-def test_backfill_routes_visible_context_and_hidden_caveats_separately(tmp_path):
-    prompt = backfill.build_prompt(folder=tmp_path, census=backfill.Census(files=3, bytes=99))
-
-    assert "dashboard-visible" in prompt
-    assert "authored Markdown" in prompt
-    assert "block INSIDE the Overview page" in prompt
-    assert "document" in prompt
-    assert "probe project set <project> --summary @PROJECT.md" in prompt
-    assert "last-write-wins" in prompt
-    assert "probe notes checkout --project <project>" in prompt
-    assert "probe notes push --project <project>" in prompt
-    assert "hidden notes" in prompt
-
-
-def test_the_prompt_demands_a_description_on_what_it_creates(tmp_path):
-    """A backfilled project read "Add description" under its title forever.
-
-    Nothing else fills it in: the server generates a description only when a
-    child RUN reaches a terminal status, and importing a folder creates no runs.
-    So an undescribed project stays undescribed permanently — and whether one
-    appeared at all was luck, because the prompt showed `project create` with
-    only --name. One import wrote a description unprompted; the next did not."""
-    prompt = backfill.build_prompt(folder=tmp_path, census=backfill.Census(files=3, bytes=99))
-    assert "--description" in prompt
-    assert "ALWAYS pass --description" in prompt
-    # And it says WHY, so the rule survives a future edit that trims the prompt.
-    assert "creates no runs" in prompt
-
-
-def test_the_prompt_bounds_how_long_a_description_may_be(tmp_path):
-    """Asking for a description without bounding it produced a 566-char one.
-
-    Three sentences is a CEILING, not a target — a few words beats a blank field,
-    and the point is that something is written. Both creates say so. The experiment
-    line used to invite the opposite ("record WHY you believed this was a real
-    experiment — the files that convinced you"), which is notes-shaped prose in a
-    field the overview clamps to two lines.
-
-    An experiment has no description since 0231 (its question is one), and
-    asking for it crashed `experiment create` 14 times in one import (Tokenless,
-    2026-10-26): only the project create asks."""
-    prompt = backfill.build_prompt(folder=tmp_path, census=backfill.Census(files=3, bytes=99))
-    assert prompt.count("up to 3 sentences") == 1
-    assert "the point is that it is WRITTEN" in prompt
-    experiment_create = prompt[prompt.index("probe experiment create"):]
-    assert "--description" not in experiment_create.split("\n\n")[0]
-    # The provenance the experiment line used to want is redirected, not dropped.
-    assert "probe notes write" in prompt
-
-
-def test_the_prompt_names_the_real_amend_verb_for_each_kind(tmp_path):
-    """Every kind amends with `set`, so the prompt says `set` for every kind.
-
-    It used to be `project patch` against `experiment set` and `run set`, and an
-    agent that learned one and guessed the others got `No such command` — which
-    is how the prompt shipped `probe note add` once before. `patch` still works
-    as a hidden alias, but the prompt must teach the one verb that generalises,
-    or the inconsistency simply moves into the agent's habit."""
-    prompt = backfill.build_prompt(folder=tmp_path, census=backfill.Census(files=3, bytes=99))
-    assert "probe project set" in prompt
-    assert "probe experiment set" in prompt
-    assert "probe project patch" not in prompt
-
-
-def test_prompt_carries_the_reference_threshold_for_large_files(tmp_path):
-    prompt = backfill.build_prompt(
-        folder=tmp_path, project="p", census=backfill.Census(files=1, bytes=1)
-    )
-    assert "--reference --allow-missing" in prompt
-    assert backfill.human_bytes(backfill.REFERENCE_ABOVE_BYTES) in prompt
-    # Hashing a 10GB checkpoint over a shared mount is the slowest thing here.
-    assert "--hash" in prompt and "Do NOT pass --hash" in prompt
-
-
-def test_prompt_gives_explicit_permission_not_to_group(tmp_path):
-    prompt = backfill.build_prompt(
-        folder=tmp_path, project="p", census=backfill.Census(files=1, bytes=1)
-    )
-    assert "DO NOT" in prompt
-    assert "wrong answer that looks like a right one" in prompt
-
-
-def test_prompt_states_the_denominator_so_the_agent_knows_the_scale(tmp_path):
-    prompt = backfill.build_prompt(
-        folder=tmp_path, project="p", census=backfill.Census(files=1234, bytes=1)
-    )
-    assert "1,234 files" in prompt
-
-
 # -- the agent launch -------------------------------------------------------
 
 
@@ -534,7 +390,7 @@ def test_a_pinned_project_overrides_every_assignment(tmp_path, monkeypatch):
     import json as _json
 
     def fake_launch(folder, prompt, **kw):
-        if "deciding how one research folder" in prompt:
+        if ("Decide which project each file" in prompt or "Decide the project list" in prompt):
             from probe.cli import backfill_evidence as _ev
             from probe.cli import backfill_plan as _bp
 
@@ -682,34 +538,18 @@ def test_codex_is_told_to_skip_the_git_repo_check():
     assert "--skip-git-repo-check" in argv
 
 
-def test_codex_gets_network_because_uploading_needs_it():
-    # read-only would be the tighter sandbox, and it has no network — so the
-    # agent would read the whole folder and fail every `probe artifact add`.
+def test_codex_writes_its_scratch_dir_but_its_commands_get_no_network():
+    # Code uploads every file; a Codex agent with network and a signed-in
+    # `probe` uploaded them a second time (2026-10-26, 1,583 duplicates).
     argv = backfill.agent_argv(backfill.Agent.CODEX, "/usr/bin/codex", Path("/w"))
     assert "workspace-write" in argv
-    assert "sandbox_workspace_write.network_access=true" in argv
+    assert not any("network_access" in a for a in argv)
 
 
 def test_codex_is_told_its_working_root_explicitly():
     # Codex scopes its sandbox to -C, not to the inherited cwd.
     argv = backfill.agent_argv(backfill.Agent.CODEX, "/usr/bin/codex", Path("/workspace/X"))
     assert argv[argv.index("-C") + 1] == "/workspace/X"
-
-
-def test_each_agent_is_told_how_to_handle_a_big_folder_in_its_own_terms():
-    # Claude has a Task tool and can fan out; Codex does not, and telling it to
-    # "use subagents" would invite it to invent one.
-    assert "subagents" in backfill._subdivide_line(backfill.Agent.CLAUDE)
-    assert "subagents" not in backfill._subdivide_line(backfill.Agent.CODEX)
-    assert "Do not stop at a sample" in backfill._subdivide_line(backfill.Agent.CODEX)
-
-
-def test_the_prompt_carries_the_right_subdivide_instruction(tmp_path):
-    for agent in backfill.Agent:
-        prompt = backfill.build_prompt(
-            folder=tmp_path, project="p", census=backfill.Census(files=1, bytes=1), agent=agent
-        )
-        assert backfill._subdivide_line(agent) in prompt
 
 
 def test_a_single_installed_agent_is_used_without_asking(monkeypatch):
@@ -760,16 +600,15 @@ def test_the_agent_binary_is_resolved_off_path_not_a_shell(monkeypatch):
     assert "shell=True" not in source
 
 
-def test_the_agent_can_write_its_manifest_but_bash_stays_scoped():
-    """The agent's whole output is a file, so Write is not optional.
-
-    It shipped without one for a release: the import prompt said "Write JSONL
-    to ..." and the allowlist had no Write tool, so every unit failed having
-    read the entire folder first. The confinement that replaced it is the deny
-    rule on the folder -- which only holds while Bash stays scoped to `probe`.
-    An unscoped Bash walks around it with one `echo >`."""
+def test_the_agent_can_write_its_jsonl_but_bash_stays_scoped_to_the_plan_tool():
+    """The agent may write a JSONL file for `probe-backfill-plan apply`, so
+    Write stays. The deny rule on the folder only holds while Bash stays
+    scoped; an unscoped Bash walks around it with one `echo >`. No `probe`:
+    code uploads and creates everything, and an agent that could run `probe
+    artifact add` uploaded files a second time (2026-10-26)."""
     assert "Write" in backfill.AGENT_TOOLS
-    assert "Bash(probe:*)" in backfill.AGENT_TOOLS
+    assert "Bash(probe-backfill-plan:*)" in backfill.AGENT_TOOLS
+    assert "Bash(probe:*)" not in backfill.AGENT_TOOLS
     assert "Bash," not in backfill.AGENT_TOOLS + ","
     assert "WebFetch" not in backfill.AGENT_TOOLS
 
@@ -949,7 +788,7 @@ def test_the_happy_path_reports_the_denominator(tmp_path, monkeypatch):
     def fake_launch(folder, prompt, **kw):
         seen.setdefault("folders", []).append(folder)
         seen.setdefault("prompts", []).append(prompt)
-        if "deciding how one research folder" in prompt:
+        if ("Decide which project each file" in prompt or "Decide the project list" in prompt):
             import json as _json
 
             from probe.cli import backfill_evidence as _ev
@@ -1041,7 +880,7 @@ def test_a_failed_unit_says_rerunning_is_safe(tmp_path, monkeypatch):
     import json as _json
 
     def fake_launch(folder, prompt, **kw):
-        if "deciding how one research folder" in prompt:
+        if ("Decide which project each file" in prompt or "Decide the project list" in prompt):
             from probe.cli import backfill_evidence as _ev
             from probe.cli import backfill_plan as _bp
 

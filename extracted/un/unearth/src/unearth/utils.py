@@ -9,9 +9,9 @@ import os
 import re
 import sys
 import warnings
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from pathlib import Path
-from typing import Callable, TypeVar
+from typing import TypeVar
 from urllib import parse
 from urllib.request import url2pathname
 
@@ -288,7 +288,7 @@ def get_netrc_auth(url: str) -> tuple[str, str] | None:
         from netrc import NetrcParseError, netrc
     except ImportError:
         return None
-    from httpx import URL
+    from httpx2 import URL
 
     hostname = URL(url).host
 

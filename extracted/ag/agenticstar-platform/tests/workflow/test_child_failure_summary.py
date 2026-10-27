@@ -87,3 +87,85 @@ def test_error_code_of_agent_exceptions_is_not_written():
         status_code = 418
 
     assert _safe_failure_summary(AgentError("x")) == "AgentError(status=418)"
+
+
+def _proxy_error(host="example.services.ai.azure.com"):
+    return httpx.ProxyError("503 body-secret", request=httpx.Request("POST", f"https://{host}/path?key=SECRET"))
+
+
+def test_long_chain_stops_at_five_causes():
+    errors = [RuntimeError(f"secret-{i}") for i in range(8)]
+    for i in range(len(errors) - 1):
+        errors[i].__cause__ = errors[i + 1]
+
+    assert _safe_failure_summary(errors[0]) == " <- ".join(["RuntimeError"] * 5)
+
+
+def test_cause_wins_over_context_and_context_is_followed_otherwise():
+    err = RuntimeError("outer")
+    err.__context__ = KeyError("context")
+    err.__cause__ = ValueError("cause")
+    err.__suppress_context__ = False  # __cause__ の代入で True になるので戻す (context を抑えずに cause が勝つか)
+    assert _safe_failure_summary(err) == "RuntimeError <- ValueError"
+
+    try:
+        try:
+            raise _proxy_error()
+        except httpx.ProxyError:
+            raise RuntimeError("while handling")  # noqa: B904 — 暗黙の __context__ をたどる
+    except RuntimeError as e:
+        assert _safe_failure_summary(e) == "RuntimeError <- ProxyError(host=example.services.ai.azure.com)"
+
+
+def test_cycles_through_context_or_itself_stop():
+    a = RuntimeError("a")
+    a.__context__ = a
+    assert _safe_failure_summary(a) == "RuntimeError"
+
+    b = ValueError("b")
+    c = KeyError("c")
+    b.__context__ = c
+    c.__context__ = b
+    assert _safe_failure_summary(b) == "ValueError <- KeyError"
+
+
+def test_a_broken_exception_in_the_middle_keeps_the_rest_of_the_chain():
+    class Weird(Exception):
+        def __getattr__(self, name):
+            raise KeyError(name)
+
+    middle = Weird("secret")
+    middle.__cause__ = _proxy_error()
+    top = RuntimeError("top")
+    top.__cause__ = middle
+
+    assert _safe_failure_summary(top) == "RuntimeError <- Weird <- ProxyError(host=example.services.ai.azure.com)"
+
+
+def test_falls_back_to_the_class_name_when_the_chain_cannot_be_read():
+    class Unreadable(Exception):
+        status_code = 503  # 途中で打ち切るだけの実装なら Unreadable(status=503) になる
+
+        def __getattribute__(self, name):
+            if name == "__cause__":
+                raise KeyError(name)
+            return super().__getattribute__(name)
+
+    top = Unreadable("secret")
+    top.__cause__ = ValueError("cause")
+    assert _safe_failure_summary(top) == "Unreadable"
+
+
+def test_bool_status_and_empty_or_non_str_host_are_not_written():
+    class BoolStatus(Exception):
+        status_code = True
+
+    class EmptyHost(Exception):
+        request = type("Req", (), {"url": type("Url", (), {"host": ""})()})()
+
+    class BytesHost(Exception):
+        request = type("Req", (), {"url": type("Url", (), {"host": b"example.com"})()})()
+
+    assert _safe_failure_summary(BoolStatus("x")) == "BoolStatus"
+    assert _safe_failure_summary(EmptyHost("x")) == "EmptyHost"
+    assert _safe_failure_summary(BytesHost("x")) == "BytesHost"

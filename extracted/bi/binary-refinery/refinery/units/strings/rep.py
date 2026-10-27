@@ -34,7 +34,7 @@ class rep(Unit):
                 return count
             return sum(1 for _ in count)
 
-        if self.args.squeeze or not self._framed:
+        if self.args.squeeze:
             self.log_debug('compressing all repeated items into a single chunk')
             yield data * count()
             return
@@ -43,7 +43,9 @@ class rep(Unit):
 
         if label := self.args.label:
             meta = {}
-            for counter in self.args.count:
+            if isinstance(it := self.args.count, int):
+                it = range(it)
+            for counter in it:
                 meta[label] = counter
                 yield self.labelled(data, **meta)
         else:

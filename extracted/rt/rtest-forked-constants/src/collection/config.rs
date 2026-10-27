@@ -2,24 +2,24 @@
 
 use std::path::PathBuf;
 
+use crate::python_discovery::DuplicateIds;
+
 /// Configuration for collection
 #[derive(Debug, Clone)]
 pub struct CollectionConfig {
     pub ignore_patterns: Vec<String>,
-    #[allow(dead_code)]
-    pub ignore_glob_patterns: Vec<String>,
     pub norecursedirs: Vec<String>,
     pub testpaths: Vec<PathBuf>,
     pub python_files: Vec<String>,
     pub python_classes: Vec<String>,
     pub python_functions: Vec<String>,
+    pub duplicate_ids: DuplicateIds,
 }
 
 impl Default for CollectionConfig {
     fn default() -> Self {
         Self {
             ignore_patterns: vec![],
-            ignore_glob_patterns: vec![],
             norecursedirs: vec![
                 "*.egg".into(),
                 ".*".into(),
@@ -35,6 +35,7 @@ impl Default for CollectionConfig {
             python_files: vec!["test_*.py".into(), "*_test.py".into()],
             python_classes: vec!["Test*".into()],
             python_functions: vec!["test*".into()],
+            duplicate_ids: DuplicateIds::default(),
         }
     }
 }

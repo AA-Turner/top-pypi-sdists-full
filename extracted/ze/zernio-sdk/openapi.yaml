@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.363.0"
+  version: "1.372.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -1026,11 +1026,10 @@ components:
         The Smart+ review read (`GET /v1/ads/{adId}/tiktok-smart-plus-review`)
         has a stricter quota of its own on TikTok: after an
         overage Zernio answers 429 for that advertiser and connection, without
-        calling TikTok, for about 60 seconds, then 120, 240, 480 and up to 960
-        while TikTok keeps refusing, each with up to 10% of random jitter. Each
-        successful call holds the next one for at least 60 seconds, since TikTok
-        often refuses review calls sent in quick succession, and after an overage for one step
-        less than the last pause (480, 240, 120, then 60 seconds);
+        calling TikTok, for about 60 seconds, then 120 and up to 240
+        while TikTok keeps refusing, each with up to 10% of random jitter. A
+        successful call holds nothing back, and the next overage after it
+        pauses about 60 seconds again;
         `Retry-After` is the time left. The advertiser-wide read
         (`GET /v1/ads/tiktok-smart-plus-reviews`) answers 200 with
         `retryAfterSeconds` and `refreshState` instead. Keep one request in
@@ -1217,6 +1216,17 @@ components:
                   effective_account_limit: 2000
                   current_account_count: 2000
   schemas:
+    AdLeadConsent:
+      type: object
+      description: 'One custom disclaimer checkbox on a Meta lead form (for example a TCPA call or SMS consent), as Meta returns it in custom_disclaimer_responses.'
+      required: [checkboxKey, isChecked]
+      properties:
+        checkboxKey: { type: string, description: 'The checkbox key as Meta returns it: the one set in platformSpecificData.customDisclaimer.checkboxes[].key on POST /v1/ads/lead-forms, or otherwise a key Meta derives from the checkbox text, which can be long and contain spaces and punctuation.' }
+        isChecked: { type: boolean }
+    AdLeadConsents:
+      type: array
+      items: { $ref: '#/components/schemas/AdLeadConsent' }
+      description: 'Meta lead forms only: the answer to every custom disclaimer checkbox, required or optional. Empty when the form has none, and may be empty on leads stored before 2026-10-22. LinkedIn leads do not carry the field.'
     AdLead:
       type: object
       properties:
@@ -1232,6 +1242,7 @@ components:
         createdTime: { type: [string, "null"], description: ISO 8601. }
         fields: { type: object, additionalProperties: { type: string }, description: 'Question key → answer. On LinkedIn, the key is the lowercased predefinedField, else the question name, else the numeric questionId; multiple-choice values are option labels (unlike Meta, which returns the option key).' }
         fieldData: { type: array, items: { type: object }, description: "Raw Meta field_data." }
+        consents: { $ref: '#/components/schemas/AdLeadConsents' }
         status: { type: string, enum: [new, contacted, unreachable, qualified, converted, disqualified], description: 'Meta leads only. `contacted` is set when the first WhatsApp message of a lead_received workflow is delivered, `unreachable` when it fails or the phone number is not valid.' }
         statusChangedAt: { type: [string, "null"], format: date-time }
         value: { type: [number, "null"] }
@@ -3067,7 +3078,7 @@ components:
                 items: { type: string }
         warnings:
           type: array
-          description: "Top-level advisory warnings, e.g. `rows_exceed_advisory_limit:500` or `unknown_columns:<a,b,c>` (comma-separated unrecognized CSV column names). Empty when none."
+          description: "Top-level advisory warnings, e.g. `rows_exceed_advisory_limit:500`, `unknown_columns:<a,b,c>` (comma-separated unrecognized CSV column names), or `not_added_to_caption:<columns>` (the `hashtags` and/or `mentions` column is filled: stored on the post, not added to the caption). Empty when none."
           items: { type: string }
         rateLimitedAccounts:
           type: array
@@ -5495,6 +5506,10 @@ components:
               description: >
                 Flattened question key -> answer map. For multiple-choice questions
                 the value is the option key (e.g. "k1"), not the display label.
+            consents:
+              allOf:
+                - $ref: '#/components/schemas/AdLeadConsents'
+              description: 'Sent on every delivery since 2026-10-25. Absent when an older event is redelivered, since redeliveries replay the stored payload.'
             isOrganic:
               type: boolean
               description: True when the lead came from an organic post rather than a paid ad
@@ -9781,6 +9796,37 @@ components:
         dailyMinSpendTarget: { type: number, description: "Meta daily_min_spend_target on the ad set being created: the least it should spend per day, in whole currency units. It reserves a share of a CAMPAIGN budget, so it requires budgetLevel campaign or an existingCampaignId whose campaign has the budget (Advantage campaign budget / CBO); with an ad-set budget it is a 400, because Meta rejects a spend limit on an ad set that owns its budget. A target, not a guarantee. Mutually exclusive with lifetimeMinSpendTarget: the flavour must match the campaign budget type. Rejected with 400 on POST /v1/ads/boost and in adSetId attach mode: use PUT /v1/ads/ad-sets/{adSetId} for an ad set that already exists." }
         lifetimeMinSpendTarget: { type: number, description: "Meta lifetime_min_spend_target: the lifetime-budget flavour of dailyMinSpendTarget, in whole currency units. Same rules and same rejections." }
         customerLifecycle: { $ref: '#/components/schemas/MetaCustomerLifecycle' }
+        adSchedule:
+          allOf: [{ $ref: '#/components/schemas/MetaAdSchedule' }]
+          minItems: 1
+          description: |
+            Dayparting on the ad set being created (Meta `adset_schedule` with `pacing_type: ["day_parting"]`).
+            Meta runs a schedule only on a LIFETIME budget, so a daily budget (on the ad set, or on the
+            campaign joined with `existingCampaignId`) is a 400 with `param: platformSpecificData.adSchedule`.
+            Also a 400 when empty, in adSetId attach mode and with `buyingType: RESERVED`. Change it later with
+            `PUT /v1/ads/ad-sets/{adSetId}`.
+    MetaAdSchedule:
+      type: array
+      maxItems: 168
+      description: |
+        Meta ad set dayparting: the hours the ad set delivers, in whole hours. Same `dayOfWeek` /
+        `startHour` / `endHour` naming as the Google `PUT /v1/ads/campaigns/{campaignId}/ad-schedule`,
+        but Meta has no minutes and no bid modifiers. Windows on one day must not overlap (adjacent is
+        fine) and every window must use the same `timezoneType`. Invalid windows are a 400 on
+        `platformSpecificData.adSchedule`.
+      items:
+        type: object
+        additionalProperties: false
+        required: [dayOfWeek, startHour, endHour]
+        properties:
+          dayOfWeek: { type: string, enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY] }
+          startHour: { type: integer, minimum: 0, maximum: 23 }
+          endHour: { type: integer, minimum: 1, maximum: 24, description: "Must be after startHour. 24 is midnight at the end of the day." }
+          timezoneType:
+            type: string
+            enum: [USER, ADVERTISER]
+            default: USER
+            description: "Meta `timezone_type`: USER runs the hours in each viewer's time zone, ADVERTISER in the ad account time zone."
     MetaCustomerLifecycle:
       type: object
       additionalProperties: false
@@ -10844,6 +10890,101 @@ components:
         logMessages:
           type: boolean
           description: Whether Zernio logs inbox messages on HubSpot contact timelines.
+    GoogleAnalyticsReport:
+      type: object
+      description: >-
+        Google Analytics Data API report, passed through as Google returns it. Every value in `rows` is a
+        string; read `metricHeaders[].type` to parse metrics.
+      properties:
+        accountId:
+          type: string
+          description: Zernio account ID of the Google Analytics connection.
+        propertyId:
+          type: string
+          description: Numeric GA4 property ID.
+        dimensionHeaders:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+        metricHeaders:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              type: { type: string, description: 'Google metric type, e.g. TYPE_INTEGER, TYPE_FLOAT, TYPE_SECONDS, TYPE_CURRENCY.' }
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              dimensionValues:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    value: { type: string }
+              metricValues:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    value: { type: string }
+        rowCount:
+          type: integer
+          description: Total rows matching the request, across all pages.
+        metadata:
+          type: object
+          additionalProperties: true
+          description: 'Google report metadata (currency, time zone, sampling and thresholding flags).'
+        propertyQuota:
+          type: object
+          additionalProperties: true
+          description: >-
+            Google quota left on this property after the request (tokens per day and per hour, concurrent
+            requests). Cached responses carry the quota from when they were fetched.
+    GoogleAnalyticsReportFields:
+      type: object
+      required: [accountId, metrics]
+      properties:
+        accountId:
+          type: string
+          description: 'Zernio account ID of the Google Analytics connection (platform `googleanalytics`).'
+        dimensions:
+          type: array
+          maxItems: 9
+          items: { type: string }
+          description: 'GA4 dimension API names, e.g. `date`, `sessionSource`, `pagePath`. List them with GET /v1/analytics/googleanalytics/metadata.'
+          example: [date, sessionDefaultChannelGroup]
+        metrics:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items: { type: string }
+          description: 'GA4 metric API names, e.g. `sessions`, `activeUsers`, `keyEvents`, `totalRevenue`.'
+          example: [sessions, activeUsers]
+        dimensionFilter:
+          type: object
+          additionalProperties: true
+          description: A Google FilterExpression on dimensions, in Google's own shape.
+        metricFilter:
+          type: object
+          additionalProperties: true
+          description: A Google FilterExpression on metrics, in Google's own shape.
+        orderBys:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            additionalProperties: true
+          description: 'Google OrderBy objects, e.g. `{ "metric": { "metricName": "sessions" }, "desc": true }`.'
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          description: "Rows to return. Defaults to Google's default (10000)."
     SocialAccount:
       type: object
       required: [_id, platform, profileId, isActive]
@@ -10851,7 +10992,7 @@ components:
         _id: { type: string }
         platform:
           type: string
-          enum: [tiktok, instagram, facebook, youtube, linkedin, twitter, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, sms, phone, rcs, whopads, hubspot, webflow]
+          enum: [tiktok, instagram, facebook, youtube, linkedin, twitter, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, sms, phone, rcs, whopads, hubspot, webflow, googleanalytics]
         profileId:
           oneOf:
             - type: string
@@ -14015,6 +14156,28 @@ components:
           - DESCRIPTION_2
           description: "Optional fixed description position. Omit to leave the asset unpinned."
 
+    InstagramVideoFallback:
+      type: object
+      description: >-
+        Meta only. Present when Meta refused an existing Instagram video as the boosted ad (code 100, subcode 1815279:
+        upload it to Facebook first) and Zernio created the ad another way. `instagram_video_reuploaded`: the video was
+        copied into the ad account and the ad still references the original post. `instagram_video_rehosted_copy`: the
+        video was uploaded as a new Facebook video in a new Page post, so the ad does not show the original post's likes
+        and comments. Send `rehostOnInstagramVideoRejection: false` on the boost to get Meta's error instead.
+      required: [kind, linkedToOriginalPost, videoId, platformError]
+      properties:
+        kind: { type: string, enum: [instagram_video_reuploaded, instagram_video_rehosted_copy] }
+        linkedToOriginalPost: { type: boolean, description: 'True when the ad still references the original Instagram post and keeps its engagement.' }
+        videoId: { type: string, description: 'The Facebook-side ad video Zernio made. With instagram_video_reuploaded it is the copy in the ad account video library (possibly one made by an earlier boost of the same media, reused); the creative carries it as video_id unless Meta accepted the plain post reference once the copy existed, in which case the copy is kept for that reference. With instagram_video_rehosted_copy it is the new upload the creative uses (an unused copy made by this request is deleted).' }
+        platformError:
+          type: object
+          description: "Meta's original refusal."
+          required: [message]
+          properties:
+            code: { type: integer, example: 100 }
+            subcode: { type: integer, example: 1815279 }
+            message: { type: string }
+            fbtraceId: { type: string }
     Ad:
       type: object
       properties:
@@ -14310,6 +14473,7 @@ components:
               description: "Google only. YouTube video ids behind a Video campaign ad (video and responsive video ads) or a Demand Gen video ad, same id as `youtubeVideoId` on Performance Max asset groups. When the ad has no image, `thumbnailUrl` is the first video's YouTube thumbnail. Absent on ads without a video."
             linkUrl: { type: string, description: Destination URL }
             whatsappPhoneNumber: { type: string, description: 'Explicit E.164 WhatsApp number supplied when creating a Meta boost or messaging ad. Absent when omitted by the caller or on older records.', example: '+12025550123' }
+            instagramVideoFallback: { $ref: '#/components/schemas/InstagramVideoFallback' }
             pinterestImageUrl: { type: string }
             pinterestTitle: { type: string }
             pinterestDescription: { type: string }
@@ -15183,6 +15347,7 @@ components:
         title: { type: string }
         bodyHtml: { type: [string, "null"], description: 'Article body as HTML. Wix stores rich content, converted from and to HTML; Wix lists return null (get the article for its body).' }
         handle: { type: string, description: 'URL slug of the article.' }
+        url: { type: [string, "null"], description: 'WordPress and Wix. Public URL of the article while it is published; null for drafts and scheduled posts, and on a Wix site that is not published yet.' }
         tags: { type: array, items: { type: string }, description: 'Tag names. On WordPress and Wix, missing tag names are created and matching is case-insensitive.' }
         author: { type: [string, "null"], description: 'Shopify author display name, numeric WordPress user id serialized as a string, or Wix site member id. Wix posts without one are attributed to the site''s default author.' }
         excerpt: { type: [string, "null"], description: 'Short summary shown in blog listings.' }
@@ -21782,6 +21947,183 @@ paths:
                 properties:
                   error: { type: string, example: "Post not found" }
 
+  /v1/analytics/googleanalytics/report:
+    post:
+      x-resource-group: "analytics"
+      operationId: runGoogleAnalyticsReport
+      tags: [Analytics]
+      summary: Run a Google Analytics (GA4) report
+      description: |
+        Runs a report on a connected GA4 property through Google's Data API (`runReport`).
+        Pick any GA4 dimensions and metrics; filters and ordering use Google's own shapes.
+        Identical requests on the same property are cached for 10 minutes. Google meters each
+        property by quota tokens; when it is used up the request returns 429 until Google refills it
+        (hourly quotas within the hour, daily ones at midnight Pacific time).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/GoogleAnalyticsReportFields'
+                - type: object
+                  properties:
+                    dateRanges:
+                      type: array
+                      minItems: 1
+                      maxItems: 4
+                      description: 'Defaults to the last 28 days (`28daysAgo` to `yesterday`).'
+                      items:
+                        type: object
+                        required: [startDate, endDate]
+                        properties:
+                          startDate: { type: string, description: 'YYYY-MM-DD, today, yesterday or NdaysAgo.', example: 30daysAgo }
+                          endDate: { type: string, description: 'YYYY-MM-DD, today, yesterday or NdaysAgo.', example: today }
+                          name: { type: string }
+                    offset:
+                      type: integer
+                      minimum: 0
+                      description: Row offset for paging through a report larger than `limit`.
+                    keepEmptyRows:
+                      type: boolean
+                    currencyCode:
+                      type: string
+                      description: 'ISO 4217 code for currency metrics. Defaults to the property currency.'
+            example:
+              accountId: 6650f1c2a1b2c3d4e5f60789
+              dateRanges: [{ startDate: 30daysAgo, endDate: yesterday }]
+              dimensions: [sessionDefaultChannelGroup]
+              metrics: [sessions, activeUsers, keyEvents]
+              orderBys: [{ metric: { metricName: sessions }, desc: true }]
+      responses:
+        '200':
+          description: Report rows from Google
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleAnalyticsReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The Google account that connected the property lost access to it, or revoked Zernio. Reconnect Google Analytics.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /v1/analytics/googleanalytics/realtime:
+    post:
+      x-resource-group: "analytics"
+      operationId: runGoogleAnalyticsRealtimeReport
+      tags: [Analytics]
+      summary: Run a Google Analytics (GA4) realtime report
+      description: |
+        Activity on a connected GA4 property in the last 30 minutes (up to 60 for Analytics 360),
+        through Google's `runRealtimeReport`. Not cached. Only realtime dimensions and metrics are
+        accepted, e.g. `country`, `unifiedScreenName` with `activeUsers`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/GoogleAnalyticsReportFields'
+                - type: object
+                  properties:
+                    minuteRanges:
+                      type: array
+                      minItems: 1
+                      maxItems: 2
+                      items:
+                        type: object
+                        properties:
+                          startMinutesAgo: { type: integer, minimum: 0, maximum: 59 }
+                          endMinutesAgo: { type: integer, minimum: 0, maximum: 59 }
+                          name: { type: string }
+            example:
+              accountId: 6650f1c2a1b2c3d4e5f60789
+              dimensions: [country]
+              metrics: [activeUsers]
+      responses:
+        '200':
+          description: Realtime report rows from Google
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleAnalyticsReport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The Google account that connected the property lost access to it, or revoked Zernio. Reconnect Google Analytics.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /v1/analytics/googleanalytics/metadata:
+    get:
+      x-resource-group: "analytics"
+      operationId: getGoogleAnalyticsMetadata
+      tags: [Analytics]
+      summary: List Google Analytics (GA4) dimensions and metrics
+      description: |
+        Every dimension and metric the connected GA4 property accepts in a report, including its
+        custom definitions. Cached for one hour.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: query
+          required: true
+          schema: { type: string }
+          description: Zernio account ID of the Google Analytics connection.
+      responses:
+        '200':
+          description: Available dimensions and metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accountId: { type: string }
+                  propertyId: { type: string }
+                  dimensions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        apiName: { type: string, example: sessionSource }
+                        uiName: { type: string, example: Session source }
+                        description: { type: string }
+                        category: { type: string }
+                        customDefinition: { type: boolean }
+                  metrics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        apiName: { type: string, example: sessions }
+                        uiName: { type: string, example: Sessions }
+                        description: { type: string }
+                        type: { type: string, example: TYPE_INTEGER }
+                        category: { type: string }
+                        customDefinition: { type: boolean }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The Google account that connected the property lost access to it, or revoked Zernio. Reconnect Google Analytics.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
   /v1/analytics/googlebusiness/performance:
     get:
       x-resource-group: "analytics"
@@ -24901,6 +25243,7 @@ paths:
           - `mediaUrls` aliases `media_urls`
         - Per-platform overrides use three dynamic column prefixes, one column per platform (e.g. `schedule_time_instagram`, `custom_content_tiktok`, `custom_media_youtube`): `schedule_time_<platform>`, `custom_content_<platform>`, `custom_media_<platform>`.
         - Any other column is not read. It does not error, but it is reported in the response's `warnings` array as `unknown_columns:<a,b,c>` (see BulkUploadResult), so a misnamed or unsupported column is never silently dropped.
+        - The `hashtags` and `mentions` columns are stored on the post but not added to the caption. Put them in `post_content` (or a `custom_content_<platform>` column). A filled column adds `not_added_to_caption:<columns>` to `warnings`.
         - Timezone: `tz` sets the zone `schedule_time` is read in. A row without `tz` uses its profile's `timezone` (when all its target profiles share one), else UTC.
         - Row limits: 5000 rows is a hard cap that returns 400 above it. 500 rows is only an advisory threshold, it adds `rows_exceed_advisory_limit:500` to `warnings` and the request still processes.
 
@@ -25982,8 +26325,8 @@ paths:
           in: query
           schema:
             type: string
-            enum: [social, ads, communication, blogs, crm]
-          description: 'Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, social = every other platform.'
+            enum: [social, ads, communication, blogs, crm, analytics]
+          description: 'Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, analytics = Google Analytics, social = every other platform.'
         - name: sort
           in: query
           schema:
@@ -26338,7 +26681,7 @@ paths:
           description: Filter by platform
           schema:
             type: string
-            enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, whopads, hubspot, webflow]
+            enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, whopads, hubspot, webflow, googleanalytics]
         - name: status
           in: query
           description: Filter by health status
@@ -28437,6 +28780,179 @@ paths:
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '403':
           description: 'API key does not have access to this profile.'
+
+  /v1/connect/googleanalytics:
+    get:
+      x-resource-group: accounts
+      operationId: getGoogleAnalyticsConnectUrl
+      tags:
+        - Connect
+      summary: Get Google Analytics OAuth connect URL
+      description: |
+        Starts OAuth for Google Analytics (GA4). Each connected GA4 property becomes its own account
+        with platform `googleanalytics`; it reads reports and does not post.
+        Redirect the user to `authUrl`. When the Google account can read one property, Zernio connects
+        it and redirects to `redirect_url` (or the dashboard) with `connected=googleanalytics`,
+        `profileId`, `accountId` and `username` (the property name). When it can read several, the user
+        first picks one on a Zernio-hosted page, which then redirects the same way. To show your own picker
+        instead, add `headless=true` to `redirect_url`: Zernio then redirects there with `step=select_property`,
+        `profileId`, `platform=googleanalytics` and a `pendingDataToken` for
+        `GET /v1/connect/googleanalytics/properties` and `POST /v1/connect/googleanalytics/select-property`. On failure the
+        redirect carries `error`, `platform=googleanalytics` and `error_message`; errors include
+        `googleanalytics_scope_missing` (the user unticked Analytics access) and
+        `googleanalytics_no_properties`.
+        Requested scope: `https://www.googleapis.com/auth/analytics.readonly`.
+      security:
+        - bearerAuth: []
+        - connectToken: []
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Your Zernio profile ID (get from /v1/profiles).
+        - name: redirect_url
+          in: query
+          schema:
+            type: string
+          description: >-
+            Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as
+            `myapp://callback`; relative and unsafe URLs return 400.
+        - name: reconnectAccountId
+          in: query
+          schema:
+            type: string
+          description: >-
+            Zernio account ID of the Google Analytics account being reconnected. Picking a different property
+            then fails instead of adding a second account.
+      responses:
+        '200':
+          description: OAuth authorization URL and authenticated state
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - authUrl
+                  - state
+                properties:
+                  authUrl:
+                    type: string
+                    format: uri
+                    description: Google URL to open in the user agent.
+                  state:
+                    type: string
+                    description: Authenticated, expiring OAuth state handled by the callback.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          description: API key does not have access to this profile, or the key is read-only.
+        '404':
+          description: Profile not found or access denied.
+        '503':
+          description: Google Analytics OAuth is not configured.
+  /v1/connect/googleanalytics/properties:
+    get:
+      x-resource-group: accounts
+      operationId: listGoogleAnalyticsProperties
+      tags:
+        - Connect
+      summary: List Google Analytics properties for a pending connect
+      description: |
+        For headless flows. When the connect started with `redirect_url=...?headless=true` and the Google
+        account can read several GA4 properties, Zernio redirects to your `redirect_url` with
+        `step=select_property`, `profileId`, `platform=googleanalytics` and a `pendingDataToken`. Call this
+        to list the properties and show your own picker, then call
+        `POST /v1/connect/googleanalytics/select-property`. Listing does not consume the token. A headless
+        token passes through your own URLs, so it is honored only together with your API key (or connect
+        token) for the same profile. It expires after one hour.
+      security:
+        - bearerAuth: []
+        - connectToken: []
+      parameters:
+        - name: pendingDataToken
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Token from the headless redirect.
+      responses:
+        '200':
+          description: Properties the Google account can read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  properties:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        propertyId: { type: string, description: 'Numeric GA4 property ID.', example: '312456789' }
+                        displayName: { type: string, example: acme.com }
+                        accountId: { type: string, description: Google Analytics account ID. }
+                        accountName: { type: string, example: Acme Inc }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: The pending sign-in expired or was already used. Start the connect again.
+  /v1/connect/googleanalytics/select-property:
+    post:
+      x-resource-group: accounts
+      operationId: selectGoogleAnalyticsProperty
+      tags:
+        - Connect
+      summary: Connect the chosen Google Analytics property
+      description: |
+        For headless flows. Connects the property the user picked as a `googleanalytics` account and returns
+        where to send the user next: your `redirect_url` with `connected=googleanalytics`, `profileId`,
+        `accountId` and `username`, or an `error` when the connect was refused (for example a billing block).
+        Consumes the `pendingDataToken`; a refused or failed attempt leaves it usable for a retry. Send your
+        API key (or connect token) for the same profile with a headless token.
+      security:
+        - bearerAuth: []
+        - connectToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pendingDataToken, propertyId]
+              properties:
+                pendingDataToken: { type: string, description: Token from the headless redirect. }
+                propertyId: { type: string, description: 'A propertyId from the properties list.', example: '312456789' }
+      responses:
+        '200':
+          description: The property is connected, or the connect was refused with a reason in redirect_url
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  redirect_url: { type: string, description: Where to send the user next. }
+                  account:
+                    type: [object, "null"]
+                    description: The connected account, or null when the connect was refused.
+                    properties:
+                      accountId: { type: string }
+                      platform: { type: string, example: googleanalytics }
+                      username: { type: string }
+                      displayName: { type: string }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: The pending sign-in expired or was already used. Start the connect again.
+        '500':
+          description: Google or Zernio failed while saving. The pendingDataToken stays usable; retry.
 
   /v1/connect/hubspot:
     get:
@@ -58565,7 +59081,10 @@ paths:
 
         **Live read, then write.** The campaign's switch is read from the platform first. When that
         live read shows it already in the requested state nothing is written (`updated: 0`,
-        `skipped: 1`, with the reason). Otherwise the switch is written (`updated: 1`), read back and
+        `skipped: 1`, with the reason), and when the campaign delivers in that state but some of its
+        ads are stored in the other state (for example ads switched on in the platform's own UI and
+        still stored `paused`), those ads (up to 20, at most once every 10 minutes per campaign) are
+        re-read and stored. Otherwise the switch is written (`updated: 1`), read back and
         stored, and the delivery status of the ads under it (up to 20) is re-read and stored, so an
         immediate GET returns what the platform now reports. A stored switch never skips a write, and
         when the platform cannot be read the write always goes out. On Meta the check reads the
@@ -60073,8 +60592,8 @@ paths:
 
         Reads the ad set live from Meta, returned verbatim. The default projection includes
         `learning_stage_info` (learning-phase status: LEARNING / SUCCESS / FAIL / WAIVING; Meta
-        omits its `status` key on paused ad sets), delivery settings, budgets, schedule and
-        targeting. `fields` is a raw-passthrough override; unknown fields return Meta's 400
+        omits its `status` key on paused ad sets), delivery settings, budgets, schedule, dayparting
+        (`adset_schedule`, `pacing_type`) and targeting. `fields` is a raw-passthrough override; unknown fields return Meta's 400
         verbatim.
       security:
         - bearerAuth: []
@@ -60336,6 +60855,16 @@ paths:
                         `dailyMinSpendTarget`, in whole currency units. Send this one when the campaign
                         budget is a lifetime budget. Same rules and same rejections.
                     customerLifecycle: { $ref: '#/components/schemas/MetaCustomerLifecycle' }
+                    adSchedule:
+                      allOf: [{ $ref: '#/components/schemas/MetaAdSchedule' }]
+                      description: |
+                        Replaces the ad set's dayparting (Meta `adset_schedule`, `pacing_type: ["day_parting"]`).
+                        Meta runs a schedule only on a lifetime budget. Before anything in the request is written,
+                        Zernio takes `budget.type` from the same request or reads the ad set's budget (or its
+                        campaign's under Advantage campaign budget), and a daily one is a 400 with
+                        `param: platformSpecificData.adSchedule`. An empty array removes the schedule
+                        (`pacing_type: ["standard"]`). Read it back with `GET /v1/ads/ad-sets/{adSetId}`
+                        (`adset_schedule`, `pacing_type`) or as `adSchedule` on `GET /v1/ads/accounts/live`.
                     promotedObject:
                       type: object
                       description: "Meta ad-set promoted_object (same shape as /v1/ads/create). Meta makes promoted_object immutable once the ad set exists, so only `pixelId`, `customEventType`, `customEventStr` (with `customEventType` OTHER), `applicationId` and `productCatalogId` can be sent here. Any other key (`pageId`, `whatsappPhoneNumber`, `customConversionId`, `objectStoreUrl`, `productSetId`, `offlineConversionDataSetId`) is a 400 with `param: platformSpecificData.promotedObject` and nothing is written; changing them needs a new ad set (POST /v1/ads/create). Unknown keys are rejected with 400."
@@ -60445,7 +60974,10 @@ paths:
 
         **Live read, then write.** The ad set's switch is read from the platform
         first. When that live read shows it already in the requested state
-        nothing is written (`updated: 0`, `skipped: 1`, with the reason).
+        nothing is written (`updated: 0`, `skipped: 1`, with the reason), and
+        when the ad set delivers in that state but some of its ads are stored in
+        the other state, those ads (up to 20, at most once every 10 minutes per
+        ad set) are re-read and stored.
         Otherwise the switch is written (`updated: 1`), read back and stored, and
         the delivery status of its ads (up to 20) is re-read and stored, so an
         immediate GET returns what the platform now reports. A stored switch
@@ -62344,9 +62876,7 @@ paths:
         can be up to 10 minutes old; an older one is read again. Read reviews when you need
         them instead of sweeping every ad on a loop. When TikTok answers over quota, Zernio returns 429
         and answers 429 for that advertiser and connection without calling TikTok for about 60 seconds, then
-        120, 240, 480 and up to 960 while TikTok keeps refusing. Each successful call holds the next one for the
-        advertiser for at least 60 seconds (TikTok often refuses review calls sent in quick succession), and after an overage for one
-        step less than the last pause (480, 240, 120, then 60 seconds). Each pause and hold has up to 10% of random
+        120 and up to 240 while TikTok keeps refusing, and about 60 again after a successful call. Each pause has up to 10% of random
         jitter, with the time left as `Retry-After`; reviews read in the last 10 minutes are still served.
       security:
         - bearerAuth: []
@@ -63748,15 +64278,15 @@ paths:
       description: |-
         Returns the review verdict of every Upgraded Smart+ ad of one TikTok advertiser, with each creative's verdict, in one paginated read. Use it to refresh reviews periodically: one call (plus its pages) per advertiser per refresh, instead of `GET /v1/ads/{adId}/tiktok-smart-plus-review` per ad.
 
-        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`) and reads `/smart_plus/ad/review_info/` for Smart+ ads holding up to 50 creatives in total per call (TikTok refuses more; a Smart+ ad with more than 50 creatives is read alone), across ad groups, one call after another. A full refresh of N Smart+ ads with C creatives in total costs about `ceil(N / 100)` listing calls and `ceil(C / 50)` review calls on TikTok. When TikTok still refuses a call for its creative count, Zernio lowers the creative cap for that advertiser and reads the same ads again in smaller calls, never resending the refused size.
+        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`) and reads `/smart_plus/ad/review_info/` for Smart+ ads holding up to 50 creatives in total per call (TikTok refuses more; a Smart+ ad with more than 50 creatives is read alone), across ad groups, one call after another while TikTok accepts them, for up to 20 seconds per request (the ads not reached are read by the next request, which can come right away). One request per advertiser and connection refreshes at a time: a parallel request sends no review call and answers what is stored with `refreshState: paused` and `retryAfterSeconds: 20`. A full refresh of N Smart+ ads with C creatives in total costs about `ceil(N / 100)` listing calls and `ceil(C / 50)` review calls on TikTok. When TikTok still refuses a call for its creative count, Zernio lowers the creative cap for that advertiser and reads the same ads again in smaller calls, never resending the refused size.
 
-        Stale while refreshing: every review is stored for 24 hours per connection, advertiser and Smart+ ad (shared with the single-ad read), and `readAt` is always the time TikTok answered, never rewritten when served from the store. `maxAgeSeconds` (default 3600) is the freshness window: a review read within it is fresh and costs no TikTok call; an older one is still returned in `items` but is read again, and so is a Smart+ ad never read. Each request first reads every Smart+ ad of the page never read (live, then deleted with `includeDeleted=true`) and only then refreshes stale ones, oldest `readAt` first, so a quota pause cannot leave never-read ads behind stale ones, progress carries over between requests and an ad already read never goes back to pending. A stored review is replaced only by a successful read. `counts` splits the Smart+ ads on this page into `fresh`, `stale`, `pending` and `failed`, and `oldestReadAt` is the oldest `readAt` of `items`. `incomplete` is true only while some Smart+ ad of the page has never been read (`pending > 0`). Staleness is reported apart: `allFresh` is true when every item and refusal of the page is within `maxAgeSeconds` and nothing is pending. A page with stale items and nothing pending is complete (`incomplete: false`): move on, and a later read refreshes it oldest first. When Zernio could not refresh some due ads of the page because review reads are held or TikTok refused them over quota, `refreshState` is `paused` or `refused` and `retryAfterSeconds` (also in the `Retry-After` header) says when that later read can reach TikTok, even with nothing pending. On 2026-10-25 TikTok's quota allowed about 130 to 230 Smart+ ads per advertiser per hour (about 11.5 ads and 4 creatives per successful call), so a larger advertiser cannot be fully refreshed within one hour and its pages stay complete but not `allFresh`.
+        Stale while refreshing: every review is stored for 24 hours per connection, advertiser and Smart+ ad (shared with the single-ad read), and `readAt` is always the time TikTok answered, never rewritten when served from the store. `maxAgeSeconds` (default 3600) is the freshness window: a review read within it is fresh and costs no TikTok call; an older one is still returned in `items` but is read again, and so is a Smart+ ad never read. Each request alternates one batch of Smart+ ads never read (live, then deleted with `includeDeleted=true`) with one batch of stale ones, oldest `readAt` first, so a quota pause starves neither, progress carries over between requests and an ad already read never goes back to pending. A stored review is replaced only by a successful read. `counts` splits the Smart+ ads on this page into `fresh`, `stale`, `pending` and `failed`, and `oldestReadAt` is the oldest `readAt` of `items`. `incomplete` is true only while some Smart+ ad of the page has never been read (`pending > 0`). Staleness is reported apart: `allFresh` is true when every item and refusal of the page is within `maxAgeSeconds` and nothing is pending. A page with stale items and nothing pending is complete (`incomplete: false`): move on, and a later read refreshes it oldest first. When Zernio could not refresh some due ads of the page because review reads are held or TikTok refused them over quota, `refreshState` is `paused` or `refused` and `retryAfterSeconds` (also in the `Retry-After` header) says when that later read can reach TikTok, even with nothing pending. On 2026-10-25 TikTok's quota allowed about 130 to 230 Smart+ ads per advertiser per hour (about 11.5 ads and 4 creatives per successful call), so a larger advertiser cannot be fully refreshed within one hour and its pages stay complete but not `allFresh`.
 
         The listing is stored with the time it was read (`listing.readAt`) and listed again when it is older than `maxAgeSeconds`, so it can be up to `maxAgeSeconds` old: a Smart+ ad created on TikTok appears after at most that long (one hour by default). If that relisting fails, Zernio serves the stored listing with `listing.source: fallback` and the relist error in `listing.error`, instead of failing the request; `listing.source: fresh` means the listing was read within `maxAgeSeconds`. Only when no listing was ever stored does the listing error fail the request.
 
-        TikTok's review endpoint has a strict quota of its own (TikTok documents neither the quota nor its scope). TikTok often refuses review calls sent in quick succession, so Zernio holds the next call for this advertiser and connection for at least 60 seconds after every success, and one page reads one batch (up to 50 creatives) per minute at most. When TikTok is over quota (or Zernio is holding review reads: 60 seconds after a success, after an overage about 60 seconds, then 120, 240, 480 and up to 960 while TikTok keeps refusing, and after each successful call one step less, 480 down to 60 seconds, each with up to 10% of random jitter), Zernio stops calling TikTok and answers 200 with the reviews it has: stale reviews in `items`, the Smart+ ads never read in `pendingSmartPlusAdIds`, `incomplete: true` when any are pending, and `refreshState` (`paused` or `refused`) with `retryAfterSeconds` (also in the `Retry-After` header) whenever due ads were left unread. Every Smart+ ad of the page is in `items`, `failedSmartPlusAds` or `pendingSmartPlusAdIds`. Wait `retryAfterSeconds` and read the same page again: only the stale and pending ads reach TikTok.
+        TikTok's review endpoint has a strict quota of its own (TikTok documents neither the quota nor its scope). One request keeps reading batches (up to 50 creatives each) while TikTok accepts them. When TikTok is over quota (or Zernio is holding review reads after an overage: about 60 seconds, then 120 and up to 240 while TikTok keeps refusing, and about 60 again after a successful call, each with up to 10% of random jitter), Zernio stops calling TikTok and answers 200 with the reviews it has: stale reviews in `items`, the Smart+ ads never read in `pendingSmartPlusAdIds`, `incomplete: true` when any are pending, and `refreshState` (`paused` or `refused`) with `retryAfterSeconds` (also in the `Retry-After` header) whenever due ads were left unread. Every Smart+ ad of the page is in `items`, `failedSmartPlusAds` or `pendingSmartPlusAdIds`. Wait `retryAfterSeconds` and read the same page again: only the stale and pending ads reach TikTok.
 
-        A Smart+ ad whose review TikTok refuses on its own (for example one deleted on TikTok since the listing was read) is returned in `failedSmartPlusAds` with TikTok's error and `refusedAt`, and the rest of the page is still read. Zernio finds it by splitting the refused batch in halves, at most 16 extra TikTok calls per page; ads still unresolved after that keep their stored review, or stay in `pendingSmartPlusAdIds` when they have none, and are read first by the next request. A refusal of a single ad is stored for 24 hours and read again once it is older than `maxAgeSeconds`; when an ad has both a stored review and a stored refusal, the more recent one is returned. When both halves of a refused batch are refused with the same TikTok error (for example a permission error), Zernio stops calling TikTok for that page: when every Smart+ ad of the page has a stored review or refusal, it serves them and returns the refusal in `reviewError`; when some ad was never read, the whole request fails with that error.
+        A Smart+ ad whose review TikTok refuses on its own (for example one deleted on TikTok since the listing was read) is returned in `failedSmartPlusAds` with TikTok's error and `refusedAt`, and the rest of the page is still read. Zernio finds it by splitting the refused batch in halves, at most 16 extra TikTok calls per page; ads still unresolved after that keep their stored review, or stay in `pendingSmartPlusAdIds` when they have none, and are read again by the next request, in turn with the other due ads. A refusal of a single ad is stored for 24 hours and read again once it is older than `maxAgeSeconds`; when an ad has both a stored review and a stored refusal, the more recent one is returned. When both halves of a refused batch are refused with the same TikTok error (for example a permission error), Zernio stops calling TikTok for that page: when every Smart+ ad of the page has a stored review or refusal, it serves them and returns the refusal in `reviewError`; when some ad was never read, the whole request fails with that error.
 
         Items are sorted by `adGroupId`, then `smartPlusAdId`, so pages are stable. Keep one page in flight per advertiser and read its pages one after another: parallel pages of one advertiser spend its review quota at the same time and come back incomplete. Production logs suggest the quota is counted per advertiser (not confirmed by TikTok), so different advertisers have been read in parallel without throttling each other.
       security:
@@ -63847,7 +64377,7 @@ paths:
                   allFresh: { type: boolean, description: "True when every item and refusal of this page was read within `maxAgeSeconds` and nothing is pending. False with `incomplete: false` means the page is complete but some reviews are older than the window; a later read refreshes them oldest first." }
                   pendingSmartPlusAdIds: { type: array, items: { type: string }, description: "Smart+ ads of this page never read. Empty when every ad has a stored review or refusal." }
                   retryAfterSeconds: { type: [integer, "null"], description: "Seconds until Zernio calls TikTok's review endpoint for this advertiser and connection again (the stored pause with its jitter), set exactly when `refreshState` is `paused` or `refused`, stale items with nothing pending included. Always the same value as the `Retry-After` header, which is sent exactly when this is not null. Client rule: present, wait that long before reading the page again; null with stale or pending ads, a retry is not blocked (read again now or on your `maxAgeSeconds` schedule; with `refreshState: error` check `reviewError` first)." }
-                  refreshState: { type: string, enum: [ok, paused, refused, error], description: "Whether this request could refresh the due (stale or pending) Smart+ ads of the page. `refused`: TikTok refused a review call of this request over quota (40002 `OVER_QPS_LIMIT` or 40100) and Zernio paused. `paused`: no call was sent for the due ads because a pause from an earlier refusal, or the spacing of at least 60 seconds after a success, is still running. Both carry `retryAfterSeconds`. `error`: TikTok refused the batch for another reason (both halves the same way), the page is served from stored reviews and `reviewError` holds TikTok's error; `retryAfterSeconds` is null because retrying soon repeats the refusal. `ok`: nothing blocks a retry (every due ad was read, none was due, or the split cap left some for the next read, which can come right away)." }
+                  refreshState: { type: string, enum: [ok, paused, refused, error], description: "Whether this request could refresh the due (stale or pending) Smart+ ads of the page. `refused`: TikTok refused a review call of this request over quota (40002 `OVER_QPS_LIMIT` or 40100) and Zernio paused. `paused`: no call was sent for the due ads because a pause from an earlier refusal is still running, or another request is refreshing the same advertiser (then `retryAfterSeconds` is 20). Both carry `retryAfterSeconds`. `error`: TikTok refused the batch for another reason (both halves the same way), the page is served from stored reviews and `reviewError` holds TikTok's error; `retryAfterSeconds` is null because retrying soon repeats the refusal. `ok`: nothing blocks a retry (every due ad was read, none was due, or the split cap or the 20-second request budget left some for the next read, which can come right away)." }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: "accountId is not a TikTok or TikTok Ads connection (code feature_not_available)." }
@@ -67897,6 +68427,11 @@ paths:
                           properties:
                             startDate: { type: string, format: date-time }
                             endDate: { type: string, format: date-time, description: "Absent when the ad set runs until it is stopped." }
+                        adSchedule:
+                          description: "Meta only. The ad set's dayparting (`adset_schedule`) in the `platformSpecificData.adSchedule` shape, one window per day (a window Meta stores off the hour is widened to whole hours). Null when the ad set runs around the clock. Absent on TikTok."
+                          oneOf:
+                            - { $ref: '#/components/schemas/MetaAdSchedule' }
+                            - { type: "null" }
                   paging:
                     type: object
                     description: "One entry per level read. `after` is null on the last page."
@@ -68898,6 +69433,15 @@ paths:
                   maxItems: 5
                   items: { type: string }
                   description: 'Meta only. Extra primary-text options Meta rotates on the boosted post (asset_feed_spec.bodies with DEGREES_OF_FREEDOM); the post keeps its own text as one of the options. Works for Facebook posts and Instagram media. Under a conversions or traffic goal Meta also wants a website URL on the options, taken from `linkUrl` (send it with a `callToAction`); engagement boosts need none.'
+                rehostOnInstagramVideoRejection:
+                  type: boolean
+                  default: true
+                  description: >-
+                    Meta only (a 400 elsewhere). When Meta refuses an existing Instagram video as the ad (subcode
+                    1815279), Zernio first copies the video into the ad account and retries on the original post, then
+                    falls back to a new Facebook video in a new Page post that does not show the original post's likes
+                    and comments; the response reports which in `instagramVideoFallback`. Messaging boosts never use
+                    the unlinked copy. `false` skips every fallback and returns Meta's error.
                 smartTargeting:
                   type: object
                   description: |
@@ -68962,6 +69506,11 @@ paths:
                 properties:
                   ad: { $ref: '#/components/schemas/Ad' }
                   message: { type: string }
+                  instagramVideoFallback: { $ref: '#/components/schemas/InstagramVideoFallback' }
+                  warnings:
+                    type: array
+                    items: { type: string }
+                    description: 'Present with instagramVideoFallback: one human-readable line saying how the Instagram video was boosted.'
         '400':
           description: Missing required fields or invalid values
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -70960,7 +71509,9 @@ paths:
                         thankYouTitle: { type: string }
                         thankYouBody: { type: string }
                         thankYouButtonText: { type: string }
-                        thankYouButtonType: { type: string, example: VIEW_WEBSITE, description: "Meta thank_you_page.button_type. Defaults to VIEW_WEBSITE. Meta rejects MESSAGE_BUSINESS on thank-you pages with (#100) This button type is not yet supported for Thank You Page." }
+                        thankYouButtonType: { type: string, example: VIEW_WEBSITE, description: "Meta thank_you_page.button_type. Defaults to VIEW_WEBSITE. Case-insensitive, sent to Meta in uppercase. CALL_BUSINESS requires businessPhoneNumber and countryCode (a 400 otherwise). Meta rejects MESSAGE_BUSINESS on thank-you pages with (#100) This button type is not yet supported for Thank You Page." }
+                        businessPhoneNumber: { type: string, example: "+12025550123", description: "International E.164 number the CALL_BUSINESS thank-you button dials (Meta thank_you_page.business_phone_number). It must start with + and the country calling code matching countryCode; spaces, dashes, dots and parentheses are stripped, and a local number such as 2025550123 is a 400. Required when thankYouButtonType is CALL_BUSINESS and a 400 with any other button type. Accepted only inside platformSpecificData: a top-level businessPhoneNumber is a 400." }
+                        countryCode: { type: string, pattern: "^[A-Za-z]{2}$", example: US, description: "ISO 3166-1 alpha-2 country of businessPhoneNumber (Meta thank_you_page.country_code), sent in uppercase. Required when thankYouButtonType is CALL_BUSINESS and a 400 with any other button type. Accepted only inside platformSpecificData: a top-level countryCode is a 400." }
                         thankYouWebsiteUrl: { type: string, format: uri }
                         thankYouEnableMessenger: { type: boolean, default: false, description: "Sent as Meta thank_you_page.enable_messenger (boolean). Accepted only inside platformSpecificData: a top-level thankYouEnableMessenger is a 400." }
                         isOptimizedForQuality: { type: boolean, description: 'Set true for a higher-intent form (adds a review step before submit).' }
@@ -71169,6 +71720,7 @@ paths:
                         formId: { type: string }
                         fields: { type: object, additionalProperties: { type: string } }
                         fieldData: { type: array, items: { type: object } }
+                        consents: { $ref: '#/components/schemas/AdLeadConsents' }
                   pagination: { type: object, properties: { hasMore: { type: boolean }, cursor: { type: [string, "null"] } } }
                   meta:
                     type: object

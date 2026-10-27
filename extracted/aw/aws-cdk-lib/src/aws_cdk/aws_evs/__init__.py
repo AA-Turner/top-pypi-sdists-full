@@ -300,6 +300,7 @@ class CfnEnvironment(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -427,7 +428,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f01a5018beaa28fab7b0d068a7a6fe45dbeee0ab15ecdf25462887288ace66cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceAccessSubnetId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceAccessSubnetId", value)
 
     @builtins.property
     @jsii.member(jsii_name="termsAccepted")
@@ -445,7 +446,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__93808d5eb28c6837a5047d6d1811bd832bd6250809b9c84a0b609bb88989d45e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "termsAccepted", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "termsAccepted", value)
 
     @builtins.property
     @jsii.member(jsii_name="vcfVersion")
@@ -458,7 +459,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__77294c8299a96e3407af4323a38741fc1be8bdc06d14be597ecf158dcf011c14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vcfVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vcfVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcId")
@@ -471,7 +472,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__60ce2bd3161be4b835be56a05bdccfd9639c58eea7d09baeab4884c9a906852e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcId", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectivityInfo")
@@ -489,7 +490,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bf81c76587f8aaaaa50fc18d1384cc1e8ff44f1cd0d764c0355340e0f0839c21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectivityInfo", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectivityInfo", value)
 
     @builtins.property
     @jsii.member(jsii_name="environmentName")
@@ -502,7 +503,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__16c81b6578fa573cefa89abf7b2fbcfcf6b8db97f8f8b8e2a8c44d8009af03ed)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "environmentName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "environmentName", value)
 
     @builtins.property
     @jsii.member(jsii_name="hosts")
@@ -520,7 +521,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__18c17b2a1d9ccb9d1cd534e31c376d097f1d59794abd3093f8587758af40bc2e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hosts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hosts", value)
 
     @builtins.property
     @jsii.member(jsii_name="initialVlans")
@@ -540,7 +541,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__15ccc5cc405553a6a5463668babc67ef1dc4049150ba7dddfc07bee61251bcfe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "initialVlans", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "initialVlans", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -553,7 +554,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d5b585f35cde6963f33953b58455872fcf621844d2b3fa8f7f85b96542463156)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="licenseInfo")
@@ -571,7 +572,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fb6e498dbb5d87feb34dfe26b3466fa6383016c37a4ea21caecc26f60b5ce901)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "licenseInfo", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "licenseInfo", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceAccessSecurityGroups")
@@ -589,7 +590,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__df95c894cd990c7a318fa3e3397c915f2a30df40bd79003673d83a2d1016e1b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceAccessSecurityGroups", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceAccessSecurityGroups", value)
 
     @builtins.property
     @jsii.member(jsii_name="siteId")
@@ -602,7 +603,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0dc69ff9904f782ce993fe0884901782c11a2214109cfd4cf83020946119b99f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "siteId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "siteId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -618,7 +619,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c420c54db733392f5b59d4f5a9ded1bfdc781dbe1df45ec2312e16a4c3655efd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="vcfHostnames")
@@ -636,7 +637,7 @@ class CfnEnvironment(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__98651cf572ae807d1eccd57a45d3ecc81f79063879b068927b5130df235e0b0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vcfHostnames", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vcfHostnames", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_evs.CfnEnvironment.CheckProperty",

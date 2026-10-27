@@ -37,7 +37,6 @@ import contextlib
 import hashlib
 import json
 import os
-import re
 import shutil
 import sys
 import threading
@@ -61,6 +60,7 @@ from . import backfill_ledger as ledger_mod
 from .backfill_manifest import validate_manifest
 from . import backfill_plan as plan_mod
 from . import backfill_plan_tool as tool_mod
+from . import backfill_projects as projects_mod
 from . import backfill_prompts as prompts
 from .import_agent_settings import AgentSettings, Lane, cached, launch_kwargs
 from probe._compat import StrEnum
@@ -494,12 +494,15 @@ def _cached_plan(path: Path | None) -> tuple[plan_mod.Plan, str, str | None] | N
     return (plan, saved["tail"], session) if plan is not None else None
 
 
-def _usable_pass(data: dict, key: str) -> bool:
+def _usable_pass(data: dict, key: str, *, empty_ok: bool = False) -> bool:
     rows = data.get(key)
     if not isinstance(rows, list):
         return False
     if key == "projects":
-        return any(isinstance(row, dict) and row.get("slug") for row in rows)
+        # Empty is a full answer only when the folder's own projects hold all
+        # of its work (`name_projects` is told so).
+        return (empty_ok and not rows) or any(isinstance(row, dict) and row.get("slug")
+                                              for row in rows)
     if key == "assignments":
         # A slice that is ALL left out (a web app's source) is a real answer.
         return any(isinstance(row, dict) and (row.get("path") or row.get("dir"))
@@ -545,8 +548,19 @@ def classify(
     work_dir: Path,
     stream=None,
     agents: AgentSettings | None = None,
+    fixed: dict[str, str] | None = None,
+    own=(),
 ) -> tuple[plan_mod.Plan | None, str, str | None]:
     """Run the classification agent. Returns ``(plan, tail, session_id)``.
+
+    `fixed` names files imported before (path -> their project): the agent
+    sees them already decided and may only name experiments and runs over
+    them (`backfill_structure.restructure_candidates`).
+
+    `own` is this folder's own projects (`ProjectSpec`s code chose,
+    `backfill_projects.load`): files may go into them without a declaration.
+    `existing` is every OTHER project's slug: never a destination by being
+    named, only through a checked `project --reuse` a person confirms.
 
     `agents` carries the import's settings and meter to every launch in the
     `classify` lane (`import_agent_settings`); without it, launches are as
@@ -578,25 +592,33 @@ def classify(
         # other, in one decision, with no summary in between.
         plan, tail = classify_chunked(
             folder, ev, agent=agent, existing=existing,
-            work_dir=work_dir, stream=stream, agents=agents,
+            work_dir=work_dir, stream=stream, agents=agents, fixed=fixed, own=own,
         )
         # No session to hand back: the chunked route runs many, and resuming
         # "the" one would resume whichever ran last. A correction after this is
         # one fresh session that starts from the plan (`revise`).
         return plan, tail, None
 
+    fixed = fixed or {}
+    own_slugs = [spec.slug for spec in own]
+    others = [slug for slug in existing if slug not in own_slugs]
     prompt = prompts.classify(
         root=folder,
         evidence_jsonl=jsonl,
-        existing=existing,
+        existing=others,
         truncated=ev.sample_budget_hit,
         work_dir=str(work_dir),
         mtime_uninformative=ev.mtime_uninformative,
+        imported=len(fixed),
+        own=_own_pairs(own),
     ) + _git_note(folder, work_dir)
     heading = f"Reading {folder.name} — {ev.total_files:,} files"
+    files = tuple(plan_mod.relative_paths(ev))
     ref = tool_mod.Reference(
         root=str(folder), mode=tool_mod.Mode.CLASSIFY,
-        files=tuple(plan_mod.relative_paths(ev)), projects=tuple(existing),
+        files=files, projects=tuple(dict.fromkeys([*own_slugs, *fixed.values()])),
+        existing=tuple(dict.fromkeys([*others, *own_slugs])),
+        **_fixed_seed(files, fixed),
     )
     got = _run_tool_pass(
         folder, prompt, ref, agent=agent, work_dir=work_dir, heading=heading,
@@ -604,10 +626,34 @@ def classify(
         session_id=new_session_id() if agent is bf.Agent.CLAUDE else None,
         board=(folder, ev.total_files, 0), agents=agents,
     )
-    if not got.state.decided:
+    if not got.state.decided or (fixed and not got.state.accepted and got.detail):
+        # Nothing decided -- or, over files imported before (decided from the
+        # start), an agent that failed before naming anything: no plan, so
+        # the next import tries again instead of settling on an empty one.
         return None, got.detail or got.tail, got.session
     plan = _plan_from_passes([got], [], summary=_final_message(got.tail))
+    plan.fixed = dict(fixed)
     return plan, got.tail, got.session
+
+
+#: The decision a file imported before is seeded with: its own project.
+IMPORTED_WHY = "already imported"
+
+
+def _own_pairs(own) -> list[tuple[str, str]]:
+    """This folder's own projects as the prompts list them: slug, name and why."""
+    return [(spec.slug, f"{spec.name or spec.slug} ({spec.reason})" if spec.reason
+             else (spec.name or spec.slug)) for spec in own]
+
+
+def _fixed_seed(files, fixed: dict[str, str]) -> dict:
+    """`Reference` keyword arguments pinning the already-imported `files`."""
+    mine = [f for f in files if f in fixed]
+    return {
+        "fixed": tuple(mine),
+        "seed": {f: {"kind": tool_mod.Kind.ASSIGNED.value, "project": fixed[f],
+                     "why": IMPORTED_WHY} for f in mine},
+    }
 
 
 #: Tokens the slice summaries may occupy in the naming prompt. Smaller than a
@@ -627,7 +673,7 @@ PASS_ATTEMPTS = 2
 def _run_pass(
     folder: Path, prompt: str, *, agent: bf.Agent, heading: str, work_dir: Path,
     total: int, stream=None, key: str, attempts: int = PASS_ATTEMPTS,
-    agents: AgentSettings | None = None,
+    agents: AgentSettings | None = None, empty_ok: bool = False,
 ) -> tuple[dict | None, str]:
     """One agent turn that answers with JSON. Returns ``(object, detail)``.
 
@@ -651,7 +697,7 @@ def _run_pass(
         work_dir, agent=agent, prompt=prompt, phase=phase, extra={"key": key},
     )
     saved = _read_classification_cache(cache)
-    if saved is not None and _usable_pass(saved, key):
+    if saved is not None and _usable_pass(saved, key, empty_ok=empty_ok):
         cached(agents, Lane.CLASSIFY)
         _classification_progress(heading, phase, cached=True)
         if progress is not None:
@@ -681,7 +727,7 @@ def _run_pass(
                 for data in bf._embedded_summaries(line.strip(), key=key):
                     found = data
             if found is not None:
-                usable = _usable_pass(found, key)
+                usable = _usable_pass(found, key, empty_ok=empty_ok)
                 if usable:
                     _write_classification_cache(cache, found)
                 if progress is not None:
@@ -790,8 +836,11 @@ def _session_key(phase: str, index: int, ref: tool_mod.Reference, salt: str = ""
 
 
 def _outcome(ref: tool_mod.Reference, state: tool_mod.State) -> SessionOutcome:
-    total = len(ref.files)
-    decided = sum(1 for f in ref.files if f in state.decided)
+    # Over the files this session had to DECIDE: ones imported before arrive
+    # decided, and counting them would pass a session that filed nothing.
+    files = [f for f in ref.files if not ref.is_fixed(f)]
+    total = len(files)
+    decided = sum(1 for f in files if f in state.decided)
     if decided == total:
         return SessionOutcome.COMPLETE
     if decided and decided / total >= INHERIT_FLOOR:
@@ -911,7 +960,10 @@ def _launch_tool_pass(folder, prompt, ref, *, agent, work_dir, heading, phase, k
         if progress is not None and progress.cancelled.is_set():
             detail = "scan cancelled"
             break
-        if done(state):
+        # Files imported before arrive DECIDED (their project is kept), so a
+        # session of only those is "complete" before it starts -- but it exists
+        # to name their experiments and runs, which only the agent can do.
+        if done(state) and (attempt or not ref.fixed or state.accepted):
             break
         text = prompt + (CONTINUE_NOTE if state.accepted and not revision else "")
         if attempt == 0:
@@ -953,7 +1005,10 @@ def _launch_tool_pass(folder, prompt, ref, *, agent, work_dir, heading, phase, k
     elif outcome is SessionOutcome.FAILED and not detail:
         detail = (f"filed {len(ref.files) - len([f for f in ref.files if f not in state.decided]):,} "
                   f"of {len(ref.files):,} files")
-    if done(state):
+    # Not for a session over files imported before whose agent failed before
+    # choosing anything: decided from the start, it would cache as finished,
+    # and the next import would replay the failure instead of asking again.
+    if done(state) and not (ref.fixed and not state.accepted and detail):
         _write_classification_cache(cache, {"ops": tool_mod.read_log(state_paths.log),
                                             "session": session, "tail": tail})
     if progress is not None:
@@ -964,15 +1019,7 @@ def _launch_tool_pass(folder, prompt, ref, *, agent, work_dir, heading, phase, k
 
 def _folder_project(folder: Path) -> dict:
     """The one project a folder is filed into when its projects could not be named."""
-    slug = re.sub(r"[^a-z0-9]+", "-", folder.name.lower()).strip("-")[:56].strip("-") or "imported-research"
-    try:
-        uuid.UUID(slug)
-    except ValueError:
-        pass
-    else:
-        # The server refuses a UUID-shaped slug (one string, two meanings), and
-        # random-hex folder names are common in the drives this imports.
-        slug = f"folder-{slug}"
+    slug = projects_mod.folder_slug(folder)
     return {
         "slug": slug,
         "name": folder.name or slug,
@@ -1007,6 +1054,8 @@ def _plan_from_passes(
     excluded: list[str] = []
     unsure: list[str] = []
     declared: dict[str, dict] = {}
+    experiments: dict[str, dict] = {}
+    runs: dict[str, dict] = {}
     stats = {"refused_selectors": 0, "invalid_decisions": 0, "undecided_files": 0,
              "incomplete_sessions": 0, "failed_sessions": 0, "unclassified_files": 0}
     for got in passes:
@@ -1030,9 +1079,30 @@ def _plan_from_passes(
             stats["undecided_files"] += len(undecided)
         unsure.extend(got.state.unsure)
         declared.update(got.state.declared)
+        # A slice that names an experiment again for the SAME folder names the
+        # same one (later wins, as for declared projects). Two slices that chose
+        # one slug for DIFFERENT folders made two experiments: the later one
+        # gets a numbered slug, and its own runs follow it.
+        renamed: dict[str, str] = {}
+        for slug, spec in got.state.experiments.items():
+            final = slug
+            n = 1
+            while final in experiments and experiments[final].get("under") != spec.get("under"):
+                n += 1
+                suffix = f"-{n}"
+                final = slug[:63 - len(suffix)] + suffix
+            renamed[slug] = final
+            experiments[final] = {**spec, "slug": final}
+        for under, spec in got.state.runs.items():
+            runs[under] = ({**spec, "experiment": renamed.get(spec["experiment"], spec["experiment"])}
+                           if spec.get("experiment") else dict(spec))
     # A declaration wins over the spec it names: a correction may rename or
     # re-describe a project as well as add one.
     def spec(slug: str, d: dict) -> plan_mod.ProjectSpec:
+        if d.get("reuse"):
+            # A checked selection of an existing project: code fills its name
+            # and marks it EXISTING (`backfill_projects.settle`).
+            return plan_mod.ProjectSpec(slug=slug, name=slug, origin=plan_mod.Origin.MODEL.value)
         return plan_mod.ProjectSpec(slug=slug, name=d.get("name") or slug,
                                     description=d.get("description") or "", tags=list(d.get("tags") or []))
 
@@ -1043,6 +1113,7 @@ def _plan_from_passes(
     return plan_mod.Plan(
         projects=projects, assignments=assignments, unsure=list(dict.fromkeys(unsure)),
         summary=summary, left_out=left_out, excluded=sorted(set(excluded)), stats=stats,
+        experiments=experiments, runs=runs,
     )
 
 
@@ -1056,8 +1127,17 @@ def classify_chunked(
     stream=None,
     feedback: str = "",
     agents: AgentSettings | None = None,
+    fixed: dict[str, str] | None = None,
+    own=(),
 ) -> tuple[plan_mod.Plan | None, str]:
     """Classify a folder too big to fit one prompt. Survey -> name -> assign.
+
+    NAMING NAMES NEW PROJECTS ONLY. Its answer is JSON, checked after the
+    fact, so it is never shown the workspace's other projects to copy: this
+    folder's `own` projects join the list by code, and a named slug that is an
+    existing project's is renamed (`backfill_projects.free_slug`) and flagged,
+    never merged into it. Reusing another existing project in a chunked folder
+    is the reviewer's call (`revise`, `project --reuse`).
 
     THE SPLIT IS CHOSEN SO NO CHUNK NEEDS ANOTHER CHUNK'S DETAIL. Feeding the
     agent chunks in sequence and letting `--autocompact` absorb the overflow is
@@ -1127,16 +1207,21 @@ def classify_chunked(
 
         # -- name: the only step that sees the whole folder at once
         findings_json, dropped = _fit_findings(findings)
+        own = list(own)
+        own_slugs = {spec.slug for spec in own}
         named, detail = _run_pass(
             folder,
             prompts.name_projects(root=folder, findings_json=findings_json,
-                                  existing=existing, feedback=feedback),
+                                  own=_own_pairs(own), feedback=feedback),
             agent=agent, work_dir=work_dir, stream=stream, total=ev.total_files,
             heading=f"Naming the projects in {folder.name}", key="projects", agents=agents,
+            empty_ok=bool(own),
         )
         named_projects = [p for p in ((named or {}).get("projects") or [])
                           if isinstance(p, dict) and p.get("slug")]
-        naming_fallback = not named_projects
+        # A failed pass, or an answer with no usable slug (empty is a full
+        # answer only when this folder's own projects hold everything).
+        naming_fallback = named is None or not _usable_pass(named, "projects", empty_ok=bool(own))
         if naming_fallback:
             # The naming step failed twice. Rather than throw the folder away,
             # file it into ONE project named for the folder: every slice still
@@ -1144,20 +1229,28 @@ def classify_chunked(
             # project can be split or renamed afterwards (artifacts move).
             named = {"projects": [_folder_project(folder)], "summary": ""}
             named_projects = named["projects"]
-        specs = [
-            plan_mod.ProjectSpec(
-                slug=str(p.get("slug") or "").strip(),
+        taken = set(existing) | own_slugs
+        specs = list(own)
+        for p in named_projects:
+            slug = str(p.get("slug") or "").strip()
+            if slug in own_slugs or slug in {s.slug for s in specs}:
+                continue  # already on the list (an own project the answer repeated)
+            near = ""
+            if slug in taken:
+                # An existing project's slug, typed into an answer nobody
+                # checks: a new project of its own, flagged on review.
+                near, slug = slug, projects_mod.free_slug(slug, taken | {s.slug for s in specs})
+            specs.append(plan_mod.ProjectSpec(
+                slug=slug,
                 name=str(p.get("name") or p.get("slug") or "").strip(),
                 description=str(p.get("description") or "").strip(),
                 # Asked for by `name_projects` and parsed by `_plan_from` on the
                 # other route. Dropping them here made the two paths produce
                 # different Plans from the same agent answer.
                 tags=[str(t) for t in (p.get("tags") or []) if t],
-            )
-            for p in named_projects
-        ]
+                near=near,
+            ))
         listing = "\n".join(f"    {s.slug}  —  {s.description or s.name}" for s in specs)
-        allowed = {s.slug for s in specs}
 
         # -- assign: independent per chunk, against the fixed list
         #
@@ -1170,7 +1263,8 @@ def classify_chunked(
         # was inside `file_one` -- so a 200,000-file drive rebuilt a 200,000-element
         # list once per slice, across dozens of slices, all holding the GIL.
         mtime_dead = ev.mtime_uninformative
-        slugs = tuple(s.slug for s in specs)
+        fixed = fixed or {}
+        slugs = tuple(dict.fromkeys([*(s.slug for s in specs), *fixed.values()]))
 
         def file_one(pair: tuple[int, list[str]]):
             # The slice OWNS the files of its rows -- a sampled file, or a
@@ -1179,7 +1273,7 @@ def classify_chunked(
             i, chunk = pair
             owned = tuple(f for line in chunk for f in _row_files(line, by_key))
             ref = tool_mod.Reference(root=str(folder), mode=tool_mod.Mode.FILE,
-                                     files=owned, projects=slugs)
+                                     files=owned, projects=slugs, **_fixed_seed(owned, fixed))
             return i, _run_tool_pass(
                 folder,
                 prompts.assign_chunk(root=folder, evidence_jsonl="\n".join(chunk),
@@ -1197,6 +1291,11 @@ def classify_chunked(
         )
         plan = _plan_from_passes([got for _, got in filed], specs,
                                  summary=str(named.get("summary") or ""))
+        plan.fixed = dict(fixed)
+        if fixed and not any(got.state.accepted for _, got in filed):
+            failed = [got.detail for _, got in filed if got.detail]
+            if failed:
+                return None, "no slice could be filed: " + failed[-1]
         plan.stats["unread_slices"] = len(unread)
         plan.stats["naming_fallback"] = naming_fallback
         if not plan.assignments and not plan.left_out:
@@ -1222,8 +1321,13 @@ def revise(
     existing: list[str] = (),
     stream=None,
     agents: AgentSettings | None = None,
+    own=(),
 ) -> tuple[plan_mod.Plan | None, str, str | None]:
     """Apply a reviewer's correction to `plan`. Returns ``(plan, tail, session)``.
+
+    The plan's projects and this folder's `own` ones take files directly; any
+    other existing project is selected with `project --reuse`, so "put these
+    in the benchmark project" reaches it through a checked call.
 
     ONE session over the whole folder, whichever route classified it, seeded
     with the plan the reviewer read: every file already carries its decision,
@@ -1256,15 +1360,22 @@ def revise(
         seed[path] = {"kind": tool_mod.Kind.ASSIGNED.value, "project": project,
                       "why": a.why if a else "placed with its neighbours",
                       "low": bool(a and a.confidence != "high")}
-    projects = list(dict.fromkeys([*existing, *(p.slug for p in plan.projects),
-                                   *(a.project for a in plan.assignments)]))
+    own_slugs = [spec.slug for spec in own]
+    projects = list(dict.fromkeys([*own_slugs, *(p.slug for p in plan.projects),
+                                   *(a.project for a in plan.assignments),
+                                   *plan.fixed.values()]))
+    files = tuple(plan_mod.relative_paths(ev))
+    pinned = _fixed_seed(files, plan.fixed)
     ref = tool_mod.Reference(
         root=str(folder), mode=tool_mod.Mode.REVISE,
-        files=tuple(plan_mod.relative_paths(ev)), projects=tuple(projects), seed=seed,
+        files=files, projects=tuple(projects), seed={**seed, **pinned["seed"]},
+        fixed=pinned["fixed"], existing=tuple(dict.fromkeys([*existing, *own_slugs])),
+        structure={"experiments": plan.experiments, "runs": plan.runs},
     )
     prompt = prompts.revise(
         feedback=feedback, root=folder, work_dir=str(work_dir),
         resumed=session_id is not None, plan_view=plan_view(plan),
+        can_reuse=any(slug not in projects for slug in existing),
     )
     got = _run_tool_pass(
         folder, prompt, ref, agent=agent, work_dir=work_dir,
@@ -1281,6 +1392,7 @@ def revise(
     revised = _plan_from_passes([got], list(plan.projects), summary=_final_message(got.tail) or plan.summary)
     # Files nobody has classified yet stay excluded unless the correction filed them.
     revised.excluded = sorted(set(plan.excluded) - set(got.state.decided))
+    revised.fixed = dict(plan.fixed)
     return revised, got.tail, got.session
 
 
@@ -1304,6 +1416,12 @@ def plan_view(plan: plan_mod.Plan) -> str:
         lines = lines[:PLAN_VIEW_LINES] + [f"    ... and {len(lines) - PLAN_VIEW_LINES:,} more"]
     if plan.excluded:
         lines.append(f"    ({len(plan.excluded):,} files are not classified yet)")
+    for slug, spec in sorted(plan.experiments.items())[:PLAN_VIEW_LINES // 6]:
+        lines.append(f"    experiment {slug} ({spec.get('project')}): {spec.get('under') or '.'}/")
+    if plan.runs:
+        shown = sorted(plan.runs)[:PLAN_VIEW_LINES // 6]
+        more = f" and {len(plan.runs) - len(shown):,} more" if len(plan.runs) > len(shown) else ""
+        lines.append(f"    {len(plan.runs):,} run(s): {', '.join(shown)}{more}")
     return "\n".join(lines) or "    (empty)"
 
 
@@ -1339,22 +1457,47 @@ def describe_plan(
     disc: plan_mod.Discrepancy,
     census: bf.Census | None = None,
     left_out: dict[str, str] | None = None,
+    structure=None,
 ) -> list[str]:
     """The approval screen's body: what will happen, and what is uncertain.
+
+    Leads with the counts a reviewer approves -- `3 projects · 12 experiments ·
+    87 runs` -- and each project's share of them. Nothing is created until the
+    plan is approved; `structure` is `backfill_structure.resolve`'s view of it.
 
     Least-certain first. A reviewer reading top-down should meet the decisions
     worth arguing with before the ones that are obviously fine, because the
     whole value of the gate is catching the shared `data/` directory that got
     filed under one researcher.
     """
+    from . import backfill_structure as structure_mod
+
     per_project: dict[str, int] = {}
     for project in assigned.values():
         per_project[project] = per_project.get(project, 0) + 1
+    if structure is None:
+        structure = structure_mod.resolve(plan, assigned)
+    counts = structure.per_project()
 
-    lines = [f"{len(assigned):,} of {ev.total_files:,} files placed into "
-             f"{len(per_project)} project(s):", ""]
+    specs = {spec.slug: spec for spec in plan.projects}
+    reused = sum(1 for p in per_project if projects_mod.tag(specs.get(p)) != "new")
+    lines = [structure_mod.counts_line(len(per_project), structure),
+             f"{len(assigned):,} of {ev.total_files:,} files placed into "
+             f"{len(per_project)} project(s)"
+             + (f", {reused} of them EXISTING (files are added to them)" if reused else "")
+             + ":", ""]
     for project in sorted(per_project, key=lambda p: (-per_project[p], p)):
-        lines.append(f"  {project:<32} {per_project[project]:>7,} files")
+        extra = counts.get(project)
+        spec = specs.get(project)
+        lines.append(f"  {project:<32} {per_project[project]:>7,} files"
+                     + (f" · {extra['experiments']:,} experiment{'s' if extra['experiments'] != 1 else ''}"
+                        f" · {extra['runs']:,} run{'s' if extra['runs'] != 1 else ''}" if extra else "")
+                     + f" · {projects_mod.tag(spec)}")
+        about = projects_mod.detail(spec)
+        if about:
+            lines.append(f"      {about}")
+    lines += structure_mod.describe(
+        structure, fixed=sum(1 for path in plan.fixed if path in assigned))
 
     if left_out:
         # By the classifier's own rows, largest first, so a reviewer sees each
@@ -1842,85 +1985,6 @@ def run_units(
             board.close()
 
 
-# -- projects ----------------------------------------------------------------
-
-
-def ensure_projects(client, plan: plan_mod.Plan, assigned: dict[str, str]) -> tuple[list[str], list[str]]:
-    """Create every project the plan needs, BEFORE any unit launches.
-
-    Up front, and not lazily inside the units, because concurrent units filing
-    into the same project would otherwise race `probe project create`. Creating
-    them here removes the race by construction rather than by locking, and it
-    means a killed import still leaves a readable, correctly-named skeleton
-    instead of orphaned artifacts.
-
-    Returns ``(slugs, problems)``. A project that cannot be created is a problem
-    the caller must surface before uploading anything into a folder whose
-    destination does not exist.
-    """
-    specs = {p.slug: p for p in plan.projects}
-    wanted = sorted(set(assigned.values()))
-    made: list[str] = []
-    problems: list[str] = []
-    for slug in wanted:
-        spec = specs.get(slug)
-        try:
-            row = _resolve_or_create(
-                client,
-                slug,
-                name=(spec.name if spec else slug) or slug,
-                description=(spec.description if spec else "") or None,
-            )
-            made.append(row.get("slug") or slug)
-        except Exception as exc:  # noqa: BLE001 - surfaced, never swallowed
-            problems.append(f"could not create project {slug!r}: {exc}")
-    return made, problems
-
-
-def _resolve_or_create(client, slug: str, *, name: str, description: str | None) -> dict:
-    """Use the project called `slug`, creating it if it is not there.
-
-    EXPLICITLY, not through `ensure_project`. That method runs the near-miss
-    guard, which refuses a slug resembling one already in the namespace -- and
-    the namespace it reads includes the projects this very loop created moments
-    earlier. A folder splitting into `odyssey-cluster-deploy`,
-    `odyssey-protein-benchmarks` and `odyssey-protein-lm` therefore could not be
-    imported at all: the guard read the siblings as typos of each other, refused
-    the last, and left the rest behind as orphans.
-
-    The guard is right for what it was built for -- a training loop or a
-    detached `probe run start`, where a typo silently opens a second identity
-    and nobody is watching. A backfill is the opposite situation, and its slugs
-    have already been checked twice by the time they arrive here:
-
-        the classify prompt hands the agent the existing projects and tells it
-        to prefer them (REUSE), and a human then reads every project name at
-        the review gate with its file count beside it.
-
-    So the guard would be a third opinion holding strictly LESS information
-    than the person who just approved the list, and it is the one that cannot
-    tell a sibling from a typo. Its own error says the way out is to "create it
-    explicitly" -- this is that path, taken deliberately rather than after a
-    failure. Duplicates are still impossible: an existing slug resolves and is
-    reused, never re-created.
-    """
-    from probe.sdk import errors
-
-    row = client.resolve_project(slug)
-    if row is not None:
-        return row
-    try:
-        # A folder backfill has no intent-holder present: the neutral label.
-        return client.create_project(slug, name, kind="general", description=description)
-    except errors.ConflictError:
-        # Lost a create race with a concurrent process. What we promise is that
-        # the project EXISTS afterwards, not that we made it.
-        row = client.resolve_project(slug)
-        if row is None:
-            raise
-        return row
-
-
 def _ingest_summary(stdout: str) -> dict | None:
     """The `{"enqueued": N, ...}` object out of `artifact add`'s output.
 
@@ -2134,6 +2198,7 @@ def execute(
     back_to_selection: bool = False,
     wandb_source: dict | None = None,
     offer_wandb: bool = True,
+    include_hidden: tuple[str, ...] = (),
 ):
     """The whole import. Returns the lines the caller pages.
 
@@ -2180,6 +2245,7 @@ def execute(
             background=background,
             back_to_selection=back_to_selection,
             wandb_source=wandb_source, offer_wandb=offer_wandb,
+            include_hidden=include_hidden,
         )
         if lines is tui.BACK or lines is None:
             return lines
@@ -2238,7 +2304,7 @@ WARN_SHOWN = 5
 
 
 def _index(
-    folder: Path, report: "Report"
+    folder: Path, report: "Report", *, include_hidden: tuple[str, ...] = ()
 ) -> tuple[bf.Census, list, evidence_mod.WalkWarnings, "index_mod.Index", list]:
     """THE walk. One traversal → census, records, and what it could not see.
 
@@ -2276,7 +2342,9 @@ def _index(
     index = index_mod.Index.for_folder(folder)
     previous = index.read()
     try:
-        for f in index.collect(evidence_mod.walk(folder, warn), root=folder):
+        for f in index.collect(
+            evidence_mod.walk(folder, warn, include_hidden=include_hidden), root=folder
+        ):
             records.append(f)
             count += 1
             total += f.size
@@ -2295,8 +2363,15 @@ def _index(
         bytes=total,
         linked_dirs=tuple(warn.linked),
         unreadable_dirs=tuple(warn.unreadable),
+        skipped_hidden=tuple(f.pair() for f in warn.skipped_hidden),
+        skipped_worktrees=tuple(f.pair() for f in warn.skipped_worktrees),
+        # What was ADMITTED: a name no option can admit (`refused_includes`)
+        # is not carried into the re-walk's instructions.
+        include_hidden=tuple(n for n in include_hidden if n not in bf.SKIP_DIRS),
+        walk_rules=bf.WALK_RULES,
     )
     report.add(*incomplete_lines(census))
+    report.add(*skipped_lines(census))
     if count >= index_mod.LARGE_WALK_FILES:
         # NAMED, not refused. The index streams, but `sample`/`cluster_by_mtime`
         # downstream still hold the whole record list, so a tree far past this
@@ -2340,6 +2415,57 @@ def incomplete_lines(census: bf.Census) -> list[str]:
         if n > WARN_SHOWN:
             lines.append(f"  ... and {n - WARN_SHOWN} more")
         lines.append(f"  {advice}")
+    return lines
+
+
+#: How many skipped hidden folders the plan names before summarising the rest.
+SKIPPED_SHOWN = 8
+
+
+def skipped_lines(census: bf.Census) -> list[str]:
+    """Say what the walk skipped BY RULE, with counts. Rendered where
+    `incomplete_lines` is, for the same reason: the plan is where a reader can
+    still change the answer (`--include-hidden <name>`).
+
+    Worktree copies first and in one line: they are the large number, and the
+    one a reader should not want back. Hidden folders by name, largest first.
+    """
+    def files(n: int) -> str:
+        return f"{n:,} file{'' if n == 1 else 's'}"
+
+    lines: list[str] = []
+    if census.skipped_worktrees:
+        n = len(census.skipped_worktrees)
+        lines += ["", f"Skipped {n} git worktree{'' if n == 1 else 's'} "
+                      f"({files(census.skipped_worktree_files)}): checkouts of a repo this import "
+                      "already carries."]
+        ordered = sorted(census.skipped_worktrees, key=lambda item: (-item[1], item[0]))
+        lines += [f"  {path} ({files(count)})" for path, count in ordered[:SKIPPED_SHOWN]]
+        if n > SKIPPED_SHOWN:
+            lines.append(f"  ... and {n - SKIPPED_SHOWN:,} more")
+    if census.skipped_hidden:
+        ordered = sorted(census.skipped_hidden, key=lambda item: (-item[1], item[0]))
+        shown = ", ".join(f"{path} ({files(count)})" for path, count in ordered[:SKIPPED_SHOWN])
+        rest = ordered[SKIPPED_SHOWN:]
+        lines += ["", f"Skipped hidden folders: {shown}"
+                      + (f", and {len(rest):,} more ({files(sum(n for _, n in rest))})" if rest else "")
+                      + ".",
+                  "  Re-run with --include-hidden <name> to import one."]
+    return lines
+
+
+def refused_includes(include_hidden) -> list[str]:
+    """`--include-hidden` names no option can admit, said rather than ignored."""
+    refused = [name for name in include_hidden or () if name in bf.SKIP_DIRS]
+    if not refused:
+        return []
+    credentials = [name for name in refused if name in bf.CREDENTIAL_DIRS]
+    other = [name for name in refused if name not in bf.CREDENTIAL_DIRS]
+    lines = []
+    if credentials:
+        lines.append(f"Not included: {', '.join(credentials)} — credential stores are never imported.")
+    if other:
+        lines.append(f"Not included: {', '.join(other)} — tool and cache folders are never imported.")
     return lines
 
 

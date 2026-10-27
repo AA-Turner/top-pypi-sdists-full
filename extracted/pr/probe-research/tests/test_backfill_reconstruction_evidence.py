@@ -304,3 +304,81 @@ def test_a_refused_excerpt_is_metadata_only(tmp_path, monkeypatch):
     monkeypatch.setattr(rec, "_redact_read", refuse)
     row = {"path": path.name, "approved_hash": hashlib.sha256(path.read_bytes()).hexdigest()}
     assert rec._read_sample(tmp_path, row) == (None, "credential inspection refused: metadata only")
+
+
+# -- the unit agents' notes reach the draft ----------------------------------
+
+
+def _note_on(coverage, path, text):
+    for row in coverage.rows:
+        if row["path"] == path:
+            row["manifest"] = json.dumps({"path": path, "notes": text})
+
+
+def test_a_files_import_note_rides_with_its_excerpt(tmp_path):
+    coverage = LocalCoverage(tmp_path, {"README.md": "The project.\n", "train.py": "x = 1\n"})
+    _note_on(coverage, "train.py", "Training entry point for the  judge ablation.")
+    sources = {s["path"]: s for s in inputs(tmp_path, coverage)["sources"].values()}
+    assert sources["train.py"]["note"] == "Training entry point for the judge ablation."
+    assert sources["train.py"]["text"] == "x = 1\n"
+    assert "note" not in sources["README.md"]
+
+
+def test_a_note_is_masked_whole_before_it_is_cut(tmp_path):
+    """Cut first and a token split by the cut is no longer recognised: its head
+    would reach the model."""
+    token = "ghp_KKF0RDt0Xaetn6QMfStFUWSus4jowQUux6hu"
+    coverage = LocalCoverage(tmp_path, {"a.py": "x = 1\n", "b.py": "y = 2\n"})
+    _note_on(coverage, "a.py", "p" * (rec.MAX_NOTE_CHARS - 10) + " " + token)
+    _note_on(coverage, "b.py", "word " * 500)
+    sources = {s["path"]: s for s in inputs(tmp_path, coverage)["sources"].values()}
+    assert "ghp_" not in rec._json(sources)
+    assert len(sources["b.py"]["note"]) <= rec.MAX_NOTE_CHARS
+
+
+@pytest.mark.parametrize("manifest", [None, "", "not json", "[]", '{"notes": 7}', '{"notes": "  "}'])
+def test_a_missing_or_malformed_manifest_means_no_note(tmp_path, manifest):
+    coverage = LocalCoverage(tmp_path, {"a.py": "x = 1\n"})
+    coverage.rows[0]["manifest"] = manifest
+    assert "note" not in inputs(tmp_path, coverage)["sources"]["F001"]
+
+
+def test_described_files_are_read_first_under_the_excerpt_cap(tmp_path):
+    contents = {f"src/m{i:03d}.py": f"VALUE = {i}\n" for i in range(rec.MAX_FILES + 10)}
+    coverage = LocalCoverage(tmp_path, contents)
+    last = f"src/m{rec.MAX_FILES + 9:03d}.py"
+    assert last not in {s["path"] for s in inputs(tmp_path, coverage)["sources"].values()}
+    _note_on(coverage, last, "The scorer the results tables come from.")
+    sources = list(inputs(tmp_path, coverage)["sources"].values())
+    assert sources[0]["path"] == last and sources[0]["note"]
+
+
+def test_a_note_never_makes_a_source_of_a_file_with_no_excerpt(tmp_path):
+    """A note is a hint beside text the draft can check, never evidence alone:
+    a binary, a pointer or an event stream the excerpt gate withholds stays out."""
+    coverage = LocalCoverage(
+        tmp_path, {"ckpt.pt": "\x00weights", "ref.bin": "pointer", "log.jsonl": '{"acc": 0.94}\n'}
+    )
+    coverage.conn.execute(
+        "UPDATE versions SET receipt=json_set(receipt, '$.is_reference', json('true')) WHERE correlation='1'"
+    )
+    for path in ("ckpt.pt", "ref.bin", "log.jsonl"):
+        _note_on(coverage, path, "94.1% test accuracy.")
+    assert inputs(tmp_path, coverage)["sources"] == {}
+
+
+def test_a_note_changes_the_drafts_input_identity(tmp_path):
+    coverage = LocalCoverage(tmp_path, {"a.py": "x = 1\n"})
+    before = inputs(tmp_path, coverage)["input_id"]
+    _note_on(coverage, "a.py", "The scorer.")
+    assert inputs(tmp_path, coverage)["input_id"] != before
+
+
+def test_a_note_on_a_file_with_no_excerpt_does_not_crowd_out_one_that_has_one(tmp_path):
+    contents = {f"logs/run_{i:02d}.jsonl": '{"step": 1}\n' for i in range(rec.MAX_FILES + 6)}
+    contents["train.py"] = "def train():\n    pass\n"
+    coverage = LocalCoverage(tmp_path, contents)
+    for path in contents:
+        if path.endswith(".jsonl"):
+            _note_on(coverage, path, "A training log.")
+    assert "train.py" in {s["path"] for s in inputs(tmp_path, coverage)["sources"].values()}

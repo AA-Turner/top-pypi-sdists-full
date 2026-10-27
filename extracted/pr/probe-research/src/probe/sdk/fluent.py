@@ -35,6 +35,7 @@ from __future__ import annotations
 import atexit
 import contextvars
 import os
+import uuid
 import sys
 import threading
 import time
@@ -579,9 +580,10 @@ def _falls_back_offline(exc: BaseException) -> bool:
     network failure or a 5xx after init's budget. Never a refusal (401/403/
     404/409/422: going offline would only defer the same refusal) and never
     an attach (PROBE_RUN_ID names a run only the server has)."""
+    from .config import env_run_id
     from .offline import fallback_enabled
 
-    if not fallback_enabled() or os.environ.get("PROBE_RUN_ID", "").strip():
+    if not fallback_enabled() or env_run_id():
         return False
     return isinstance(exc, (errors.TransportError, errors.ServerError))
 
@@ -655,10 +657,17 @@ def _init_offline(
     ``capture_reads`` / ``capture_outputs`` / ``ignore`` (popped from ``kw``, or
     handed over by the fallback in ``capture``) shape it. The crash breadcrumb
     is skipped: it needs the server."""
+    from .config import env_run_id
+
     if os.environ.get("PROBE_RUN_ID", "").strip():
         raise errors.ValidationError(
             "PROBE_MODE=offline cannot attach to PROBE_RUN_ID: that run exists only on "
             "the server. Unset PROBE_RUN_ID to record a new run offline."
+        )
+    if env_run_id():
+        raise errors.ValidationError(
+            "PROBE_MODE=offline cannot record with a per-run PROBE_TOKEN: it records only "
+            "the run `probe exec` opened, which exists only on the server."
         )
     from .offline import open_offline_run
 
@@ -729,6 +738,42 @@ def _init_disabled(kw: dict, *, bind: bool = True) -> "Run":
 _IDENTITY_KWARGS = ("experiment", "project", "name", "slug", "question", "hypothesis")
 
 
+#: The PROBE_RUN_ID this process exported from a per-run token, so a later
+#: init() under another token never reads it as the user's choice.
+_EXPORTED_RUN_ID: str | None = None
+
+
+def _adopt_run_token(run_id: str, client: Client) -> str:
+    """The run to attach to, given a per-run token (`probe_run_`).
+
+    A per-run token records one run, so it names that run itself: a job given
+    only PROBE_TOKEN attaches to it (and `_attach_from_env` exports the id once
+    attached, for the CLI inside the job). A PROBE_RUN_ID naming another run is
+    refused here rather than at the first write. Any other credential -- the
+    client's own, which wins over the environment's -- leaves `run_id` as it was."""
+    from .config import run_token_run_id
+
+    if run_id and run_id == _EXPORTED_RUN_ID:
+        run_id = ""
+    token = getattr(getattr(client, "settings", None), "token", None) or os.environ.get("PROBE_TOKEN")
+    token_run = run_token_run_id(token)
+    if token_run is None:
+        return run_id
+    if not run_id:
+        return token_run
+    try:
+        same = uuid.UUID(run_id) == uuid.UUID(token_run)
+    except ValueError:
+        return run_id  # a slug: the server resolves it and refuses another run
+    if not same:
+        raise errors.ValidationError(
+            f"PROBE_RUN_ID={run_id} but PROBE_TOKEN is a per-run token for run {token_run}, "
+            "which records that run only. Unset PROBE_RUN_ID, or give this job the token "
+            "`probe exec` printed for its own run."
+        )
+    return run_id
+
+
 def _attach_from_env(client: Client, kw: dict) -> "Run | None":
     """Attach to the run named by PROBE_RUN_ID, or None if there is none.
 
@@ -742,10 +787,19 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
     ``experiment=`` either does not know that or is running the wrong script,
     and both deserve to find out at import rather than at read time.
     """
-    run_id = os.environ.get("PROBE_RUN_ID", "").strip()
+    global _EXPORTED_RUN_ID
+    named = os.environ.get("PROBE_RUN_ID", "").strip()
+    run_id = _adopt_run_token(named, client)
     if not run_id:
         return None
+    from_token = run_id != named or (bool(named) and named == _EXPORTED_RUN_ID)
     conflicting = sorted(k for k in _IDENTITY_KWARGS if kw.get(k) is not None)
+    if conflicting and from_token:
+        raise errors.ValidationError(
+            f"probe.init() received {', '.join(conflicting)}, but PROBE_TOKEN is a per-run "
+            f"token for run {run_id}: it records that run only, which a launcher opened for "
+            "this job. Drop those arguments to join it."
+        )
     if conflicting:
         raise errors.ValidationError(
             f"probe.init() received {', '.join(conflicting)} while PROBE_RUN_ID="
@@ -796,7 +850,14 @@ def _attach_from_env(client: Client, kw: dict) -> "Run | None":
     )
     # One line, because the alternative is a researcher wondering why their
     # curves are on a run they did not create.
-    print(f"probe: attached to run {run.slug or run.id} via PROBE_RUN_ID", flush=True)
+    print(
+        f"probe: attached to run {run.slug or run.id} via "
+        + ("its per-run PROBE_TOKEN" if from_token else "PROBE_RUN_ID"),
+        flush=True,
+    )
+    if from_token:
+        # For the CLI inside the job (`probe artifact add` anchors to the run).
+        _EXPORTED_RUN_ID = os.environ["PROBE_RUN_ID"] = str(run.id)
     if config is not None and _nonzero_global_rank() is None:
         # Under `probe exec` the launcher created the run without the script's
         # config, so this is the only place it can arrive. One rank is enough:

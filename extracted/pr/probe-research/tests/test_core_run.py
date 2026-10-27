@@ -83,7 +83,7 @@ FAKE_DEVICE = textwrap.dedent(
         installed=False, already_persistent=True, message=""
     )
     main._version_notice = lambda: None
-    main._outbox_notice = lambda: None
+    main._outbox_notice = lambda **_: None
     setup.detectable_sources = lambda: ("claude_code", "codex")
     setup.refresh_marketplace = lambda **_: None
     setup._record_login_account = lambda *a, **k: None

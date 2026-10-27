@@ -594,6 +594,7 @@ class CfnSchedule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -639,7 +640,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__596e14fe3c5d30f5608996086027eaf3ff49cf0205d5a551a9e0895e2be75f2a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flexibleTimeWindow", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flexibleTimeWindow", value)
 
     @builtins.property
     @jsii.member(jsii_name="scheduleExpression")
@@ -655,7 +656,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__86a3656a00e3dadf75b2e58b2162ed9850cd46df81630349120c362c216f94db)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scheduleExpression", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scheduleExpression", value)
 
     @builtins.property
     @jsii.member(jsii_name="target")
@@ -673,7 +674,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9658077cef2602ca00d25f391105ce442d6a0a3efef1ca5be55db053ede80a78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "target", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "target", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -686,7 +687,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5864139b51db95ec1c3e6c947b577675bb4f83133b1f5476864d71c4009c2386)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="endDate")
@@ -699,7 +700,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3d0ae7ef525e3a588544a09eb7ec3271c357974ae47f41180a7aeb9086e2594)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "endDate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "endDate", value)
 
     @builtins.property
     @jsii.member(jsii_name="groupName")
@@ -712,7 +713,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f1860ec4ad4204d90b7f2756ff633582f92f7f97d174b16a7da8e36811ebdc98)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "groupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
@@ -725,7 +726,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c65947df9a6be40d839d971ea07ff6a85493b9cfbab03c61fc17e54bdd0e9276)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -738,7 +739,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eb6bd8d80ac829e96128e011c87e852bfea080bdcd859bfdf98c7874542dc1b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="scheduleExpressionTimezone")
@@ -754,7 +755,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eb337d25b9d34da19dbe88b72514ea1e1e7a235cd91b7597abecd038498e11a9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scheduleExpressionTimezone", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scheduleExpressionTimezone", value)
 
     @builtins.property
     @jsii.member(jsii_name="startDate")
@@ -767,7 +768,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__38fc94567c401ce05bf3ed2461327df25f05b71764228be5a3f95fec0573d007)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "startDate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "startDate", value)
 
     @builtins.property
     @jsii.member(jsii_name="state")
@@ -780,7 +781,7 @@ class CfnSchedule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__986ef975482735e4fbf46592da626ebfd4ca9636ad053fe886d40f9856d1483e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "state", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_scheduler.CfnSchedule.AwsVpcConfigurationProperty",
@@ -2416,6 +2417,7 @@ class CfnScheduleGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2491,7 +2493,7 @@ class CfnScheduleGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e895b806668d11dd73b56d4fec496161e9b77b48c3e3475d06f4798d8a636529)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2507,7 +2509,7 @@ class CfnScheduleGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c803209b899e8ad5a9aaaa50de8f083948fedec73e43cc9c9b541cd5fdf20f5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -2938,24 +2940,28 @@ class ContextAttribute(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="attemptNumber")
+    @builtins.classmethod
     def attempt_number(cls) -> builtins.str:
         '''A counter that identifies the attempt number for the current invocation, for example, 1.'''
         return typing.cast(builtins.str, jsii.sget(cls, "attemptNumber"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="executionId")
+    @builtins.classmethod
     def execution_id(cls) -> builtins.str:
         '''The unique ID that EventBridge Scheduler assigns for each attempted invocation of a target, for example, d32c5kddcf5bb8c3.'''
         return typing.cast(builtins.str, jsii.sget(cls, "executionId"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="scheduleArn")
+    @builtins.classmethod
     def schedule_arn(cls) -> builtins.str:
         '''The ARN of the schedule.'''
         return typing.cast(builtins.str, jsii.sget(cls, "scheduleArn"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="scheduledTime")
+    @builtins.classmethod
     def scheduled_time(cls) -> builtins.str:
         '''The time you specified for the schedule to invoke its target, for example, 2022-03-22T18:59:43Z.'''
         return typing.cast(builtins.str, jsii.sget(cls, "scheduledTime"))
@@ -4779,6 +4785,7 @@ class Schedule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -5619,6 +5626,7 @@ class ScheduleGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

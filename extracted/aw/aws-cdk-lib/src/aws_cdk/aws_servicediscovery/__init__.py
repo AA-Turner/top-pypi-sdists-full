@@ -605,6 +605,7 @@ class CfnHttpNamespace(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -662,7 +663,7 @@ class CfnHttpNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3ca2deed58d1a511d40b6e7b352028ec92ba2c2d45f323b6b8d127c105d9f7cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -675,7 +676,7 @@ class CfnHttpNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d1acb03e37c363b6c055ffea522cccf94236429c9cd614eebb7b4e0e7a7e817b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -691,7 +692,7 @@ class CfnHttpNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db851b811f1dc9ee0d0ac1df087e3bd084e3574a034552c8d656ead354aec4dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -885,6 +886,7 @@ class CfnInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -916,7 +918,7 @@ class CfnInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__99e8799c36bbbbe9f6ac2cfc712e6c91407ea3c4cb9e079249df8b0bc9a3d432)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceAttributes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "instanceAttributes", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceId")
@@ -929,7 +931,7 @@ class CfnInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2e36f91737c9eebef201dbb5a6a8b796898375d7825c034ca246085e3ff742c0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="instanceId")
@@ -945,7 +947,7 @@ class CfnInstance(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__70b334832869ca9cd03b4690aeee3311134da3ac0c39e2497246db2b4cc04670)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "instanceId", value)
 
 
 @jsii.data_type(
@@ -1219,6 +1221,7 @@ class CfnPrivateDnsNamespace(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1285,7 +1288,7 @@ class CfnPrivateDnsNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b397636100e7d203e28556416ce4db7669edc6734c5e6daf8032a3107805a968)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1298,7 +1301,7 @@ class CfnPrivateDnsNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__359db7453c61916286016b99ce2b4d5f3170ced593718005d469fb1ed3ac7b7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="properties")
@@ -1316,7 +1319,7 @@ class CfnPrivateDnsNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__561f9e1a781f0e74d2cfb4e11987ae3b924d72bcc2704d5de82df6f498bf5be5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "properties", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "properties", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1332,7 +1335,7 @@ class CfnPrivateDnsNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aa5883b35538b12ffbde613234c3bae401579a44750c841160dd37593543431b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
@@ -1345,7 +1348,7 @@ class CfnPrivateDnsNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f608cd6424a86ed0fef18706668788c340990610474fd1eeae14922e544bdf3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpc", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpc", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_servicediscovery.CfnPrivateDnsNamespace.PrivateDnsPropertiesMutableProperty",
@@ -1784,6 +1787,7 @@ class CfnPublicDnsNamespace(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1850,7 +1854,7 @@ class CfnPublicDnsNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b0d339997857771da108a05e52dd4560357534c99e3ad438aaed67d2928639b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1863,7 +1867,7 @@ class CfnPublicDnsNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b473e7816fc36dff85b333102dba9edd1dbf9ff655df24b685e298b0135daf27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="properties")
@@ -1881,7 +1885,7 @@ class CfnPublicDnsNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ac76e55a47b32554d192ba5301278d2384548daa676f27c621980d8556ced49f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "properties", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "properties", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1897,7 +1901,7 @@ class CfnPublicDnsNamespace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__36c6453a5ebe6f998cd795a80b6480c4d96bbc3cac84ec309d02e8ff0a4d806d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_servicediscovery.CfnPublicDnsNamespace.PropertiesProperty",
@@ -2393,6 +2397,7 @@ class CfnService(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2457,7 +2462,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d72714f1b3a582c94f216c9033a2aa3883c999cd7f9154c6a2108e1afeb460b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="dnsConfig")
@@ -2475,7 +2480,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5f361a3e1ffe439365ece9894aaa76d6a3ee25815b97951742e59d050e574453)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dnsConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dnsConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckConfig")
@@ -2493,7 +2498,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4dd1e987f6914e43c0264f356fc2284404c77f8ef1193d64382089085ad31a6f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "healthCheckConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="healthCheckCustomConfig")
@@ -2511,7 +2516,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__26f76dfc0ec0f9ce1fbcc6993da16c3b503b33b0cda729361f780a6ecd6b7362)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "healthCheckCustomConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "healthCheckCustomConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2524,7 +2529,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3a656f8cac1553476b396c1277481952cedf4d4311f43819f29ffb9d0bbc7537)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="namespaceId")
@@ -2537,7 +2542,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__145cf7d4d3570fc466251439b01ef2a07289bc8087a24ccb542c1442a58bafcd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespaceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "namespaceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceAttributes")
@@ -2555,7 +2560,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__beed9ddfb5044557f1d91d44e5b2c14ae013234eaf80e61e0ced35d0ff47f80a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceAttributes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceAttributes", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2571,7 +2576,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__44063f4c2439ed7f79fdc71914b9bcc3ba82e93c107b7159f1091fc833023332)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -2584,7 +2589,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__91e2a057fea1e48783bb2fde800faa34d8d67c4a271c17607f2b302a614a4616)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_servicediscovery.CfnService.DnsConfigProperty",
@@ -4649,6 +4654,7 @@ class IpInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -5050,6 +5056,7 @@ class NonIpInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -5394,6 +5401,7 @@ class PrivateDnsNamespace(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -5777,6 +5785,7 @@ class PublicDnsNamespace(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -6255,6 +6264,7 @@ class Service(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -6730,6 +6740,7 @@ class AliasTargetInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -6923,6 +6934,7 @@ class CnameInstance(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -7095,6 +7107,7 @@ class HttpNamespace(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

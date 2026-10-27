@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import time
 
 import pytest
@@ -39,6 +40,13 @@ def isolate(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config" / "probe" / "config.json"))
     monkeypatch.setenv("PROBE_BASE_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "home" / ".claude"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "home" / ".codex"))
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", str(tmp_path / "home" / ".pi" / "agent"))
+    from probe.sdk.agent_session import DAEMON_SESSION_ENV
+
+    monkeypatch.delenv(DAEMON_SESSION_ENV, raising=False)  # a suite run by a Probe daemon applies nothing
     return tmp_path
 
 
@@ -51,7 +59,7 @@ def spawns(monkeypatch):
     calls: list[list[str]] = []
     monkeypatch.setattr(cli_main, "_service_owns_updates", lambda: False)
     monkeypatch.setattr(cli_main, "_spawn_version_refresh", lambda: calls.append(["refresh"]))
-    monkeypatch.setattr(cli_main, "_spawn_autoupdate", lambda: calls.append(["apply"]))
+    monkeypatch.setattr(cli_main, "_spawn_autoupdate", lambda **_kw: calls.append(["apply"]))
     return calls
 
 
@@ -99,6 +107,86 @@ def test_disabled_does_nothing_at_all(spawns, no_network):
     _cache("99.9.9", age=99999)
     cli_main._version_notice()
     assert spawns == [], "an install that never opted in must not spawn anything"
+
+
+_SKIP = {"at": 1, "reason": "run in flight", "count": 2, "available": "9.9.9", "trigger": "cli"}
+
+
+def _write_state(folder, content) -> None:
+    if content is None:
+        return
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "autoupdate.json").write_text(content if isinstance(content, str) else json.dumps(content))
+
+
+def _state_files() -> list:
+    return [(folder / "autoupdate.json").read_bytes() if (folder / "autoupdate.json").exists() else None
+            for folder in (version_policy.state_dir(), version_policy.default_state_dir())]
+
+
+@pytest.mark.parametrize(
+    ("here", "default_folder", "managed", "answer"),
+    [
+        # No choice on record anywhere: ON for the machine's managed CLI only.
+        (None, None, True, (True, True)),
+        ("{not json", None, True, (True, True)),
+        ({"last_skip": _SKIP}, None, True, (True, True)),
+        # A pip, pipx, editable or project install keeps its opt-in (D4).
+        (None, None, False, (False, False)),
+        # An explicit off in ANY known state folder is off, for every reader:
+        # the service reads the default folder, a person may run with
+        # XDG_STATE_HOME.
+        ({"enabled": False}, None, True, (False, False)),
+        (None, {"enabled": False}, True, (False, False)),
+        ({"enabled": True}, {"enabled": False}, True, (False, False)),
+        # A value nothing of ours writes is no opt-in.
+        ({"enabled": "yes"}, None, True, (False, False)),
+        # A person's opt-in is on for any install, as always.
+        ({"enabled": True}, None, False, (True, False)),
+        (None, {"enabled": True}, False, (True, False)),
+    ],
+    ids=["missing", "unreadable", "no-enabled-key", "not-managed", "off-here", "off-in-default-folder",
+         "off-wins", "not-a-boolean", "opted-in", "opted-in-in-default-folder"],
+)
+def test_auto_update_is_on_for_the_managed_cli_unless_turned_off(monkeypatch, here, default_folder, managed, answer):
+    """Owner, 2026-10-26: updates must never stall (plan C2, I6). A missing or
+    corrupt autoupdate.json used to read as OFF on every install, so a lost
+    file stopped a machine's updates for good. The default is computed on every
+    read and NEVER written: every CLI and hook before it reads a written
+    `"enabled": true` as a person's opt-in, and an old pip `probe` in a
+    researcher's venv would then upgrade that venv (D4)."""
+    monkeypatch.setattr(version_policy, "managed_cli", lambda path=None: managed)
+    assert version_policy.state_dir() != version_policy.default_state_dir()  # XDG_STATE_HOME is set
+    _write_state(version_policy.state_dir(), here)
+    _write_state(version_policy.default_state_dir(), default_folder)
+    before = _state_files()
+
+    assert (version_policy.autoupdate_enabled(), autoupdate.load().by_default) == answer
+    assert _state_files() == before, "reading the setting wrote it"
+
+
+def test_a_persons_choice_is_saved_in_every_known_state_folder(isolate, monkeypatch):
+    """Turned off under XDG_STATE_HOME, it must be off for the Probe service
+    too, which starts with no XDG_STATE_HOME and reads the default folder."""
+    monkeypatch.setattr(version_policy, "managed_cli", lambda path=None: True)
+    autoupdate.save(enabled=False)
+    monkeypatch.delenv("XDG_STATE_HOME")
+    assert (version_policy.read_state(), version_policy.autoupdate_enabled()) == ({"enabled": False}, False)
+
+
+def test_removing_probe_keeps_an_explicit_off(isolate, monkeypatch):
+    """Uninstall drops the record so the device reads fresh, but someone who
+    froze the CLI keeps it frozen; one who had it on is back to no choice."""
+    monkeypatch.setattr(version_policy, "managed_cli", lambda path=None: True)
+    autoupdate.save(enabled=False)
+    autoupdate.record_attempt(autoupdate.Attempt(at=1, ok=True))
+    autoupdate.forget()
+    assert [json.loads(raw) for raw in _state_files()] == [{"enabled": False}] * 2
+    assert version_policy.autoupdate_enabled() is False
+
+    autoupdate.save(enabled=True)
+    autoupdate.forget()
+    assert _state_files() == [None, None]
 
 
 def test_a_fresh_cache_makes_no_network_call_and_no_refresh(spawns, no_network, capsys):
@@ -151,15 +239,160 @@ def test_a_failed_fetch_uses_backoff_not_ttl(spawns, no_network):
 # ---------------------------------------------------------------------------
 
 
-def test_not_a_tty_nudges_but_never_applies(spawns, no_network, monkeypatch, capsys):
+@pytest.mark.parametrize(
+    ("agent", "argv"),
+    [
+        (None, ["probe", "ls"]),
+        ("pi", ["probe", "session", "status"]),
+        ("claude_code", ["probe", "session", "initialize"]),
+        (None, ["probe", "session", "initialize"]),
+    ],
+)
+def test_off_a_terminal_it_applies_once_per_window(spawns, no_network, monkeypatch, capsys, agent, argv):
+    """No TTY gate (C3): a machine whose only `probe` calls come from hooks or
+    an agent's shell never updated (an Anthrogen pod sat on 0.283.0 skipping
+    `not_a_tty`). The update is detached and waits for the command to exit;
+    off a terminal it starts once per window, since those callers run `probe`
+    dozens of times an hour, and again once the window has passed."""
+    _enable()
+    _cache("99.9.9", age=10)
+    _as_tty(monkeypatch, False)
+    if agent:
+        monkeypatch.setenv("PROBE_AGENT", agent)
+    else:
+        monkeypatch.delenv("PROBE_AGENT", raising=False)
+    monkeypatch.setattr(cli_main.sys, "argv", argv)
+
+    cli_main._version_notice()
+    cli_main._version_notice()
+    assert spawns.count(["apply"]) == 1
+    assert "99.9.9" in capsys.readouterr().err, "a nudge is still useful in CI logs"
+    assert autoupdate.load().last_skip is None, "nothing was refused"
+
+    stamp = autoupdate.state_dir() / cli_main._CLI_UPDATE_STAMP
+    past = time.time() - cli_main._CLI_UPDATE_EVERY_S - 1
+    os.utime(stamp, (past, past))
+    cli_main._version_notice()
+    assert spawns.count(["apply"]) == 2
+
+
+def test_a_run_holds_the_update_off_for_a_day_at_most(spawns, no_network, monkeypatch):
+    """Where the CLI updates itself, a live run deferred it for as long as runs
+    went on: a machine that trains around the clock never updated. It now
+    defers a day at most, as the Probe service does (C3): the first deferral is
+    dated, and a day later the update goes on past the run."""
+    from probe.cli import run_lock
+
+    _enable()
+    _cache("99.9.9")
+    _as_tty(monkeypatch, True)
+    _argv(monkeypatch, "ls")
+    lock = run_lock.acquire("training-run")
+    try:
+        cli_main._version_notice()
+        assert ["apply"] not in spawns
+        state = version_policy.read_state()
+        assert state["last_skip"]["reason"] == autoupdate.SKIP_RUN_IN_FLIGHT
+        first = state[autoupdate.RUN_DEFERRED_SINCE_KEY]
+
+        cli_main._version_notice()  # still deferring: the first time stands
+        assert ["apply"] not in spawns
+        assert version_policy.read_state()[autoupdate.RUN_DEFERRED_SINCE_KEY] == first
+
+        state = version_policy.read_state()
+        state[autoupdate.RUN_DEFERRED_SINCE_KEY] = time.time() - autoupdate.RUN_DEFER_LIMIT_S - 1
+        version_policy.atomic_write_json(version_policy.state_path(), state)
+        cli_main._version_notice()
+        assert ["apply"] in spawns
+    finally:
+        lock.release()
+
+
+@pytest.mark.parametrize(
+    ("between", "defers"),
+    [
+        ("deferring-all-day", False),  # one hold without a break: the day is up
+        ("idle-hours", True),  # nothing deferred for hours: a new run, a new day
+        ("no-run-found", True),
+        ("an-update-ran", True),
+    ],
+)
+def test_a_runs_hold_on_the_update_starts_again_after_a_break(isolate, between, defers):
+    """The day is counted over ONE hold without a break. Idle in between (no
+    deferral for RUN_DEFER_GAP_S), a check that found no run, or an update
+    that ran, ends it: the run found next may be minutes old, and gets a day
+    of its own, never an update in place under it."""
+    day_ago = time.time() - autoupdate.RUN_DEFER_LIMIT_S - 60
+    assert autoupdate.defer_for_run(now=day_ago) is True
+    if between == "deferring-all-day":  # deferred again and again since, the latest a minute ago
+        state = version_policy.read_state()
+        state[autoupdate.RUN_DEFERRED_LAST_KEY] = time.time() - 60
+        version_policy.atomic_write_json(version_policy.state_path(), state)
+    elif between == "no-run-found":
+        autoupdate.clear_run_deferral()
+    elif between == "an-update-ran":
+        autoupdate.record_attempt(autoupdate.Attempt(at=1, ok=True))
+    assert autoupdate.defer_for_run() is defers
+
+
+def test_a_run_still_live_after_the_day_keeps_its_hold_while_the_update_is_turned_away(isolate):
+    """Past the day the update goes on; if something else turns it away (a
+    setup, a lock), the checks that keep finding the run must keep the hold
+    going, or two quiet hours later a fresh day would start under the same run."""
+    now = time.time()
+    version_policy.atomic_write_json(version_policy.state_path(), {
+        autoupdate.RUN_DEFERRED_SINCE_KEY: now - autoupdate.RUN_DEFER_LIMIT_S - 60,
+        autoupdate.RUN_DEFERRED_LAST_KEY: now - 60,
+    })
+    hour = 3600
+    assert [autoupdate.defer_for_run(now=now + step * 1.5 * hour) for step in range(3)] == [False] * 3
+
+
+def test_a_choice_that_cannot_be_saved_is_said_not_swallowed(isolate, monkeypatch):
+    """`save` used to drop a failed write: the wizard said "off" while the
+    Probe service, reading the default folder, read on."""
+    from probe.cli import setup
+
+    blocker = version_policy.default_state_dir()
+    blocker.parent.mkdir(parents=True, exist_ok=True)
+    blocker.write_text("not a folder")
+    with pytest.raises(OSError):
+        autoupdate.save(enabled=False)
+    (line,) = setup.apply_auto_update(False)
+    assert setup.reports_failure(line) and str(blocker) in line
+
+
+@pytest.mark.parametrize("caller", ["every-command-check", "run-end"])
+@pytest.mark.parametrize("held_by", [None, "a-daemon-session", "a-daemon-worker"])
+def test_never_applied_under_a_probe_daemon(deferred_spawns, no_network, monkeypatch, caller, held_by):
+    """The CLI's own update lands in place: never from a command a Probe daemon
+    runs, nor while a daemon worker holds its lock, whichever trigger spawns
+    it (`_spawn_update`): off a terminal (C3) most callers are exactly those,
+    and a run's end (`_apply_deferred_update`) had no such check."""
+    from probe.sdk.agent_session import DAEMON_SESSION_ENV
+    from probe.service import updater as service_updater
+
     _enable()
     _cache("99.9.9")
     _as_tty(monkeypatch, False)
     _argv(monkeypatch, "ls")
-    cli_main._version_notice()
-    assert ["apply"] not in spawns
-    assert "99.9.9" in capsys.readouterr().err, "a nudge is still useful in CI logs"
-    assert autoupdate.load().last_skip.reason == autoupdate.SKIP_NOT_A_TTY
+    if held_by == "a-daemon-session":
+        monkeypatch.setenv(DAEMON_SESSION_ENV, "s-1")
+    monkeypatch.setattr(service_updater, "daemon_worker_running", lambda: held_by == "a-daemon-worker")
+    if caller == "run-end":
+        cli_main._apply_deferred_update()
+    else:
+        cli_main._version_notice()
+    assert bool(deferred_spawns) is (held_by is None)
+    if held_by == "a-daemon-worker":
+        skip = autoupdate.load().last_skip
+        # The every-command check knows the version it held off; a run's end does not.
+        assert (skip.reason, skip.available) == (
+            autoupdate.SKIP_DAEMON_RECORDING, "99.9.9" if caller == "every-command-check" else None
+        )
+    if held_by == "a-daemon-session" and caller == "every-command-check":
+        stamp = autoupdate.state_dir() / cli_main._CLI_UPDATE_STAMP
+        assert not stamp.exists(), "a Probe daemon's command claimed the off-terminal window"
 
 
 @pytest.mark.parametrize("command", sorted(cli_main._UPDATE_HOT_PATH_COMMANDS))
@@ -934,31 +1167,9 @@ def test_apply_if_newer_runs_only_the_owed_pi_step_when_the_cli_is_current(appli
     assert owed == [1] and applied == [], "the pi step alone, never the CLI and plugins"
 
 
-@pytest.mark.parametrize(
-    ("agent", "argv"),
-    [
-        ("pi", ["probe", "session", "status"]),  # only the session start
-        ("claude_code", ["probe", "session", "initialize"]),  # Claude Code has its hook
-        (None, ["probe", "session", "initialize"]),
-    ],
-)
-def test_other_calls_off_a_terminal_still_skip(spawns, no_network, monkeypatch, agent, argv):
-    _enable()
-    _cache("99.9.9", age=10)
-    _as_tty(monkeypatch, False)
-    if agent:
-        monkeypatch.setenv("PROBE_AGENT", agent)
-    else:
-        monkeypatch.delenv("PROBE_AGENT", raising=False)
-    monkeypatch.setattr(cli_main.sys, "argv", argv)
-
-    cli_main._version_notice()
-
-    assert ["apply"] not in spawns
-
-
 def test_windows_never_applies_from_pis_session_start(spawns, no_network, monkeypatch):
-    """No fork: the update would run inline and outlast the extension's 5 s budget."""
+    """No fork: the update would run inline and outlast the extension's 5 s
+    budget. Windows keeps its TTY gate (out of C3's scope)."""
     _enable()
     _cache("99.9.9", age=10)
     _as_tty(monkeypatch, False)
@@ -969,6 +1180,7 @@ def test_windows_never_applies_from_pis_session_start(spawns, no_network, monkey
     cli_main._version_notice()
 
     assert ["apply"] not in spawns
+    assert autoupdate.load().last_skip.reason == autoupdate.SKIP_NOT_A_TTY
 
 
 # ---------------------------------------------------------------------------
@@ -1069,12 +1281,14 @@ def test_with_the_service_one_ask_per_window_however_many_commands(
     assert service_asks == ["cli", "cli"]
 
 
-@pytest.mark.parametrize("command", ["service", *sorted(cli_main._UPDATE_HOT_PATH_COMMANDS)])
+@pytest.mark.parametrize(
+    "command", ["service", *sorted(cli_main._UPDATE_HOT_PATH_COMMANDS - cli_main._ASK_OUTSIDE_A_RUN)]
+)
 def test_with_the_service_probe_service_and_run_commands_start_nothing_and_record_nothing(
     service_asks, no_network, monkeypatch, command
 ):
-    """`probe service check-now` is the hook's ask itself; a run-scoped command
-    starts no process from inside a training loop."""
+    """`probe service check-now` is the hook's ask itself; `log`, `span` and
+    `exec` start no process from inside a training loop (or own it)."""
     _enable()
     _cache("99.9.9")
     _as_tty(monkeypatch, False)
@@ -1084,6 +1298,98 @@ def test_with_the_service_probe_service_and_run_commands_start_nothing_and_recor
 
     assert service_asks == []
     assert autoupdate.load().last_skip is None
+
+
+def _no_run_env(monkeypatch) -> None:
+    for name in cli_main._RUN_ENV:
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.mark.parametrize("command", sorted(cli_main._ASK_OUTSIDE_A_RUN))
+def test_with_the_service_artifact_run_and_outbox_outside_a_run_ask_it(
+    service_asks, no_network, monkeypatch, command
+):
+    """Plan fool-proof-updates B3: a machine whose only Probe use is `probe run`
+    and `probe artifact` from a script is asked like any other, once per window."""
+    _enable()
+    _cache("99.9.9")
+    _as_tty(monkeypatch, False)
+    _argv(monkeypatch, command)
+    _no_run_env(monkeypatch)
+
+    cli_main._version_notice()
+    cli_main._version_notice()
+
+    assert service_asks == ["cli"]
+    assert autoupdate.load().last_skip is None
+
+
+@pytest.mark.parametrize("variable", cli_main._RUN_ENV)
+@pytest.mark.parametrize("command", sorted(cli_main._ASK_OUTSIDE_A_RUN))
+def test_with_the_service_a_run_scoped_command_in_a_runs_environment_never_asks(
+    service_asks, no_network, monkeypatch, command, variable
+):
+    _enable()
+    _cache("99.9.9")
+    _argv(monkeypatch, command)
+    _no_run_env(monkeypatch)
+    monkeypatch.setenv(variable, "run-123")
+
+    cli_main._version_notice()
+
+    assert service_asks == []
+
+
+def test_with_the_service_a_run_lock_this_process_tree_holds_stops_the_ask(service_asks, no_network, monkeypatch):
+    """The SDK's run holds its lock in the training process: a `probe artifact`
+    that process (or a child of it) runs is inside the run."""
+    from probe.cli import run_lock
+
+    _enable()
+    _cache("99.9.9")
+    _argv(monkeypatch, "artifact")
+    _no_run_env(monkeypatch)
+    lock = run_lock.acquire("training-run")
+    try:
+        cli_main._version_notice()
+    finally:
+        lock.release()
+    assert service_asks == []
+
+    cli_main._version_notice()
+    assert service_asks == ["cli"], "the run ended: the next command asks"
+
+
+def test_with_the_service_a_run_in_another_process_tree_does_not_stop_the_ask(
+    service_asks, no_network, monkeypatch, tmp_path
+):
+    """A run in another terminal is not this command's: the service decides."""
+    import subprocess
+    import sys
+
+    from probe.cli import run_lock
+
+    _enable()
+    _cache("99.9.9")
+    _argv(monkeypatch, "run")
+    _no_run_env(monkeypatch)
+    ready = tmp_path / "held"
+    holder = subprocess.Popen([
+        sys.executable, "-c",
+        "import sys, time; from probe.cli import run_lock; lock = run_lock.acquire('other-run'); "
+        "open(sys.argv[1], 'w').close(); time.sleep(60)",
+        str(ready),
+    ])
+    try:
+        deadline = time.monotonic() + 30
+        while not ready.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert ready.exists() and run_lock.any_live()
+        cli_main._version_notice()
+    finally:
+        holder.kill()
+        holder.wait()
+    assert service_asks == ["cli"]
 
 
 def test_with_the_service_pis_session_start_asks_it_although_a_run_is_live(

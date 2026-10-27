@@ -172,6 +172,7 @@ class CfnGraph(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -223,7 +224,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__017213db557533db476b11d3395ad002c1c77bc8cc9e28bdee567c8e34fc6ae0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "autoEnableMembers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "autoEnableMembers", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -239,7 +240,7 @@ class CfnGraph(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eeb800de7e2138cfe98794158b6d6acc2871d2831f80f41887f5118e20ddcba7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -427,6 +428,7 @@ class CfnMemberInvitation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -460,7 +462,7 @@ class CfnMemberInvitation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b12ee371571562da274cbc7b8f9ea5fcd9b0f00711e7457cdaa512b01dd4d9f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "graphArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "graphArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="memberEmailAddress")
@@ -473,7 +475,7 @@ class CfnMemberInvitation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__effa006ed39255027e20425818f01d5bd8d8799e0f0c9bbaa8605773192cb9e2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "memberEmailAddress", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "memberEmailAddress", value)
 
     @builtins.property
     @jsii.member(jsii_name="memberId")
@@ -486,7 +488,7 @@ class CfnMemberInvitation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0493b702981486fe3adacfc3b48927622dac6cb286fac2e11ee81e222b483192)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "memberId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "memberId", value)
 
     @builtins.property
     @jsii.member(jsii_name="disableEmailNotification")
@@ -504,7 +506,7 @@ class CfnMemberInvitation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__660e62f59a214a78dff16da1b8a2a68e2f58419729f3c700cdee6f7697a65eaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "disableEmailNotification", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "disableEmailNotification", value)
 
     @builtins.property
     @jsii.member(jsii_name="message")
@@ -517,7 +519,7 @@ class CfnMemberInvitation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__31ea094d2aaa558144a048004a5a7542d051737344a0807aac03c8ba0e840fc1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "message", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "message", value)
 
 
 @jsii.data_type(
@@ -737,6 +739,7 @@ class CfnOrganizationAdmin(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -779,7 +782,7 @@ class CfnOrganizationAdmin(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c8b3ebd6ff4fb0708cfa2cc5ee080b09356c9175b7e842ebce16ec9cba148b7f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accountId", value)
 
 
 @jsii.data_type(

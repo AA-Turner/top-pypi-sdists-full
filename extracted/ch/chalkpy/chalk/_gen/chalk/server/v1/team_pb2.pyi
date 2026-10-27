@@ -998,6 +998,43 @@ class User(_message.Message):
         deactivated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
+class ListTeamMembersPageToken(_message.Message):
+    __slots__ = ("user_id",)
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    user_id: str
+    def __init__(self, user_id: _Optional[str] = ...) -> None: ...
+
+class ListTeamMembersFilters(_message.Message):
+    __slots__ = ("include_deactivated",)
+    INCLUDE_DEACTIVATED_FIELD_NUMBER: _ClassVar[int]
+    include_deactivated: bool
+    def __init__(self, include_deactivated: bool = ...) -> None: ...
+
+class ListTeamMembersRequest(_message.Message):
+    __slots__ = ("limit", "page_token", "filters")
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    limit: int
+    page_token: str
+    filters: ListTeamMembersFilters
+    def __init__(
+        self,
+        limit: _Optional[int] = ...,
+        page_token: _Optional[str] = ...,
+        filters: _Optional[_Union[ListTeamMembersFilters, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListTeamMembersResponse(_message.Message):
+    __slots__ = ("members", "next_page_token")
+    MEMBERS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    members: _containers.RepeatedCompositeFieldContainer[User]
+    next_page_token: str
+    def __init__(
+        self, members: _Optional[_Iterable[_Union[User, _Mapping]]] = ..., next_page_token: _Optional[str] = ...
+    ) -> None: ...
+
 class EnvironmentPermissions(_message.Message):
     __slots__ = ("environment_id", "scim_roles", "user_permissions")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]

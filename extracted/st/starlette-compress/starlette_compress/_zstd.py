@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from compression.zstd import ZstdCompressor  # type: ignore
+# This backend is imported only on Python 3.14+, beyond the checker's 3.11 target.
+from compression.zstd import (  # pyright: ignore[reportMissingImports]
+    ZstdCompressor,  # pyright: ignore[reportAttributeAccessIssue]
+)
 
 from starlette_compress._responder import CompressionResponder
 

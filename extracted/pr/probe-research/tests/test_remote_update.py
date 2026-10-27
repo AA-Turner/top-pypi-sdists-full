@@ -314,7 +314,7 @@ def test_every_command_runs_it_but_a_read_only_one(monkeypatch):
     from typer.testing import CliRunner
 
     order: list[str] = []
-    monkeypatch.setattr(cli_main, "_outbox_notice", lambda: None)
+    monkeypatch.setattr(cli_main, "_outbox_notice", lambda **_: None)
     monkeypatch.setattr(cli_main, "_version_notice", lambda: order.append("version"))
     monkeypatch.setattr(cli_main, "_remote_update_notice", lambda: order.append("remote"))
     monkeypatch.setattr(cli_main, "_ensure_capture_notice", lambda _command: None)

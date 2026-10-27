@@ -1322,6 +1322,7 @@ class AwsCdkJavaApp(
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
         require_approval: typing.Optional["ApprovalLevel"] = None,
+        version_reporting: typing.Optional[builtins.bool] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -1356,6 +1357,7 @@ class AwsCdkJavaApp(
         description: typing.Optional[builtins.str] = None,
         packaging: typing.Optional[builtins.str] = None,
         parent_pom: typing.Optional[typing.Union["_java_21ed9a42.ParentPom", typing.Dict[builtins.str, typing.Any]]] = None,
+        sort_plugins: typing.Optional["_projen_04054675.ICompareString"] = None,
         url: typing.Optional[builtins.str] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
@@ -1380,6 +1382,7 @@ class AwsCdkJavaApp(
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
         :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
+        :param version_reporting: (experimental) Enable AWS CDK library version reporting. Default: - use the AWS CDK default
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
         :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
@@ -1414,6 +1417,7 @@ class AwsCdkJavaApp(
         :param description: (experimental) Description of a project is always good. Although this should not replace formal documentation, a quick comment to any readers of the POM is always helpful. Default: undefined
         :param packaging: (experimental) Project packaging format. Default: "jar"
         :param parent_pom: (experimental) A Parent Pom can be used to have a child project inherit properties/plugins/ect in order to reduce duplication and keep standards across a large amount of repos. Default: undefined
+        :param sort_plugins: (experimental) Sorts the top-level build plugins in the generated POM. The comparator receives ``groupId/artifactId`` identifiers without versions. Returning zero preserves the existing relative order. This does not change Maven lifecycle phase bindings. Default: - preserve the existing dependency order
         :param url: (experimental) The URL, like the name, is not required. This is a nice gesture for projects users, however, so that they know where the project lives. Default: undefined
         :param name: (experimental) This is the name of your project. Default: $BASEDIR
         :param commit_generated: (experimental) Whether to commit the managed files by default. Default: true
@@ -1440,6 +1444,7 @@ class AwsCdkJavaApp(
             context=context,
             feature_flags=feature_flags,
             require_approval=require_approval,
+            version_reporting=version_reporting,
             watch_excludes=watch_excludes,
             watch_includes=watch_includes,
             cdk_version=cdk_version,
@@ -1474,6 +1479,7 @@ class AwsCdkJavaApp(
             description=description,
             packaging=packaging,
             parent_pom=parent_pom,
+            sort_plugins=sort_plugins,
             url=url,
             name=name,
             commit_generated=commit_generated,
@@ -1641,6 +1647,7 @@ class AwsCdkPythonApp(
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
         require_approval: typing.Optional["ApprovalLevel"] = None,
+        version_reporting: typing.Optional[builtins.bool] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -1712,6 +1719,7 @@ class AwsCdkPythonApp(
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
         :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
+        :param version_reporting: (experimental) Enable AWS CDK library version reporting. Default: - use the AWS CDK default
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
         :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
@@ -1785,6 +1793,7 @@ class AwsCdkPythonApp(
             context=context,
             feature_flags=feature_flags,
             require_approval=require_approval,
+            version_reporting=version_reporting,
             watch_excludes=watch_excludes,
             watch_includes=watch_includes,
             cdk_version=cdk_version,
@@ -1935,6 +1944,7 @@ class AwsCdkTypeScriptApp(
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
         require_approval: typing.Optional["ApprovalLevel"] = None,
+        version_reporting: typing.Optional[builtins.bool] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -2114,6 +2124,7 @@ class AwsCdkTypeScriptApp(
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
         :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
+        :param version_reporting: (experimental) Enable AWS CDK library version reporting. Default: - use the AWS CDK default
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
         :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
@@ -2295,6 +2306,7 @@ class AwsCdkTypeScriptApp(
             context=context,
             feature_flags=feature_flags,
             require_approval=require_approval,
+            version_reporting=version_reporting,
             watch_excludes=watch_excludes,
             watch_includes=watch_includes,
             cdk_version=cdk_version,
@@ -2507,6 +2519,7 @@ class CdkConfig(
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
         require_approval: typing.Optional["ApprovalLevel"] = None,
+        version_reporting: typing.Optional[builtins.bool] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -2518,6 +2531,7 @@ class CdkConfig(
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
         :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
+        :param version_reporting: (experimental) Enable AWS CDK library version reporting. Default: - use the AWS CDK default
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
 
@@ -2533,6 +2547,7 @@ class CdkConfig(
             context=context,
             feature_flags=feature_flags,
             require_approval=require_approval,
+            version_reporting=version_reporting,
             watch_excludes=watch_excludes,
             watch_includes=watch_includes,
         )
@@ -2620,6 +2635,7 @@ class CdkConfig(
         "context": "context",
         "feature_flags": "featureFlags",
         "require_approval": "requireApproval",
+        "version_reporting": "versionReporting",
         "watch_excludes": "watchExcludes",
         "watch_includes": "watchIncludes",
     },
@@ -2633,6 +2649,7 @@ class CdkConfigCommonOptions:
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
         require_approval: typing.Optional["ApprovalLevel"] = None,
+        version_reporting: typing.Optional[builtins.bool] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -2643,6 +2660,7 @@ class CdkConfigCommonOptions:
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
         :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
+        :param version_reporting: (experimental) Enable AWS CDK library version reporting. Default: - use the AWS CDK default
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
 
@@ -2655,6 +2673,7 @@ class CdkConfigCommonOptions:
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument feature_flags", value=feature_flags, expected_type=type_hints["feature_flags"])
             check_type(argname="argument require_approval", value=require_approval, expected_type=type_hints["require_approval"])
+            check_type(argname="argument version_reporting", value=version_reporting, expected_type=type_hints["version_reporting"])
             check_type(argname="argument watch_excludes", value=watch_excludes, expected_type=type_hints["watch_excludes"])
             check_type(argname="argument watch_includes", value=watch_includes, expected_type=type_hints["watch_includes"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2668,6 +2687,8 @@ class CdkConfigCommonOptions:
             self._values["feature_flags"] = feature_flags
         if require_approval is not None:
             self._values["require_approval"] = require_approval
+        if version_reporting is not None:
+            self._values["version_reporting"] = version_reporting
         if watch_excludes is not None:
             self._values["watch_excludes"] = watch_excludes
         if watch_includes is not None:
@@ -2739,6 +2760,18 @@ class CdkConfigCommonOptions:
         '''
         result = self._values.get("require_approval")
         return typing.cast(typing.Optional["ApprovalLevel"], result)
+
+    @builtins.property
+    def version_reporting(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable AWS CDK library version reporting.
+
+        :default: - use the AWS CDK default
+
+        :see: https://docs.aws.amazon.com/cdk/v2/guide/usage-data.html
+        :stability: experimental
+        '''
+        result = self._values.get("version_reporting")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def watch_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2783,6 +2816,7 @@ class CdkConfigCommonOptions:
         "context": "context",
         "feature_flags": "featureFlags",
         "require_approval": "requireApproval",
+        "version_reporting": "versionReporting",
         "watch_excludes": "watchExcludes",
         "watch_includes": "watchIncludes",
         "app": "app",
@@ -2797,6 +2831,7 @@ class CdkConfigOptions(CdkConfigCommonOptions):
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
         require_approval: typing.Optional["ApprovalLevel"] = None,
+        version_reporting: typing.Optional[builtins.bool] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         app: builtins.str,
@@ -2808,6 +2843,7 @@ class CdkConfigOptions(CdkConfigCommonOptions):
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
         :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
+        :param version_reporting: (experimental) Enable AWS CDK library version reporting. Default: - use the AWS CDK default
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
         :param app: (experimental) The command line to execute in order to synthesize the CDK application (language specific).
@@ -2821,6 +2857,7 @@ class CdkConfigOptions(CdkConfigCommonOptions):
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument feature_flags", value=feature_flags, expected_type=type_hints["feature_flags"])
             check_type(argname="argument require_approval", value=require_approval, expected_type=type_hints["require_approval"])
+            check_type(argname="argument version_reporting", value=version_reporting, expected_type=type_hints["version_reporting"])
             check_type(argname="argument watch_excludes", value=watch_excludes, expected_type=type_hints["watch_excludes"])
             check_type(argname="argument watch_includes", value=watch_includes, expected_type=type_hints["watch_includes"])
             check_type(argname="argument app", value=app, expected_type=type_hints["app"])
@@ -2837,6 +2874,8 @@ class CdkConfigOptions(CdkConfigCommonOptions):
             self._values["feature_flags"] = feature_flags
         if require_approval is not None:
             self._values["require_approval"] = require_approval
+        if version_reporting is not None:
+            self._values["version_reporting"] = version_reporting
         if watch_excludes is not None:
             self._values["watch_excludes"] = watch_excludes
         if watch_includes is not None:
@@ -2908,6 +2947,18 @@ class CdkConfigOptions(CdkConfigCommonOptions):
         '''
         result = self._values.get("require_approval")
         return typing.cast(typing.Optional["ApprovalLevel"], result)
+
+    @builtins.property
+    def version_reporting(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable AWS CDK library version reporting.
+
+        :default: - use the AWS CDK default
+
+        :see: https://docs.aws.amazon.com/cdk/v2/guide/usage-data.html
+        :stability: experimental
+        '''
+        result = self._values.get("version_reporting")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def watch_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8905,6 +8956,7 @@ class AwsCdkConstructLibraryOptions(
         "description": "description",
         "packaging": "packaging",
         "parent_pom": "parentPom",
+        "sort_plugins": "sortPlugins",
         "url": "url",
         "compile_options": "compileOptions",
         "deps": "deps",
@@ -8922,6 +8974,7 @@ class AwsCdkConstructLibraryOptions(
         "context": "context",
         "feature_flags": "featureFlags",
         "require_approval": "requireApproval",
+        "version_reporting": "versionReporting",
         "watch_excludes": "watchExcludes",
         "watch_includes": "watchIncludes",
         "cdk_version": "cdkVersion",
@@ -8971,6 +9024,7 @@ class AwsCdkJavaAppOptions(
         description: typing.Optional[builtins.str] = None,
         packaging: typing.Optional[builtins.str] = None,
         parent_pom: typing.Optional[typing.Union["_java_21ed9a42.ParentPom", typing.Dict[builtins.str, typing.Any]]] = None,
+        sort_plugins: typing.Optional["_projen_04054675.ICompareString"] = None,
         url: typing.Optional[builtins.str] = None,
         compile_options: typing.Optional[typing.Union["_java_21ed9a42.MavenCompileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -8988,6 +9042,7 @@ class AwsCdkJavaAppOptions(
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
         require_approval: typing.Optional["ApprovalLevel"] = None,
+        version_reporting: typing.Optional[builtins.bool] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -9029,6 +9084,7 @@ class AwsCdkJavaAppOptions(
         :param description: (experimental) Description of a project is always good. Although this should not replace formal documentation, a quick comment to any readers of the POM is always helpful. Default: undefined
         :param packaging: (experimental) Project packaging format. Default: "jar"
         :param parent_pom: (experimental) A Parent Pom can be used to have a child project inherit properties/plugins/ect in order to reduce duplication and keep standards across a large amount of repos. Default: undefined
+        :param sort_plugins: (experimental) Sorts the top-level build plugins in the generated POM. The comparator receives ``groupId/artifactId`` identifiers without versions. Returning zero preserves the existing relative order. This does not change Maven lifecycle phase bindings. Default: - preserve the existing dependency order
         :param url: (experimental) The URL, like the name, is not required. This is a nice gesture for projects users, however, so that they know where the project lives. Default: undefined
         :param compile_options: (experimental) Compile options. Default: - defaults
         :param deps: (experimental) List of runtime dependencies for this project. Dependencies use the format: ``<groupId>/<artifactId>@<semver>`` Additional dependencies can be added via ``project.addDependency()``. Default: []
@@ -9046,6 +9102,7 @@ class AwsCdkJavaAppOptions(
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
         :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
+        :param version_reporting: (experimental) Enable AWS CDK library version reporting. Default: - use the AWS CDK default
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
         :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
@@ -9120,6 +9177,7 @@ class AwsCdkJavaAppOptions(
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument packaging", value=packaging, expected_type=type_hints["packaging"])
             check_type(argname="argument parent_pom", value=parent_pom, expected_type=type_hints["parent_pom"])
+            check_type(argname="argument sort_plugins", value=sort_plugins, expected_type=type_hints["sort_plugins"])
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument compile_options", value=compile_options, expected_type=type_hints["compile_options"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -9137,6 +9195,7 @@ class AwsCdkJavaAppOptions(
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument feature_flags", value=feature_flags, expected_type=type_hints["feature_flags"])
             check_type(argname="argument require_approval", value=require_approval, expected_type=type_hints["require_approval"])
+            check_type(argname="argument version_reporting", value=version_reporting, expected_type=type_hints["version_reporting"])
             check_type(argname="argument watch_excludes", value=watch_excludes, expected_type=type_hints["watch_excludes"])
             check_type(argname="argument watch_includes", value=watch_includes, expected_type=type_hints["watch_includes"])
             check_type(argname="argument cdk_version", value=cdk_version, expected_type=type_hints["cdk_version"])
@@ -9208,6 +9267,8 @@ class AwsCdkJavaAppOptions(
             self._values["packaging"] = packaging
         if parent_pom is not None:
             self._values["parent_pom"] = parent_pom
+        if sort_plugins is not None:
+            self._values["sort_plugins"] = sort_plugins
         if url is not None:
             self._values["url"] = url
         if compile_options is not None:
@@ -9242,6 +9303,8 @@ class AwsCdkJavaAppOptions(
             self._values["feature_flags"] = feature_flags
         if require_approval is not None:
             self._values["require_approval"] = require_approval
+        if version_reporting is not None:
+            self._values["version_reporting"] = version_reporting
         if watch_excludes is not None:
             self._values["watch_excludes"] = watch_excludes
         if watch_includes is not None:
@@ -9687,6 +9750,21 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional["_java_21ed9a42.ParentPom"], result)
 
     @builtins.property
+    def sort_plugins(self) -> typing.Optional["_projen_04054675.ICompareString"]:
+        '''(experimental) Sorts the top-level build plugins in the generated POM.
+
+        The comparator receives ``groupId/artifactId`` identifiers without versions.
+        Returning zero preserves the existing relative order.
+        This does not change Maven lifecycle phase bindings.
+
+        :default: - preserve the existing dependency order
+
+        :stability: experimental
+        '''
+        result = self._values.get("sort_plugins")
+        return typing.cast(typing.Optional["_projen_04054675.ICompareString"], result)
+
+    @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The URL, like the name, is not required.
 
@@ -9907,6 +9985,18 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional["ApprovalLevel"], result)
 
     @builtins.property
+    def version_reporting(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable AWS CDK library version reporting.
+
+        :default: - use the AWS CDK default
+
+        :see: https://docs.aws.amazon.com/cdk/v2/guide/usage-data.html
+        :stability: experimental
+        '''
+        result = self._values.get("version_reporting")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def watch_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Glob patterns to exclude from ``cdk watch``.
 
@@ -10079,6 +10169,7 @@ class AwsCdkJavaAppOptions(
         "context": "context",
         "feature_flags": "featureFlags",
         "require_approval": "requireApproval",
+        "version_reporting": "versionReporting",
         "watch_excludes": "watchExcludes",
         "watch_includes": "watchIncludes",
         "cdk_version": "cdkVersion",
@@ -10158,6 +10249,7 @@ class AwsCdkPythonAppOptions(
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
         require_approval: typing.Optional["ApprovalLevel"] = None,
+        version_reporting: typing.Optional[builtins.bool] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -10230,6 +10322,7 @@ class AwsCdkPythonAppOptions(
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
         :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
+        :param version_reporting: (experimental) Enable AWS CDK library version reporting. Default: - use the AWS CDK default
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
         :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
@@ -10338,6 +10431,7 @@ class AwsCdkPythonAppOptions(
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument feature_flags", value=feature_flags, expected_type=type_hints["feature_flags"])
             check_type(argname="argument require_approval", value=require_approval, expected_type=type_hints["require_approval"])
+            check_type(argname="argument version_reporting", value=version_reporting, expected_type=type_hints["version_reporting"])
             check_type(argname="argument watch_excludes", value=watch_excludes, expected_type=type_hints["watch_excludes"])
             check_type(argname="argument watch_includes", value=watch_includes, expected_type=type_hints["watch_includes"])
             check_type(argname="argument cdk_version", value=cdk_version, expected_type=type_hints["cdk_version"])
@@ -10467,6 +10561,8 @@ class AwsCdkPythonAppOptions(
             self._values["feature_flags"] = feature_flags
         if require_approval is not None:
             self._values["require_approval"] = require_approval
+        if version_reporting is not None:
+            self._values["version_reporting"] = version_reporting
         if watch_excludes is not None:
             self._values["watch_excludes"] = watch_excludes
         if watch_includes is not None:
@@ -11244,6 +11340,18 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional["ApprovalLevel"], result)
 
     @builtins.property
+    def version_reporting(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable AWS CDK library version reporting.
+
+        :default: - use the AWS CDK default
+
+        :see: https://docs.aws.amazon.com/cdk/v2/guide/usage-data.html
+        :stability: experimental
+        '''
+        result = self._values.get("version_reporting")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def watch_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Glob patterns to exclude from ``cdk watch``.
 
@@ -11512,6 +11620,7 @@ class AwsCdkPythonAppOptions(
         "context": "context",
         "feature_flags": "featureFlags",
         "require_approval": "requireApproval",
+        "version_reporting": "versionReporting",
         "watch_excludes": "watchExcludes",
         "watch_includes": "watchIncludes",
         "cdk_version": "cdkVersion",
@@ -11699,6 +11808,7 @@ class AwsCdkTypeScriptAppOptions(
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
         require_approval: typing.Optional["ApprovalLevel"] = None,
+        version_reporting: typing.Optional[builtins.bool] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -11878,6 +11988,7 @@ class AwsCdkTypeScriptAppOptions(
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
         :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
+        :param version_reporting: (experimental) Enable AWS CDK library version reporting. Default: - use the AWS CDK default
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
         :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
@@ -12130,6 +12241,7 @@ class AwsCdkTypeScriptAppOptions(
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument feature_flags", value=feature_flags, expected_type=type_hints["feature_flags"])
             check_type(argname="argument require_approval", value=require_approval, expected_type=type_hints["require_approval"])
+            check_type(argname="argument version_reporting", value=version_reporting, expected_type=type_hints["version_reporting"])
             check_type(argname="argument watch_excludes", value=watch_excludes, expected_type=type_hints["watch_excludes"])
             check_type(argname="argument watch_includes", value=watch_includes, expected_type=type_hints["watch_includes"])
             check_type(argname="argument cdk_version", value=cdk_version, expected_type=type_hints["cdk_version"])
@@ -12471,6 +12583,8 @@ class AwsCdkTypeScriptAppOptions(
             self._values["feature_flags"] = feature_flags
         if require_approval is not None:
             self._values["require_approval"] = require_approval
+        if version_reporting is not None:
+            self._values["version_reporting"] = version_reporting
         if watch_excludes is not None:
             self._values["watch_excludes"] = watch_excludes
         if watch_includes is not None:
@@ -14629,6 +14743,18 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional["ApprovalLevel"], result)
 
     @builtins.property
+    def version_reporting(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable AWS CDK library version reporting.
+
+        :default: - use the AWS CDK default
+
+        :see: https://docs.aws.amazon.com/cdk/v2/guide/usage-data.html
+        :stability: experimental
+        '''
+        result = self._values.get("version_reporting")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def watch_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Glob patterns to exclude from ``cdk watch``.
 
@@ -15063,6 +15189,7 @@ def _typecheckingstub__2193982c803c2bf032d2edee3f43915e940fec35ac37cd9b3e183323b
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
+    version_reporting: typing.Optional[builtins.bool] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -15088,6 +15215,7 @@ def _typecheckingstub__17b71fd85a588dece1cab7a1f10a489c1f99d5cffc9bc94054d085940
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
+    version_reporting: typing.Optional[builtins.bool] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -15101,6 +15229,7 @@ def _typecheckingstub__b4c0c207e869c8418ac98b7fb9e817aeb45676d86479b832ccd72d984
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
+    version_reporting: typing.Optional[builtins.bool] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     app: builtins.str,
@@ -15592,6 +15721,7 @@ def _typecheckingstub__106ed1d5e4c0173b124a04a202f17277b84ed8b1cd40b215afcfe0850
     description: typing.Optional[builtins.str] = None,
     packaging: typing.Optional[builtins.str] = None,
     parent_pom: typing.Optional[typing.Union[_java_21ed9a42.ParentPom, typing.Dict[builtins.str, typing.Any]]] = None,
+    sort_plugins: typing.Optional[_projen_04054675.ICompareString] = None,
     url: typing.Optional[builtins.str] = None,
     compile_options: typing.Optional[typing.Union[_java_21ed9a42.MavenCompileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -15609,6 +15739,7 @@ def _typecheckingstub__106ed1d5e4c0173b124a04a202f17277b84ed8b1cd40b215afcfe0850
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
+    version_reporting: typing.Optional[builtins.bool] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_version: builtins.str,
@@ -15684,6 +15815,7 @@ def _typecheckingstub__e27f38787d25060d19d8209d5a55fd2b531387f6b87a60a7f639bbb7f
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
+    version_reporting: typing.Optional[builtins.bool] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_version: builtins.str,
@@ -15859,6 +15991,7 @@ def _typecheckingstub__d4516e51d77bf8bd5807e45e842cd19fa87c9a6d72e4f7d0caead33d3
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
+    version_reporting: typing.Optional[builtins.bool] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     cdk_version: builtins.str,

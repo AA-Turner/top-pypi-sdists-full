@@ -158,7 +158,7 @@ from .protocol import (
     symref_capabilities,
     write_info_refs,
 )
-from .refs import Ref, RefsContainer
+from .refs import Ref, RefsContainer, check_ref_format
 from .repo import Repo
 
 logger = log_utils.getLogger(__name__)
@@ -1402,6 +1402,15 @@ class MultiAckDetailedGraphWalkerImpl(AckGraphWalkerImpl):
         return True
 
 
+def _is_funny_ref(ref: Ref) -> bool:
+    """Check whether a pushed ref name must be refused.
+
+    Only well-formed refs under refs/ may be updated remotely; updating e.g.
+    HEAD would move the branch it points at while hooks only see "HEAD".
+    """
+    return not ref.startswith(b"refs/") or not check_ref_format(ref)
+
+
 class ReceivePackHandler(PackHandler):
     """Protocol handler for downloading a pack from the client."""
 
@@ -1521,6 +1530,11 @@ class ReceivePackHandler(PackHandler):
             for oldsha, sha, ref in refs:
                 ref_status = b"ok"
 
+                if _is_funny_ref(ref):
+                    ref_results.append((ref, b"funny refname"))
+                    has_failure = True
+                    continue
+
                 hook_error = self._on_update(ref, oldsha, sha)
                 if hook_error:
                     ref_status = hook_error
@@ -1568,6 +1582,10 @@ class ReceivePackHandler(PackHandler):
         else:
             for oldsha, sha, ref in refs:
                 ref_status = b"ok"
+
+                if _is_funny_ref(ref):
+                    yield (ref, b"funny refname")
+                    continue
 
                 # Run update hook for this ref
                 hook_error = self._on_update(ref, oldsha, sha)
@@ -1691,11 +1709,14 @@ class ReceivePackHandler(PackHandler):
             # Return error message to mark this ref as failed
             return str(err).encode("utf-8")
 
-    def _on_post_receive(self, client_refs: dict[bytes, tuple[bytes, bytes]]) -> None:
+    def _on_post_receive(
+        self, client_refs: list[tuple[ObjectID, ObjectID, Ref]]
+    ) -> None:
         """Run post-receive hook.
 
         Args:
-            client_refs: Dictionary of ref changes from client
+            client_refs: List of (old_sha, new_sha, ref_name) tuples for the
+                refs that were updated
         """
         hook = self.repo.hooks.get("post-receive", None)  # type: ignore[attr-defined]
         if not hook:
@@ -1776,7 +1797,14 @@ class ReceivePackHandler(PackHandler):
         # backend can now deal with this refs and read a pack using self.read
         status = list(self._apply_pack(client_refs))
 
-        self._on_post_receive(client_refs)  # type: ignore[arg-type]
+        # status[0] is the unpack result; the rest follows client_refs.
+        updated = [
+            command
+            for command, (_, msg) in zip(client_refs, status[1:])
+            if msg == b"ok"
+        ]
+        if updated:
+            self._on_post_receive(updated)
 
         # when we have read all the pack from the client, send a status report
         # if the client asked for it

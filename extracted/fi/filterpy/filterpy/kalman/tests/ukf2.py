@@ -13,7 +13,7 @@ https://github.com/rlabbe/Kalman-and-Bayesian-Filters-in-Python
 
 This is licensed under an MIT license. See the readme.MD file
 for more information.
-6"""
+"""
 
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
@@ -133,7 +133,7 @@ class UnscentedKalmanFilter2(object):
 
         fx : function(x,dt)
             function that returns the state x transformed by the
-            state transistion function. dt is the time step in seconds.
+            state transition function. dt is the time step in seconds.
 
         points : class
             Class which computes the sigma points and weights for a UKF
@@ -445,7 +445,7 @@ class UnscentedKalmanFilter2(object):
 
 
     def rts_smoother(self, Xs, Ps, Qs=None, dt=None):
-        """ Runs the Rauch-Tung-Striebal Kalman smoother on a set of
+        """ Runs the Rauch-Tung-Striebel Kalman smoother on a set of
         means and covariances computed by the UKF. The usual input
         would come from the output of `batch_filter()`.
 
@@ -697,7 +697,7 @@ class MerweScaledSigmaPoints2(object):
  
         return Wm, Wc
  
- def unscented_transform2(sigmas, Wm, Wc, noise_cov=None,
+def unscented_transform2(sigmas, Wm, Wc, noise_cov=None,
                         mean_fn=np.dot, residual_fn=None):
     """ Computes unscented transform of a set of sigma points and weights.
     returns the mean and covariance in a tuple.

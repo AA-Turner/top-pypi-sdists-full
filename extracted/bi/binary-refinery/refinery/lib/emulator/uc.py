@@ -3,6 +3,7 @@ Implements `refinery.lib.emulator.interface.RawMetalEmulator` for the unicorn ba
 """
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from refinery.lib.emulator.abstract import (
@@ -12,7 +13,7 @@ from refinery.lib.emulator.abstract import (
     RawMetalEmulator,
     Register,
 )
-from refinery.lib.emulator.uc_shared import get_access_map
+from refinery.lib.emulator.uc_shared import get_access_map, unmap_all
 from refinery.lib.executable import BO, Arch
 from refinery.lib.shared.unicorn import unicorn as uc
 
@@ -63,31 +64,43 @@ class UnicornEmulator(RawMetalEmulator[Uc, int, _T]):
 
         if self.hooks.ApiCall:
             self._install_api_trampoline()
-            self.unicorn.hook_add(uc.UC_HOOK_CODE, self._hook_api_call_check, user_data=self.state)
+            self.unicorn.hook_add(uc.UC_HOOK_CODE, partial(self._call_hook, self._uc_hook_api_call))
 
         self._access_map = get_access_map()
 
         for hook, hooked, callback in [
-            (uc.UC_HOOK_CODE,           self.hooks.CodeExecute, self.hook_code_execute ),  # noqa
-            (uc.UC_HOOK_INSN_INVALID,   self.hooks.CodeError,   self.hook_code_error   ),  # noqa
+            (uc.UC_HOOK_CODE,           self.hooks.CodeExecute, self._uc_hook_code      ),  # noqa
+            (uc.UC_HOOK_INSN_INVALID,   self.hooks.CodeError,   self._uc_hook_code_error),  # noqa
             (uc.UC_HOOK_MEM_READ,       self.hooks.MemoryRead,  self._uc_hook_mem_read ),  # noqa
             (uc.UC_HOOK_MEM_WRITE,      self.hooks.MemoryWrite, self._uc_hook_mem_write),  # noqa
             (uc.UC_HOOK_MEM_INVALID,    self.hooks.MemoryError, self._uc_hook_mem_error),  # noqa
         ]:
             if hooked:
-                self.unicorn.hook_add(hook, callback, user_data=self.state)
+                self.unicorn.hook_add(hook, partial(self._call_hook, callback))
 
-    def _uc_hook_mem_read(self, emu: Uc, access: int, address: int, size: int, value: int, state: _T | None = None) -> bool:
-        access = self._access_map.get(access, MemAccess.Unknown)
-        return self.hook_mem_read(emu, access, address, size, value, state)
+    def _release(self):
+        unmap_all(self.unicorn)
 
-    def _uc_hook_mem_write(self, emu: Uc, access: int, address: int, size: int, value: int, state: _T | None = None) -> bool:
-        access = self._access_map.get(access, MemAccess.Unknown)
-        return self.hook_mem_write(emu, access, address, size, value, state)
+    def _uc_hook_api_call(self, emu: Uc, address: int, size: int, user_data: Any = None) -> bool:
+        return self._hook_api_call_check(emu, address, size, self.state)
 
-    def _uc_hook_mem_error(self, emu: Uc, access: int, address: int, size: int, value: int, state: _T | None = None) -> bool:
+    def _uc_hook_code(self, emu: Uc, address: int, size: int, user_data: Any = None) -> bool:
+        return self.hook_code_execute(emu, address, size, self.state)
+
+    def _uc_hook_code_error(self, emu: Uc, user_data: Any = None) -> bool:
+        return self.hook_code_error(emu, self.state)
+
+    def _uc_hook_mem_read(self, emu: Uc, access: int, address: int, size: int, value: int, user_data: Any = None) -> bool:
         access = self._access_map.get(access, MemAccess.Unknown)
-        return self.hook_mem_error(emu, access, address, size, value, state)
+        return self.hook_mem_read(emu, access, address, size, value, self.state)
+
+    def _uc_hook_mem_write(self, emu: Uc, access: int, address: int, size: int, value: int, user_data: Any = None) -> bool:
+        access = self._access_map.get(access, MemAccess.Unknown)
+        return self.hook_mem_write(emu, access, address, size, value, self.state)
+
+    def _uc_hook_mem_error(self, emu: Uc, access: int, address: int, size: int, value: int, user_data: Any = None) -> bool:
+        access = self._access_map.get(access, MemAccess.Unknown)
+        return self.hook_mem_error(emu, access, address, size, value, self.state)
 
     class _singlestep:
         def __init__(self):

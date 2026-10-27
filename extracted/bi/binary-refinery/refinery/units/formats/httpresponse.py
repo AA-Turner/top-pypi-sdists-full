@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from http.client import HTTPResponse, IncompleteRead
 
+from refinery.lib.meta import MV
 from refinery.lib.structures import MemoryFile
 from refinery.units import RefineryPartialResult, Unit
 from refinery.units.misc.datefix import datefix
@@ -36,9 +37,15 @@ class httpresponse(Unit):
                 pass
             else:
                 if len(date) == 19:
-                    payload = self.labelled(payload, date=date)
+                    payload = self.labelled(payload, **{MV.DATE: date})
             return payload
 
     @classmethod
     def handles(cls, data) -> bool | None:
-        return data[:6] == B'HTTP/1'
+        if data[:5] != B'HTTP/':
+            return False
+        if data[5] in B'23':
+            return True
+        if data[5:8] not in (B'0.9', B'1.1', B'1.0'):
+            return False
+        return data[8] == 0x20 # space

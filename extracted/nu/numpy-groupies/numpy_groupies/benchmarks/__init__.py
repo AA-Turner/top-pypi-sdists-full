@@ -6,9 +6,14 @@ per call as a Markdown table.  NumPy and Numba are always measured, ``--help``
 explains the columns to ask for, ``--all`` takes them all.  A single run, the
 default, prints its rows as they are measured; a repeated one reports a counter
 and then the fastest measurement of all runs.
+
+``python -m numpy_groupies.benchmarks.mt`` is a tool of its own: it
+measures the parallel variant of the numba kernels against the sequential
+one and fits the cost model that decides between them.
 """
 
 import argparse
+import os
 import platform
 import sys
 import timeit
@@ -18,8 +23,41 @@ import numpy as np
 
 from numpy_groupies import aggregate_numpy, aggregate_purepy
 from numpy_groupies.benchmarks import _ufunc
-from numpy_groupies.common import funcs_collecting
+from numpy_groupies.registry import (
+    funcs_collecting,
+)
 from numpy_groupies.tests.reference import aggregate_ref
+
+# ---------------------------------------------------------------------------
+# the cleanup of the tools: an interrupt ends the run without the shutdown
+# of the interpreter, and the semaphore of the threading-layer
+# initialization of numba would then be reported as leaked by the resource
+# tracker of multiprocessing.  Releasing it is the shared business of both
+# tools, the benchmark and the calibration.
+
+
+def _release_numba_resources() -> None:
+    """Release the semaphore the threading layer of numba leaves behind.
+
+    The lock of the threading-layer initialization is a semaphore of
+    multiprocessing, and the resource tracker of it reports the semaphore
+    as leaked when the process leaves without releasing it - an interrupt
+    leaves exactly like that.  The lock is dropped, and the finalizer that
+    multiprocessing registered when the lock was created then unlinks its
+    name from /dev/shm and unregisters it from the tracker - the very
+    cleanup the shutdown of a normal exit runs.
+    """
+    import gc
+
+    from numba.np.ufunc import parallel as numba_parallel
+
+    # dropping the reference of numba runs the dealloc of the lock, and the
+    # dealloc is what calls the finalizer - the finalizer of the lock is the
+    # one that unlinks and unregisters, and calling it here as well would
+    # unlink the name twice
+    numba_parallel._backend_init_process_lock = None
+    gc.collect()
+
 
 try:
     from numpy_groupies import aggregate_numba
@@ -199,11 +237,6 @@ def _assert_same_result(got, want, func_name):
 # participant in a process starts the threads of its pool and lets each of them
 # map the arena it allocates from, measured 2700 page faults for polars - none
 # of which belongs into a measurement, and the first timed call would show
-# nothing else.  The pool starts once per process, so once per participant is
-# enough - not once per cell of the table.
-_warmed_up: set[str] = set()
-
-
 def single_run(
     implementations,
     group_idx,
@@ -255,12 +288,17 @@ def single_run(
                 except AssertionError:
                     cells.append("FAIL")
                 else:
-                    if name not in _warmed_up:
-                        # an untimed call that starts the pool of the participant
-                        aggregate_fn(group_idx, used_a, func=func)
-                        _warmed_up.add(name)
+                    # An untimed call that wakes the threads of the pool up:
+                    # the threads of a parallel implementation spin for a
+                    # moment after their region and sleep afterwards, and the
+                    # first call after that pays for the waking up - which
+                    # would tell nothing about the work.  The timed calls
+                    # come in one block, so that they follow each other
+                    # without a pause and the threads stay awake.
+                    aggregate_fn(group_idx, used_a, func=func)
                     timer = timeit.Timer(lambda: aggregate_fn(group_idx, used_a, func=func))
-                    t0 = min(timer.repeat(repeat=min(repeat, MAX_REPEAT.get(name, repeat)), number=1))
+                    number = min(repeat, MAX_REPEAT.get(name, repeat))
+                    t0 = min(timer.repeat(repeat=1, number=number)) / number
                     cells.append(t0 * 1000)
         if snapshot is not None and _restore((group_idx, a, nana), snapshot):
             # a participant wrote into the data: the numbers of this row were
@@ -377,6 +415,22 @@ def _versions_line(implementations):
         import polars
 
         postfix += f", Polars {polars.__version__}"
+    # the threads the implementations had at their disposal
+    threads: list[tuple[str, int]] = []
+    if "numba" in implementation_names:
+        import numba
+
+        threads.append(("numba", numba.get_num_threads()))
+    if "polars" in implementation_names:
+        import polars
+
+        threads.append(("polars", polars.thread_pool_size()))
+    if threads:
+        counts = [count for _, count in threads]
+        if len(set(counts)) == 1:
+            postfix += f" ({counts[0]} threads max)"
+        else:
+            postfix += " (" + ", ".join(f"{name} {count}" for name, count in threads) + " threads max)"
     return (
         f"*{platform.system()}({platform.machine()}), Python {sys.version.split()[0]}, "
         f"Numpy {np.version.version}{postfix}*"
@@ -493,6 +547,8 @@ def sort_benchmark(implementations, *, repeat=5, size=5e5, seed=100, raise_error
 COLUMN_ORDER = ("numpy", "numba", "purepy", "grouploop", "numbagg", "polars", "pandas", "ufunc")
 # of those, the ones that have to be asked for
 OPTIONAL_COLUMNS = COLUMN_ORDER[2:]
+# the column names that differ from the name of their flag
+COLUMN_ARGUMENTS: dict[str, str] = {}
 
 
 def _build_implementations(args):
@@ -513,7 +569,7 @@ def _build_implementations(args):
     }
     impls = []
     for name in COLUMN_ORDER:
-        if name in OPTIONAL_COLUMNS and not getattr(args, name):
+        if name in OPTIONAL_COLUMNS and not getattr(args, COLUMN_ARGUMENTS.get(name, name), False):
             continue
         aggregate = aggregates[name]
         if aggregate is None:
@@ -534,7 +590,10 @@ with a counter and prints the fastest measurement of all runs once at the end.
 
 numbagg ships nan-guarded reductions only, so its numbers for the plain
 functions are those of the nan twins - on the nan-free data of this benchmark
-the two coincide.""",
+the two coincide.  The threads of the machine are numbagg's own business: it
+compiles its grouped reductions to parallel targets and uses the pool where
+there is anything to split - and on a one-dimensional input there is
+nothing, the whole array being the core of the kernel.""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--all", action="store_true", help="include every optional column listed below")
@@ -575,20 +634,34 @@ the two coincide.""",
         type=int,
         default=5,
         help=(
-            "timed executions per cell, the fastest counts, except for the pure-Python and "
+            "timed executions per cell (in one block, the fastest block counts), "
+            "except for the pure-Python and "
             "the group-loop column (default: 5)"
         ),
     )
     parser.add_argument("--size", type=float, default=5e5, help="number of values in the benchmark data (default: 5e5)")
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=0,
+        help="the number of threads of the pool of numba, which the kernels use (default: every hardware thread of the machine)",
+    )
     parser.add_argument(
         "--raise-errors",
         action="store_true",
         help="abort on the first failing implementation instead of printing ERROR",
     )
     args = parser.parse_args(argv)
+    if args.threads:
+        # the numba kernels split their data into as many chunks as there
+        # are threads - the flag sets the pool of numba, and the kernels use
+        # the threads they find there
+        import numba
+
+        numba.set_num_threads(args.threads)
     if args.all:
         for column in OPTIONAL_COLUMNS:
-            setattr(args, column, True)
+            setattr(args, COLUMN_ARGUMENTS.get(column, column), True)
     if args.sort:
         # the sort is measured on its own, over the group counts
         sort_benchmark(

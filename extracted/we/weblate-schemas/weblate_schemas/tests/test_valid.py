@@ -8,7 +8,7 @@ import copy
 from typing import Any, TypeAlias
 
 import pytest
-from jsonschema import validate
+from jsonschema import Draft202012Validator, validate
 from jsonschema.exceptions import ValidationError
 
 from weblate_schemas import load_schema, validate_schema
@@ -196,9 +196,10 @@ def test_userdata() -> None:
     )
 
 
-def test_backup() -> None:
-    """Test backup schema being valid."""
-    base_backup: JSONData = {
+@pytest.fixture(name="base_backup")
+def fixture_base_backup() -> JSONData:
+    """Provide a complete valid project backup."""
+    return {
         "metadata": {
             "version": "4.13",
             "server": "Weblate",
@@ -267,12 +268,34 @@ def test_backup() -> None:
             }
         ],
     }
+
+
+@pytest.mark.parametrize(
+    ("section", "field", "value"),
+    [
+        ("metadata", "timestamp", "2026-02-30T12:00:00Z"),
+        ("metadata", "domain", "invalid host"),
+        ("project", "web", "https://example.com/invalid path"),
+    ],
+)
+def test_backup_rejects_invalid_formats(
+    base_backup: JSONData, section: str, field: str, value: str
+) -> None:
+    """Continue enforcing formats with the current schema dialect."""
+    base_backup[section][field] = value
+    with pytest.raises(ValidationError):
+        validate_schema(base_backup, "weblate-backup.schema.json")
+
+
+def test_backup(base_backup: JSONData) -> None:
+    """Test backup schema being valid."""
     backup_without_teams = base_backup.copy()
 
     validate_schema(
         backup_without_teams,
         "weblate-backup.schema.json",
     )
+
     backup_with_teams = base_backup.copy()
     backup_with_teams["teams"] = [
         {
@@ -413,6 +436,50 @@ def test_backup() -> None:
     )
 
 
+def test_backup_nested_categories(base_backup: JSONData) -> None:
+    """Validate every nested category, including later siblings and deeper children."""
+    backup_with_nested_categories = copy.deepcopy(base_backup)
+    child = {"name": "Child", "slug": "my-category/child", "categories": []}
+    backup_with_nested_categories["categories"][0]["categories"] = [
+        child,
+        {
+            "name": "Sibling",
+            "slug": "my-category/sibling",
+            "categories": [
+                {
+                    "name": "First leaf",
+                    "slug": "my-category/sibling/first",
+                    "categories": [],
+                },
+                {
+                    "name": "Second leaf",
+                    "slug": "my-category/sibling/second",
+                    "categories": [],
+                },
+            ],
+        },
+    ]
+    validate_schema(backup_with_nested_categories, "weblate-backup.schema.json")
+    backup_with_empty_categories = copy.deepcopy(base_backup)
+    backup_with_empty_categories["categories"][0]["categories"] = []
+    validate_schema(backup_with_empty_categories, "weblate-backup.schema.json")
+
+    for nested in (False, True):
+        for invalid_child in (
+            "invalid",
+            {key: value for key, value in child.items() if key != "name"},
+            {key: value for key, value in child.items() if key != "slug"},
+            {key: value for key, value in child.items() if key != "categories"},
+        ):
+            invalid_backup = copy.deepcopy(backup_with_nested_categories)
+            children = invalid_backup["categories"][0]["categories"]
+            if nested:
+                children = children[1]["categories"]
+            children[1] = invalid_child
+            with pytest.raises(ValidationError):
+                validate_schema(invalid_backup, "weblate-backup.schema.json")
+
+
 def test_backup_blank_url() -> None:
     """Test backup schema being valid with blank url."""
     validate_schema(
@@ -539,7 +606,7 @@ def test_component() -> None:
                     "formula": "(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2",
                     "type": 2,
                 },
-                "revision": "abcdef",
+                "revision": "a" * 40,
                 "filename": "po/cs.po",
             },
         ],
@@ -617,11 +684,33 @@ def test_component() -> None:
         data,
         "weblate-component.schema.json",
     )
-    component["vcs_params"] = {"git_force_push": True}
-    validate_schema(
-        data,
-        "weblate-component.schema.json",
-    )
+    for vcs_params in (
+        {},
+        {"git_force_push": True},
+        {
+            "custom_string": "value",
+            "custom_integer": 42,
+            "custom_boolean": False,
+            "merge_request_merge_method": "custom-method",
+        },
+    ):
+        component["vcs_params"] = vcs_params
+        validate_schema(data, "weblate-component.schema.json")
+    for invalid_vcs_params in (
+        {"custom": None},
+        {"custom": 1.5},
+        {"custom": []},
+        {"custom": {}},
+        None,
+        "invalid",
+        1,
+        False,
+        [],
+    ):
+        invalid_data = copy.deepcopy(data)
+        invalid_data["component"]["vcs_params"] = invalid_vcs_params
+        with pytest.raises(ValidationError):
+            validate_schema(invalid_data, "weblate-component.schema.json")
     component.update(
         {
             "secondary_language": None,
@@ -697,6 +786,78 @@ def test_component() -> None:
         data,
         "weblate-component.schema.json",
     )
+
+
+@pytest.mark.parametrize("field", ["local_revision", "remote_revision"])
+@pytest.mark.parametrize("value", ["", "a" * 40, "B" * 64])
+def test_component_revision_schema_accepts_object_ids(field: str, value: str) -> None:
+    """Allow empty or complete SHA-1 and SHA-256 component revisions."""
+    schema = load_schema("weblate-component.schema.json")["properties"]["component"][
+        "properties"
+    ][field]
+    Draft202012Validator(schema).validate(value)
+
+
+@pytest.mark.parametrize("field", ["local_revision", "remote_revision"])
+@pytest.mark.parametrize("value", ["abcdef", "--output=outside", "a" * 40 + "\n"])
+def test_component_revision_schema_rejects_invalid_ids(field: str, value: str) -> None:
+    """Reject incomplete IDs, Git options, and trailing newlines."""
+    schema = load_schema("weblate-component.schema.json")["properties"]["component"][
+        "properties"
+    ][field]
+    with pytest.raises(ValidationError):
+        Draft202012Validator(schema).validate(value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["", "a" * 40, "a" * 40 + ":2", "a" * 40 + ":2," + "b" * 40 + "," + "c" * 40],
+)
+def test_translation_revision_schema_accepts_file_hashes(value: str) -> None:
+    """Allow file hash combinations generated by Weblate."""
+    schema = load_schema("weblate-component.schema.json")["properties"]["translations"][
+        "items"
+    ]["properties"]["revision"]
+    Draft202012Validator(schema).validate(value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "abcdef",
+        "--output=outside",
+        "a" * 40 + "\n",
+        "A" * 40,
+        "a" * 40 + "," + "b" * 40 + "," + "c" * 40 + "," + "d" * 40,
+        "a" * 40 + "," + "b" * 40 + ":2",
+    ],
+)
+def test_translation_revision_schema_rejects_invalid_hashes(value: str) -> None:
+    """Reject malformed translation revision combinations."""
+    schema = load_schema("weblate-component.schema.json")["properties"]["translations"][
+        "items"
+    ]["properties"]["revision"]
+    with pytest.raises(ValidationError):
+        Draft202012Validator(schema).validate(value)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ("units", "items", "properties", "id_hash"),
+        ("screenshots", "items", "properties", "units", "items"),
+        ("pending_unit_changes", "items", "properties", "unit_id_hash"),
+    ],
+)
+def test_component_checksum_schema_requires_exact_hex(path: tuple[str, ...]) -> None:
+    """Require exact unit checksum syntax in every backup reference."""
+    schema = load_schema("weblate-component.schema.json")["properties"]
+    for part in path:
+        schema = schema[part]
+    Draft202012Validator(schema).validate("1234567890abcdef")
+    for value in ("x1234567890abcdef", "1234567890abcdef\n", "ABCDEF1234567890", 1):
+        with pytest.raises(ValidationError):
+            Draft202012Validator(schema).validate(value)
 
 
 merge_body = {

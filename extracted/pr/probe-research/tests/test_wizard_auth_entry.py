@@ -16,6 +16,10 @@ from probe.sdk.config import load_context, resolve, save_context
 from probe.sdk.device import DeviceLoginError, OnboardingRequired
 
 main = importlib.import_module("probe.cli.main")
+
+#: These tests are about the fresh-device routing itself (conftest stubs it out
+#: for the suite's menu tests).
+FRESH_DEVICE_ONBOARDING = "real"
 apply_wizard_action = main._run_wizard_action
 collect_capabilities = doctor.collect
 sign_in_to_account = setup.sign_in
@@ -33,7 +37,7 @@ def entry(tmp_path, monkeypatch):
     monkeypatch.delenv("PROBE_INGEST_TOKEN", raising=False)
     monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(message=""))
     monkeypatch.setattr(main, "_version_notice", lambda: None)
-    monkeypatch.setattr(main, "_outbox_notice", lambda: None)
+    monkeypatch.setattr(main, "_outbox_notice", lambda **_: None)
     monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code",))
     monkeypatch.setattr(doctor, "collect", lambda: Capabilities(claude_available=True))
     monkeypatch.setattr(setup, "interactive", lambda: True)
@@ -63,12 +67,68 @@ def entry(tmp_path, monkeypatch):
     return events
 
 
-def test_bare_launch_authenticates_before_the_main_menu(entry):
+def test_bare_launch_on_a_fresh_device_opens_the_install(entry):
+    """No credential, no agent set up, an agent here: straight into the guided
+    install, whose own approval is the sign-in (Richard 2026-10-26)."""
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    assert [event for event, _ in entry][:2] == ["confirm", "apply"]
+    assert "signin" not in [event for event, _ in entry] and "menu" not in [event for event, _ in entry]
+    assert {"api", "mcp", "capture"} <= set(entry[1][1]["authorization_needs"])
+
+
+def test_bare_launch_with_no_coding_agent_signs_in_before_the_main_menu(entry, monkeypatch):
+    """An install with no agent to act on is no onboarding: the menu, as before."""
+    monkeypatch.setattr(setup, "detectable_sources", lambda: ())
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
     assert [event for event, _ in entry] == ["signin", "menu"]
     assert "install_code" not in entry[0][1]
-    assert entry[0][1]["prepare_install"] is True
+
+
+def test_backing_out_of_a_fresh_devices_onboarding_changes_nothing(entry, monkeypatch):
+    monkeypatch.setattr(setup, "run_defaults_step", lambda pick, **_kw: (tui.BACK, pick))
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    assert entry == [], "no sign-in, no install"
+    assert "Nothing changed" in result.output
+    assert not resolve().token
+
+
+def test_the_session_default_is_saved_at_install_not_before(entry, monkeypatch):
+    """Held while the screens are open; saved at the Install keypress, before
+    any plugin, so an `off` holds even if the install is walked away from."""
+    from probe.sdk import session_marker
+
+    pick = setup.DefaultsPick(recorder=session_marker.RECORDER_AGENT, session_state="off")
+    monkeypatch.setattr(setup, "run_defaults_step", lambda _pick, **_kw: (True, pick))
+    seen = []
+
+    def confirm(*_a, **kw):
+        seen.append((setup.setting_state(session_marker.default_session_state()), kw.get("defaults")))
+        return True
+
+    monkeypatch.setattr(setup, "run_confirm_install", confirm)
+    applied_with = []
+    monkeypatch.setattr(
+        main, "_run_wizard_action",
+        lambda *a, **kw: applied_with.append(setup.setting_state(session_marker.default_session_state())) or [],
+    )
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    assert seen == [("full", pick)], "unsaved while Review is open, and Review names the pick"
+    assert applied_with == ["off"], "saved before the install ran"
+
+
+def test_a_daemon_pick_rides_the_install_approval(entry, monkeypatch):
+    from probe.sdk import session_marker
+
+    pick = setup.DefaultsPick(recorder=session_marker.RECORDER_DAEMON, session_state="full")
+    monkeypatch.setattr(setup, "run_defaults_step", lambda _pick, **_kw: (True, pick))
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    applied = [kwargs for event, kwargs in entry if event == "apply"]
+    assert setup.COMPANION_GRANT in applied[0]["authorization_needs"]
 
 
 def test_signed_in_launch_returns_directly_to_the_main_menu(entry):
@@ -346,7 +406,7 @@ def test_installing_pi_requires_its_own_capture_grant(entry, monkeypatch):
     assert applied[0]["capture_sources"] == ["pi"]
 
 
-@pytest.mark.parametrize("code", [None, "ABCD234567"])
+@pytest.mark.parametrize("code", ["ABCD234567"])
 def test_fresh_wizard_signs_in_once_then_installs_with_the_saved_grants(entry, monkeypatch, code):
     from probe.sdk import device
 
@@ -454,6 +514,8 @@ def test_install_applies_local_repairs_without_reauthorizing(entry, monkeypatch,
 
 
 def test_new_browser_account_exits_before_the_menu_or_install(entry, monkeypatch):
+    monkeypatch.setattr(setup, "detectable_sources", lambda: ())  # the menu's sign-in, not onboarding's
+
     def incomplete(**kwargs):
         raise OnboardingRequired("Finish onboarding", onboarding_url="https://dash.test/onboarding")
 
@@ -806,10 +868,57 @@ def test_no_main_menu_after_an_action_clears_the_account(entry, monkeypatch):
 
 
 def test_reported_login_success_cannot_open_a_menu_without_credentials(entry, monkeypatch):
-    monkeypatch.setattr(setup, "sign_in", lambda **kw: setup.SignInResult(ok=True, lines=[]))
+    monkeypatch.setattr(setup, "detectable_sources", lambda: ())  # the menu's sign-in, not onboarding's
+    signed = []
+    monkeypatch.setattr(setup, "sign_in", lambda **kw: signed.append(kw) or setup.SignInResult(ok=True, lines=[]))
     result = CliRunner().invoke(main.app, ["wizard"])
     assert result.exit_code == 0, result.output
+    assert signed, "the menu's sign-in ran"
     assert not any(event == "menu" for event, _ in entry)
+
+
+def test_a_signed_out_device_with_probe_set_up_signs_in_to_the_menu(entry, monkeypatch):
+    """Not a fresh device: a sign-out (or a revoked key) on a machine Probe is
+    set up on goes back through the menu's sign-in, never through onboarding."""
+    monkeypatch.setattr(
+        doctor, "collect", lambda: Capabilities(claude_available=True, tracking_plugin_installed=True)
+    )
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    assert [event for event, _ in entry] == ["signin", "menu"]
+    assert entry[0][1]["prepare_install"] is True
+
+
+def test_a_session_default_that_cannot_be_saved_installs_nothing(entry, monkeypatch):
+    from probe.sdk import session_marker
+
+    pick = setup.DefaultsPick(recorder=session_marker.RECORDER_AGENT, session_state="off")
+    monkeypatch.setattr(setup, "run_defaults_step", lambda _pick, **_kw: (True, pick))
+    monkeypatch.setattr(setup, "apply_settings", lambda changes, **_kw: ["! could not save the session default"])
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    assert "apply" not in [event for event, _ in entry], "an `off` that did not save is never followed by an install"
+
+
+@pytest.mark.parametrize("changed", [False, True])
+def test_who_records_moves_agents_only_when_the_row_was_changed(entry, monkeypatch, changed):
+    """On a machine where some agents record through the daemon the row opens on
+    `daemon`; pressing Next must not move the others (Codex/adversarial review)."""
+    from probe.sdk import session_marker
+
+    session_marker.write_recorder("codex", session_marker.RECORDER_DAEMON)
+    monkeypatch.setattr(setup, "detectable_sources", lambda: ("claude_code", "codex"))
+    monkeypatch.setattr(main, "_opens_onboarding", lambda *_a, **_kw: True)
+    picked = session_marker.RECORDER_AGENT if changed else session_marker.RECORDER_DAEMON
+    monkeypatch.setattr(
+        setup, "run_defaults_step", lambda pick, **_kw: (True, setup.DefaultsPick(picked, pick.session_state))
+    )
+    monkeypatch.setattr(setup, "run_agent_menu", lambda defaults, action=None: defaults)
+    moved = []
+    monkeypatch.setattr(main, "_apply_recorder_pick", lambda recorder, **kw: moved.append(recorder) or [])
+    result = CliRunner().invoke(main.app, ["wizard"])
+    assert result.exit_code == 0, result.output
+    assert moved == ([session_marker.RECORDER_AGENT] if changed else [])
 
 
 @pytest.mark.parametrize("action", ["account", "settings"])
@@ -986,3 +1095,54 @@ def test_a_refused_browser_approval_adds_no_marketplace(entry, monkeypatch):
             configured=False,
             authorization_needs=["api", "mcp", "capture"],
         )
+
+
+class _Completion(SimpleNamespace):
+    pass
+
+
+def _pick_run(monkeypatch, *, recorders, completion, pick):
+    """`main._apply_recorder_pick` with each agent's recorder pinned and the
+    switch recorded instead of run."""
+    from probe.sdk import session_marker
+
+    for source, value in recorders.items():
+        session_marker.write_recorder(source, value)
+    calls = []
+    monkeypatch.setattr(main, "_run_recorder_action", lambda **kw: calls.append(kw) or ["moved"])
+    lines = main._apply_recorder_pick(
+        pick, sources=tuple(recorders), completion=completion, base_now="https://api.test",
+        collect=lambda source: Capabilities(agent_source=source),
+    )
+    return lines, calls
+
+
+def test_who_records_moves_after_a_settled_install_without_its_pages(entry, monkeypatch):
+    lines, calls = _pick_run(
+        monkeypatch, recorders={"claude_code": "agent", "codex": "agent"},
+        completion=_Completion(remaining=0, settled=True), pick="daemon",
+    )
+    assert lines == ["moved"] and len(calls) == 1
+    assert calls[0]["chosen"] == "daemon" and calls[0]["disclosed"] is True and calls[0]["show_daemon_page"] is False
+
+
+def test_who_records_is_compared_agent_by_agent(entry, monkeypatch):
+    """`machine_recorder()` reads daemon when ANY agent is on it (Codex O3)."""
+    _lines, calls = _pick_run(
+        monkeypatch, recorders={"claude_code": "daemon", "codex": "agent"},
+        completion=_Completion(remaining=0, settled=True), pick="daemon",
+    )
+    assert len(calls) == 1, "codex still records itself, so the switch runs"
+    _lines, calls = _pick_run(
+        monkeypatch, recorders={"claude_code": "daemon", "codex": "daemon"},
+        completion=_Completion(remaining=0, settled=True), pick="daemon",
+    )
+    assert calls == []
+
+
+def test_an_unsettled_install_leaves_who_records_and_says_so(entry, monkeypatch):
+    lines, calls = _pick_run(
+        monkeypatch, recorders={"claude_code": "agent"},
+        completion=_Completion(remaining=0, settled=False), pick="daemon",
+    )
+    assert calls == [] and "stays as it was" in lines[0]

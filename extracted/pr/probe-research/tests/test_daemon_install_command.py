@@ -43,6 +43,10 @@ def ran(monkeypatch):
         return subprocess.CompletedProcess(cmd, state["code"])
 
     monkeypatch.setattr(daemon_cli, "daemon_install", _REAL_DAEMON_INSTALL)
+    # The in-place commands below are what a machine whose CLI is not side by
+    # side runs (Windows, another filesystem); elsewhere it goes beside the
+    # running env (`test_a_side_by_side_machine_installs_the_extra_beside_the_running_env`).
+    monkeypatch.setattr(daemon_cli, "_install_side_by_side", lambda version: None)
     monkeypatch.setattr(daemon_cli, "_installed_copy", lambda: None)
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: None)
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -136,3 +140,31 @@ def test_a_failed_install_stops_before_the_check(monkeypatch, ran, capsys):
         daemon_cli.daemon_install()
     assert stopped.value.exit_code == 2 and len(commands) == 1
     assert "install failed" in capsys.readouterr().err
+
+
+def test_a_side_by_side_machine_installs_the_extra_beside_the_running_env(monkeypatch, capsys):
+    """Plan clean-uninstall-reinstall R-T1: `probe daemon install` used to `uv
+    tool install` the extra into the env every running `probe` reads its
+    files from. Where the CLI lives side by side it is the one installer, the
+    same version with the `daemon` extra, in a generation folder of its own
+    (tests/test_reinstall_any_prior_state.py runs it with real uv)."""
+    from pathlib import Path
+
+    from probe.cli import install_pipeline
+
+    asked = []
+
+    def install_cli(version, *, mode, person):
+        asked.append((version, mode))
+        return install_pipeline.CliOutcome(ok=True, env=Path("/v/1.0.0+g2/probe-research"), version=version,
+                                           changed=True, lines=["installed CLI in 1.0.0+g2"])
+
+    monkeypatch.setattr(daemon_cli, "daemon_install", _REAL_DAEMON_INSTALL)
+    monkeypatch.setattr(daemon_cli, "_installed_copy", lambda: None)
+    monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: None)
+    monkeypatch.setattr(install_pipeline, "install_cli", install_cli)
+    monkeypatch.setattr(daemon_cli, "_fresh_ai_libraries", lambda python: "2.51.0")
+    _method(monkeypatch, updater.Method.UV_TOOL)
+    daemon_cli.daemon_install()  # returns: the wizard's provisioning reads any Exit, 0 too, as a failed install
+    assert asked == [(__version__, install_pipeline.Mode.DAEMON)]
+    assert "installed: daemon mode can run on this machine" in capsys.readouterr().out

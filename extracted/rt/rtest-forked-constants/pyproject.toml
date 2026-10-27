@@ -1,14 +1,14 @@
 [build-system]
 requires = [
-    "maturin>=1.0,<2.0",
-    "maturin[patchelf]>=1.0,<2.0; sys_platform != 'win32'"
+    "maturin>=1.15.0,<2.0",
+    "maturin[patchelf]>=1.15.0,<2.0; sys_platform != 'win32'"
 ]
 build-backend = "maturin"
 
 [project]
 name = "rtest-forked-constants"
-version = "0.0.47rc3"
-description = "Temporary PyPI fork of rtest with pytest-compatible parametrize IDs (hughhan1/rtest#151). Import and CLI remain `rtest`."
+version = "0.0.48rc5"
+description = "Temporary PyPI fork of rtest 0.0.47 with constructor-call parametrize IDs, pytest-version-aware duplicate IDs, and pytest-compatible IDs for runtime-only expressions. Import and CLI remain `rtest`."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -42,14 +42,13 @@ rtest = "rtest.__main__:main"
 
 [project.optional-dependencies]
 pytest = [
-    "pytest==8.3.5",
+    "pytest==9.1.1",
 ]
 dev = [
-    "pytest==8.3.5",
-    "ruff==0.14.10",
-    "ty==0.0.8",
-    "pyyaml>=6.0",
-    "vulture==2.14",
+    "pytest==9.1.1",
+    "ruff==0.17.0",
+    "ty==0.0.87",
+    "vulture==2.16",
 ]
 
 [tool.ruff]
@@ -78,13 +77,13 @@ include = ["python/", "tests/", "scripts/"]
 features = ["extension-module"]
 python-source = "python"
 module-name = "rtest._rtest"
+include = [{ path = "ruff/Cargo.toml", format = "sdist" }]
 
 [dependency-groups]
 dev = [
-    "maturin>=1.9.0",
-    "pytest==8.3.5",
-    "ty==0.0.8",
-    "ruff==0.14.10",
-    "pyyaml>=6.0",
-    "vulture==2.14",
+    "maturin>=1.15.0,<2.0",
+    "pytest==9.1.1",
+    "ty==0.0.87",
+    "ruff==0.17.0",
+    "vulture==2.16",
 ]

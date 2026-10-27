@@ -28,6 +28,7 @@ __all__ = (
     "DescribeImageScanFindingsPaginatorName",
     "DescribeImagesPaginatorName",
     "DescribePullThroughCacheRulesPaginatorName",
+    "DescribeReplicationBackfillResultsPaginatorName",
     "DescribeRepositoriesPaginatorName",
     "DescribeRepositoryCreationTemplatesPaginatorName",
     "ECRServiceName",
@@ -48,9 +49,12 @@ __all__ = (
     "LifecyclePolicyStorageClassType",
     "LifecyclePolicyTargetStorageClassType",
     "ListImagesPaginatorName",
+    "ListReplicationBackfillsPaginatorName",
     "PaginatorName",
     "RCTAppliedForType",
     "RegionName",
+    "ReplicationBackfillResultStatusType",
+    "ReplicationBackfillStatusType",
     "ReplicationStatusType",
     "RepositoryFilterTypeType",
     "ResourceServiceName",
@@ -74,6 +78,7 @@ ArtifactStatusType = Literal["ACTIVATING", "ACTIVE", "ARCHIVED"]
 DescribeImageScanFindingsPaginatorName = Literal["describe_image_scan_findings"]
 DescribeImagesPaginatorName = Literal["describe_images"]
 DescribePullThroughCacheRulesPaginatorName = Literal["describe_pull_through_cache_rules"]
+DescribeReplicationBackfillResultsPaginatorName = Literal["describe_replication_backfill_results"]
 DescribeRepositoriesPaginatorName = Literal["describe_repositories"]
 DescribeRepositoryCreationTemplatesPaginatorName = Literal["describe_repository_creation_templates"]
 EncryptionTypeType = Literal["AES256", "KMS", "KMS_DSSE"]
@@ -107,7 +112,12 @@ LifecyclePolicyPreviewStatusType = Literal["COMPLETE", "EXPIRED", "FAILED", "IN_
 LifecyclePolicyStorageClassType = Literal["ARCHIVE", "STANDARD"]
 LifecyclePolicyTargetStorageClassType = Literal["ARCHIVE"]
 ListImagesPaginatorName = Literal["list_images"]
+ListReplicationBackfillsPaginatorName = Literal["list_replication_backfills"]
 RCTAppliedForType = Literal["CREATE_ON_PUSH", "PULL_THROUGH_CACHE", "REPLICATION"]
+ReplicationBackfillResultStatusType = Literal["COMPLETE", "FAILED"]
+ReplicationBackfillStatusType = Literal[
+    "COMPLETE", "FAILED", "IN_PROGRESS", "PREPARING", "STOPPED", "STOPPING"
+]
 ReplicationStatusType = Literal["COMPLETE", "FAILED", "IN_PROGRESS"]
 RepositoryFilterTypeType = Literal["PREFIX_MATCH"]
 ScanFrequencyType = Literal["CONTINUOUS_SCAN", "MANUAL", "SCAN_ON_PUSH"]
@@ -585,10 +595,12 @@ PaginatorName = Literal[
     "describe_image_scan_findings",
     "describe_images",
     "describe_pull_through_cache_rules",
+    "describe_replication_backfill_results",
     "describe_repositories",
     "describe_repository_creation_templates",
     "get_lifecycle_policy_preview",
     "list_images",
+    "list_replication_backfills",
 ]
 WaiterName = Literal["image_scan_complete", "lifecycle_policy_preview_complete"]
 RegionName = Literal[

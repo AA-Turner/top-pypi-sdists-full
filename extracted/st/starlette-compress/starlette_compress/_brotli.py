@@ -1,21 +1,10 @@
 from __future__ import annotations
 
-import sys
+import brotli
 
 from starlette_compress._responder import CompressionResponder
 
 TYPE_CHECKING = False
-
-if sys.implementation.name == 'cpython' and not TYPE_CHECKING:
-    try:
-        import brotli
-    except ModuleNotFoundError:
-        import brotlicffi as brotli
-else:
-    try:
-        import brotlicffi as brotli
-    except ModuleNotFoundError:
-        import brotli
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

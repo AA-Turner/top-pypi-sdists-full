@@ -1228,7 +1228,9 @@ CustomizationTechniqueType = Literal["DPO", "RLAIF", "RLVR", "SFT"]
 DataDistributionTypeType = Literal["FullyReplicated", "ShardedByS3Key"]
 DataSourceNameType = Literal["SalesforceGenie", "Snowflake"]
 DatabaseConfigurationRollbackStatusType = Literal["NotApplicable", "RevertFailed", "Reverted"]
-DeepHealthCheckTypeType = Literal["InstanceConnectivity", "InstanceStress"]
+DeepHealthCheckTypeType = Literal[
+    "InstanceConnectivity", "InstanceStress", "MultiNodeTrainingValidation"
+]
 DescribeTrainingPlanExtensionHistoryPaginatorName = Literal[
     "describe_training_plan_extension_history"
 ]

@@ -839,6 +839,106 @@ async def resolve_step_agent_full(
 
 
 
+class StepAnswerUnversioned(RuntimeError):
+    """The agent's answer depends on something no version names — run once per key refuses to
+    reuse it (the engine runs the step and flags ``engine.once_unversioned`` with this reason)."""
+
+
+async def _bindings_revision(agent_id: str, row: Any) -> dict[str, Any]:
+    """Versions of what the agent row POINTS AT, which can change without the row's own version
+    moving: its tools (``tool.definition``) and its bindings in ``platform.associations``
+    (sub-agents, orchestra members, context records, files). What resolves at run time by NAME
+    or outside our database (prompt blocks, listed skills, MCP servers) has no version to fold,
+    so it refuses reuse rather than guess (ruling 2026-10-26)."""
+    from matrx_ai.db._registry import get_instance, get_model
+    from matrx_ai.prompt_blocks import declared_names
+
+    if declared_names(getattr(row, "prompt_blocks", None)):
+        raise StepAnswerUnversioned("the agent uses prompt blocks, which resolve by name at run time")
+    skill_config = getattr(row, "skill_config", None) or {}
+    if isinstance(skill_config, dict) and skill_config.get("listed"):
+        raise StepAnswerUnversioned("the agent lists skills, whose bodies are not versioned with it")
+    if getattr(row, "mcp_servers", None):
+        raise StepAnswerUnversioned("the agent uses MCP servers, whose tools change outside our database")
+
+    tool_ids = sorted(str(t) for t in (getattr(row, "tools", None) or []))
+    tools: list[Any] = []
+    if tool_ids:
+        found = await get_model("ToolDefinition").filter(id__in=tool_ids).values("id", "version", "updated_at")
+        by_id = {str(r["id"]): [r.get("version"), str(r.get("updated_at") or "")] for r in found}
+        missing = [t for t in tool_ids if t not in by_id]
+        if missing:
+            raise StepAnswerUnversioned(f"{len(missing)} of the agent's tools cannot be found to version")
+        tools = [[t, *by_id[t]] for t in tool_ids]
+
+    assoc = get_instance("associations_manager_instance")
+    bindings: list[Any] = []
+    for side in ("source", "target"):
+        rows = await assoc.filter_items(**{f"{side}_type": "agent", f"{side}_id": agent_id})
+        for r in rows:
+            other = "target" if side == "source" else "source"
+            if getattr(r, "deleted_at", None) is not None or getattr(r, f"{other}_type", None) == "tag":
+                continue
+            bindings.append([
+                str(r.id), side, getattr(r, "role", None), getattr(r, f"{other}_type", None),
+                str(getattr(r, f"{other}_id", "")), getattr(r, "version", None), str(getattr(r, "updated_at", "") or ""),
+            ])
+    bindings.sort()
+    return {"tools": tools, "bindings": bindings}
+
+
+async def step_result_version(ctx: Any, inputs: Any, config: Any = None) -> str:
+    """WHAT ANSWERS THIS STEP, as one string — the ``result_version`` hook every AI step that runs
+    an agent through :func:`resolve_step_agent_full` registers (matrx_graph ``data.once``).
+
+    Run once per key reuses a saved answer only when the same inputs would be answered by the
+    same thing. For an agent step that thing lives outside the inputs: the Holder the mandate
+    resolves to TODAY (a Binding can swap it), whether it is pinned, the Binding's config
+    overrides, the agent row's own revision (``agent.definition.version`` bumps on every save —
+    a prompt, model or tool change), the SOURCE agent's revision when the row follows its source
+    (a run resolves the source's instructions), and the versions of everything the row points
+    at (:func:`_bindings_revision`). A pinned version row is immutable, but what it points at is
+    not. Any change is a miss: the step runs again and the engine flags it. Something with no
+    version raises :class:`StepAnswerUnversioned` — the step then never reuses (flagged).
+    """
+    import hashlib
+    import json
+
+    resolved = await resolve_step_agent_full(inputs, consumer="once.result_version", allow_workflow_holder=True)
+    if isinstance(resolved, StepWorkflowMandate):
+        parts: dict[str, Any] = {
+            "holder": "workflow",
+            "workflow_id": resolved.workflow_id,
+            "workflow_version_id": resolved.workflow_version_id,
+        }
+    else:
+        from matrx_ai.agents.follow_source import follows_its_source
+        from matrx_ai.tools.agent_projection import _load_agent_row
+
+        row = await _load_agent_row(resolved.agent_id, is_version=resolved.is_version)
+        revision: Any = None
+        effective = row
+        if not resolved.is_version:
+            revision = [getattr(row, "version", None), str(getattr(row, "updated_at", "") or "")]
+            if follows_its_source(row):
+                effective = await _load_agent_row(str(row.source_agent_id), is_version=False)
+                revision.append(
+                    [str(row.source_agent_id), getattr(effective, "version", None),
+                     str(getattr(effective, "updated_at", "") or "")]
+                )
+        agent_key = str(getattr(row, "agent_id", None) or resolved.agent_id) if resolved.is_version else resolved.agent_id
+        parts = {
+            "holder": "agent",
+            "agent_id": resolved.agent_id,
+            "is_version": resolved.is_version,
+            "revision": revision,
+            "config_overrides": resolved.config_overrides or {},
+            "points_at": await _bindings_revision(agent_key, effective),
+        }
+    blob = json.dumps(parts, sort_keys=True, default=str)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
 # ── THE AGENT_RESULT BOOKKEEPING FIELDS ──────────────────────────────────────
 # Every key of ``AiExecutionResult``. When a whole agent_result is broadcast
 # down an unmapped edge into another agent step, these arrive as top-level
@@ -1340,6 +1440,7 @@ async def _run_workflow_held_mandate(
     config_schema=AgentStartConfig,
     icon="bot",
     tags=("ai", "agent", "llm"),
+    result_version=step_result_version,
 )
 async def agent_start(
     ctx: NodeExecutionContext,

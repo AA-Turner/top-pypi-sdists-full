@@ -5,6 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+import rtest
 from rtest.exit_code import ExitCodeValues
 
 
@@ -68,6 +69,21 @@ class TestCLIErrorHandling:
             )
             assert result.returncode != 0
 
+    @rtest.mark.cases("runner", ["native", "pytest"])
+    @rtest.mark.cases("option", ["-n", "--maxprocesses"])
+    def test_zero_worker_configuration_rejected(self, runner: str, option: str) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "test_failure.py").write_text("def test_failure(): assert False\n")
+            result = subprocess.run(
+                [sys.executable, "-m", "rtest", "--runner", runner, option, "0"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode != 0
+            assert "invalid value" in result.stderr
+
 
 class TestNativeRunnerEndToEnd:
     """End-to-end tests for native runner."""
@@ -87,6 +103,7 @@ class TestNativeRunnerEndToEnd:
             assert result.returncode == ExitCodeValues.TESTS_FAILED
             assert "1 passed" in result.stdout
             assert "1 failed" in result.stdout
+            assert "FAILED" in result.stdout
 
     def test_native_runner_empty_directory(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -98,7 +115,7 @@ class TestNativeRunnerEndToEnd:
                 cwd=str(tmp_path),
             )
             assert result.returncode == ExitCodeValues.OK
-            assert "No tests" in result.stdout
+            assert "No tests found" in result.stdout
 
     def test_native_runner_import_error(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -114,3 +131,64 @@ class TestNativeRunnerEndToEnd:
             )
             assert result.returncode == ExitCodeValues.TESTS_FAILED
             assert "ModuleNotFoundError" in result.stdout
+
+    @rtest.mark.cases(
+        "source",
+        [
+            "import os\ndef test_exit(): os._exit(0)\n",
+            "from rtest.worker.runner import TestResult\n"
+            "TestResult.to_json = lambda self: '{invalid'\n"
+            "def test_pass(): pass\n",
+        ],
+    )
+    def test_missing_or_malformed_worker_results_fail_the_run(self, source: str) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "test_worker.py").write_text(source)
+            result = subprocess.run(
+                [sys.executable, "-m", "rtest", "--runner", "native"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == ExitCodeValues.TESTS_FAILED
+            assert "FAILED" in result.stdout
+            assert "1 worker error" in result.stdout
+
+
+class TestPytestEnvironment:
+    """Environment options reach both sequential and parallel pytest processes."""
+
+    @rtest.mark.cases("workers", [1, 2])
+    def test_environment_values_and_invalid_option_warning(self, workers: int) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            (tmp_path / "test_env.py").write_text(
+                "import os\n"
+                "def test_value(): assert os.environ['RTEST_VALUE'] == 'a=b'\n"
+                "def test_empty(): assert os.environ['RTEST_EMPTY'] == ''\n"
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "rtest",
+                    "--runner",
+                    "pytest",
+                    "-n",
+                    str(workers),
+                    "--env",
+                    "RTEST_VALUE=old",
+                    "--env",
+                    "RTEST_VALUE=a=b",
+                    "--env",
+                    "RTEST_EMPTY=",
+                    "--env",
+                    "INVALID_NO_EQUALS",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=tmp_path,
+            )
+            assert result.returncode == ExitCodeValues.OK, result.stdout + result.stderr
+            assert result.stderr.count("Warning: Invalid environment variable format: INVALID_NO_EQUALS") == 1

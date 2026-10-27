@@ -66,16 +66,16 @@ def test_shared_is_the_module_global_outside_a_run_and_each_runs_own_inside(monk
 
 def test_pushed_settings_and_context_sizes_stay_with_the_run_that_heard_them():
     a, b = runctx.Run("a"), runctx.Run("b")
-    headers = {model_mod.READER_GATE_HEADER: "on", model_mod.WRITER_GAP_HEADER: "90",
+    headers = {model_mod.WRITER_HISTORY_HEADER: "lean", model_mod.WRITER_GAP_HEADER: "90",
                model_mod.CONTEXT_CAP_HEADERS[model_mod.LANE_WRITE]: "150000"}
     with runctx.enter(a):
         model_mod.remember_pushed_settings(headers)
         model_mod.remember_context_sizes(headers)
-        assert model_mod.reader_gate_mode() == model_mod.GateMode.ON
+        assert model_mod.writer_history() == model_mod.WriterHistory.LEAN
         assert model_mod.writer_min_gap_s() == 90
         assert model_mod.server_context_tokens(model_mod.LANE_WRITE) == 150_000
     with runctx.enter(b):
-        assert model_mod.reader_gate_mode() == model_mod.GateMode.OFF
+        assert model_mod.writer_history() == model_mod.WriterHistory.FULL
         assert model_mod.writer_min_gap_s() == 0
         assert model_mod.server_context_tokens(model_mod.LANE_WRITE) is None
 

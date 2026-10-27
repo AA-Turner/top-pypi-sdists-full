@@ -2,7 +2,7 @@
 
 """Test for diff_cover.snippets"""
 
-import os
+import contextlib
 
 import pytest
 from pygments.token import Token
@@ -135,12 +135,11 @@ def patch_path_tool(mocker):
 
 
 @pytest.fixture
-def switch_to_fixture_dir(request):
+def switch_to_fixture_dir():
     # Need to be in the fixture directory
     # so the source path is displayed correctly
-    os.chdir(fixture_path(""))
-    yield
-    os.chdir(request.config.invocation_dir)
+    with contextlib.chdir(fixture_path("")):
+        yield
 
 
 def test_style_defs():
@@ -362,6 +361,43 @@ def test_html_marks_covered_lines_with_nonzero_start_line():
     # snippet-relative, so line 60 is offset 3 within the snippet; the
     # `.hll` class should be present somewhere in the rendered HTML.
     assert "hll" in rendered
+
+
+def test_terminal_numbers_lines_from_start_line():
+    """
+    The terminal snippet must be numbered from the snippet's first line,
+    as the HTML and Markdown ones are, not from 1. See #283.
+    """
+    src_tokens = [
+        (Token.Text, "Line 217\n"),
+        (Token.Text, "Line 218\n"),
+        (Token.Text, "Line 219\n"),
+    ]
+    snippet = Snippet(
+        src_tokens,
+        "test.txt",
+        start_line=217,
+        last_line=219,
+        violation_lines=[218],
+        lexer_name=None,
+    )
+
+    lines = snippet.terminal().splitlines()
+
+    assert lines[:3] == ["0217: Line 217", "0218: Line 218", "0219: Line 219"]
+
+
+def test_terminal_numbers_lines_from_one_for_a_snippet_at_the_top():
+    snippet = Snippet(
+        [(Token.Text, "first\n"), (Token.Text, "second\n")],
+        "test.txt",
+        start_line=1,
+        last_line=2,
+        violation_lines=[1],
+        lexer_name=None,
+    )
+
+    assert snippet.terminal().splitlines()[:2] == ["0001: first", "0002: second"]
 
 
 def test_end_range_on_violation(tmpfile):

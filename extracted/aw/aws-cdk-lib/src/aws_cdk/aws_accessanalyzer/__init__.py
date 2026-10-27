@@ -222,6 +222,7 @@ class CfnAnalyzer(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -268,7 +269,7 @@ class CfnAnalyzer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ae0ebe072220649d8253f3011fe641bc781e24d2bbf9d9a1cc55fdf1fb9124cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="analyzerConfiguration")
@@ -286,7 +287,7 @@ class CfnAnalyzer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b65a5d08bf50e1911863b6e4854f804654921017c34f668f95a5081f5c25b8c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "analyzerConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "analyzerConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="analyzerName")
@@ -299,7 +300,7 @@ class CfnAnalyzer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f49c019c0256461aaf3c1e401ec662652b0851ed050ba88de78bf16d1886d0d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "analyzerName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "analyzerName", value)
 
     @builtins.property
     @jsii.member(jsii_name="archiveRules")
@@ -317,7 +318,7 @@ class CfnAnalyzer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6e8df0db0833319fd0b7c019964ba2ec4f399928538e323239bc668cacd0434)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "archiveRules", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "archiveRules", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -333,7 +334,7 @@ class CfnAnalyzer(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a60563761f5e2faa4dde6d3c0daa593ac20d10acf23bf72fc62050810a7b3e48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnAnalyzer.AnalysisRuleCriteriaProperty",
@@ -1411,6 +1412,7 @@ class CfnArchiveRule(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1469,7 +1471,7 @@ class CfnArchiveRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__35c256e2d06172902e7008818b52ebdb1b11e35a50004c623f8d89e80acbe90f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "analyzerName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "analyzerName", value)
 
     @builtins.property
     @jsii.member(jsii_name="filter")
@@ -1487,7 +1489,7 @@ class CfnArchiveRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc1c82ead2611efcfd46bf4c84717a8577c8c9f207c04319677b18f2ec82cd06)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "filter", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "filter", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleName")
@@ -1500,7 +1502,7 @@ class CfnArchiveRule(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e6de95657ffd9af5547315d3b8e6416337fdee2cfb6fa440e40c5f0e3e418ec)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_accessanalyzer.CfnArchiveRule.FilterItemsProperty",

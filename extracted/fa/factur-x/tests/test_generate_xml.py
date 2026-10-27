@@ -4,9 +4,9 @@
 import datetime
 import json
 import unittest
-from pprint import pprint
 
-from deepdiff import DeepDiff
+# from pprint import pprint
+# from deepdiff import DeepDiff
 from facturx import (
     data_dict_to_json,
     generate_xml,
@@ -39,9 +39,11 @@ class TestGenerateXML(unittest.TestCase):
             "EXT-FR-FE-01": "GC",
             "EXT-FR-FE-199": datetime.date(2020, 2, 12),  # contract date
             "BT-13": "PO1242",
+            "EXT-FR-FE-197": datetime.date(2026, 5, 31),  # PO date
             "BT-14": "DEVIS2093",
             "BT-15": "BR-2026/06/42",
             "BT-16": "BL-2026/05/12",
+            "EXT-FR-FE-198": datetime.date(2026, 6, 12),  # BL date
             "BT-19": "401HOF",
             "BT-20": "30 jours net",
             "BT-23": "S1",
@@ -245,10 +247,8 @@ class TestGenerateXML(unittest.TestCase):
             "BT-107": "5.50",
             "BT-108": "5.50",
             "BT-109": "273.00",
-            "BT-110": "35.03",
-            #            "BT-110-1": "USD",
-            "BT-111": "30.46",
-            #            "BT-111-1": "EUR",
+            "BT-110": "35.03",  # in BT-5
+            "BT-111": "30.47",  # in BT-6  (rate 1.15)
             "BT-112": "308.03",
             "BT-113": "100.00",
             "BT-115": "208.03",
@@ -392,6 +392,9 @@ class TestGenerateXML(unittest.TestCase):
                     "EXT-FR-FE-137": "380",
                     "EXT-FR-FE-138": datetime.date(2025, 12, 24),
                     "EXT-FR-FE-163": "DETAIL",
+                    "EXT-FR-FE-181": "7.43",
+                    "EXT-FR-FE-182": "6.46",
+                    "EXT-FR-FE-184": "142.43",
                     "EXT-FR-FE-193": "DAP",
                     "EXT-FR-FE-194": "Barcelona",
                     "EXT-FR-FE-200": datetime.date(2026, 2, 21),
@@ -487,7 +490,11 @@ class TestGenerateXML(unittest.TestCase):
                     "EXT-FR-FE-139": "12",
                     "EXT-FR-FE-137": "380",
                     "EXT-FR-FE-138": datetime.date(2025, 12, 24),
+                    "EXT-FR-FE-158": datetime.date(2026, 6, 16),
                     "EXT-FR-FE-163": "DETAIL",
+                    "EXT-FR-FE-181": "27.60",
+                    "EXT-FR-FE-182": "24.0",
+                    "EXT-FR-FE-184": "165.6",
                 },
             ],
         }
@@ -538,8 +545,8 @@ class TestGenerateXML(unittest.TestCase):
                     parsed_data_dict = parse_ubl_cii_xml(xml_bytes, check_xsd=False)
                     # pprint(parsed_data_dict)
                     if parsed_data_dict != data_dict:
-                        diff = DeepDiff(data_dict, parsed_data_dict)
-                        pprint(diff)
+                        # diff = DeepDiff(data_dict, parsed_data_dict)
+                        # pprint(diff)
                         self.assertFalse(
                             "Parsed parsed_data_dict is different than data_dict"
                         )

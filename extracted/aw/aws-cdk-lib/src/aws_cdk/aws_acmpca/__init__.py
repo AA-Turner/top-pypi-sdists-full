@@ -373,6 +373,7 @@ class CfnCertificate(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -422,7 +423,7 @@ class CfnCertificate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__929f46388471884d412a93caaec6152169738bcde7736082806fa61355f38450)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateAuthorityArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificateAuthorityArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="certificateSigningRequest")
@@ -435,7 +436,7 @@ class CfnCertificate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__16a09377d92f4e276678c2c81de91b48247f6567816f2a450052d3564b74e969)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateSigningRequest", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificateSigningRequest", value)
 
     @builtins.property
     @jsii.member(jsii_name="signingAlgorithm")
@@ -448,7 +449,7 @@ class CfnCertificate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__643e9821d5b63922252de6f66c05ac417883bee41b28c13cf3db8cd2632e14e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "signingAlgorithm", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "signingAlgorithm", value)
 
     @builtins.property
     @jsii.member(jsii_name="validity")
@@ -466,7 +467,7 @@ class CfnCertificate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4b0f98fada0460f1013060888886a3c2a49f08cade3f294d7b78ab8077353d28)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "validity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "validity", value)
 
     @builtins.property
     @jsii.member(jsii_name="apiPassthrough")
@@ -484,7 +485,7 @@ class CfnCertificate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07edd7fc55218dbdda428adf3aa29d974595465ca0c1084ed6f98a79f08d4841)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "apiPassthrough", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "apiPassthrough", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateArn")
@@ -497,7 +498,7 @@ class CfnCertificate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__20f419f7a37472cedd9954e752bfa553241909264a1db9544a8edce9404b9552)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="validityNotBefore")
@@ -515,7 +516,7 @@ class CfnCertificate(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce4f5fb71e1d9798d96fd2e8524ac910685f8e895b03a85141518face166fd7e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "validityNotBefore", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "validityNotBefore", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_acmpca.CfnCertificate.ApiPassthroughProperty",
@@ -2422,6 +2423,7 @@ class CfnCertificateAuthority(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2479,7 +2481,7 @@ class CfnCertificateAuthority(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b7e6c5981edef9a3b3627b2003de2630869e19cd61c48d608bfd86a7f219e472)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyAlgorithm", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyAlgorithm", value)
 
     @builtins.property
     @jsii.member(jsii_name="signingAlgorithm")
@@ -2492,7 +2494,7 @@ class CfnCertificateAuthority(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b7e2832fbc61e46c30f08119509dacf6b15d90881721ef6f70b6331442b62041)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "signingAlgorithm", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "signingAlgorithm", value)
 
     @builtins.property
     @jsii.member(jsii_name="subject")
@@ -2510,7 +2512,7 @@ class CfnCertificateAuthority(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__65bb497527ac064e6e2dac08377e39c6239f7e846ca18078132927a75d6471bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subject", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subject", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -2523,7 +2525,7 @@ class CfnCertificateAuthority(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__77017d7803db08d3adb6df13436c6f61e9248dba04cb27f3ad2c009449c54235)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="csrExtensions")
@@ -2541,7 +2543,7 @@ class CfnCertificateAuthority(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__672400fc9d101cb3557ef2b74a3ed2c3389e8f619013c4b2a84263707b9ad5d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "csrExtensions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "csrExtensions", value)
 
     @builtins.property
     @jsii.member(jsii_name="keyStorageSecurityStandard")
@@ -2557,7 +2559,7 @@ class CfnCertificateAuthority(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__be8e4d5ae1e7416c87aef05e06dfd53984f27b32f1d6ac821bb176da70ccf89f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keyStorageSecurityStandard", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keyStorageSecurityStandard", value)
 
     @builtins.property
     @jsii.member(jsii_name="revocationConfiguration")
@@ -2575,7 +2577,7 @@ class CfnCertificateAuthority(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__203567ece18e0659c536811874601c021c570afc77b0834d25d2e06ac2849f57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "revocationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "revocationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2591,7 +2593,7 @@ class CfnCertificateAuthority(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__01bad6d3cb4db9f6f71a433aa44c7435297b8f644c8fdcbe06a0550035a76fa5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="usageMode")
@@ -2604,7 +2606,7 @@ class CfnCertificateAuthority(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d183c3c1616f42e791fb50dd3640b6710dbdb67c4b67d83635a3687f5abb9d0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "usageMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "usageMode", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_acmpca.CfnCertificateAuthority.AccessDescriptionProperty",
@@ -4456,6 +4458,7 @@ class CfnCertificateAuthorityActivation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4498,7 +4501,7 @@ class CfnCertificateAuthorityActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b279179f6b525656e5ee2f3b4d595cb75d494cf246f2e92a8469589c5395bfdd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificate", value)
 
     @builtins.property
     @jsii.member(jsii_name="certificateAuthorityArn")
@@ -4511,7 +4514,7 @@ class CfnCertificateAuthorityActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__43dd6c4689519828c2c042c80ee0ae6a9d3b03512aaac4693b2c9abdf2799b92)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateAuthorityArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificateAuthorityArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="certificateChain")
@@ -4524,7 +4527,7 @@ class CfnCertificateAuthorityActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__87c41ac4f9f42cd4127fcc9a6dfc22f017ed7eeba7dd94714974f3af2143dce1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateChain", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificateChain", value)
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -4537,7 +4540,7 @@ class CfnCertificateAuthorityActivation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4bb84ac3ee8ec3f7d2297504aaca248c351bd9fd6b388a9a80a5c547a8b217eb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
 
 @jsii.data_type(
@@ -5253,6 +5256,7 @@ class CfnPermission(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5284,7 +5288,7 @@ class CfnPermission(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d66768d9ebbeae3804aef733e92b2f439fa97176bd7c8fe4678fdb5bcb1a203c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "actions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "actions", value)
 
     @builtins.property
     @jsii.member(jsii_name="certificateAuthorityArn")
@@ -5297,7 +5301,7 @@ class CfnPermission(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3cedc10edb2bf740d73d914ce4705a9a6c80297d3e34901af9a5206b3fe6d131)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateAuthorityArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificateAuthorityArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="principal")
@@ -5310,7 +5314,7 @@ class CfnPermission(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__15c3392ebc670af42af684ca42dddcffe29ad37af007e2788604447f884ea595)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "principal", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "principal", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceAccount")
@@ -5323,7 +5327,7 @@ class CfnPermission(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__336a294e18ad34a8379580ec71e5c0dca499ba44efb4e2cad4bf5190ba57b1fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceAccount", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceAccount", value)
 
 
 @jsii.data_type(

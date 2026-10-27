@@ -18,18 +18,33 @@ The public surface — `DominanceModel.dominates`, `DominanceModel.strictly_domi
 `DominanceModel.cfg_node_of`, `DominanceModel.runs_before_function`, `build_dominance` — is keyed to AST
 nodes: an arbitrary node is located to the control-flow node of the statement (or loop head) that
 evaluates it, the granularity at which the graph reasons. `strictly_dominates` is the non-reflexive
-`dominates`, refusing a same-statement pair a caller must order. `runs_before_function` lifts dominance
-across calls: it answers whether a definition runs before every invocation of a function, which a single
-graph cannot, by ordering the definition against the points the function is referenced and recursing up
-the call graph. `runs_before` and `runs_before_all` expose that same ordering against a single reference,
-or every reference in a set — the query a transform needs to confirm a value is established before every
-use that could observe it.
+`dominates`, refusing a same-statement pair a caller must order. The ordering the queries below
+are built from is that of statements: dominance orders *entering* a statement, and a run reaching
+a handler because the statement threw has entered it without completing it, so a point such a run
+reaches is ordered after the statement only when the statement cannot throw at all.
+`runs_before_function` lifts that ordering across calls: it answers whether a definition runs
+before every invocation of a function, which a single graph cannot, by ordering the definition
+against the points the function is referenced and recursing up the call graph. `runs_before` and
+`runs_before_all` expose that same ordering against a single reference, or every reference in a
+set — the query a transform needs to confirm a value is established before every use that could
+observe it.
+
+A statement may complete without evaluating every part of it: a store below `&&` is skipped on the
+runs that complete `x && (c = 5)` without it. So every ordering query here answers whether the
+node it is asked about has run, `completes_before` included, and holds only where the statement
+evaluates the node on every run on which it completes. The exceptions are `cannot_precede`, which
+asks whether anything can run before a node on a run on which the node runs, and for which the
+statement is enough, and the dominance queries `dominates`, `strictly_dominates` and
+`completes_before_node`, which order the statements alone.
 """
 from __future__ import annotations
 
-from typing import Iterable
+from dataclasses import dataclass
+from typing import Callable, Iterable, Iterator, Sequence
 
 from refinery.lib.scripts import Node
+from refinery.lib.scripts.analysis.cfg import Projection
+from refinery.lib.scripts.analysis.dominance import DominatorModel
 from refinery.lib.scripts.js.analysis.cfg import (
     FUNCTION_NODES,
     CfgNode,
@@ -37,181 +52,292 @@ from refinery.lib.scripts.js.analysis.cfg import (
     ControlFlowModel,
     build_control_flow_model,
 )
-from refinery.lib.scripts.js.analysis.model import Binding, SemanticModel, enclosing_function
+from refinery.lib.scripts.js.analysis.evaluation import (
+    evaluated_whenever_completed,
+    evaluated_with,
+)
+from refinery.lib.scripts.js.analysis.intrinsics import (
+    SPECIES_KEYS,
+    IntrinsicWrites,
+    build_intrinsic_writes,
+)
+from refinery.lib.scripts.js.analysis.model import (
+    Binding,
+    SemanticModel,
+    enclosing_function,
+    enclosing_operator,
+    is_invocation_target,
+    is_member_write_target,
+    is_simple_assignment_target,
+    member_property_name,
+)
+from refinery.lib.scripts.js.model import (
+    JsArrowFunctionExpression,
+    JsAssignmentExpression,
+    JsCallExpression,
+    JsExportDefaultDeclaration,
+    JsFunctionExpression,
+    JsIdentifier,
+    JsMemberExpression,
+    JsNewExpression,
+    JsObjectExpression,
+    JsParenthesizedExpression,
+    is_async_function,
+    is_generator_function,
+    object_member_access_runs_accessor,
+    strip_parens,
+    value_is_discarded,
+)
 
 
-class DominanceModel:
+@dataclass(eq=False)
+class _HandOver:
+    """
+    The moment one local object reaches code that can call a function installed on it without
+    reading the key the function is stored at. A method call on the object runs its callee with
+    the object as `this`; where an accessor may run on the object's prototype chain, any access
+    runs one with the object as `this`. The functions installed on the object share this node of
+    the ordering graph, whose *points* are those accesses, so the accesses are listed and ordered
+    once for all of them (`DominanceModel._member_reference_points`). The other points of such a
+    function name it and belong to it alone: the *reads* of its key, the reads at a key that is
+    not statically known (*unnamed*), the reflective *surfaces* that can name the object, and the
+    end of the script where an importer reaches the object (*exported*).
+    """
+    points: list[Node]
+    reads: dict[str, list[Node]]
+    unnamed: list[Node]
+    surfaces: list[Node]
+    exported: bool
+
+
+def _may_name_the_prototype(access: JsMemberExpression) -> bool:
+    """
+    Whether *access* may read or write the prototype of the object it accesses, or the constructor
+    whose `prototype` that is: its key is one of
+    `refinery.lib.scripts.js.analysis.intrinsics.SPECIES_KEYS`, or not statically known.
+    """
+    name = member_property_name(access)
+    return name is None or name in SPECIES_KEYS
+
+
+def _may_hand_out_the_prototype(access: JsMemberExpression) -> bool:
+    """
+    Whether *access* may hand out the prototype of the object it reads for code to install an
+    accessor on (`_may_name_the_prototype`). A write into the key only swaps the prototype of this
+    one object, and a call only runs what the key holds, so neither hands the prototype out; any
+    other use of the value, a member access or install through it included, may.
+    """
+    return (
+        _may_name_the_prototype(access)
+        and not is_invocation_target(access)
+        and not is_member_write_target(access)
+    )
+
+
+class DominanceModel(DominatorModel):
     """
     Dominator relations for the per-function control-flow graphs of one script, built over a
     `refinery.lib.scripts.js.analysis.model.SemanticModel`. Ask whether one AST node is guaranteed to
     execute before another with `dominates`. Build through `build_dominance`.
+
+    The ordering across calls reads three facts about what lies outside the text: *intrinsic_writes*
+    says whether the program writes the prototype chain a plain object reads through, the semantic
+    model what the file is, and *host_entrypoint* names the top-level bindings the analyst declared
+    a host reaches by name: a function it invokes, or an object whose methods it calls.
     """
 
-    def __init__(self, model: SemanticModel, control_flow: ControlFlowModel | None = None):
+    def __init__(
+        self,
+        model: SemanticModel,
+        control_flow: ControlFlowModel | None = None,
+        *,
+        intrinsic_writes: IntrinsicWrites | None = None,
+        host_entrypoint: Callable[[str], bool] | None = None,
+    ):
+        flow = control_flow if control_flow is not None else build_control_flow_model(model.root)
+        super().__init__(flow)
         self.model = model
-        self._flow = control_flow if control_flow is not None else build_control_flow_model(model.root)
-        self._dominators: dict[int, frozenset[int]] = {}
-        self._reference_points_cache: dict[int, list[Node] | None] = {}
-        for graph in self._flow.graphs.values():
-            self._compute_dominators(graph)
+        if intrinsic_writes is None:
+            intrinsic_writes = build_intrinsic_writes(model)
+        self.intrinsic_writes = intrinsic_writes
+        self._host_entrypoint = host_entrypoint
+        self._reference_points_cache: dict[Node, list[Node | _HandOver] | None] = {}
+        self._invocation_orders: dict[Node, dict[Node | _HandOver, bool]] = {}
+        self._entered_from: dict[Node, dict[Node, bool]] = {}
+        self._hand_overs: dict[Binding, _HandOver | None] = {}
+        self._runs_with_its_node_cache: dict[Node, bool] = {}
+        self._lifts_cache: dict[Node, list[tuple[Node, Node]]] = {}
 
-    def _locate_pair(self, a: Node, b: Node) -> tuple[CfgNode, CfgNode] | None:
+    def completes_before(self, definition: Node, point: Node) -> bool:
         """
-        The control-flow nodes that evaluate *a* and *b* when both lie in the same function's graph, or
-        `None` when either is unlocatable or the two lie in different functions' graphs, where
-        intraprocedural dominance does not apply.
+        Whether *definition* has run on every run that reaches *point*, both in one graph: the
+        statement evaluating it evaluates it whenever it completes (`_runs_with_its_node`), and has
+        completed (`_statement_completes_before`).
         """
-        located_a = self._flow.locate(a)
-        located_b = self._flow.locate(b)
-        if located_a is None or located_b is None:
-            return None
-        graph_a, node_a = located_a
-        graph_b, node_b = located_b
-        if graph_a is not graph_b:
-            return None
-        return node_a, node_b
+        return (
+            self._runs_with_its_node(definition)
+            and self._statement_completes_before(definition, point)
+        )
 
-    def dominates(self, a: Node, b: Node) -> bool:
+    def _statement_completes_before(self, definition: Node, point: Node) -> bool:
         """
-        Whether the statement evaluating *a* is guaranteed to have executed by the time the statement
-        evaluating *b* runs: every path from the enclosing function's entry to *b* passes through *a*.
-        Reflexive — a node dominates itself, since *a* and *b* in the same statement share one
-        control-flow node. `False` when either node lies outside the control-flow graphs (an expression
-        the graph does not represent on its own resolves to its enclosing statement; one with no
-        enclosing statement node is unlocatable) or when the two lie in different functions' graphs,
-        where intraprocedural dominance does not apply.
+        Whether the statement evaluating *definition* has completed on every run that reaches the
+        statement evaluating *point*, both in one graph. Dominance alone orders entering the first
+        statement: in `try { r = window; } catch (e) {} use(r);` the statement `r = window`
+        dominates `use(r)`, yet the handler runs exactly when reading `window` threw and `r` was
+        never written. So a point
+        `refinery.lib.scripts.analysis.cfg.ControlFlowGraph.reached_after_a_throw` places after a
+        throw out of the statement is ordered after it only when
+        `refinery.lib.scripts.js.analysis.model.SemanticModel.statement_cannot_throw` holds for the
+        statement. Not reflexive: a point sharing the statement is refused, since statement
+        granularity cannot order within one statement. The script root as *point* stands for the
+        end of the script (`_completes_before_the_end`).
         """
-        pair = self._locate_pair(a, b)
-        return pair is not None and self.dominates_node(*pair)
+        if point is self.model.root:
+            return self._completes_before_the_end(definition)
+        located = self.locate_pair(definition, point)
+        return located is not None and self.completes_before_node(*located)
 
-    def strictly_dominates(self, a: Node, b: Node) -> bool:
+    def _completes_before_the_end(self, definition: Node) -> bool:
         """
-        Like `dominates`, but not reflexive: whether the statement evaluating *a* is guaranteed to have
-        executed by the time *b* runs *and* is not *b*'s own statement — `False` when *a* and *b* share
-        one control-flow node, where statement-granularity dominance cannot order two occurrences within
-        it. A caller that must reject a same-statement occurrence needs this: a reference in the same
-        statement as a definition may be evaluated before it (an earlier declarator, an earlier sequence
-        operand), which the reflexive `dominates` would wrongly accept. `False` too when either node is
-        unlocatable or the two lie in different functions' graphs, exactly as `dominates`.
+        Whether the statement evaluating *definition* has completed on every run that finishes the
+        script, the point where an importer outside every import cycle calls what a module
+        exports: `_completes_before_exit` of the script's graph. A run that ends in a throw finishes
+        nothing, since no importer runs after a module whose body threw.
         """
-        pair = self._locate_pair(a, b)
-        if pair is None or pair[0] is pair[1]:
+        return self._completes_before_exit(self.model.root, definition)
+
+    def _completes_before_exit(self, activation: Node, definition: Node) -> bool:
+        """
+        Whether the statement evaluating *definition* has completed on every run of *activation*
+        that ends without a throw: every edge that enters the exit of its graph without a throw
+        leaves that statement, or one it `completes_before_node`.
+        """
+        graph = self._flow.graph_of(activation)
+        located = self.locate(definition)
+        if graph is None or located is None or located[0] is not graph:
             return False
-        return self.dominates_node(*pair)
+        node = located[1]
+        return all(
+            source is node or self.completes_before_node(graph, node, source)
+            for source in graph.exit.predecessors
+            if not graph.raise_taken(source, graph.exit)
+        )
 
-    def cfg_node_of(self, element: Node) -> CfgNode | None:
+    def completes_before_node(self, graph: ControlFlowGraph, a: CfgNode, b: CfgNode) -> bool:
         """
-        The control-flow node of the statement (or loop head) that evaluates *element*, climbing out of
-        any expression *element* is nested in, or `None` when *element* has no enclosing graph node.
+        The counterpart of `_statement_completes_before` for a caller that has already located the
+        two statements in *graph*.
         """
-        located = self._flow.locate(element)
-        return located[1] if located is not None else None
-
-    def locate(self, element: Node) -> tuple[ControlFlowGraph, CfgNode] | None:
-        """
-        The control-flow graph and node that evaluate *element* — climbing out of any expression it is
-        nested in — or `None` when it has no enclosing graph node. The graph identifies the function
-        whose invocation runs *element*, which a caller needs to keep a query within one graph.
-        """
-        return self._flow.locate(element)
-
-    @staticmethod
-    def _reachable(start: CfgNode, *, forward: bool) -> set[int]:
-        """
-        The ids of the control-flow nodes reachable from *start* — over successor edges when *forward*,
-        over predecessor edges otherwise — including *start* itself. Exceptional edges are followed like
-        any other edge, since they are part of the same successor and predecessor lists.
-        """
-        seen: set[int] = {id(start)}
-        stack = [start]
-        while stack:
-            node = stack.pop()
-            for neighbour in (node.successors if forward else node.predecessors):
-                if id(neighbour) not in seen:
-                    seen.add(id(neighbour))
-                    stack.append(neighbour)
-        return seen
-
-    def dominates_node(self, a: CfgNode, b: CfgNode) -> bool:
-        """
-        Whether control-flow node *a* dominates *b*: every path from the graph's entry to *b* passes
-        through *a*. Reflexive — a node dominates itself. Node-level counterpart of `dominates`, for a
-        caller that has already located the two nodes.
-        """
-        return id(a) in self._dominators.get(id(b), frozenset())
-
-    def reachable(self, start: CfgNode, *, forward: bool) -> set[int]:
-        """
-        The ids of the control-flow nodes reachable from *start* — over successor edges when *forward*,
-        over predecessor edges otherwise — including *start*. Exceptional edges are followed like any
-        other. A flow-sensitive query intersects a forward set from one point with a backward set from
-        another to find the nodes that lie on some path between them (a kill that can execute in
-        between); keeping the two directions separate lets the caller memoize and short-circuit them.
-        """
-        return self._reachable(start, forward=forward)
+        if a is b or not self.dominates_node(graph, a, b, Projection.MAY):
+            return False
+        thrown = graph.reached_after_a_throw(a)
+        return id(b) not in thrown or self.model.statement_cannot_throw(a.element)
 
     def runs_before_function(self, definition: Node, function: Node) -> bool:
         """
-        Whether *definition* is guaranteed to have executed before any invocation of *function* — so a
-        value established at *definition* holds throughout every call of *function*, and may be inlined
-        into its body. The reasoning rests on one fact: a function cannot be invoked before a reference
-        to it has been evaluated. Its reference points are its own creation, for an anonymous function
-        expression, or the uses of its name, for a named binding; no invocation can precede the earliest
-        of them. So *definition* runs before every invocation exactly when it runs before every reference
-        point — and that, per point, is strict dominance when the point lies in *definition*'s own
-        function, or the same question applied to the function the point lies in, recursing up the call
-        graph. The ordering is *strict*: a reference sharing the definition's statement — an earlier
-        declarator or sequence operand evaluated before it — is not accepted, since statement-granularity
-        dominance is reflexive and cannot order within one statement. A reference's function is its
-        nearest enclosing function (its `_activation_of`), so a use in a function's parameter defaults is
-        attributed to that function's invocation, not to the statement that declares it. This is the
-        interprocedural counterpart of `dominates`, and the sound replacement for ordering a
-        cross-function inline by statement position.
+        Whether *definition* is guaranteed to have executed before any invocation of *function* — so
+        a value established at *definition* holds throughout every call of *function*, and may be
+        inlined into its body. The reasoning rests on one fact: a function cannot be invoked before
+        a reference to it has been evaluated. Its reference points are its own creation, for an
+        anonymous function expression, or the uses of its name, for a named binding; no invocation
+        can precede the earliest of them. So *definition* runs before every invocation exactly when
+        it runs before every reference point — and that, per point, is `completes_before` when the
+        point lies in *definition*'s own function, or the same question applied to the function the
+        point lies in, recursing up the call graph. Where *definition* stands in a function the
+        program calls where it writes it, a point outside that function is ordered by the call
+        instead, once every return of the function follows *definition* (`_lifts`). The ordering is
+        *strict*: a reference sharing the definition's statement — an earlier declarator or sequence
+        operand evaluated before it — is not accepted, since statement-granularity dominance is
+        reflexive and cannot order within one statement. A reference's function is its nearest
+        enclosing function (its `_activation_of`), so a use in a function's parameter defaults is
+        attributed to that function's invocation, not to the statement that declares it. Functions
+        that reach each other's invocations — a recursive function, mutually recursive ones — are
+        answered together (`_solve_invocation_orders`). This is the interprocedural counterpart of
+        `dominates`, and the sound replacement for ordering a cross-function inline by statement
+        position.
 
-        Conservatively `False` when a reference point cannot be ordered or enumerated: the named binding
-        is reassigned or redeclared (its references no longer pin one function), a reference lies in a
-        function that itself runs too late or escapes, or the walk meets a call cycle it cannot bottom
-        out. A function neither referenced nor within reflection's reach is vacuously safe.
+        Conservatively `False` when a reference point cannot be ordered or enumerated: the named
+        binding is reassigned or redeclared (its references no longer pin one function), code
+        outside the file can call the function, or a reference lies in a function that itself runs
+        too late or escapes, and when the statement evaluating *definition* may complete without
+        evaluating it (`_runs_with_its_node`). A function neither referenced nor within reflection's
+        reach is vacuously safe.
         """
-        definition_owner = self._activation_of(definition)
-        return self._runs_before_function(definition, definition_owner, function, set(), {})
+        return self._runs_with_its_node(definition) and self._ordered(definition, function)
+
+    def runs_before_every_invocation(self, definition: Node, function: Node) -> bool:
+        """
+        Whether *definition* is guaranteed to run before every invocation of *function*, and
+        *function* is entered from the activation that runs *definition*, or from one a call it
+        lifts to runs in (`_entered`, `_lifts`) — `runs_before_function` with the vacuity
+        refused. A reader nothing in the file obtains, or one only code nothing obtains calls,
+        answers the ordering question over no invocation at all and passes vacuously; a value
+        established against no invocation is established for no read, so such a reader does not
+        qualify. An object handed to code does not enter the
+        methods stored on it. An anonymous function expression created in that activation is
+        entered by its own creation, the one point no invocation can precede.
+        """
+        if not self.runs_before_function(definition, function):
+            return False
+        return any(self._entered(owner, function) for _, owner in self._lifts(definition))
 
     def runs_before(self, definition: Node, reference: Node) -> bool:
         """
         Whether *definition* is guaranteed to have executed before *reference* is evaluated — the
-        single-reference form of the ordering `runs_before_function` applies per reference point. When
-        *reference* shares *definition*'s activation this is intraprocedural *strict* dominance (a
-        reference sharing *definition*'s statement is not accepted, since statement-granularity
-        dominance is reflexive and cannot order within one statement); when *reference* lies inside a
-        function that cannot be invoked until after *definition*, it is the interprocedural
+        single-reference form of the ordering `runs_before_function` applies per reference point.
+        When *reference* shares *definition*'s activation this is `completes_before` (a reference
+        sharing *definition*'s statement is not accepted, since statement-granularity dominance is
+        reflexive and cannot order within one statement); when *reference* lies inside a function
+        that cannot be invoked until after *definition*, it is the interprocedural
         runs-before-function query, recursing up the call graph. Conservatively `False` whenever the
-        ordering cannot be established — a reference in an activation that may run before *definition*,
-        or a reference point that cannot be enumerated — so a caller may treat `True` as a guarantee.
+        ordering cannot be established — a reference in an activation that may run before
+        *definition*, a reference point that cannot be enumerated, or a statement that may complete
+        without evaluating *definition* (`_runs_with_its_node`) — so a caller may treat `True` as
+        a guarantee.
         """
-        definition_owner = self._activation_of(definition)
-        return self._runs_after(definition, definition_owner, reference, set(), {})
+        return (
+            self._runs_with_its_node(definition)
+            and self._runs_after(definition, reference)
+        )
 
     def runs_before_all(self, definition: Node, references: Iterable[Node]) -> bool:
         """
         Whether *definition* is guaranteed to run before every reference in *references* — `runs_before`
-        for each, vacuously `True` for an empty iterable. The definition's activation is resolved once
-        and shared across the references.
+        for each, vacuously `True` for an empty iterable.
         """
-        definition_owner = self._activation_of(definition)
-        return all(
-            self._runs_after(definition, definition_owner, reference, set(), {})
-            for reference in references
-        )
+        if not self._runs_with_its_node(definition):
+            return False
+        return all(self._runs_after(definition, reference) for reference in references)
 
-    def established_before(self, function: Node, reference: Node) -> bool:
+    def cannot_precede(self, reference: Node, anchor: Node) -> bool:
         """
-        Whether *function*'s callable value is in place before *reference* runs. The
-        function-invocation view of `binding_established_before`: `False` when *function* is not invoked
-        through a single orderable name, so its presence cannot be ordered — the query a consumer needs
-        before folding or dropping a call whose callee would otherwise read a temporal dead zone or a
-        hoisted `undefined`.
+        Whether *reference* cannot run before *anchor* on any run on which *anchor* runs: the
+        statement evaluating *anchor* has completed before *reference* runs, as `runs_before` asks
+        without asking whether that statement evaluates *anchor* at all. A run that skips *anchor*
+        has nothing for *reference* to precede, so a fold made at *anchor* holds wherever it is
+        evaluated as long as no such *reference* comes first. That holds only for an *anchor* the
+        statement evaluates while it runs: the initializer of a field runs when an instance is
+        constructed, after the statements following the class, so an *anchor* there orders nothing
+        (`refinery.lib.scripts.js.analysis.evaluation.evaluated_with`).
         """
-        return self.binding_established_before(self.model.invocation_binding(function), reference)
+        located = self.locate(anchor)
+        element = None if located is None else located[1].element
+        if element is None or not evaluated_with(anchor, element):
+            return False
+        return self._runs_after(anchor, reference)
+
+    def callee_established_before(self, call: JsCallExpression | JsNewExpression) -> bool:
+        """
+        Whether the name *call* reads its callee through holds its `singular_value` before *call*
+        runs (`binding_established_before`). A function declared in a block has two names, each in
+        place from a point of its own, which is why the name is the one the call reads and not the
+        one the function declares. `False` for a callee that is no name.
+        """
+        callee = strip_parens(call.callee)
+        if not isinstance(callee, JsIdentifier):
+            return False
+        return self.binding_established_before(self.model.resolve(callee), call)
 
     def binding_established_before(self, binding: Binding | None, reference: Node) -> bool:
         """
@@ -222,105 +348,500 @@ class DominanceModel:
         each establishing node runs before *reference*. `False` when the binding holds no single orderable
         value, so its presence cannot be ordered — the query a consumer needs before trusting a value that
         would otherwise be read out of its temporal dead zone or before its establishing write.
+        A site the statement or loop head holding it evaluates on some runs only orders nothing
+        (`runs_before`): `x && (T = [])` completes without writing `T`.
         """
         sites = self.model.binding_establishment_sites(binding)
         if sites is None:
             return False
         return all(self.runs_before(site, reference) for site in sites)
 
-    def _runs_before_function(
+    def _runs_with_its_node(self, site: Node) -> bool:
+        """
+        Whether *site* has run whenever the control-flow node evaluating it has completed. A graph
+        has a node for a statement or a loop head and none for the parts of an expression, so an
+        ordering against that node answers for *site* only where the node evaluates it on every run
+        (`refinery.lib.scripts.js.analysis.evaluation.evaluated_whenever_completed`). Memoized by
+        identity, since every ordering query of one definition asks it again for each reference.
+        """
+        cached = self._runs_with_its_node_cache.get(site)
+        if cached is None:
+            located = self.locate(site)
+            element = None if located is None else located[1].element
+            cached = element is not None and evaluated_whenever_completed(site, element)
+            self._runs_with_its_node_cache[site] = cached
+        return cached
+
+    def past_dead_zone(self, binding: Binding, reference: Node) -> bool:
+        """
+        Whether *reference* is guaranteed to run past *binding*'s temporal dead zone: every
+        declaration of this `let`/`const`/`class` binding executes first, so a read at *reference*
+        cannot raise a `ReferenceError`. Distinct from `binding_established_before`, which orders
+        the singular value's establishing write: a dead zone ends at the DECLARATION, not at the
+        first value assignment, so a `let` declared before *reference* but reassigned afterward is
+        past its dead zone here while `binding_established_before` — reasoning about the value —
+        answers `False`. `False` when the binding carries no declaration to order, so the dead
+        zone's end cannot be proven.
+        """
+        return bool(binding.declarations) and all(
+            self.runs_before(site, reference) for site in binding.declarations
+        )
+
+    def _ordered(self, definition: Node, function: Node) -> bool:
+        """
+        Whether *definition* runs before every invocation of *function*. Answers are kept per
+        definition and every one kept is final, so each query of the same definition shares the
+        functions an earlier one solved.
+        """
+        orders = self._invocation_orders.setdefault(definition, {})
+        ordered = orders.get(function)
+        if ordered is None:
+            self._solve_invocation_orders(definition, function, orders)
+            ordered = orders[function]
+        return ordered
+
+    def _solve_invocation_orders(
         self,
         definition: Node,
-        definition_owner: Node,
         function: Node,
-        visiting: set[int],
-        memo: dict[int, bool],
-    ) -> bool:
-        function_id = id(function)
-        if function_id in visiting:
-            return False
-        cached = memo.get(function_id)
-        if cached is not None:
-            return cached
-        points = self._reference_points(function)
-        if points is None:
-            memo[function_id] = False
-            return False
-        visiting = visiting | {function_id}
-        result = all(
-            self._runs_after(definition, definition_owner, point, visiting, memo)
-            for point in points
-        )
-        memo[function_id] = result
-        return result
-
-    def _reference_points(self, function: Node) -> list[Node] | None:
+        orders: dict[Node | _HandOver, bool],
+    ):
         """
-        The points no invocation of *function* can precede, or `None` when they cannot be enumerated.
-        For a function pinned to a name (`SemanticModel.invocation_binding`) these are the value-reads of
-        that name — a read must be evaluated before the value it denotes can be called — together with the
-        opaque reflective surface sites that could invoke it by name
-        (`SemanticModel.reflection_surface_sites`): a direct `eval`, `Function`, a string timer, or a
-        dynamic global access cannot invoke the function before the surface that grants the capability has
-        run, so each surface is itself a point no invocation precedes, ranked exactly like a read. The
-        enumeration is `None` when the name is redeclared, reassigned to another value so a read no longer
-        pins this one function (`SemanticModel.binding_pinned_to`), or resolved inside a dynamic scope a
-        `with` body governs, whose `dynamic_refs` entry is unorderable; this mirrors the escape verdict
-        `EffectModel.function_escapes` draws from the same fact. A surface lexically inside *function* is
-        dropped: it cannot trigger the function's first invocation, only a re-entrant one, so it never
-        bounds the ordering. A function pinned to no name but installed as a property of a non-escaping
-        local object (`SemanticModel.object_property_reference_points`) is enumerated instead by the read
-        sites of that property, the only way its callable can be obtained; this is consulted first, so a
-        namespace method ordered by its call sites is not mistaken for an anonymous closure ordered by its
-        creation. For a function bound to no name and matching neither pattern, the single point is the
-        function expression itself: the closure cannot be invoked before it is created.
+        Solve `_ordered` for *function* and for every function a reference point of it lies in,
+        one strongly connected component of that graph at a time: Tarjan's algorithm, kept on an
+        explicit stack so a long chain of calls cannot exhaust the interpreter's. A point that is a
+        `_HandOver` is a node of the graph in its own right, shared by every function installed on
+        one object. The members of one component reach each other's invocations and get one
+        answer: they are ordered when every point outside the component is, one in an activation
+        that runs the definition or a call returning only once it has (`_site_in`) by
+        `_statement_completes_before` of that site, one in another function or hand-over by that
+        node's answer. A function expression such an activation creates only after the site has
+        completed is ordered without its points (`_created_after`).
 
-        Memoized by function identity: the enumeration is a pure function of *function* and the model,
-        both fixed for the model's lifetime — the whole DominanceModel is rebuilt when the tree version
-        advances — so every `runs_before*` caller shares one result per function instead of recomputing
-        it per reference and per query.
+        This is sound because the earliest invocation of any function in a component follows a
+        reference to it that nothing in the component can have evaluated yet, so that reference is
+        one of the points outside it. A node stops at the first point it cannot order: that point
+        lies outside every component the node belongs to, so it leaves each of them unordered
+        however the other points stand. Every other component is stored only once every component
+        it reaches is, which is what makes each stored answer final.
         """
-        key = id(function)
+        index: dict[Node | _HandOver, int] = {}
+        lowlink: dict[Node | _HandOver, int] = {}
+        ordered: dict[Node | _HandOver, bool] = {}
+        stack: list[Node | _HandOver] = []
+        frames: list[tuple[Node | _HandOver, Iterator[Node | _HandOver]]] = []
+
+        def open_frame(opened: Node | _HandOver):
+            index[opened] = lowlink[opened] = len(index)
+            stack.append(opened)
+            if self._created_after(definition, opened):
+                points = ()
+            else:
+                points = self._reference_points(opened)
+            ordered[opened] = points is not None
+            frames.append((opened, iter(points or ())))
+
+        open_frame(function)
+        while frames:
+            current, points = frames[-1]
+            for point in points:
+                if not ordered[current]:
+                    break
+                if isinstance(point, _HandOver):
+                    activation: Node | _HandOver = point
+                else:
+                    activation = self._activation_of(point)
+                    if (site := self._site_in(definition, activation)) is not None:
+                        if not self._statement_completes_before(site, point):
+                            ordered[current] = False
+                        continue
+                    if not isinstance(activation, FUNCTION_NODES):
+                        ordered[current] = False
+                        continue
+                if (known := orders.get(activation)) is not None:
+                    if not known:
+                        ordered[current] = False
+                elif activation not in index:
+                    open_frame(activation)
+                    break
+                else:
+                    lowlink[current] = min(lowlink[current], index[activation])
+            if frames[-1][0] is not current:
+                continue
+            frames.pop()
+            if lowlink[current] == index[current]:
+                members: list[Node | _HandOver] = []
+                while not members or members[-1] is not current:
+                    members.append(stack.pop())
+                answer = all(ordered[member] for member in members)
+                for member in members:
+                    orders[member] = answer
+            if frames:
+                parent = frames[-1][0]
+                if current in orders:
+                    ordered[parent] = ordered[parent] and orders[current]
+                else:
+                    lowlink[parent] = min(lowlink[parent], lowlink[current])
+
+    def _created_after(self, definition: Node, activation: Node | _HandOver) -> bool:
+        """
+        Whether *activation* is a function expression created, in an activation `_site_in` places
+        *definition* in, only once that site has completed. No copy of the function exists before
+        that, so none is invoked before it, whatever its reference points are: a method call that
+        hands its object over before the method is stored there cannot call the method yet. A
+        function declaration exists from the start of its activation and never qualifies.
+        """
+        if not isinstance(activation, (JsFunctionExpression, JsArrowFunctionExpression)):
+            return False
+        site = self._site_in(definition, self._activation_of(activation))
+        return site is not None and self._statement_completes_before(site, activation)
+
+    def _entered(self, owner: Node, function: Node) -> bool:
+        """
+        Whether a reference point of *function* that names it lies in *owner*, or in a function
+        entered from *owner* the same way: a read of its name or of the key it is stored at, a
+        reflective surface that can name it, the end of the script where an importer calls it, or
+        its own creation for a function bound to nothing. The accesses of a `_HandOver` hand an
+        object on and never enter a function, so a method no code in the file obtains stays
+        unentered however often its object is handed over. Answers are kept per activation, since
+        the question does not depend on the definition.
+        """
+        known = self._entered_from.setdefault(owner, {})
+        answer = known.get(function)
+        if answer is not None:
+            return answer
+        seen: set[Node] = {function}
+        pending: list[Node] = [function]
+        while pending:
+            current = pending.pop()
+            for point in self._reference_points(current) or ():
+                if isinstance(point, _HandOver):
+                    continue
+                activation = self._activation_of(point)
+                if activation is owner or known.get(activation) is True:
+                    known[function] = True
+                    return True
+                if (
+                    isinstance(activation, FUNCTION_NODES)
+                    and activation not in seen
+                    and known.get(activation) is None
+                ):
+                    seen.add(activation)
+                    pending.append(activation)
+        for node in seen:
+            known[node] = False
+        return False
+
+    def _reference_points(self, activation: Node | _HandOver) -> Sequence[Node | _HandOver] | None:
+        """
+        The points no invocation of *activation* can precede, or `None` when they cannot be
+        enumerated. A `_HandOver` holds its own points. For a function pinned to its names
+        (`refinery.lib.scripts.js.analysis.model.SemanticModel.function_names`) these are the
+        value-reads of those names — a read must be evaluated before the value it denotes can be
+        called — together with the opaque reflective surface sites that could invoke it by name
+        (`refinery.lib.scripts.js.analysis.model.SemanticModel.reflection_surface_sites`): a direct
+        `eval`, `Function`, a string timer, or a dynamic global access cannot invoke the function
+        before the surface that grants the capability has run, so each surface is itself a point no
+        invocation precedes, ranked exactly like a read. The enumeration is `None` when the name is
+        redeclared, reassigned to another value so a read no longer pins this one function
+        (`refinery.lib.scripts.js.analysis.model.SemanticModel.binding_pinned_to`), or resolved
+        inside a dynamic scope a `with` body governs, whose
+        `refinery.lib.scripts.js.analysis.model.Binding.dynamic_refs` entry is unorderable; this
+        mirrors the escape verdict
+        `refinery.lib.scripts.js.analysis.effects.EffectModel.function_escapes` draws from the same
+        fact. A surface lexically inside the function is dropped: it cannot trigger the function's
+        first invocation, only a re-entrant one, so it never bounds the ordering. A function
+        installed as a property of a non-escaping local object (`_member_reference_points`) is
+        enumerated instead by the points that name it and the object's `_HandOver`; this is
+        consulted first, so a namespace method ordered by its call sites is not mistaken for an
+        anonymous closure ordered by its creation.
+
+        A function is ordered by its creation alone, the one point no invocation can precede, when
+        it is bound to no name and matches neither pattern, and when the value of the assignment
+        installing it flows on (`_installed_value_escapes`). A function code outside the file can
+        call while the file runs (`_callable_before_the_end`) has no enumeration at all. One an
+        importer outside every import cycle can call has the end of the script as one more point,
+        the script root standing for it (`_statement_completes_before`), since such an importer
+        calls in only once the module has finished.
+
+        Memoized by identity: the enumeration is a pure function of *activation* and the model,
+        both fixed for the model's lifetime — the whole DominanceModel is rebuilt when the tree
+        version advances — so every `runs_before*` caller shares one result per function instead of
+        recomputing it per reference and per query.
+        """
+        if isinstance(activation, _HandOver):
+            return activation.points
         cache = self._reference_points_cache
-        if key not in cache:
-            cache[key] = self._compute_reference_points(function)
-        return cache[key]
+        if activation not in cache:
+            cache[activation] = self._compute_reference_points(activation)
+        return cache[activation]
 
-    def _compute_reference_points(self, function: Node) -> list[Node] | None:
-        member_points = self.model.object_property_reference_points(function)
+    def _compute_reference_points(self, function: Node) -> list[Node | _HandOver] | None:
+        names = self.model.function_names(function)
+        bindings: tuple[Binding | None, ...] = (None,) if names is None else names.bindings
+        if any(self._callable_before_the_end(function, name) for name in bindings):
+            return None
+        if self._installed_value_escapes(function):
+            return [function]
+        if names is None and isinstance(function.parent, JsExportDefaultDeclaration):
+            return [self.model.root]
+        member_points = self._member_reference_points(function)
         if member_points is not None:
             return member_points
-        binding = self.model.invocation_binding(function)
-        if binding is None:
+        if names is None:
             return [function]
-        if (
-            binding.dynamic_refs
-            or len(binding.declarations) != 1
-            or not self.model.binding_pinned_to(binding, function)
-        ):
-            return None
-        points: list[Node] = [*binding.reads]
-        points.extend(
-            site
-            for site in self.model.reflection_surface_sites(binding)
-            if not site.is_descendant_of(function)
-        )
+        points: list[Node | _HandOver] = []
+        for name in names.bindings:
+            if (
+                name.dynamic_refs
+                or len(name.declarations) != 1
+                or not self.model.binding_pinned_to(name, function)
+            ):
+                return None
+            points.extend(names.reads_of(name))
+            points.extend(
+                site
+                for site in self.model.reflection_surface_sites(name)
+                if not site.is_descendant_of(function)
+            )
+            if name.exported:
+                points.append(self.model.root)
         return points
 
-    def _runs_after(
-        self,
-        definition: Node,
-        definition_owner: Node,
-        point: Node,
-        visiting: set[int],
-        memo: dict[int, bool],
-    ) -> bool:
+    def _callable_before_the_end(self, function: Node, binding: Binding | None) -> bool:
+        """
+        Whether code outside the file can call *function* while the file's own text still runs, at
+        a point that text does not order. A host calls a declared entry point whenever the script
+        hands it control (`_host_may_reach`). An importer in an import cycle calls an export — one
+        exported by name, or an anonymous `export default function` — before the module's body has
+        finished, exactly where
+        `refinery.lib.scripts.js.analysis.model.SemanticModel.module_may_be_reentered` holds
+        (`_importer_may_run_first`). An importer outside every cycle calls in only after the module
+        has finished, which `_compute_reference_points` orders as the end of the script instead.
+        """
+        if binding is not None and (
+            self._importer_may_run_first(binding)
+            or self._host_may_reach(binding)
+        ):
+            return True
+        return (
+            isinstance(function.parent, JsExportDefaultDeclaration)
+            and self.model.module_may_be_reentered()
+        )
+
+    def _importer_may_run_first(self, binding: Binding) -> bool:
+        """
+        Whether *binding* is exported from a module an importer can run in before its body has
+        finished, so the importer can read it at a point the file's text does not order.
+        """
+        return binding.exported and self.model.module_may_be_reentered()
+
+    def _host_may_reach(self, binding: Binding) -> bool:
+        """
+        Whether a host may reach *binding* by name: the analyst declared it an entry point
+        (*host_entrypoint*), and it is a property of the global object under the run's execution
+        model (`refinery.lib.scripts.js.analysis.model.SemanticModel.reaches_global_object`). A
+        declared object is reached as much as a declared function, and the host may call a method
+        installed on it whenever the script hands it control.
+        """
+        return (
+            self._host_entrypoint is not None
+            and self._host_entrypoint(binding.name)
+            and self.model.reaches_global_object(binding)
+        )
+
+    @staticmethod
+    def _installed_value_escapes(function: Node) -> bool:
+        """
+        Whether *function* is the right side of an assignment whose own value the program goes on
+        to use: chained into another name or key (`h = NS.g = function(){}`), called on the spot,
+        or passed on as an argument. That value reaches code through no read of the name or of the
+        key the assignment installs into, so neither enumeration lists it.
+        """
+        parent = function.parent
+        return (
+            isinstance(parent, JsAssignmentExpression)
+            and parent.right is function
+            and not value_is_discarded(parent)
+        )
+
+    def _member_reference_points(self, function: Node) -> list[Node | _HandOver] | None:
+        """
+        The points no invocation of *function* can precede when it is installed as a property of a
+        non-escaping local object, or `None` where that pattern does not hold. *function* is the
+        value of a `BASE.key = function` statement whose `BASE` resolves to a binding with a
+        `_HandOver`, one holding a single object literal that never escapes as a bare value
+        (`_hand_over`). The callable can then be obtained in two ways only: by reading `BASE.key`,
+        or by code the object is handed to, which reads the key itself. The points are the
+        hand-over, the reads of `key` and of keys that are not statically known, the reflective
+        surfaces that could name the binding, and the end of the script for an object an importer
+        reaches. A write of `key` never obtains the value and is not a point. An install at the key
+        `__proto__` makes *function* the object's prototype rather than a property of it, so every
+        inherited read reaches it, and the pattern does not hold.
+        """
+        parent = function.parent
+        if not (
+            isinstance(parent, JsAssignmentExpression)
+            and parent.operator == '='
+            and parent.right is function
+        ):
+            return None
+        target = strip_parens(parent.left)
+        if not isinstance(target, JsMemberExpression) or not isinstance(target.object, JsIdentifier):
+            return None
+        key = member_property_name(target)
+        if key is None or key == '__proto__':
+            return None
+        binding = self.model.resolve(target.object)
+        if binding is None:
+            return None
+        hand_over = self._hand_over(binding)
+        if hand_over is None:
+            return None
+        points: list[Node | _HandOver] = [hand_over]
+        points.extend(hand_over.reads.get(key, ()))
+        points.extend(hand_over.unnamed)
+        points.extend(site for site in hand_over.surfaces if not site.is_descendant_of(function))
+        if hand_over.exported:
+            points.append(self.model.root)
+        return points
+
+    def _hand_over(self, binding: Binding) -> _HandOver | None:
+        """
+        The `_HandOver` of the object *binding* holds, computed once per binding, or `None` where
+        its accesses cannot all be enumerated: the binding holds no single object literal
+        (`refinery.lib.scripts.js.analysis.model.SemanticModel.singular_value`), one of its reads is
+        not the object of a member access, a `with` could rename it (a
+        `refinery.lib.scripts.js.analysis.model.Binding.dynamic_refs` entry), an importer can reach
+        it before the module has finished (`_importer_may_run_first`), or a host can reach it by
+        name (`_host_may_reach`).
+
+        An access hands the object to code when it is a method call in any form, whose callee
+        receives the object as `this`, and when it reads or writes the object's prototype
+        (`_may_name_the_prototype`), after which the object may inherit accessors from another
+        prototype. Every access does, the establishing writes included, when an accessor may run on
+        the object's prototype chain and receive the object as `this`, or at its own key the very
+        function being stored there. That is so when the literal declares an accessor or a prototype
+        (`refinery.lib.scripts.js.model.object_member_access_runs_accessor`); when the program
+        writes the prototype chain of a plain object
+        (`refinery.lib.scripts.js.analysis.intrinsics.IntrinsicWrites.chain_roots_unwritten`); when
+        it holds code this analysis cannot read, which may install one anywhere
+        (`refinery.lib.scripts.js.analysis.model.SemanticModel.has_reflection_surface`), the term
+        `refinery.lib.scripts.js.analysis.effects.EffectModel.read_chain_intact` asks of a plain
+        read as well; and when an access of the object may hand out its prototype
+        (`_may_hand_out_the_prototype`). An accessor installed through what that access yields lands
+        on a prototype every later object of the same kind inherits, the objects later runs of the
+        same code create included, so a point at the access alone would not order those.
+
+        An accessor can receive the object at no other moment, since the object never escapes as
+        a bare value. Nothing can call a function through the object before the access that hands
+        the object over has run, so such an access is a point rather than a reason to refuse, for
+        the reason a reflective surface is one.
+        """
+        if binding in self._hand_overs:
+            return self._hand_overs[binding]
+        hand_over = self._compute_hand_over(binding)
+        self._hand_overs[binding] = hand_over
+        return hand_over
+
+    def _compute_hand_over(self, binding: Binding) -> _HandOver | None:
+        literal = self.model.singular_value(binding)
+        if not isinstance(literal, JsObjectExpression):
+            return None
+        if (
+            binding.dynamic_refs
+            or self._importer_may_run_first(binding)
+            or self._host_may_reach(binding)
+        ):
+            return None
+        accesses: list[JsMemberExpression] = []
+        for read in binding.reads:
+            node = read
+            access = node.parent
+            while isinstance(access, JsParenthesizedExpression):
+                node, access = access, access.parent
+            if not isinstance(access, JsMemberExpression) or access.object is not node:
+                return None
+            accesses.append(access)
+        every_access_runs_code = (
+            object_member_access_runs_accessor(literal)
+            or not self.intrinsic_writes.chain_roots_unwritten(dict)
+            or self.model.has_reflection_surface()
+            or any(_may_hand_out_the_prototype(access) for access in accesses)
+        )
+        points: list[Node] = []
+        reads: dict[str, list[Node]] = {}
+        unnamed: list[Node] = []
+        for access in accesses:
+            if (
+                every_access_runs_code
+                or is_invocation_target(access)
+                or _may_name_the_prototype(access)
+            ):
+                points.append(access)
+            if is_simple_assignment_target(access):
+                continue
+            if (key := member_property_name(access)) is None:
+                unnamed.append(access)
+            else:
+                reads.setdefault(key, []).append(access)
+        return _HandOver(
+            points,
+            reads,
+            unnamed,
+            self.model.reflection_surface_sites(binding),
+            binding.exported,
+        )
+
+    def _runs_after(self, definition: Node, point: Node) -> bool:
         owner = self._activation_of(point)
-        if owner is definition_owner:
-            return self.strictly_dominates(definition, point)
+        if (site := self._site_in(definition, owner)) is not None:
+            return self._statement_completes_before(site, point)
         if isinstance(owner, FUNCTION_NODES):
-            return self._runs_before_function(definition, definition_owner, owner, visiting, memo)
+            return self._ordered(definition, owner)
         return False
+
+    def _site_in(self, definition: Node, activation: Node | _HandOver) -> Node | None:
+        """
+        The node of *activation* whose completion orders *definition*: *definition* itself where
+        *activation* runs it, and otherwise the call that runs a function *definition* stands in,
+        climbing outward through such calls (`_lifts`). `None` where *activation* is not on that
+        climb.
+        """
+        for site, owner in self._lifts(definition):
+            if owner is activation:
+                return site
+        return None
+
+    def _lifts(self, definition: Node) -> list[tuple[Node, Node]]:
+        """
+        *definition* with its activation, followed by every call it lifts to: where a function
+        expression the program calls where it writes it holds the site so far, and every run of the
+        function that returns rather than throws has evaluated the site
+        (`_completes_before_exit`), the call has returned only after the site ran, so the call,
+        in its own activation, orders the site for every point there. A generator or an `async`
+        function returns before its body has run, and holds no such site; the statement evaluating
+        the call must evaluate it whenever it completes (`_runs_with_its_node`). Memoized.
+        """
+        if (lifts := self._lifts_cache.get(definition)) is not None:
+            return lifts
+        site = definition
+        owner = self._activation_of(definition)
+        lifts = [(site, owner)]
+        while (
+            isinstance(owner, (JsFunctionExpression, JsArrowFunctionExpression))
+            and not is_generator_function(owner)
+            and not is_async_function(owner)
+            and isinstance(call := enclosing_operator(owner), JsCallExpression)
+            and strip_parens(call.callee) is owner
+            and self._completes_before_exit(owner, site)
+            and self._runs_with_its_node(call)
+        ):
+            site = call
+            owner = self._activation_of(call)
+            lifts.append((site, owner))
+        self._lifts_cache[definition] = lifts
+        return lifts
 
     def _activation_of(self, element: Node) -> Node:
         """
@@ -333,38 +854,23 @@ class DominanceModel:
         function = enclosing_function(element)
         return function if function is not None else self.model.root
 
-    def _compute_dominators(self, graph: ControlFlowGraph):
-        nodes = graph.nodes
-        all_ids = {id(node) for node in nodes}
-        dom: dict[int, set[int]] = {
-            id(node): {id(node)} if node is graph.entry else set(all_ids) for node in nodes
-        }
-        changed = True
-        while changed:
-            changed = False
-            for node in nodes:
-                if node is graph.entry:
-                    continue
-                incoming = node.predecessors
-                if incoming:
-                    new = set(all_ids)
-                    for predecessor in incoming:
-                        new &= dom[id(predecessor)]
-                else:
-                    new = set()
-                new.add(id(node))
-                if new != dom[id(node)]:
-                    dom[id(node)] = new
-                    changed = True
-        for node in nodes:
-            self._dominators[id(node)] = frozenset(dom[id(node)])
-
 
 def build_dominance(
-    model: SemanticModel, control_flow: ControlFlowModel | None = None,
+    model: SemanticModel,
+    control_flow: ControlFlowModel | None = None,
+    *,
+    intrinsic_writes: IntrinsicWrites | None = None,
+    host_entrypoint: Callable[[str], bool] | None = None,
 ) -> DominanceModel:
     """
     Build the `DominanceModel` for a script's `refinery.lib.scripts.js.analysis.model.SemanticModel`,
-    reusing *control_flow* when the caller has one to share, or building a fresh one when it is `None`.
+    reusing *control_flow* and *intrinsic_writes* when the caller has them to share, or building
+    fresh ones when they are `None`. *host_entrypoint* names the run's declared host entry points;
+    the default describes a file no host calls into.
     """
-    return DominanceModel(model, control_flow)
+    return DominanceModel(
+        model,
+        control_flow,
+        intrinsic_writes=intrinsic_writes,
+        host_entrypoint=host_entrypoint,
+    )

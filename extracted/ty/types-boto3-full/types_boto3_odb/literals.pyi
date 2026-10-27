@@ -46,6 +46,7 @@ __all__ = (
     "DiskRedundancyType",
     "EncryptionKeyProviderInputType",
     "EncryptionKeyProviderType",
+    "ExascaleDbStorageVaultTypeType",
     "ExternalIdTypeType",
     "GridImageTypeType",
     "HardwareTypeType",
@@ -97,8 +98,10 @@ __all__ = (
     "ShapeTypeType",
     "SourceTypeType",
     "StandbyAllowlistedIpsSourceType",
+    "StorageManagementTypeType",
     "SupportedAwsIntegrationType",
     "UpdateActionType",
+    "VmStorageTypeType",
     "VpcEndpointTypeType",
     "WalletPasswordSourceType",
     "WalletTypeType",
@@ -176,6 +179,7 @@ DisasterRecoveryTypeType = Literal["ADG", "BACKUP_BASED"]
 DiskRedundancyType = Literal["HIGH", "NORMAL"]
 EncryptionKeyProviderInputType = Literal["AWS_KMS", "ORACLE_MANAGED"]
 EncryptionKeyProviderType = Literal["AWS_KMS", "OCI", "OKV", "ORACLE_MANAGED"]
+ExascaleDbStorageVaultTypeType = Literal["DEDICATED_INFRASTRUCTURE", "EXASCALE_INFRASTRUCTURE"]
 ExternalIdTypeType = Literal["compartment_ocid", "database_ocid", "tenant_ocid"]
 GridImageTypeType = Literal["CUSTOM_IMAGE", "RELEASE_UPDATE"]
 HardwareTypeType = Literal["CELL", "COMPUTE"]
@@ -279,8 +283,10 @@ SourceTypeType = Literal[
     "NONE",
 ]
 StandbyAllowlistedIpsSourceType = Literal["NOT_APPLICABLE", "PRIMARY", "SEPARATE"]
+StorageManagementTypeType = Literal["ASM", "EXASCALE"]
 SupportedAwsIntegrationType = Literal["KmsTde"]
 UpdateActionType = Literal["NON_ROLLING_APPLY", "PRECHECK", "ROLLBACK", "ROLLING_APPLY"]
+VmStorageTypeType = Literal["EXASCALE", "LOCAL"]
 VpcEndpointTypeType = Literal["SERVICENETWORK"]
 WalletPasswordSourceType = Literal["API_REQUEST_PARAMETER", "CUSTOMER_MANAGED_AWS_SECRET"]
 WalletTypeType = Literal["INSTANCE", "REGIONAL"]

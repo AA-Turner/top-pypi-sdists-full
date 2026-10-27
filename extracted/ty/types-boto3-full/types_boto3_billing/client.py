@@ -32,22 +32,33 @@ from .paginator import (
     ListBillingViewsPaginator,
     ListBusinessSupportAccountChargesPaginator,
     ListBusinessSupportSubscriptionHistoryPaginator,
+    ListContractsPaginator,
+    ListContractualInvestmentAttestationsPaginator,
+    ListContractualInvestmentsPaginator,
+    ListContractualInvestmentSummariesPaginator,
     ListEnterpriseSupportLinkedAccountChargesPaginator,
     ListSourceViewsForBillingViewPaginator,
 )
 from .type_defs import (
+    AssociateContractRequestTypeDef,
     AssociateSourceViewsRequestTypeDef,
     AssociateSourceViewsResponseTypeDef,
+    CancelContractualInvestmentAttestationRequestTypeDef,
     CreateBillingViewRequestTypeDef,
     CreateBillingViewResponseTypeDef,
+    CreateContractualInvestmentAttestationRequestTypeDef,
+    CreateContractualInvestmentAttestationResponseTypeDef,
     DeleteBillingViewRequestTypeDef,
     DeleteBillingViewResponseTypeDef,
+    DisassociateContractRequestTypeDef,
     DisassociateSourceViewsRequestTypeDef,
     DisassociateSourceViewsResponseTypeDef,
     GetBillingPreferencesRequestTypeDef,
     GetBillingPreferencesResponseTypeDef,
     GetBillingViewRequestTypeDef,
     GetBillingViewResponseTypeDef,
+    GetContractInformationRequestTypeDef,
+    GetContractInformationResponseTypeDef,
     GetCreditAllocationHistoryRequestTypeDef,
     GetCreditAllocationHistoryResponseTypeDef,
     GetCreditsRequestTypeDef,
@@ -66,6 +77,14 @@ from .type_defs import (
     ListBusinessSupportAccountChargesResponseTypeDef,
     ListBusinessSupportSubscriptionHistoryRequestTypeDef,
     ListBusinessSupportSubscriptionHistoryResponseTypeDef,
+    ListContractsRequestTypeDef,
+    ListContractsResponseTypeDef,
+    ListContractualInvestmentAttestationsRequestTypeDef,
+    ListContractualInvestmentAttestationsResponseTypeDef,
+    ListContractualInvestmentsRequestTypeDef,
+    ListContractualInvestmentsResponseTypeDef,
+    ListContractualInvestmentSummariesRequestTypeDef,
+    ListContractualInvestmentSummariesResponseTypeDef,
     ListEnterpriseSupportLinkedAccountChargesRequestTypeDef,
     ListEnterpriseSupportLinkedAccountChargesResponseTypeDef,
     ListSourceViewsForBillingViewRequestTypeDef,
@@ -136,6 +155,17 @@ class BillingClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#generate_presigned_url)
         """
 
+    def associate_contract(
+        self, **kwargs: Unpack[AssociateContractRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Private Pricing contracts let eligible payer accounts manage private pricing
+        agreements with Amazon Web Services.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/associate_contract.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#associate_contract)
+        """
+
     def associate_source_views(
         self, **kwargs: Unpack[AssociateSourceViewsRequestTypeDef]
     ) -> AssociateSourceViewsResponseTypeDef:
@@ -144,6 +174,16 @@ class BillingClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/associate_source_views.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#associate_source_views)
+        """
+
+    def cancel_contractual_investment_attestation(
+        self, **kwargs: Unpack[CancelContractualInvestmentAttestationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Cancels a contractual investment attestation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/cancel_contractual_investment_attestation.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#cancel_contractual_investment_attestation)
         """
 
     def create_billing_view(
@@ -156,6 +196,17 @@ class BillingClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#create_billing_view)
         """
 
+    def create_contractual_investment_attestation(
+        self, **kwargs: Unpack[CreateContractualInvestmentAttestationRequestTypeDef]
+    ) -> CreateContractualInvestmentAttestationResponseTypeDef:
+        """
+        Creates an attestation that claims an investment award for a completed
+        milestone or outcome within a private pricing contract.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/create_contractual_investment_attestation.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#create_contractual_investment_attestation)
+        """
+
     def delete_billing_view(
         self, **kwargs: Unpack[DeleteBillingViewRequestTypeDef]
     ) -> DeleteBillingViewResponseTypeDef:
@@ -164,6 +215,17 @@ class BillingClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/delete_billing_view.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#delete_billing_view)
+        """
+
+    def disassociate_contract(
+        self, **kwargs: Unpack[DisassociateContractRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the association between a private pricing contract and your Amazon Web
+        Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/disassociate_contract.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#disassociate_contract)
         """
 
     def disassociate_source_views(
@@ -195,6 +257,18 @@ class BillingClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_billing_view.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_billing_view)
+        """
+
+    def get_contract_information(
+        self, **kwargs: Unpack[GetContractInformationRequestTypeDef]
+    ) -> GetContractInformationResponseTypeDef:
+        """
+        Returns information about a specific private pricing contract, including its
+        term (duration), eligible payer accounts, investment accounts, and legal
+        entities.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_contract_information.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_contract_information)
         """
 
     def get_credit_allocation_history(
@@ -288,6 +362,48 @@ class BillingClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_business_support_subscription_history.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#list_business_support_subscription_history)
+        """
+
+    def list_contracts(
+        self, **kwargs: Unpack[ListContractsRequestTypeDef]
+    ) -> ListContractsResponseTypeDef:
+        """
+        Lists the private pricing contracts that your Amazon Web Services account is an
+        eligible payer account of.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_contracts.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#list_contracts)
+        """
+
+    def list_contractual_investment_attestations(
+        self, **kwargs: Unpack[ListContractualInvestmentAttestationsRequestTypeDef]
+    ) -> ListContractualInvestmentAttestationsResponseTypeDef:
+        """
+        Lists the investment attestations submitted under a specific private pricing
+        contract.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_contractual_investment_attestations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#list_contractual_investment_attestations)
+        """
+
+    def list_contractual_investment_summaries(
+        self, **kwargs: Unpack[ListContractualInvestmentSummariesRequestTypeDef]
+    ) -> ListContractualInvestmentSummariesResponseTypeDef:
+        """
+        Lists the investment summaries within a specific private pricing contract.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_contractual_investment_summaries.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#list_contractual_investment_summaries)
+        """
+
+    def list_contractual_investments(
+        self, **kwargs: Unpack[ListContractualInvestmentsRequestTypeDef]
+    ) -> ListContractualInvestmentsResponseTypeDef:
+        """
+        Lists the investments within a specific investment summary.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_contractual_investments.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#list_contractual_investments)
         """
 
     def list_enterprise_support_linked_account_charges(
@@ -414,6 +530,50 @@ class BillingClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_business_support_subscription_history"]
     ) -> ListBusinessSupportSubscriptionHistoryPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contracts"]
+    ) -> ListContractsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contractual_investment_attestations"]
+    ) -> ListContractualInvestmentAttestationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contractual_investment_summaries"]
+    ) -> ListContractualInvestmentSummariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contractual_investments"]
+    ) -> ListContractualInvestmentsPaginator:
         """
         Create a paginator for an operation.
 

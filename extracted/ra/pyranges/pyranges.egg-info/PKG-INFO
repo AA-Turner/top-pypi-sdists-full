@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyranges
-Version: 0.1.6
+Version: 0.1.7
 Summary: GenomicRanges for Python.
 Author-email: Endre Bakken Stovner <endbak@pm.me>, Marco Mariotti <marco.mariotti@ub.edu>
 License: MIT
@@ -18,12 +18,12 @@ Classifier: Topic :: Scientific/Engineering
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pandas
-Requires-Dist: ncls>=0.0.63
+Requires-Dist: ncls>=0.0.71
 Requires-Dist: tabulate
-Requires-Dist: sorted_nearest>=0.0.33
+Requires-Dist: sorted_nearest>=0.0.42
 Requires-Dist: natsort
 Provides-Extra: coverage
-Requires-Dist: pyrle>=0.0.45; extra == "coverage"
+Requires-Dist: pyrle>=0.0.46; extra == "coverage"
 Provides-Extra: dev
 Requires-Dist: black==24.4.2; extra == "dev"
 Requires-Dist: bumpver; extra == "dev"

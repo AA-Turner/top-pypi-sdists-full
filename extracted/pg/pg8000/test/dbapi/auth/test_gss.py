@@ -2,7 +2,6 @@ import pytest
 
 from pg8000.dbapi import InterfaceError, connect
 
-
 # This requires a line in pg_hba.conf that requires gss for the database
 # pg8000_gss
 

@@ -434,6 +434,8 @@ NOT_RESEARCH = frozenset(
         "logout",
         "mcp",
         "outbox",
+        # `probe repair`: the install pipeline in repair mode, like `install`.
+        "repair",
         "session",
         "setup",
         # Local `.git` housekeeping (plan 2.6): deletes old shadow refs, writes
@@ -518,7 +520,7 @@ WRITE_GROUP_UNGATED = frozenset(
 WRITE_GROUP_WRITES = frozenset(
     {
         "version create",
-        "summary push", "visuals set",
+        "summary push", "summary edit", "summary append", "visuals set",
         "checkpoint use", "dataset add", "dataset use", "source add",
         "artifact add", "artifact gc-uploads", "artifact move", "artifact set",
         "artifact version-add",
@@ -534,6 +536,8 @@ WRITE_GROUP_WRITES = frozenset(
         "project tag",
         # `run move` files a floating run: the daemon's in `daemon` state.
         "run child", "run end", "run expect", "run fork", "run move", "run set", "run start", "run tag",
+        # A remote job's one-run token: part of the launch (`DAEMON_AGENT_WRITES`).
+        "run token",
         "span add",
         # `trial export` uploads a staged trial; `export` read as a read verb
         # let `read` through it.

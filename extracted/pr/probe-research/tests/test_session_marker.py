@@ -8,9 +8,12 @@ gap, and the meaning-bearing word surviving truncation.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
+import sys
 import time
+from pathlib import Path
 
 import os
 
@@ -1162,3 +1165,129 @@ def test_tracking_with_nothing_recorded_yet_says_so_without_inventing_a_name(
 ) -> None:
     out = session_marker.render(None, configured=True, tracking=True, color=False)
     assert out.strip() == "● tracking"
+
+
+# -- who set the state ---------------------------------------------------------
+#
+# `<sid>.state-source`: whether the session's state is a seeded DEFAULT or the
+# researcher's own choice (`probe session status`'s `state_source`).
+
+SOURCE_SID = "11111111-2222-3333-4444-555555555555"
+OTHER_SID = "22222222-2222-3333-4444-555555555555"
+
+
+@pytest.fixture()
+def source_home(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "config" / "probe" / "config.json"))
+    monkeypatch.delenv("PROBE_SESSION_STATE", raising=False)
+    monkeypatch.delenv("PROBE_SESSION_TRACKING", raising=False)
+    (tmp_path / "state" / "probe" / "sessions").mkdir(parents=True)
+    return tmp_path
+
+
+def _seed_default(state: str = session_marker.STATE_DAEMON) -> None:
+    assert session_marker.set_session_state_if_absent(SOURCE_SID, state, source=session_marker.SOURCE_DEFAULT)
+
+
+def test_a_seeded_machine_default_is_a_default(source_home) -> None:
+    _seed_default()
+    assert session_marker.state_source(SOURCE_SID) == session_marker.SOURCE_DEFAULT
+    assert session_marker.session_state(SOURCE_SID) == session_marker.STATE_DAEMON
+    assert session_marker.state_path(SOURCE_SID).read_text() == "daemon\n", "the state's bytes never change"
+
+
+def test_a_typed_choice_is_explicit(source_home) -> None:
+    _seed_default()
+    assert session_marker.set_session_state(SOURCE_SID, session_marker.STATE_DAEMON)  # the researcher's `/probe on`
+    assert session_marker.state_source(SOURCE_SID) == session_marker.SOURCE_EXPLICIT
+
+
+def test_status_reports_an_unrecorded_source(source_home) -> None:
+    """`probe session status`'s `state_source`: `unrecorded` for an older client's
+    seed (it still counts as explicit)."""
+    session_marker.state_path(SOURCE_SID).write_text("daemon\n")
+    assert session_marker.state_source_label(SOURCE_SID) == session_marker.SOURCE_UNRECORDED
+    assert session_marker.state_source(SOURCE_SID) == session_marker.SOURCE_EXPLICIT
+    assert session_marker.set_session_state_if_absent(OTHER_SID, session_marker.STATE_DAEMON,
+                                                      source=session_marker.SOURCE_DEFAULT)
+    assert session_marker.state_source_label(OTHER_SID) == session_marker.SOURCE_DEFAULT
+    session_marker.set_session_state(OTHER_SID, session_marker.STATE_DAEMON)
+    assert session_marker.state_source_label(OTHER_SID) == session_marker.SOURCE_EXPLICIT
+
+
+def test_no_source_file_reads_explicit(source_home) -> None:
+    """An older client wrote the state: what cannot be proven a default is never
+    called one."""
+    session_marker.state_path(SOURCE_SID).write_text("daemon\n")
+    assert session_marker.state_source(SOURCE_SID) == session_marker.SOURCE_EXPLICIT
+    assert session_marker.set_session_state_if_absent(OTHER_SID, session_marker.STATE_DAEMON)
+    assert session_marker.state_source(OTHER_SID) == session_marker.SOURCE_EXPLICIT
+
+
+def test_a_default_older_than_its_state_reads_explicit(source_home) -> None:
+    """A writer that does not know the source file (an older plugin's guard)
+    moved the state after the seed."""
+    _seed_default()
+    old = time.time() - 60
+    os.utime(session_marker.state_source_path(SOURCE_SID), (old, old))
+    assert session_marker.state_source(SOURCE_SID) == session_marker.SOURCE_EXPLICIT
+
+
+def test_automation_following_the_profile_keeps_a_default_a_default(source_home) -> None:
+    _seed_default(session_marker.STATE_FULL)
+    old = time.time() - 60
+    os.utime(session_marker.state_source_path(SOURCE_SID), (old, old))
+    os.utime(session_marker.state_path(SOURCE_SID), (old, old))
+    assert session_marker.set_session_state(SOURCE_SID, session_marker.STATE_DAEMON, explicit=False)
+    assert session_marker.state_source(SOURCE_SID) == session_marker.SOURCE_DEFAULT
+
+
+def test_a_seed_that_loses_leaves_no_default_behind(source_home) -> None:
+    session_marker.set_session_state(SOURCE_SID, session_marker.STATE_OFF)  # the researcher's, first
+    assert not session_marker.set_session_state_if_absent(SOURCE_SID, session_marker.STATE_DAEMON,
+                                                          source=session_marker.SOURCE_DEFAULT)
+    assert session_marker.state_source(SOURCE_SID) == session_marker.SOURCE_EXPLICIT
+
+
+# A retired folder default (`.probe/config.json`) no longer decides a new
+# session's state at all (`.probe.config` excludes paths instead), so it is
+# never the researcher's explicit choice here.
+@pytest.mark.parametrize("where, explicit", [("environment", True), ("shipped", False),
+                                             ("machine", False), ("folder", False)])
+def test_which_defaults_are_the_researchers_own(source_home, monkeypatch, where, explicit) -> None:
+    work = source_home / "work" / "repo"
+    work.mkdir(parents=True)
+    if where == "environment":
+        monkeypatch.setenv("PROBE_SESSION_STATE", "on")
+    elif where == "machine":
+        path = Path(os.environ["PROBE_CONFIG_PATH"])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"defaults": {"session_state": "on"}}))
+    elif where == "folder":
+        (source_home / "work" / ".probe").mkdir()
+        (source_home / "work" / ".probe" / "config.json").write_text(
+            json.dumps({"defaults": {"session_state": "on"}}))
+    _state, source = session_marker.resolve_state_default(work)
+    assert session_marker.default_is_explicit(source) is explicit, source
+    assert session_marker.seed_source(source) == (
+        session_marker.SOURCE_EXPLICIT if explicit else session_marker.SOURCE_DEFAULT)
+
+
+def test_the_session_start_hook_records_who_decided(source_home, monkeypatch) -> None:
+    """The lean plugin's SessionStart seed, as Claude Code runs it."""
+    hooks = Path(__file__).resolve().parents[1] / "plugins" / "probe-research-daemon" / "hooks"
+    spec = importlib.util.spec_from_file_location("_vc_state_source", hooks / "version_check.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(hooks))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(hooks))
+    monkeypatch.setenv(module.SESSION_ID_ENV, SOURCE_SID)
+    monkeypatch.setenv(module.SESSION_CWD_ENV, str(source_home))
+    module._seed_tracking_signal()
+    marker = module._session_marker
+    assert marker.session_state(SOURCE_SID) is not None
+    assert marker.state_source(SOURCE_SID) == marker.SOURCE_DEFAULT

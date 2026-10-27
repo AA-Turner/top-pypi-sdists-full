@@ -204,6 +204,7 @@ class CfnInvoiceUnit(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -263,7 +264,7 @@ class CfnInvoiceUnit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__696a83d1411656063bc2e9712df3268ed2ef2248e55f5547394f8f5e78942d54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "invoiceReceiver", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "invoiceReceiver", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -276,7 +277,7 @@ class CfnInvoiceUnit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d3aae9f9b97db34c63c2be162b2b82f9e0ec45cb8225187a2e441c3d9df5fc6c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="rule")
@@ -294,7 +295,7 @@ class CfnInvoiceUnit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__11bd3886ac3007b56aa51fb96bae09bccc9e9cc9c0abd45264540df233a478a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rule", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -307,7 +308,7 @@ class CfnInvoiceUnit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__076923c02da9e54ceab543bf61c811c9f8f6d99b2e479b043a782db5a4b4fa76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceTags")
@@ -325,7 +326,7 @@ class CfnInvoiceUnit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3778014062d8d17e79b38d529c3fb3bb66de99f01976014103eaa0ec3100ef9a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="taxInheritanceDisabled")
@@ -343,7 +344,7 @@ class CfnInvoiceUnit(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__42f1928e769bc3f0a10f5fa89984b4cfd7df0a60a619ce30e6135776c65ea23b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "taxInheritanceDisabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "taxInheritanceDisabled", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_invoicing.CfnInvoiceUnit.ResourceTagProperty",
@@ -796,6 +797,7 @@ class CfnProcurementPortalPreference(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -907,7 +909,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1d10d0bb1fcdcbebd2b4dd7222f1ccb9b1383aa534abd4e682d735c76b28d27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "buyerDomain", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "buyerDomain", value)
 
     @builtins.property
     @jsii.member(jsii_name="buyerIdentifier")
@@ -920,7 +922,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07b9eea162bd558acac2aa573f0c0e835a04819658a7052a0cab2c488e6bc209)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "buyerIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "buyerIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="contacts")
@@ -938,7 +940,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6dedf6ac8d3e460f3f57e46a81176da4201c77eab83727f01d05060f3cfb2189)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "contacts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "contacts", value)
 
     @builtins.property
     @jsii.member(jsii_name="einvoiceDeliveryEnabled")
@@ -956,7 +958,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4f0630b9d1d9245d17b1b968adf76015952d211333e694d20b0e160742ff7075)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "einvoiceDeliveryEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "einvoiceDeliveryEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="procurementPortalName")
@@ -969,7 +971,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__825e59078e44b0e1ffad2567eb65e09f52b7597da77a9e14b5e0248590d11061)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "procurementPortalName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "procurementPortalName", value)
 
     @builtins.property
     @jsii.member(jsii_name="purchaseOrderRetrievalEnabled")
@@ -987,7 +989,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__45bc22f9a03fb9f6b9c3460c174ea3fcda86a367c9707a671fcb466b64b1ab4f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "purchaseOrderRetrievalEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "purchaseOrderRetrievalEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="supplierDomain")
@@ -1000,7 +1002,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__436ee13eb12f20dab661d2c3f4a6a8e816f01bb5fbb2753bff73f1e126c0b3f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supplierDomain", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "supplierDomain", value)
 
     @builtins.property
     @jsii.member(jsii_name="supplierIdentifier")
@@ -1013,7 +1015,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__659606ff1885d2dd3c4b062d6de991a45d8409f7bbe34249ca9411e37dc7126c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "supplierIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "supplierIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="einvoiceDeliveryPreference")
@@ -1031,7 +1033,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5c417dd9f3a753cbe47a2526aae096a2a67b3d29f1ba3eadaed8a15344b6c39a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "einvoiceDeliveryPreference", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "einvoiceDeliveryPreference", value)
 
     @builtins.property
     @jsii.member(jsii_name="procurementPortalInstanceEndpoint")
@@ -1047,7 +1049,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1de909d1d637bfdc2e0f32272c29403ff98cbe6a8e0f7a52e6d7a76fb3fc4cc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "procurementPortalInstanceEndpoint", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "procurementPortalInstanceEndpoint", value)
 
     @builtins.property
     @jsii.member(jsii_name="procurementPortalSharedSecret")
@@ -1063,7 +1065,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6e2961867c3abc32458e0d520b0cb27f1d70ae9190cd9b5ffa89c58bef618f1c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "procurementPortalSharedSecret", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "procurementPortalSharedSecret", value)
 
     @builtins.property
     @jsii.member(jsii_name="selector")
@@ -1081,7 +1083,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ce2827a48efd72c21d5eb05540e59dde3e013ee0ab32f2d4c77548beaa82532c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "selector", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "selector", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1097,7 +1099,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7fec4d5f6fcb8ade8160add8328999ef970036b6bd084c98fca41ba08a59938e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="testEnvPreference")
@@ -1115,7 +1117,7 @@ class CfnProcurementPortalPreference(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9bc37498ffbb8d3cb91b4f290310eefc777983bea95938ccf28884a0f9310c8e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "testEnvPreference", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "testEnvPreference", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_invoicing.CfnProcurementPortalPreference.ContactProperty",

@@ -306,6 +306,7 @@ class CfnRepository(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -388,7 +389,7 @@ class CfnRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6859c317a69708aff80ba1f8fecce3dd4d7f3d6fb86832e6cff0b5dbd8fab108)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "repositoryName", value)
 
     @builtins.property
     @jsii.member(jsii_name="code")
@@ -406,7 +407,7 @@ class CfnRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e2d9aa151db0306c7144ac1b558b3e0c05b6ba724aad48d7d1cc2dd97531376f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "code", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -419,7 +420,7 @@ class CfnRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__859c79a24ab85f5df1a6bd62533ffd95670b38c74eea801186f64be4119e00c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="repositoryDescription")
@@ -432,7 +433,7 @@ class CfnRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5f9325bc159d21706aa8257fe0bbabdab9cae89a56ab234752d2dca8f1e7f144)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repositoryDescription", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "repositoryDescription", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -448,7 +449,7 @@ class CfnRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d0a6e36f693d4cc2a11babc985e1e5d85042ffad99b950a29a50f501027166d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="triggers")
@@ -466,7 +467,7 @@ class CfnRepository(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aefad5f1e3f33a8892a077db431acd9bec95241245fd5d972238256b13e99377)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "triggers", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "triggers", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_codecommit.CfnRepository.CodeProperty",
@@ -2482,12 +2483,14 @@ class ReferenceEvent(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="commitId")
+    @builtins.classmethod
     def commit_id(cls) -> builtins.str:
         '''Commit id this reference now points to.'''
         return typing.cast(builtins.str, jsii.sget(cls, "commitId"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="eventType")
+    @builtins.classmethod
     def event_type(cls) -> builtins.str:
         '''The type of reference event.
 
@@ -2497,6 +2500,7 @@ class ReferenceEvent(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="referenceFullName")
+    @builtins.classmethod
     def reference_full_name(cls) -> builtins.str:
         '''Full reference name.
 
@@ -2506,12 +2510,14 @@ class ReferenceEvent(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="referenceName")
+    @builtins.classmethod
     def reference_name(cls) -> builtins.str:
         '''Name of reference changed (branch or tag name).'''
         return typing.cast(builtins.str, jsii.sget(cls, "referenceName"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="referenceType")
+    @builtins.classmethod
     def reference_type(cls) -> builtins.str:
         '''Type of reference changed.
 
@@ -2521,12 +2527,14 @@ class ReferenceEvent(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="repositoryId")
+    @builtins.classmethod
     def repository_id(cls) -> builtins.str:
         '''Id of the CodeCommit repository.'''
         return typing.cast(builtins.str, jsii.sget(cls, "repositoryId"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="repositoryName")
+    @builtins.classmethod
     def repository_name(cls) -> builtins.str:
         '''Name of the CodeCommit repository.'''
         return typing.cast(builtins.str, jsii.sget(cls, "repositoryName"))
@@ -3364,6 +3372,7 @@ class Repository(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

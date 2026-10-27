@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-billing
-Version: 1.43.104
-Summary: Type annotations for boto3 Billing 1.43.104 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.119
+Summary: Type annotations for boto3 Billing 1.43.119 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Billing 1.43.104](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Billing 1.43.119](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.104' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.119' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Billing` service.
 4. Use provided commands to install generated packages.
@@ -343,6 +343,10 @@ from mypy_boto3_billing.paginator import (
     ListBillingViewsPaginator,
     ListBusinessSupportAccountChargesPaginator,
     ListBusinessSupportSubscriptionHistoryPaginator,
+    ListContractsPaginator,
+    ListContractualInvestmentAttestationsPaginator,
+    ListContractualInvestmentSummariesPaginator,
+    ListContractualInvestmentsPaginator,
     ListEnterpriseSupportLinkedAccountChargesPaginator,
     ListSourceViewsForBillingViewPaginator,
 )
@@ -363,6 +367,16 @@ list_business_support_account_charges_paginator: ListBusinessSupportAccountCharg
 )
 list_business_support_subscription_history_paginator: ListBusinessSupportSubscriptionHistoryPaginator = client.get_paginator(
     "list_business_support_subscription_history"
+)
+list_contracts_paginator: ListContractsPaginator = client.get_paginator("list_contracts")
+list_contractual_investment_attestations_paginator: ListContractualInvestmentAttestationsPaginator = client.get_paginator(
+    "list_contractual_investment_attestations"
+)
+list_contractual_investment_summaries_paginator: ListContractualInvestmentSummariesPaginator = (
+    client.get_paginator("list_contractual_investment_summaries")
+)
+list_contractual_investments_paginator: ListContractualInvestmentsPaginator = client.get_paginator(
+    "list_contractual_investments"
 )
 list_enterprise_support_linked_account_charges_paginator: ListEnterpriseSupportLinkedAccountChargesPaginator = client.get_paginator(
     "list_enterprise_support_linked_account_charges"

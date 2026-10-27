@@ -15,14 +15,19 @@ from graphify.paths import GRAPHIFY_OUT as _GRAPHIFY_OUT
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 
+# Hook reminders arrive inside the agent's tool-result stream, where commands
+# ("MANDATORY", "You MUST", "include this in every subagent prompt") read like a
+# prompt injection and get ignored or flagged (#2202). State facts instead; the
+# per-agent budget in _nudge_allowed already gives each subagent its own nudge.
 _SEARCH_NUDGE = json.dumps({
     "hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "additionalContext": (
-            'MANDATORY: graphify-out/graph.json exists. You MUST run '
-            '`graphify query "<question>"` before grepping raw files. Grep raw '
-            'files only once you know the exact file and lines you need, from the '
-            'graph or an earlier read.'
+            'graphify: this project has a knowledge graph at graphify-out/graph.json. '
+            '`graphify query "<question>"` returns the files and relations that '
+            'matter for a question, usually in far fewer tokens than grepping raw '
+            'files. Grep works best once the graph or an earlier read has pointed '
+            'to the exact file and lines.'
         ),
     }
 }, ensure_ascii=False, separators=(",", ":")) + "\n"
@@ -30,13 +35,12 @@ _READ_NUDGE = json.dumps({
     "hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "additionalContext": (
-            'MANDATORY: graphify-out/graph.json exists. You MUST run graphify '
-            'before reading source files. Use: `graphify query "<question>"` '
-            '(scoped subgraph), `graphify explain "<concept>"`, or '
-            '`graphify path "<A>" "<B>"`. Read raw files only once graphify has '
-            'shown you the exact file and lines you need. This rule applies to '
-            'subagents too — include it in every subagent prompt involving code '
-            'exploration.'
+            'graphify: this project has a knowledge graph at graphify-out/graph.json. '
+            '`graphify query "<question>"` (scoped subgraph), '
+            '`graphify explain "<concept>"` and `graphify path "<A>" "<B>"` show '
+            'which files and lines matter — usually in far fewer tokens than reading '
+            'source files one by one. Reading a file directly works best once the '
+            'graph has pointed to the exact lines.'
         ),
     }
 }, ensure_ascii=False, separators=(",", ":")) + "\n"
@@ -64,8 +68,7 @@ _READ_DENY = json.dumps({
             'this file. Run `graphify query "<your question>"` (or `graphify explain` / '
             '`graphify path`) FIRST to orient yourself, then re-issue this Read — it '
             'will be allowed. This block fires at most once per session; after one '
-            'query, read raw files for the exact lines the graph pointed you to. Apply the '
-            'same rule in any subagent prompt that explores code.'
+            'query, read raw files for the exact lines the graph pointed you to.'
         ),
     }
 }, ensure_ascii=False, separators=(",", ":")) + "\n"
@@ -810,6 +813,42 @@ def _zero_node_stamped_semantic_sources(
             continue  # the graph has nodes or hyperedges for this file: stamp is honest
         healed.append(f)
     return healed
+
+
+def _record_extract_cost(graphify_out: Path, input_tokens: int, output_tokens: int, files: int) -> None:
+    """Append this run's token usage to graphify-out/cost.json, the same ledger the
+    skill writes, so `graphify extract` refreshes are counted too (#1769). An
+    unreadable ledger is left alone rather than replaced with one run."""
+    from datetime import datetime, timezone
+    from graphify.paths import write_json_atomic
+
+    cost_path = graphify_out / "cost.json"
+    cost = {"runs": [], "total_input_tokens": 0, "total_output_tokens": 0}
+    if cost_path.exists():
+        try:
+            cost = json.loads(cost_path.read_text(encoding="utf-8"))
+            cost.setdefault("runs", [])
+            cost.setdefault("total_input_tokens", 0)
+            cost.setdefault("total_output_tokens", 0)
+            if not isinstance(cost["runs"], list) or not all(
+                type(cost[k]) is int for k in ("total_input_tokens", "total_output_tokens")
+            ):
+                raise ValueError("unexpected layout")
+        except (OSError, ValueError, AttributeError) as exc:
+            print(f"[graphify extract] warning: could not read {cost_path}, not updating it: {exc}", file=sys.stderr)
+            return
+    cost["runs"].append({
+        "date": datetime.now(timezone.utc).isoformat(),
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "files": files,
+    })
+    cost["total_input_tokens"] += input_tokens
+    cost["total_output_tokens"] += output_tokens
+    try:
+        write_json_atomic(cost_path, cost, indent=2, ensure_ascii=False)
+    except OSError as exc:
+        print(f"[graphify extract] warning: could not write {cost_path}: {exc}", file=sys.stderr)
 
 
 def _prune_graph_json_sources(graph_path: Path, stale_sources: list[str]) -> int:
@@ -4343,7 +4382,7 @@ def dispatch_command(cmd: str) -> None:
                             "_rust_impl_key", "_rust_declaration_count",
                             "_ts_public_twin", "_py_property", "_java_ret",
                             "_ts_fields", "_ts_static_fields",
-                            "_py_fixture",
+                            "_py_fixture", "_py_return_type",
                         ):
                             if _node.get(_marker):
                                 _ctx_node[_marker] = _node[_marker]
@@ -4381,7 +4420,8 @@ def dispatch_command(cmd: str) -> None:
                         if _edge.get("relation") not in (
                             "contains", "method", "inherits", "imports", "imports_from"
                         ):
-                            continue
+                            if not (_edge.get("relation") == "references" and _edge.get("context") == "return_type"):
+                                continue
                         if not _ctx_is_ast_tier(_edge):
                             continue
                         _sf = _edge.get("source_file")
@@ -4393,6 +4433,8 @@ def dispatch_command(cmd: str) -> None:
                             "relation": _edge.get("relation"),
                             "source_file": _sf,
                         }
+                        if _edge.get("context") == "return_type":
+                            _ctx_edge["context"] = "return_type"
                         _edge_metadata = _edge.get("metadata")
                         if (
                             isinstance(_edge_metadata, dict)
@@ -4964,6 +5006,10 @@ def dispatch_command(cmd: str) -> None:
                     f"{merged['output_tokens']:,} out, "
                     f"est. cost: ${cost:.4f}"
                 )
+                _record_extract_cost(
+                    graphify_out, merged["input_tokens"], merged["output_tokens"],
+                    detection.get("total_files", 0),
+                )
             try:
                 if has_path:
                     _save_manifest(_manifest_files, manifest_path=str(manifest_path), kind="both", root=target, scan_corpus=_scan_corpus, clear_semantic=_cleared_semantic, clear_ast=_cleared_ast or None, ast_empty=_ast_empty_sources or None)
@@ -5205,6 +5251,10 @@ def dispatch_command(cmd: str) -> None:
                 f"{merged['input_tokens']:,} in / "
                 f"{merged['output_tokens']:,} out, "
                 f"est. cost (~{backend}): ${cost:.4f}"
+            )
+            _record_extract_cost(
+                graphify_out, merged["input_tokens"], merged["output_tokens"],
+                detection.get("total_files", 0),
             )
         # extract intentionally stops at graph.json + analysis; the report and
         # community labels are produced by `cluster-only` (or an agent's Step 5).

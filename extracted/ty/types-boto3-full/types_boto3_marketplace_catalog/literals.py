@@ -61,6 +61,8 @@ __all__ = (
     "SaaSProductVisibilityStringType",
     "ServiceName",
     "SortOrderType",
+    "SubsidiaryAuthorizationSortByType",
+    "SubsidiaryAuthorizationStatusStringType",
 )
 
 
@@ -139,6 +141,10 @@ SaaSProductSortByType = Literal[
 ]
 SaaSProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
+SubsidiaryAuthorizationSortByType = Literal[
+    "CreatedDate", "EntityId", "LastModifiedDate", "ResourceId", "Status", "SubsidiaryAccountId"
+]
+SubsidiaryAuthorizationStatusStringType = Literal["Active", "Draft", "Restricted"]
 MarketplaceCatalogServiceName = Literal["marketplace-catalog"]
 ServiceName = Literal[
     "accessanalyzer",

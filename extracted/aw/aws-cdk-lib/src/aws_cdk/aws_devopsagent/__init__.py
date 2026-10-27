@@ -278,6 +278,7 @@ class CfnAgentSpace(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -418,7 +419,7 @@ class CfnAgentSpace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__80e1593c483d80afbaaf07c646b5d5ede131e360f81f0dde9fa486f5c749e58f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -431,7 +432,7 @@ class CfnAgentSpace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b7561d8cdcaf93c81d1cf0a9a4cc5790c03232e494d49db5171a93599b8f575)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
@@ -444,7 +445,7 @@ class CfnAgentSpace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b76e61f2aed973e234fd4e93bccf47cc83cb11b8379358a7715db1a908b35af7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="locale")
@@ -457,7 +458,7 @@ class CfnAgentSpace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5f3c5c48fa94eac9f504f8cd877ac92984721e2ff36ab18973138af88e32af2f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "locale", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "locale", value)
 
     @builtins.property
     @jsii.member(jsii_name="operatorApp")
@@ -474,7 +475,7 @@ class CfnAgentSpace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__833bedcb900be3dc99153bbcef5866a753457156d32ebc2661b687708cf7f6fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "operatorApp", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "operatorApp", value)
 
     @builtins.property
     @jsii.member(jsii_name="preferences")
@@ -492,7 +493,7 @@ class CfnAgentSpace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__28f60dee6c3ff168bd5c538da6fb98484797d9660646d0e9358e1edc0a0bf59f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preferences", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preferences", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -508,7 +509,7 @@ class CfnAgentSpace(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__86b6d290ea55548645e8a386c5c88e557975dfe7624596a7c926c0d9166190a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAgentSpace.IamAuthConfigurationProperty",
@@ -1389,6 +1390,7 @@ class CfnAsset(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1469,7 +1471,7 @@ class CfnAsset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7636d15d15773a37b27a55d2853c1d3c40523f8d31f591bba7a9bc8996402e5c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentSpaceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "agentSpaceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="assetType")
@@ -1482,7 +1484,7 @@ class CfnAsset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a306f0455bf4b3587ba28c7cea27264bfb853ac46208c3459af19f1138fa15f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "assetType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "assetType", value)
 
     @builtins.property
     @jsii.member(jsii_name="metadata")
@@ -1495,7 +1497,7 @@ class CfnAsset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2a140dfd5bc68aebf83b245c2abd5c11954febdc3bfc81c20652c25570055680)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "metadata", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "metadata", value)
 
     @builtins.property
     @jsii.member(jsii_name="files")
@@ -1513,7 +1515,7 @@ class CfnAsset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__45c1ba38621c37d82b46920248940685954157a8d006766d50a42a1dec68cc1e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "files", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "files", value)
 
     @builtins.property
     @jsii.member(jsii_name="zip")
@@ -1526,7 +1528,7 @@ class CfnAsset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ff37ca13d55b83a40180104863c9434c862545d08c5afd44c7b9cdcd1ffdb5aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "zip", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "zip", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAsset.AssetFileProperty",
@@ -2027,6 +2029,7 @@ class CfnAssociation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2085,7 +2088,7 @@ class CfnAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aac4f12f5965b47ff3162eacbbbebb04e5d1595483e00e0e29ace1cd733b8156)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentSpaceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "agentSpaceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
@@ -2103,7 +2106,7 @@ class CfnAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b224d34e655755660b3f83f1ef3ad78de31336ef41e61cf24dfb47a3d5e00b96)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceId")
@@ -2116,7 +2119,7 @@ class CfnAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__08d88d472b1933bfd27859b1b634111a6667c50bedacee3234cfc98a8a05797a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="linkedAssociationIds")
@@ -2132,7 +2135,7 @@ class CfnAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2a926a8cb577bf81233b764232f042b444bc6a9e989283355f36b9faf248fe46)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "linkedAssociationIds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "linkedAssociationIds", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.AWSConfigurationProperty",
@@ -5011,6 +5014,7 @@ class CfnPrivateConnection(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5082,7 +5086,7 @@ class CfnPrivateConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b96d3935f0c92a4ca328bada94e61a1b0776eadec28c0bc34194a87c717ef709)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -5095,7 +5099,7 @@ class CfnPrivateConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a4cd20912efc0734dc7e62490bfec1102f60d389bcd9f7182bf1274ba0dd1485)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="certificate")
@@ -5108,7 +5112,7 @@ class CfnPrivateConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dc7a05bd78eeec8b4a66a55c79fff9aa2f574654964458c4649007fe00412478)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificate", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5124,7 +5128,7 @@ class CfnPrivateConnection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b03fd4b9d54598fadabf544a7c5bcbbc02ee50b1ce15ca7410a87bdcf2eb610e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnPrivateConnection.ConnectionConfigurationProperty",
@@ -5804,7 +5808,7 @@ class CfnService(
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
         :param name: The display name for the service registration.
         :param private_connection_name: The name of the private connection to use for VPC connectivity.
-        :param service_details: Service-specific configuration details - MCPServerSigV4 supports in-place updates; GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields require replacement when modified
+        :param service_details: Service-specific configuration details - MCPServerSigV4 supports in-place updates; GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields, including GitHub, require replacement when modified
         :param tags: An array of key-value pairs to apply to this resource.
         :param target_url_private_connection_name: The name of the private connection to use for API calls (target URL) only. Cannot be specified when PrivateConnectionName is provided.
         '''
@@ -5919,6 +5923,7 @@ class CfnService(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5992,7 +5997,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a87d815016e64b5bdf47334ae0b9ef194602b4aa5a9e6cd5a5d9b1d6b516b9a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceType", value)
 
     @builtins.property
     @jsii.member(jsii_name="exchangeUrlPrivateConnectionName")
@@ -6008,7 +6013,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46c63e3540851b3e95123c320f4637e43611a3d0e13aba8eb2cb583841d9f6aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "exchangeUrlPrivateConnectionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "exchangeUrlPrivateConnectionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
@@ -6021,7 +6026,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e3ab3739f548aec69137bae335dee8322f36ef0dcddbdf6693dea63fc64500cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -6034,7 +6039,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05e87b85ed328732cfab4a9ce3102addf2e91fdd671861c82f5e90955082a8d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="privateConnectionName")
@@ -6047,7 +6052,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dd785ef0a512fafa3dfa79caf4a70ddcb6e2f2f9236834ec36da53afb806bb27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "privateConnectionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "privateConnectionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceDetails")
@@ -6065,7 +6070,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__38b28b2539546ba11e45199a6bde41e432e6246da9ea58bba29ece3bbf5c4193)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceDetails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceDetails", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6081,7 +6086,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6618cd62adcc1e863b754d59ca807f0c557b1efa334823690aa1f3f9465528a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetUrlPrivateConnectionName")
@@ -6097,7 +6102,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b41a1716d6094a4ddb8db8af445a21c46086e27bfba019a57523682093a6248)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetUrlPrivateConnectionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetUrlPrivateConnectionName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.AdditionalServiceDetailsProperty",
@@ -10396,7 +10401,7 @@ class CfnServiceProps:
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
         :param name: The display name for the service registration.
         :param private_connection_name: The name of the private connection to use for VPC connectivity.
-        :param service_details: Service-specific configuration details - MCPServerSigV4 supports in-place updates; GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields require replacement when modified
+        :param service_details: Service-specific configuration details - MCPServerSigV4 supports in-place updates; GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields, including GitHub, require replacement when modified
         :param tags: An array of key-value pairs to apply to this resource.
         :param target_url_private_connection_name: The name of the private connection to use for API calls (target URL) only. Cannot be specified when PrivateConnectionName is provided.
 
@@ -10680,7 +10685,7 @@ class CfnServiceProps:
     ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.ServiceDetailsProperty"]]:
         '''Service-specific configuration details - MCPServerSigV4 supports in-place updates;
 
-        GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields require replacement when modified
+        GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields, including GitHub, require replacement when modified
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-servicedetails
         '''
@@ -10843,6 +10848,7 @@ class CfnTrigger(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -10912,7 +10918,7 @@ class CfnTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7e33dfb1beb5f5771226209464581cd2be5d5d77ecccbb2909c15f0a3e9b88c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "action", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "action", value)
 
     @builtins.property
     @jsii.member(jsii_name="agentSpaceId")
@@ -10925,7 +10931,7 @@ class CfnTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a6ec26f1510bf7f5778af5ce6830514a758be32335f1a96c9c20852d3ff67972)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "agentSpaceId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "agentSpaceId", value)
 
     @builtins.property
     @jsii.member(jsii_name="condition")
@@ -10943,7 +10949,7 @@ class CfnTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__029a6a9e4a77361a1272faa71bc33e711f2b2315394280182bf6d2164dc07db6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "condition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "condition", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -10956,7 +10962,7 @@ class CfnTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9982c46c28a857dd83d3afb140efb300123a58209dc3dea467e4b2cae0aafe02)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -10969,7 +10975,7 @@ class CfnTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8e4420e4052617c9c4e96a9fc7cb55dcc4dea7a049de050a8aff8a9c08f941ea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "status", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnTrigger.ConditionProperty",

@@ -17,6 +17,15 @@ whose agent still runs and no service answers, start one (`client.ensure`);
 it resumes every session it recorded. Otherwise nothing, and exit. Cheap: a
 file read and a socket connect, once a minute.
 
+On Linux and macOS the unit does not run that python itself: it runs the
+lifeboat's frozen wrapper, `/bin/sh ~/.local/state/probe/lifeboat/lifeboat.sh
+keeper` (plan fool-proof-updates B2, `lifeboat.py`), which runs the lifeboat's
+own hand-off (outside every release: it rescues a machine whose installed
+updater is broken) and then this keeper with the active release's python.
+The unit text names only that fixed path, never a release's files, so no
+release can point it anywhere else; its writer is digest-pinned
+(`tests/test_lifeboat.py`). Windows keeps its direct task (no `/bin/sh`).
+
 "Answers" is a `service.hello` reply within HELLO_TIMEOUT_S, not a connect: a
 wedged loop still takes connections into its backlog (crash-report plan B3).
 A needed service that has not answered for DOWN_REPORT_S (none, `ensure`'s
@@ -26,9 +35,12 @@ same `probe.core.run report` the service runs, with the machine's consent:
 since when, and service.log gets one line per change.
 
 The service installs it when it starts (`install`, idempotent: rewritten only
-when its interpreter changed), never under a test's HOME (only the account's
-own home folder), never with PROBE_SERVICE_KEEPER=0; Uninstall removes it
-(`remove`). It never runs the service itself: who starts the service, and how
+when its text changed), the lifeboat first, never under a test's HOME (only
+the account's own home folder), never with PROBE_SERVICE_KEEPER=0; Uninstall
+removes both (`remove`). The lifeboat alone is also installed, with the same
+guards, by every update that succeeded and every `probe doctor`
+(`install_lifeboat`): where no service ever runs (a pod under no_new_privs)
+its sessions' starts still run it. It never runs the service itself: who starts the service, and how
 it stops when idle, is unchanged.
 
 Stdlib only.
@@ -39,17 +51,22 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import stat
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
-from . import paths, procid
+from . import lifeboat, paths, procid
 
 ENV = "PROBE_SERVICE_KEEPER"
 NAME = "probe-service-keeper"
 LABEL = "ai.prbe.probe-service-keeper"
 INTERVAL_S = 60
+#: systemd's bound on one keeper run (`TimeoutStartSec`), past every bound the
+#: wrapper keeps itself (its slowest path, every child at its limit, is ~25 min).
+START_TIMEOUT_S = 30 * 60
 TIMEOUT_S = 10
 
 
@@ -78,7 +95,9 @@ def _windows_profile() -> str | None:
 
 
 def _own_home() -> bool:
-    """HOME is this account's home folder (not a test's, not a sandbox's)."""
+    """HOME is this account's home folder (not a test's, not a sandbox's).
+    A uid with no passwd entry (a container's, set by its runtime) has none to
+    compare with: `_home_without_entry` decides."""
     if os.name == "nt":
         profile = _windows_profile()
         return bool(profile) and os.path.normcase(os.path.realpath(profile)) == os.path.normcase(
@@ -86,9 +105,39 @@ def _own_home() -> bool:
     try:
         import pwd
 
-        return os.path.realpath(pwd.getpwuid(os.getuid()).pw_dir) == os.path.realpath(str(Path.home()))
-    except (ImportError, KeyError, OSError):
+        try:
+            entry = pwd.getpwuid(os.getuid())
+        except KeyError:
+            return _home_without_entry()
+        return os.path.realpath(entry.pw_dir) == os.path.realpath(str(Path.home()))
+    except (ImportError, OSError):
         return False
+
+
+def _temp_roots() -> list[str]:
+    """Where a throwaway HOME lives (a test's, a sandbox's): never an account's own."""
+    import tempfile
+
+    roots = {tempfile.gettempdir(), "/tmp", "/var/tmp", "/dev/shm", "/private/tmp", "/private/var/folders",
+             "/var/folders"}
+    return sorted({os.path.realpath(root) for root in roots})
+
+
+def _home_without_entry() -> bool:
+    """With no passwd entry (a pod's uid), $HOME is taken for the account's own
+    when it is an existing absolute folder this uid owns, outside every temp
+    folder (`_temp_roots`): never a test's or a sandbox's HOME."""
+    home = os.environ.get("HOME") or ""
+    if not os.path.isabs(home):
+        return False
+    real = os.path.realpath(home)
+    try:
+        st = os.stat(real)
+    except OSError:
+        return False
+    if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid() or real == "/":
+        return False
+    return not any(real == root or real.startswith(root.rstrip("/") + "/") for root in _temp_roots())
 
 
 def wanted() -> bool:
@@ -123,8 +172,9 @@ def _run(argv: list[str]) -> subprocess.CompletedProcess | None:
 
 
 def _python() -> str | None:
-    """The interpreter the keeper runs: the tool path's (a switch moves it to
-    each new version), else the one the service runs now."""
+    """The interpreter Windows' keeper task runs: the tool path's (a switch
+    moves it to each new version), else the one the service runs now.
+    Elsewhere the lifeboat's wrapper finds it (env.json's `active_python`)."""
     with contextlib.suppress(Exception):
         from probe._shared import installs
 
@@ -158,15 +208,27 @@ def _systemd_dir() -> Path:
     return (Path(base) if base else Path.home() / ".config") / "systemd" / "user"
 
 
-def _systemd_units(python: str) -> dict[str, str]:
-    quoted = python.replace("\\", "\\\\").replace('"', '\\"')
+# The two unit writers below are FROZEN with the lifeboat's wrapper: their text
+# for a fixed path is digest-pinned (`tests/test_lifeboat.py`, FROZEN_UNITS).
+# Change them deliberately: every keeper on every machine runs what they write.
+
+
+def _systemd_units(wrapper: str) -> dict[str, str]:
+    """The timer and its oneshot, `/bin/sh <wrapper> keeper` (systemd's own
+    quoting: backslash and `"` escaped, `%` and `$` doubled)."""
+    quoted = wrapper.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%").replace("$", "$$")
     return {
         f"{NAME}.service": (
             "[Unit]\nDescription=Start the Probe service again when it stopped while recording\n\n"
-            f'[Service]\nType=oneshot\nExecStart="{quoted}" -I -m probe.service.keeper\n'
-            # The service it starts must outlive it: by default systemd stops
-            # every process of the unit once the oneshot exits.
+            f'[Service]\nType=oneshot\nExecStart=/bin/sh "{quoted}" keeper\n'
+            # The service it starts, and a rescue the lifeboat starts, must
+            # outlive it: by default systemd stops every process of the unit
+            # once the oneshot exits.
             "KillMode=process\n"
+            # A oneshot has no start timeout by default: a wrapper stuck past
+            # every bound of its own (each child's, given up 30 s after it)
+            # must not hold the timer's next run off for good.
+            f"TimeoutStartSec={START_TIMEOUT_S}\n"
         ),
         f"{NAME}.timer": (
             "[Unit]\nDescription=Check the Probe service every minute while it records\n\n"
@@ -176,13 +238,19 @@ def _systemd_units(python: str) -> dict[str, str]:
     }
 
 
-def _install_systemd(python: str) -> str:
+def systemd_manager() -> bool:
+    """Does this user's systemd manager answer (Linux)? The keeper's units
+    need one; a container or an SSH login without a user session has none."""
     probe = _run(["systemctl", "--user", "show-environment"])
-    if probe is None or probe.returncode != 0:
+    return probe is not None and probe.returncode == 0
+
+
+def _install_systemd(wrapper: str) -> str:
+    if not systemd_manager():
         return "no systemd user manager"
     folder = _systemd_dir()
     changed = False
-    for name, text in _systemd_units(python).items():
+    for name, text in _systemd_units(wrapper).items():
         changed = _write(folder / name, text) or changed
     if changed:
         _run(["systemctl", "--user", "daemon-reload"])
@@ -209,15 +277,17 @@ def _plist_path() -> Path:
     return Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
 
 
-def _plist(python: str) -> str:
+def _plist(wrapper: str) -> str:
+    """The launch agent: `/bin/sh <wrapper> keeper` every minute."""
     import plistlib
 
     return plistlib.dumps({
         "Label": LABEL,
-        "ProgramArguments": [python, "-I", "-m", "probe.service.keeper"],
+        "ProgramArguments": ["/bin/sh", wrapper, "keeper"],
         "StartInterval": INTERVAL_S,
         "RunAtLoad": False,
-        # The service it starts must outlive it (launchd kills a finished job's group).
+        # The service it starts, and a rescue the lifeboat starts, must outlive
+        # it (launchd kills a finished job's group).
         "AbandonProcessGroup": True,
         "ProcessType": "Background",
         "StandardOutPath": "/dev/null",
@@ -225,13 +295,13 @@ def _plist(python: str) -> str:
     }).decode("utf-8")
 
 
-def _install_launchd(python: str) -> str:
+def _install_launchd(wrapper: str) -> str:
     domain = f"gui/{os.getuid()}"
     probe = _run(["launchctl", "print", domain])
     if probe is None or probe.returncode != 0:
         return "no launchd GUI session"
     path = _plist_path()
-    changed = _write(path, _plist(python))
+    changed = _write(path, _plist(wrapper))
     loaded = _run(["launchctl", "print", f"{domain}/{LABEL}"])
     if changed and loaded is not None and loaded.returncode == 0:
         _run(["launchctl", "bootout", f"{domain}/{LABEL}"])
@@ -365,40 +435,74 @@ def _locked():
     return handle
 
 
-def install() -> str:
-    """Make sure the system runs the keeper (from the service's start). Returns
-    what happened. Never raises. Never after an Uninstall (`remove`), until a
-    setup allows it again (`allow`)."""
+def install(login: Mapping | None = None) -> str:
+    """Make sure the system runs the keeper (from the service's start), the
+    lifeboat first (env.json with `login`'s index settings: the login shell's).
+    Returns what happened. Never raises. Never after an Uninstall (`remove`),
+    until a setup allows it again (`allow`)."""
     if not wanted():
         return "not wanted"
     try:
         with _locked():
             if _off_path().exists():
                 return "not wanted (uninstalled)"
-            return _install()
+            boat = lifeboat.install(login)
+            units = _install()
+            return units if boat in ("current", "unsupported") else f"{units} (lifeboat: {boat})"
     except Exception as exc:  # noqa: BLE001 -- the hooks still start the service
         return f"failed: {exc!r}"[:300]
 
 
-def _install() -> str:
+def refresh_lifeboat() -> str:
+    """`install_lifeboat` from outside the service (every update whose CLI
+    step ended ok, `probe doctor`), env.json's index settings the login
+    shell's when it answers (asked with a clean environment, never the
+    caller's: an agent sandbox's proxy is not the machine's), else the last
+    ones kept. Never raises."""
+    if not wanted():
+        return "not wanted"
+    return install_lifeboat(lifeboat.login_env())
+
+
+def install_lifeboat(login: Mapping | None = None) -> str:
+    """The lifeboat alone, with `install`'s guards and lock: a machine where
+    no service runs gets one too, which its sessions' starts run
+    (`hooks/dispatch.py`). `login`: the login shell's variables for env.json's
+    index settings, None to keep the last ones. Returns what happened.
+    Never raises."""
+    if not wanted():
+        return "not wanted"
     try:
-        python = _python()
-        if python is None:
-            return "no interpreter"
-        if sys.platform == "darwin":
-            return _install_launchd(python)
-        if sys.platform.startswith("linux"):
-            return _install_systemd(python)
+        with _locked():
+            if _off_path().exists():
+                return "not wanted (uninstalled)"
+            return lifeboat.install(login)
+    except Exception as exc:  # noqa: BLE001 -- the update and doctor go on without it
+        return f"failed: {exc!r}"[:300]
+
+
+def _install() -> str:
+    """The units, once the lifeboat's wrapper is there: a unit never names a
+    file that is missing (units an older release wrote stay until then)."""
+    try:
         if os.name == "nt":
-            return _install_schtasks(python)
+            python = _python()
+            return "no interpreter" if python is None else _install_schtasks(python)
+        wrapper = lifeboat.wrapper_path()
+        if not wrapper.is_file():
+            return "no lifeboat"
+        if sys.platform == "darwin":
+            return _install_launchd(str(wrapper))
+        if sys.platform.startswith("linux"):
+            return _install_systemd(str(wrapper))
         return "unsupported"
     except Exception as exc:  # noqa: BLE001 -- the hooks still start the service
         return f"failed: {exc!r}"[:300]
 
 
 def remove() -> None:
-    """Uninstall: the system no longer runs the keeper, and no service
-    installs it again until a setup allows it. Only for this account's own
+    """Uninstall: the system no longer runs the keeper (nor the lifeboat, whose
+    folder goes), and no service installs either again until a setup allows it. Only for this account's own
     home (never a test's: its user manager is the real account's). Never raises."""
     if not _own_home():
         return
@@ -412,6 +516,7 @@ def remove() -> None:
                 _remove_systemd()
             elif os.name == "nt":
                 _remove_schtasks()
+            lifeboat.remove()
 
 
 def needed() -> bool:

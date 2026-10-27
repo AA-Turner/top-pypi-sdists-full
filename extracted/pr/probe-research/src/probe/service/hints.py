@@ -36,8 +36,7 @@ once per machine, and never blocks anything:
                   of the session's CLI config (KEYS), TIMEOUT_S, failing open:
                   no answer is no hint. The text goes through the capture's
                   secret scan first (`scrubbed`), as all transcript text that
-                  leaves the machine does. `ml` is the session's ML gate (the
-                  daemon worker's store facts, read only) or null
+                  leaves the machine does
     limits        one request per session per SESSION_GAP_S, windows and the
                   rest each on their own clock: a window just sent never delays
                   the session's prompt (a newer trigger
@@ -235,10 +234,14 @@ _EXEC_OPENS = frozenset({"--project", "--experiment", "--slug", "--name", "--des
                          "--external-id", "--config", "--intent"})
 _HELP = frozenset({"--help", "-h"})
 _SHELL_OPERATORS = frozenset({"&&", "||", ";", "|", "&", "(", ")", ";;", "|&"})
-#: A shell line longer than this is never read as a launch: `gate.shell_part`
-#: is quadratic in heredoc markers (32 kB of them take seconds), and the tail
+#: A shell line longer than this is never read as a launch: `shell_part` is
+#: quadratic in heredoc markers (32 kB of them take seconds), and the tail
 #: thread reads every session.
 MAX_COMMAND_CHARS = MAX_TEXT_CHARS
+#: A heredoc's body (kept: the rest of its first line, which is still shell), and
+#: a quoted string: text a command only writes (`shell_part`).
+_HEREDOC = re.compile(r"<<-?[ \t]*(['\"]?)(\w+)\1([^\n]*)\n(?:.*?\n)??[ \t]*\2[ \t]*(?:\n|$)", re.DOTALL)
+_QUOTED = re.compile(r"'[^']*'|\"(?:[^\"\\]|\\.)*\"")
 #: A "prompt" that is no researcher's message: a `!command` (Claude Code's
 #: bash-mode turns, Codex's `<user_shell_command>`), whose output the capture
 #: withholds (the consent screen), or a `[Probe]` message the agent was handed.
@@ -276,6 +279,50 @@ class Skip:
     OFF = "off"
     #: The lane closed while it was asked.
     CLOSED = "closed"
+
+
+class DeliveryState:
+    """Whether the hints posted to a session reach its agent (`delivery_receipt`)."""
+
+    OK = "ok"  # a deliverer is there (its heartbeat), or a hint was shown lately
+    UNPROVEN = "unproven"  # neither yet: the session's reader keeps its prompt turns and check-ins
+    UNDELIVERABLE = "undeliverable"  # hints posted here keep missing chances to be shown
+
+
+class Deliverer:
+    """Who handed a session its messages (`delivery_receipt`'s `deliverer`)."""
+
+    HOOK = "hook"  # Claude Code's / Codex's reads hook
+    PI = "pi"  # harness-literal-ok: pi's extension, as a receipt names its deliverer
+    ASK = "ask"  # a `probe ask --wait`
+    OTHER = "other"
+
+
+#: A deliverer's own name for itself (`mailbox.touch_alive`, the claim log's `by`) -> who.
+_DELIVERER_OF = {"UserPromptSubmit": Deliverer.HOOK, "PostToolUse": Deliverer.HOOK, "Stop": Deliverer.HOOK,
+                 "pi poller": Deliverer.PI, "before_agent_start": Deliverer.PI,
+                 "probe ask --wait": Deliverer.ASK}
+#: How long a deliverer's heartbeat proves it is there: pi's poller touches it
+#: every ALIVE_EVERY_S while it runs; a hook only when it runs Python (at a
+#: prompt of a session the reader serves, or when a message waits), so its
+#: heartbeat says "a current hook serves this session", and a hook that stops
+#: delivering shows as missed hints instead (`MISSED_UNDELIVERABLE`).
+DELIVERER_FRESH_S = {Deliverer.PI: 600.0}
+DELIVERER_FRESH_DEFAULT_S = 12 * 3600.0
+#: A hint shown (or, from a deliverer that writes no `shown`, claimed) this
+#: recently proves delivery too.
+DELIVERED_RECENTLY_S = 1800.0
+#: A waiting hint MISSED its chance when at least this many agent tool calls, in
+#: turns whose one hint slot was still free, came MISSED_AFTER_S or more after
+#: it was posted and while it still waited: a hook delivers after the next tool
+#: call, pi's poller within 2 s while the agent runs.
+MISSED_TOOL_CALLS = 2
+MISSED_AFTER_S = 3.0
+#: Hints missed since the last one shown that make a session UNDELIVERABLE.
+MISSED_UNDELIVERABLE = 2
+#: An undeliverable session is still asked about at a researcher's prompt, at
+#: most this often: the probe whose hint, once shown, ends it.
+UNDELIVERABLE_PROBE_S = 1800.0
 
 
 def disabled(env) -> bool:
@@ -358,9 +405,15 @@ def followed(recordings, registered, *, now: float, ttl: float, default_state: s
 # -- triggers ---------------------------------------------------------------------
 
 
+def shell_part(command: str) -> str:
+    """What the shell itself runs: heredoc bodies and quoted strings blanked, so
+    text a command only writes (a CHANGELOG line, a doc) never reads as run."""
+    return _QUOTED.sub("''", _HEREDOC.sub(lambda m: f"<<{m.group(2)}{m.group(3)}\n", command))
+
+
 def _segments(text: str) -> list[list[str]]:
     """A shell line's simple commands, as words; [] when any line of it cannot
-    be split. `text` is `gate.shell_part`'s (quoted strings and heredoc bodies
+    be split. `text` is `shell_part`'s (quoted strings and heredoc bodies
     blanked), so a newline left in it ends a command, as `;` does."""
     segments: list[list[str]] = [[]]
     for line in text.replace("\\\n", " ").split("\n"):
@@ -437,8 +490,6 @@ def launches_run(command: str) -> bool:
     if not command or len(command) > MAX_COMMAND_CHARS or "probe" not in command:
         return False
     try:
-        from probe.daemon.gate import shell_part
-
         text = shell_part(command)
     except Exception:  # noqa: BLE001 -- unparsable: nothing is certain
         return False
@@ -565,40 +616,6 @@ class Senders:
             return None  # that pid's session listens elsewhere: not this sender
         sid = data.get("sessionId")
         return sid if isinstance(sid, str) and _SESSION_ID.fullmatch(sid) else None
-
-
-# -- the session's ML state (R1) ----------------------------------------------------
-
-
-def ml_state(state: str, sid: str) -> dict | None:
-    """`{signal, p_ml}` from the session's daemon worker's store (the ML gate's
-    facts), read only; None when there is no store, the gate never answered, or
-    the store cannot be read now (locked, missing, another format)."""
-    path = Path(state) / "daemon" / f"{_safe(sid)}.sqlite"
-    if not path.is_file():
-        return None
-    import sqlite3
-
-    from probe.daemon.gate import FACT_ANSWERS, FACT_SIGNAL
-
-    try:
-        conn = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.2)
-    except (OSError, sqlite3.Error):
-        return None
-    try:
-        rows = conn.execute("SELECT key, value FROM facts WHERE key IN (?, ?)", (FACT_SIGNAL, FACT_ANSWERS)).fetchall()
-        facts = {key: json.loads(value) for key, value in rows}
-    except (sqlite3.Error, ValueError, TypeError):
-        return None
-    finally:
-        conn.close()
-    signal = facts.get(FACT_SIGNAL)
-    answers = facts.get(FACT_ANSWERS) if isinstance(facts.get(FACT_ANSWERS), list) else []
-    p_ml = next((float(p) for p in reversed(answers)
-                 if isinstance(p, (int, float)) and not isinstance(p, bool)), None)
-    if signal is None and p_ml is None:
-        return None
-    return {"signal": signal is not None, "p_ml": p_ml}
 
 
 # -- the request ------------------------------------------------------------------
@@ -787,6 +804,169 @@ def waiting_hints(sid: str, state: str) -> set[str]:
                 if msg.origin == mailbox.ORIGIN_HINT and msg.kind == mailbox.Kind.MESSAGE}
 
 
+#: A ledger line for a hint the lane took back before it was shown (`_take_back`).
+LEDGER_WITHDRAWN = "withdrawn"
+#: A hint claimed this long ago with no `shown` line, from a deliverer that
+#: writes them, never reached the agent (its handoff failed after the claim).
+SHOWN_AFTER_CLAIM_S = 60.0
+
+
+def _jsonl(path: Path, tail_bytes: int) -> list[dict]:
+    """The object lines of a JSONL file's last `tail_bytes`; [] when unreadable."""
+    try:
+        with path.open("rb") as handle:
+            size = os.fstat(handle.fileno()).st_size
+            handle.seek(max(0, size - tail_bytes))
+            text = handle.read().decode("utf-8", "replace")
+    except OSError:
+        return []
+    out = []
+    for line in text.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict):
+            out.append(entry)
+    return out
+
+
+def _stamped(entries: list[dict]) -> dict[str, tuple[float, str, bool]]:
+    """id -> (the first `at`, its `by`, whether its claimer writes `shown`
+    lines: `shows`) of claim-log / shown-log lines."""
+    out: dict[str, tuple[float, str, bool]] = {}
+    for entry in entries:
+        mid, at = entry.get("id"), entry.get("at")
+        if isinstance(mid, str) and isinstance(at, (int, float)) and mid not in out:
+            out[mid] = (float(at), str(entry.get("by") or ""), entry.get("shows") == 1)
+    return out
+
+
+def delivery_facts(sid: str, state: str, ledger: Path) -> dict:
+    """What the files say about the hints the lane posted to `sid` (its ledger
+    and the mailbox): `posted` and `withdrawn` (id -> when), the deliverers'
+    `claims` and `shown` lines (id -> (when, by)), the hints still `waiting`,
+    and the deliverer heartbeat `alive` (or None)."""
+    from probe.daemon import mailbox
+
+    posted: dict[str, float] = {}
+    withdrawn: dict[str, float] = {}
+    for entry in _jsonl(ledger, LEDGER_TAIL_BYTES):
+        mid, at = entry.get("id"), entry.get("at")
+        if not isinstance(mid, str) or not isinstance(at, (int, float)):
+            continue
+        if entry.get("event") == LEDGER_WITHDRAWN:
+            withdrawn.setdefault(mid, float(at))
+        elif isinstance(entry.get("keys"), list):
+            posted.setdefault(mid, float(at))
+    with mailbox.rooted(state):
+        claims_path, shown_path = mailbox.claim_log_path(sid), mailbox.shown_log_path(sid)
+        alive = mailbox.read_alive(sid)
+        waiting = {msg.id for _path, msg in mailbox.waiting(sid)
+                   if msg.origin == mailbox.ORIGIN_HINT and msg.kind == mailbox.Kind.MESSAGE}
+    claims = {mid: hit for mid, hit in _stamped(_jsonl(claims_path, LEDGER_TAIL_BYTES)).items() if mid in posted}
+    shown = {mid: hit for mid, hit in _stamped(_jsonl(shown_path, LEDGER_TAIL_BYTES)).items() if mid in posted}
+    return {"posted": posted, "withdrawn": withdrawn, "claims": claims, "shown": shown, "waiting": waiting,
+            "alive": alive}
+
+
+def delivery_receipt(facts: dict, *, tool_calls, prompts, mid_turn: bool, now: float) -> dict:
+    """Whether the hints posted to a session reach its agent, from
+    `delivery_facts` and the session's tool-call and prompt stamps (epoch
+    seconds, the transcript's own; `prompts` only those that started a turn).
+    A hint REACHED the agent when a deliverer wrote its `shown` line, or when
+    a deliverer that writes none claimed it (its claim line has no `shows`: one
+    from before them, so an upgrade or a rollback judges every claim by the
+    deliverer that made it). A hint not reached MISSED its chance when, while
+    it waited, the agent made MISSED_TOOL_CALLS tool calls in turns whose one
+    hint slot was still free (only on a harness that shows a hint mid-turn), or
+    when a deliverer that writes `shown` lines claimed it SHOWN_AFTER_CLAIM_S
+    ago and wrote none. MISSED_UNDELIVERABLE
+    misses since the last hint that reached it make the session UNDELIVERABLE;
+    else a fresh deliverer heartbeat, or a hint reached within
+    DELIVERED_RECENTLY_S, makes it OK; else UNPROVEN. Counts are over the
+    ledger's week; the `delivery` field of a `/v1/hints` request."""
+    import bisect
+
+    posted = sorted(facts["posted"].items(), key=lambda item: item[1])
+    claims, shown, withdrawn = facts["claims"], facts["shown"], facts["withdrawn"]
+    waiting, alive = facts["waiting"], facts["alive"]
+
+    def reached_at(mid: str) -> float | None:
+        if mid in shown:
+            return shown[mid][0]
+        claim = claims.get(mid)
+        return claim[0] if claim is not None and not claim[2] else None
+
+    reached = sorted(t for mid, _at in posted if (t := reached_at(mid)) is not None)
+    turns = sorted(prompts)
+    calls = sorted(tool_calls)
+
+    def slot_free(t: float) -> bool:
+        i = bisect.bisect_right(turns, t)
+        start = turns[i - 1] if i else float("-inf")
+        j = bisect.bisect_left(reached, start)
+        return not (j < len(reached) and reached[j] < t)
+
+    missed: set[str] = set()
+    for index, (mid, at) in enumerate(posted):
+        if reached_at(mid) is not None:
+            continue
+        claim = claims.get(mid)
+        if claim is not None:  # by a deliverer that writes `shown` lines (`reached_at`)
+            if now - claim[0] >= SHOWN_AFTER_CLAIM_S:
+                missed.add(mid)  # taken, never handed over
+            continue
+        if not mid_turn:
+            continue
+        ends = [now]
+        if mid in withdrawn:
+            ends.append(withdrawn[mid])
+        if mid not in waiting and mid not in withdrawn:
+            ends.append(at + mailbox_ttl())  # expired, or replaced by the next one
+            if index + 1 < len(posted):
+                ends.append(posted[index + 1][1])
+        end = min(ends)
+        lo = bisect.bisect_left(calls, at + MISSED_AFTER_S)
+        hi = bisect.bisect_left(calls, end)
+        if sum(1 for t in calls[lo:hi] if slot_free(t)) >= MISSED_TOOL_CALLS:
+            missed.add(mid)
+    last = reached[-1] if reached else None
+    since = [mid for mid, at in posted if last is None or at > last]
+    by = (alive or {}).get("by") if alive else None
+    if by is None and (shown or claims):
+        by = max([*shown.values(), *claims.values()])[1]  # the latest line's
+    deliverer = _DELIVERER_OF.get(by, Deliverer.OTHER) if by else None
+    alive_age = now - float(alive["at"]) if alive else None
+    fresh = alive_age is not None and alive_age <= DELIVERER_FRESH_S.get(deliverer, DELIVERER_FRESH_DEFAULT_S)
+    if sum(1 for mid in since if mid in missed) >= MISSED_UNDELIVERABLE:
+        state = DeliveryState.UNDELIVERABLE
+    elif fresh or (last is not None and now - last <= DELIVERED_RECENTLY_S):
+        state = DeliveryState.OK
+    else:
+        state = DeliveryState.UNPROVEN
+    return {
+        "state": state,
+        "deliverer": deliverer,
+        "posted": len(posted),
+        "claimed": sum(1 for mid, _at in posted if mid in claims),
+        "shown": sum(1 for mid, _at in posted if mid in shown),
+        "missed": len(missed),
+        "withdrawn": sum(1 for mid, _at in posted if mid in withdrawn and mid not in missed
+                         and reached_at(mid) is None),
+        "unshown_since_shown": sum(1 for mid in since if reached_at(mid) is None),
+        "last_shown_age_s": None if last is None else round(max(0.0, now - last), 1),
+        "heartbeat_age_s": None if alive_age is None else round(max(0.0, alive_age), 1),
+    }
+
+
+def mailbox_ttl() -> float:
+    """How long a hint may wait in a mailbox (`mailbox.UNASKED_TTL_S`)."""
+    from probe.daemon import mailbox
+
+    return float(mailbox.UNASKED_TTL_S)
+
+
 def delivered_ids(sid: str, state: str) -> set[str]:
     """The message ids delivered to the session: its claim log's (the tail) and
     the files in its `claimed/` folder (a claim whose log line was lost)."""
@@ -898,6 +1078,18 @@ class _State:
     #: answer out of order (`_deliver`).
     posted: int = 0
     posted_happened: float = float("-inf")
+    #: The stamps of the agent's main-stream tool calls and the researcher's
+    #: prompts seen here (the newest), under `lock`: what `delivery_receipt`
+    #: counts as a waiting hint's chances.
+    tool_calls: deque = field(default_factory=lambda: deque(maxlen=512))
+    prompts: deque = field(default_factory=lambda: deque(maxlen=128))
+    #: A prompt started a turn that has not ended (`_line`).
+    turn_open: bool = False
+    #: The last `delivery_receipt` and when (`clock`) it was made; under `lock`.
+    delivery: dict | None = None
+    delivery_at: float = float("-inf")
+    #: When (`clock`) an undeliverable session was last asked about.
+    probe_at: float = float("-inf")
 
 
 class _Facts:
@@ -920,8 +1112,8 @@ class HintLane:
     tail thread. Seams for tests: `transport(endpoint, body) -> (status, data)`,
     `endpoint_of(env)`, `post(sid, state, message) -> bool`, `withdraw(sid,
     state) -> [ids]`, `delivered(sid, state) -> {ids}`, `waiting(sid, state) ->
-    {ids}`, `ml(state, sid)`,
-    `senders` (where Claude Code's session records are), the clocks. `posted(sid)` is told of each hint posted (the server says
+    {ids}`, `senders` (where Claude Code's session records are), the clocks.
+    `posted(sid)` is told of each hint posted (the server says
     `mailbox.changed`)."""
 
     def __init__(
@@ -937,7 +1129,6 @@ class HintLane:
         withdraw: Callable[[str, str], list] = withdraw_hints,
         delivered: Callable[[str, str], set] = delivered_ids,
         waiting: Callable[[str, str], set] = waiting_hints,
-        ml: Callable[[str, str], dict | None] = ml_state,
         posted: Callable[[str], None] = lambda sid: None,
         senders: Senders | None = None,
         ledger_dir: Path | None = None,
@@ -958,7 +1149,6 @@ class HintLane:
         self._withdraw = withdraw
         self._delivered = delivered
         self._waiting = waiting
-        self._ml = ml
         self._posted = posted
         self.senders = senders if senders is not None else Senders()
         self._ledger_dir = ledger_dir
@@ -1076,7 +1266,9 @@ class HintLane:
         (`model.hints_live`). Not touched, the marker goes stale and the reader
         wakes at prompts again. Its `.window` marker is touched in the same beat
         only while window hints are proven working for it (`_window_works`): its
-        reader then stops its check-ins (`model.window_hints_live`)."""
+        reader then stops its check-ins (`model.window_hints_live`). Neither is
+        touched unless the hints posted here reach the agent (`delivery_receipt`
+        OK: a deliverer's heartbeat, or a hint shown lately)."""
         now = self.clock()
         if now - self._beats.get(session.sid, float("-inf")) < HINTS_LIVE_BEAT_S:
             return
@@ -1089,6 +1281,11 @@ class HintLane:
             if (max(self._holds.get(key, float("-inf")), self._holds.get(server, float("-inf"))) > now
                     or self._off.get((ep.base_url, ep.key), float("-inf")) > now):
                 return  # a 429 (`pair`) passes: a busy server still hints
+        receipt = self._receipt(session, self._state(session.sid))
+        if receipt is None or receipt["state"] != DeliveryState.OK:
+            # Lookups work, but nothing says a hint reaches this agent: its
+            # reader keeps its prompt turns and check-ins (plan hints-relevance R12).
+            return
         from probe.daemon import mailbox
 
         with mailbox.rooted(session.state):
@@ -1239,6 +1436,23 @@ class HintLane:
         from probe.daemon.events import Kind
 
         when = stamp if stamp is not None else self.wall()
+        marks = [e.kind for e in events
+                 if e.stream == MAIN_STREAM and e.kind in (Kind.TOOL_CALL, Kind.PROMPT, Kind.TURN_END)]
+        if marks:
+            # A waiting hint's chances to be shown (`delivery_receipt`): tool
+            # calls, and the prompts that start a turn. One typed into a
+            # running turn (pi's steer or follow-up, a queued message) starts
+            # none: its deliverer's one hint slot for the turn stays taken.
+            seen = self._state(session.sid)
+            with seen.lock:
+                for kind in marks:
+                    if kind == Kind.TOOL_CALL:
+                        seen.tool_calls.append(when)
+                    elif kind == Kind.TURN_END:
+                        seen.turn_open = False
+                    elif not seen.turn_open:
+                        seen.prompts.append(when)
+                        seen.turn_open = True
         ended = any(e.stream == MAIN_STREAM and e.kind == Kind.TURN_END for e in events)
         found = [(event, hit) for event in events if (hit := trigger_of(event)) is not None]
         # The agent's steps (W1): its messages and tool calls; never a tool's
@@ -1294,9 +1508,29 @@ class HintLane:
                 return  # a lookup waits (a window, or another trigger's): again at a later step
         self._queue_window(session, state, stamp)
 
+    def _may_ask(self, state: _State, trigger: str) -> bool:
+        """An UNDELIVERABLE session is asked about only at a researcher's
+        prompt, at most every UNDELIVERABLE_PROBE_S: the probe whose hint, once
+        shown, ends it. Every other session, always."""
+        with state.lock:
+            if (state.delivery or {}).get("state") != DeliveryState.UNDELIVERABLE:
+                return True
+            now = self.clock()
+            if trigger == Trigger.PROMPT and now - state.probe_at >= UNDELIVERABLE_PROBE_S:
+                state.probe_at = now
+                return True
+        self.stats["undeliverable_skipped"] += 1
+        return False
+
     def _queue_window(self, session: Followed, state: _State, stamp: float) -> None:
-        """A window look, queued. With no key, or the team's hints off, none
-        is, and the clock starts again: the next is WINDOW_GAP_S on."""
+        """A window look, queued. With no key, the team's hints off, or a
+        session its hints do not reach, none is, and the clock starts again:
+        the next is WINDOW_GAP_S on."""
+        if not self._may_ask(state, Trigger.WINDOW):
+            with self._cv:
+                state.window_since = stamp
+                state.window_messages.clear()
+            return
         try:
             ep = self.endpoint_of(session.env)
         except Exception:  # noqa: BLE001 -- unknown: not asked
@@ -1366,6 +1600,8 @@ class HintLane:
                 self._log(f"hints: session {session.sid}: no Probe key in its CLI config (or its environment "
                           "names another endpoint or key); no hints")
             return False
+        if not self._may_ask(state, trigger):
+            return False
         now = self.clock()
         with self._cv:
             if now < self._off.get((ep.base_url, ep.key), float("-inf")):
@@ -1419,6 +1655,7 @@ class HintLane:
             return
         if gone:
             self.stats["withdrawn"] += len(gone)
+            self._ledger_events(session.sid, gone, LEDGER_WITHDRAWN)
             self._log(f"hints: session {session.sid}: {len(gone)} hint(s) withdrawn ({why})")
             with contextlib.suppress(Exception):
                 self._posted(session.sid)
@@ -1532,10 +1769,6 @@ class HintLane:
             harness = adapters.for_source(session.harness).name
         except Exception:  # noqa: BLE001
             harness = session.harness
-        try:
-            ml = self._ml(session.state, job.sid) if session.mode == Mode.DAEMON else None
-        except Exception:  # noqa: BLE001 -- unknown: the server's record-type rule
-            ml = None
         window = job.trigger == Trigger.WINDOW
         segments: list[str] = []
         try:
@@ -1567,8 +1800,9 @@ class HintLane:
             newer_server = any(pair[0] == ep.base_url for pair in self._window_ok)
         limit = MAX_EXCLUDE_DOC_IDS if newer_server else LEGACY_EXCLUDE_DOC_IDS
         body = {"text": text, "trigger": job.trigger, "session_id": job.sid,
-                "exclude_session_ids": exclude, "exclude_doc_ids": exclude_doc_ids(shown, limit), "ml": ml,
-                "client": {"harness": harness, "mode": session.mode, "cli": self.version}}
+                "exclude_session_ids": exclude, "exclude_doc_ids": exclude_doc_ids(shown, limit),
+                "client": {"harness": harness, "mode": session.mode, "cli": self.version},
+                "delivery": self._receipt(session, state, fresh=True)}
         if window:
             body["segments"] = segments
             if state.epoch != job.epoch:
@@ -1803,6 +2037,54 @@ class HintLane:
             self._log(f"hints: session {sid}: the ledger could not be written: {exc}")
         self._sweep(path.parent)
 
+    def _ledger_events(self, sid: str, message_ids: list, event: str) -> None:
+        """One ledger line per message id: what became of a hint posted here."""
+        path = self._ledger_path(sid)
+        at = self.wall()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600), "a", encoding="utf-8") as out:
+                out.write("".join(json.dumps({"id": mid, "event": event, "at": at}) + "\n" for mid in message_ids))
+        except OSError as exc:
+            self._log(f"hints: session {sid}: the ledger could not be written: {exc}")
+
+    def _receipt(self, session: Followed, state: _State, *, fresh: bool = False) -> dict | None:
+        """The session's `delivery_receipt` (None when its files cannot be read),
+        made again at most every HINTS_LIVE_BEAT_S unless `fresh`. A change into
+        or out of UNDELIVERABLE is logged, and the receipt is left beside the
+        session's hint marker for `probe doctor` (`mailbox.hints_delivery_path`)."""
+        now = self.clock()
+        with state.lock:
+            if not fresh and state.delivery is not None and now - state.delivery_at < HINTS_LIVE_BEAT_S:
+                return state.delivery
+            calls, prompts = list(state.tool_calls), list(state.prompts)
+            before = (state.delivery or {}).get("state")
+        tail = self._tails.get(session.sid)
+        try:
+            facts = delivery_facts(session.sid, session.state, self._ledger_path(session.sid))
+            receipt = delivery_receipt(facts, tool_calls=calls, prompts=prompts,
+                                       mid_turn=tail is not None and shows_mid_turn(tail.adapter), now=self.wall())
+        except Exception as exc:  # noqa: BLE001 -- unknown, never "fine" nor "broken"
+            self._log(f"hints: session {session.sid}: delivery unknown: {type(exc).__name__}")
+            return None
+        with state.lock:
+            state.delivery, state.delivery_at = receipt, now
+        if receipt["state"] == DeliveryState.UNDELIVERABLE and before != DeliveryState.UNDELIVERABLE:
+            self.stats["undeliverable"] += 1
+            self._log(f"hints: session {session.sid}: its hints are not reaching the agent "
+                      f"({receipt['missed']} missed, {receipt['unshown_since_shown']} not shown since the last "
+                      f"one shown); its reader keeps its turns, and hints are asked only at a prompt, at most every "
+                      f"{UNDELIVERABLE_PROBE_S / 60:.0f} min, until one is shown (quit the agent and resume the session)")
+        elif before == DeliveryState.UNDELIVERABLE and receipt["state"] != DeliveryState.UNDELIVERABLE:
+            self._log(f"hints: session {session.sid}: hints reach the agent again")
+        with contextlib.suppress(Exception):
+            from probe.daemon import mailbox
+
+            with mailbox.rooted(session.state):
+                # `at` and `harness` for `probe doctor` only (`service_calls.hints_unreached`).
+                mailbox.write_hints_delivery(session.sid, {**receipt, "at": self.wall(), "harness": session.harness})
+        return receipt
+
     def _sweep(self, folder: Path) -> None:
         """Ledgers past KEEP_LEDGER_S go (their hints' claim files are gone
         too): at most every SWEEP_EVERY_S, so a service that runs for weeks
@@ -1866,5 +2148,5 @@ def _number(value: object) -> str:
 
 
 __all__ = ["Followed", "HintFetcher", "HintLane", "Lookup", "Senders", "Trigger", "followed", "launches_run",
-           "ml_state", "names_trigger", "sender_of", "shows_mid_turn", "trigger_of", "window_due", "window_segments",
+           "names_trigger", "sender_of", "shows_mid_turn", "trigger_of", "window_due", "window_segments",
            "window_text"]

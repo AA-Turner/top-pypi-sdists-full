@@ -1,29 +1,24 @@
 from __future__ import annotations
 
+import contextvars
 import multiprocessing as mp
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from typing import Any, cast
 
 import pytest
 
-from lib_log_rich.domain.context import ContextBinder, LogContext
+from lib_log_rich.domain.context import ContextBinder, ContextSnapshot, LogContext
 from tests.os_markers import OS_AGNOSTIC
 
 pytestmark = [OS_AGNOSTIC]
 
 
-def make_context(**overrides: object) -> LogContext:
-    """Return a baseline context for the tests."""
-    defaults: dict[str, object] = {
-        "service": "svc",
-        "environment": "test",
-        "job_id": "job-1",
-    }
-    defaults.update(overrides)
-    return LogContext(**defaults)  # type: ignore[arg-type]
+def make_context(**overrides: Any) -> LogContext:
+    """Return a baseline context for the tests; overrides are untyped to reach invalid values."""
+    return replace(LogContext(service="svc", environment="test", job_id="job-1"), **overrides)
 
 
-def _child_process(queue: mp.Queue[Any], serialized: dict[str, Any]) -> None:
+def _child_process(queue: mp.Queue[Any], serialized: ContextSnapshot) -> None:
     binder = ContextBinder()
     binder.deserialize(serialized)
     current = binder.current()
@@ -32,7 +27,7 @@ def _child_process(queue: mp.Queue[Any], serialized: dict[str, Any]) -> None:
     queue.put(asdict(current))
 
 
-def collect_child_payload(serialized: dict[str, Any]) -> dict[str, Any]:
+def collect_child_payload(serialized: ContextSnapshot) -> dict[str, Any]:
     queue: mp.Queue[Any] = mp.Queue()
     process = mp.Process(target=_child_process, args=(queue, serialized))
     process.start()
@@ -59,17 +54,17 @@ def test_log_context_rejects_blank_job_id() -> None:
 
 def test_log_context_rejects_none_service() -> None:
     with pytest.raises(ValueError):
-        make_context(service=None)  # type: ignore[arg-type]
+        make_context(service=None)
 
 
 def test_log_context_rejects_none_environment() -> None:
     with pytest.raises(ValueError):
-        make_context(environment=None)  # type: ignore[arg-type]
+        make_context(environment=None)
 
 
 def test_log_context_rejects_none_job_id() -> None:
     with pytest.raises(ValueError):
-        make_context(job_id=None)  # type: ignore[arg-type]
+        make_context(job_id=None)
 
 
 def test_log_context_defaults_request_id_to_none() -> None:
@@ -251,3 +246,89 @@ def test_context_binder_propagates_to_child_process_preserves_request_id() -> No
         serialized = binder.serialize()
     child_data = collect_child_payload(serialized)
     assert child_data["request_id"] == "req-99"
+
+
+def test_log_context_merge_keeps_parent_values_for_none() -> None:
+    parent = make_context(request_id="req", user_id="u1", extra={"a": 1})
+    child = parent.merge(user_id=None, trace_id="t1")
+    assert (child.request_id, child.user_id, child.trace_id, child.extra) == ("req", "u1", "t1", {"a": 1})
+
+
+def test_log_context_merge_replaces_extra_and_copies_it() -> None:
+    source = {"b": 2}
+    child = make_context(extra={"a": 1}).merge(extra=source)
+    source["c"] = 3
+    assert child.extra == {"b": 2}
+
+
+def test_log_context_merge_normalises_the_pid_chain_to_a_tuple() -> None:
+    assert make_context().merge(process_id_chain=[1, 2]).process_id_chain == (1, 2)
+
+
+def test_log_context_merge_refuses_an_unknown_field() -> None:
+    with pytest.raises(TypeError):
+        make_context().merge(**cast("dict[str, Any]", {"route": "/x"}))
+
+
+def test_context_binder_bind_refuses_an_unknown_field_without_a_parent() -> None:
+    binder = ContextBinder()
+    with pytest.raises(TypeError), binder.bind(**cast("dict[str, Any]", {"service": "s", "environment": "e", "job_id": "j", "route": "/x"})):
+        raise AssertionError("an unknown context field must not bind")
+
+
+def test_context_binder_names_every_missing_required_field() -> None:
+    binder = ContextBinder()
+    with pytest.raises(ValueError, match=r"exists: service, job_id$"), binder.bind(service="", environment="prod"):
+        raise AssertionError("Context should not bind when required fields are missing")
+
+
+def test_context_binder_root_bind_accepts_explicit_none_extra() -> None:
+    binder = ContextBinder()
+    with binder.bind(service="svc", environment="prod", job_id="1", extra=None, process_id_chain=[7, 8]) as ctx:
+        assert (ctx.extra, ctx.process_id_chain) == ({}, (7, 8))
+
+
+def test_context_binder_seed_replaces_the_stack_with_one_frame() -> None:
+    binder = ContextBinder()
+    seeded = make_context(job_id="bootstrap")
+    with binder.bind(service="svc", environment="test", job_id="outer"):
+        binder.seed(seeded)
+        assert binder.serialize().stack == (seeded,)
+    assert contextvars.Context().run(binder.current) == seeded
+
+
+def test_context_binder_deserialize_no_longer_takes_a_mapping() -> None:
+    binder = ContextBinder()
+    with pytest.raises(AttributeError):
+        binder.deserialize(cast("Any", {"version": 1, "stack": []}))
+
+
+def test_context_snapshot_refuses_an_unsupported_version() -> None:
+    with pytest.raises(ValueError, match="version: unsupported version 2"):
+        ContextSnapshot(version=2)
+
+
+def test_log_context_replace_applies_none_to_an_optional_field() -> None:
+    assert make_context(request_id="req").replace(request_id=None).request_id is None
+
+
+def test_log_context_replace_keeps_every_omitted_field() -> None:
+    original = make_context(request_id="req", trace_id="t", process_id=7, process_id_chain=(1, 7), extra={"a": 1})
+    assert original.replace() == original
+
+
+def test_log_context_replace_validates_like_the_constructor() -> None:
+    with pytest.raises(ValueError, match="job_id must not be empty"):
+        make_context().replace(job_id="  ")
+
+
+def test_log_context_replace_copies_the_given_extra() -> None:
+    source: dict[str, Any] = {"a": 1}
+    replaced = make_context().replace(extra=source)
+    source["b"] = 2
+    assert replaced.extra == {"a": 1}
+
+
+def test_log_context_replace_refuses_an_unknown_field() -> None:
+    with pytest.raises(TypeError):
+        make_context().replace(**cast("dict[str, Any]", {"route": "/x"}))

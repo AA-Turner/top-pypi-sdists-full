@@ -12,12 +12,13 @@ from typing import Generator, NamedTuple, TypeVar, get_args, get_origin, overloa
 
 from refinery.lib.shared.xdis import xdis
 from refinery.lib.structures import MemoryFile, StructReader
-from refinery.lib.tools import NoLogging, normalize_word_separators
+from refinery.lib.tools import NoLogging, RecursionDepth, normalize_word_separators
 from refinery.lib.types import buf
 
 _T = TypeVar('_T')
 
 _MAX_MARSHAL_STACK_DEPTH = 2000
+_DECOMPILER_RECURSION_DEPTH = 5000
 
 SYS_PYTHON = (
     sys.version_info.major,
@@ -70,14 +71,31 @@ def extract_code_from_buffer(buffer: buf, file_name: str | None = None) -> Gener
 
 
 def disassemble_code(code: CodeType, version: str | float | tuple[int, ...] | None = None):
-    if version is None:
-        opc = None
-    else:
+    opc = None
+    if version is not None:
         if isinstance(version, float):
             version = str(version)
-        if isinstance(version, tuple):
-            version = xdis.version_info.version_tuple_to_str(version)
-        opc = xdis.op_imports.op_imports[version]
+        if isinstance(version, str):
+            version = xdis.version_info.version_str_to_tuple(version)
+        if isinstance(version, int):
+            version = version,
+        major = next(it := iter(version))
+        try:
+            minor = next(it)
+        except StopIteration:
+            minor = 0
+        try:
+            build = next(it)
+        except StopIteration:
+            build = 0
+        while build >= 0:
+            try:
+                opc = xdis.op_imports.op_imports[
+                    xdis.version_info.version_tuple_to_str((major, minor, build))]
+            except KeyError:
+                build -= 1
+            else:
+                break
     return xdis.std.Bytecode(code, opc=opc)
 
 
@@ -107,31 +125,32 @@ def decompile_buffer(buffer: Code | buf, file_name: str | None = None) -> buf:
         else:
             yield 'uncompyle6', dc
 
-    engines = dict(_engines())
+    with RecursionDepth(_DECOMPILER_RECURSION_DEPTH):
+        engines = dict(_engines())
 
-    if not engines:
-        errors += '# (all missing, install one of the above to enable decompilation)'
+        if not engines:
+            errors += '# (all missing, install one of the above to enable decompilation)'
 
-    for code in codes:
-        for name, decompile in engines.items():
-            with io.StringIO(newline='') as output, NoLogging(NoLogging.Mode.ALL):
-                try:
-                    decompile(
-                        co=code.container,
-                        bytecode_version=code.version,
-                        out=output,
-                        timestamp=code.timestamp,
-                        code_objects=code.code_objects,
-                        is_pypy=code.is_pypi,
-                        magic_int=code.magic,
-                    )
-                except Exception as E:
-                    errors += '\n'.join(F'# {line}' for line in (
-                        F'Error while decompiling with {name}:', *str(E).splitlines(True)))
-                    errors += '\n'
-                else:
-                    python = output.getvalue()
-                    break
+        for code in codes:
+            for name, decompile in engines.items():
+                with io.StringIO(newline='') as output, NoLogging(NoLogging.Mode.ALL):
+                    try:
+                        decompile(
+                            co=code.container,
+                            bytecode_version=code.version,
+                            out=output,
+                            timestamp=code.timestamp,
+                            code_objects=code.code_objects,
+                            is_pypy=code.is_pypi,
+                            magic_int=code.magic,
+                        )
+                    except Exception as E:
+                        errors += '\n'.join(F'# {line}' for line in (
+                            F'Error while decompiling with {name}:', *str(E).splitlines(True)))
+                        errors += '\n'
+                    else:
+                        python = output.getvalue()
+                        break
     if python:
         # removes leading comments
         python = python.splitlines(True)

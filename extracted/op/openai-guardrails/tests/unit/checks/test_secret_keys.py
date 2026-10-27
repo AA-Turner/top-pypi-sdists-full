@@ -244,6 +244,8 @@ async def test_malformed_url_prefix_cannot_alias_a_later_valid_url() -> None:
     [
         "https://example.com/?token=sk-AAAABBBBCCCCDDDD{hard_stop}tail",
         "files/sk-AAAABBBBCCCCDDDD.png,https://example.com{hard_stop}tail",
+        "https://example.com/path{hard_stop}tail?token=sk-AAAABBBBCCCCDDDD",
+        "https://example.com/?token=sk-AAAABBBBCCCCDDDD#{hard_stop}tail",
     ],
 )
 async def test_url_regex_hard_stop_does_not_expose_candidates(
@@ -1198,6 +1200,32 @@ async def test_double_slash_prefixed_http_url_does_not_expose_query_candidates()
 
     assert result.tripwire_triggered is False  # noqa: S101
     assert result.info["detected_secrets"] == []  # noqa: S101
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("prefix", "detected"),
+    [
+        ("archive/release-notes/", True),
+        ("archive/a1+.-/", True),
+        ("archive/123:/", True),
+        ("archive/a:notes/", True),
+        ("archive/a:/", False),
+        ("archive/1a+.-:/", False),
+        ("archive/a:notes/b:/", False),
+        ("archive/İ:/", False),
+        ("archive/ı:/", False),
+        ("archive/ſ:/", False),
+        ("archive/K:/", False),
+    ],
+)
+async def test_file_container_scheme_classification(prefix: str, detected: bool) -> None:
+    """File basenames remain detectable unless a URL-shaped scheme precedes them."""
+    text = f"{prefix}sk-AAAABBBBCCCCDDDD.png"
+    result = await secret_keys(None, text, SecretKeysCfg(threshold="balanced", custom_regex=None))
+
+    assert result.tripwire_triggered is detected
+    assert result.info["detected_secrets"] == ([text] if detected else [])
 
 
 @pytest.mark.asyncio

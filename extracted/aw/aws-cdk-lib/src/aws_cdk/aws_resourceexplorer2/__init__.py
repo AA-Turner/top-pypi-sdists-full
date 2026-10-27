@@ -151,6 +151,7 @@ class CfnDefaultViewAssociation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -197,7 +198,7 @@ class CfnDefaultViewAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d34137c13dccff8aec091fe498d52117edd5707c82c68e72ee608bacd180f14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "viewArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "viewArn", value)
 
 
 @jsii.data_type(
@@ -366,6 +367,7 @@ class CfnIndex(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -425,7 +427,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee8250a3f3491b042dbc508f663480728f7a2654be50c8b46f65888be7b7086e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -441,7 +443,7 @@ class CfnIndex(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8cf3e59046bbed69cac69bb9d9a3fcb94f8253aa6c2753a213e4e0970930dbf4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -646,6 +648,7 @@ class CfnView(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -694,7 +697,7 @@ class CfnView(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__34b0928f3062cee9252036904eb9ab259165c1538d4a06b7a8dd389f9c54c008)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "viewName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "viewName", value)
 
     @builtins.property
     @jsii.member(jsii_name="filters")
@@ -712,7 +715,7 @@ class CfnView(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f5fb01321040e194a5b4764d6eb89a25f4149cfd8bf5c274c004d722fdfc3ac9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "filters", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "filters", value)
 
     @builtins.property
     @jsii.member(jsii_name="includedProperties")
@@ -730,7 +733,7 @@ class CfnView(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__61a4f8894d1b066b915e6771816801795e9d3e2fe0de81b028355665ff6ec0bf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "includedProperties", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "includedProperties", value)
 
     @builtins.property
     @jsii.member(jsii_name="scope")
@@ -743,7 +746,7 @@ class CfnView(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6ce03d0317ddc3e528365ec97587f9be02a8e6694ea00dc083c89cfc737d8c78)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scope", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -759,7 +762,7 @@ class CfnView(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ba074542162150148d90cb3cc2f181855f03e4ed820e7ceba4ad32404363e0a8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_resourceexplorer2.CfnView.FiltersProperty",

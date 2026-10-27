@@ -16,6 +16,7 @@ Auth: `probe login --device` runs the browser handoff (RFC 8628) and captures th
 from __future__ import annotations
 
 import contextlib
+import contextvars
 import dataclasses
 import hashlib
 import json
@@ -713,6 +714,19 @@ def _kick_drainer() -> None:
 # Group name, not full path: Typer dispatches `probe run start` through the `run`
 # group, and every subcommand under these groups is run-scoped.
 _UPDATE_HOT_PATH_COMMANDS = frozenset({"log", "span", "artifact", "run", "exec", "outbox"})
+#: Where the Probe service is the updater, these hot-path commands still ask it
+#: for an update (`_hand_update_to_service`) when they do not run inside a run
+#: (plan fool-proof-updates B3): no run in their environment (`_RUN_ENV`) and
+#: no run lock held by their own process tree. A machine whose only Probe use
+#: is `probe run ...`/`probe artifact ...` from a script is otherwise never
+#: asked. `log`, `span` and `exec` never ask: they are a training loop's own
+#: writes, or own the loop.
+_ASK_OUTSIDE_A_RUN = frozenset({"artifact", "run", "outbox"})
+#: What a run's own processes carry (`Run.subprocess`, `probe exec`, the
+#: launchers): any of them set and this command is inside a run.
+_RUN_ENV = ("PROBE_RUN_ID", "PROBE_RUN_EPOCH", "PROBE_EXEC_FINALIZES")
+#: How far up the process tree a run lock's holder is looked for.
+_RUN_ANCESTORS_MAX = 64
 
 #: The commands that open the setup wizard (`npx probe-research` runs `wizard`).
 #: The wizard's own server call (`POST /v1/device-state`) carries the manifest
@@ -745,6 +759,15 @@ _REMOTE_ASK_EVERY_S = 15 * 60
 #: Its stamp, beside `autoupdate.json` (its own window: an every-command ask the
 #: service answered `recent` must not hold a remote one back).
 _REMOTE_ASK_STAMP = "remote-update-ask"
+#: A staff capture repair (research-os control/073) is fetched at most this often
+#: per machine, under its own stamp (`_capture_repair_notice`).
+_CAPTURE_REPAIR_EVERY_S = 10 * 60
+_CAPTURE_REPAIR_STAMP = "capture-repair-ask"
+#: Where the repair's replacement capture credentials are fetched. Every fetch
+#: while the request is open mints them again, so a lost answer is a retry.
+CAPTURE_REPAIR_PATH = "/v1/client/capture-repair"
+#: Where the machine confirms what it applied; the confirmation closes the request.
+CAPTURE_REPAIR_APPLIED_PATH = "/v1/client/capture-repair/applied"
 #: Never act on that request from these. `daemon` and `mcp` run for a whole
 #: session: an ask from one would wait out `WAIT_FOR_PID_S` for its own exit, and
 #: the Probe service hands daemon workers over at an update anyway. The wizard and
@@ -793,6 +816,13 @@ def _invoked_command() -> str | None:
     return None
 
 
+#: Where the CLI's own updater runs (no Probe service), a command off a terminal
+#: starts it at most this often (C3): the every-command ask's window, under a
+#: stamp of its own beside `autoupdate.json` (`_claim_window`).
+_CLI_UPDATE_EVERY_S = _SERVICE_ASK_EVERY_S
+_CLI_UPDATE_STAMP = "cli-update-ask"
+
+
 def _version_notice() -> None:
     """The every-command version check: nudge from cache, refresh in background.
 
@@ -802,8 +832,9 @@ def _version_notice() -> None:
 
     THE GATE ORDER IS LOAD-BEARING, cheapest and most-likely-to-exit first:
 
-        enabled?          one small read; defaults False, so an install that
-                          never opted in touches exactly one file and stops
+        enabled?          one small read (`version_policy.autoupdate_state`): on
+                          for the managed CLI unless turned off, opt-in for any
+                          other install, which touches exactly one file and stops
         cache fresh?      one ~150-byte read; this is where ~99.9% of calls
                           exit, which is what makes the trigger free in a loop
         (spawn refresher) detached; this process NEVER fetches inline. A 3s
@@ -812,14 +843,18 @@ def _version_notice() -> None:
                           Not for the wizard (`_WIZARD_COMMANDS`): its own one
                           server call carries the manifest
         update available? pure comparison, no I/O
-        TTY?              cheap, and wrong on its own -- see the denylist above
         denylisted?       frozenset membership
-        run in flight?    LAST, because it is the only O(N) check: it scans a
-                          directory and probes locks. Never reached unless an
-                          upgrade would otherwise be applied right now
+        run in flight?    the only O(N) check: it scans a directory and probes
+                          locks. Never reached unless an upgrade would otherwise
+                          be applied right now. A day at most (`defer_for_run`)
+        off a terminal?   once per `_CLI_UPDATE_EVERY_S` (`_claim_window`); a
+                          terminal's command starts it every time, as before
 
-    A skip at any of the last three is RECORDED, so `probe doctor` can tell a box
+    A skip at the denylist or a run is RECORDED, so `probe doctor` can tell a box
     that is correctly deferring from an auto-updater that has silently died.
+    There was a TTY gate before the denylist, refusing (and recording `not an
+    interactive terminal`) for every command off a terminal; it went (C3),
+    except on Windows, where a child cannot detach from its caller.
 
     WHERE THE PROBE SERVICE IS THE UPDATER (POSIX, `_service_owns_updates`) the
     last three gates are not this command's: they guard an update THIS process
@@ -870,7 +905,10 @@ def _version_notice() -> None:
             return
         # The CLI's own updater (Windows, an install with no service
         # interpreter): these gates guard the in-place update it would start.
-        if not sys.stdout.isatty() and not _extension_session_start():
+        if not hasattr(os, "fork") and not sys.stdout.isatty():
+            # Windows only (out of C3's scope): a child of a command off a
+            # terminal there cannot detach from its caller (pi's session start
+            # included, `_extension_session_start`), so it is refused as before.
             autoupdate.record_skip(autoupdate.SKIP_NOT_A_TTY, available=latest)
             return
         # The two skips below can also be pi's session start; the record says
@@ -883,16 +921,30 @@ def _version_notice() -> None:
 
         from . import run_lock
 
-        if run_lock.any_live():
-            autoupdate.record_skip(
-                autoupdate.SKIP_RUN_IN_FLIGHT, available=latest, trigger=_update_trigger()
-            )
+        # A live run holds the update off for a day at most, as the Probe
+        # service's does (C3): `defer_for_run` records the skip and the hold;
+        # a check that finds none ends the hold. (A Probe daemon's command, or
+        # a daemon worker recording, holds every spawn off: `_spawn_update`.)
+        live = run_lock.any_live()
+        if live and autoupdate.defer_for_run(available=latest, trigger=_update_trigger()):
             return
+        if not live:
+            autoupdate.clear_run_deferral()
 
+        from probe.sdk.agent_session import DAEMON_SESSION_ENV
+
+        if os.environ.get(DAEMON_SESSION_ENV):
+            return  # never from a Probe daemon's command (`_spawn_update`): its window stays unclaimed
         if _extension_session_start():
             _spawn_session_start_update()
-        else:
-            _spawn_autoupdate()
+        elif sys.stdout.isatty() or _claim_window(_CLI_UPDATE_STAMP, _CLI_UPDATE_EVERY_S):
+            # No terminal is no reason to wait (C3): the update is detached and
+            # waits for this command to exit. It used to be refused here, and a
+            # machine whose only `probe` calls come from hooks or an agent's
+            # shell never updated (an Anthrogen pod sat on 0.283.0). Off a
+            # terminal, once per window: those callers run `probe` dozens of
+            # times an hour.
+            _spawn_autoupdate(available=latest)
     except Exception:  # noqa: BLE001 -- a version check must never break a command
         pass
 
@@ -1135,7 +1187,7 @@ def _spawn_version_refresh() -> None:
         version_policy.release_refresh()
 
 
-def _spawn_update(flag: str, *, trigger: str | None = None) -> None:
+def _spawn_update(flag: str, *, trigger: str | None = None, available: str | None = None) -> None:
     """Launch version_refresh detached, naming OURSELVES as the pid to outlive.
 
     The wait is the whole point, and it is why both update triggers share this
@@ -1145,12 +1197,28 @@ def _spawn_update(flag: str, *, trigger: str | None = None) -> None:
 
     Raises whatever `_spawn_detached` raises; both callers are fail-open and
     swallow it, for different reasons documented at their own sites.
+    `available`: the version the caller found, for a skip's record.
     """
     from . import autoupdate
 
     if _service_owns_updates():
         # The service's words: a harness's session start is `session`.
         _ask_service_to_update("session" if trigger == autoupdate.Trigger.SESSION_START.value else "cli")
+        return
+    # The CLI's own updater lands in place, so nothing may run from the CLI's
+    # files: never from a command a Probe daemon runs, nor while a daemon worker
+    # holds its lock -- whichever trigger asked (every command, a run's end, pi's
+    # session start, a remote ask). Off a terminal (C3) most callers are those.
+    from probe.sdk.agent_session import DAEMON_SESSION_ENV
+
+    if os.environ.get(DAEMON_SESSION_ENV):
+        return
+    from probe.service.updater import daemon_worker_running
+
+    if daemon_worker_running():
+        autoupdate.record_skip(
+            autoupdate.SKIP_DAEMON_RECORDING, available=available, trigger=trigger or autoupdate.Trigger.CLI.value
+        )
         return
     env = dict(os.environ)
     env[autoupdate.WAIT_FOR_PID_ENV] = str(os.getpid())
@@ -1215,9 +1283,12 @@ def _hand_update_to_service(command: str | None) -> None:
     not -- the service decides, and records why when it waits. Records nothing.
 
     Not from `probe service` (it talks to the service itself), nor from a
-    run-scoped command (`_UPDATE_HOT_PATH_COMMANDS`): no process is started
-    from inside a training loop. Those machines still update on the service's
-    own schedule and at each coding agent's session start. Nor from a command
+    run-scoped command (`_UPDATE_HOT_PATH_COMMANDS`) inside a run: no process
+    is started from inside a training loop. `artifact`, `run` and `outbox`
+    outside one ask as any command does (`_ASK_OUTSIDE_A_RUN`,
+    `_inside_a_run`); `log`, `span` and `exec` never do. Machines that only
+    run those still update on the service's own schedule, the keeper's and at
+    each coding agent's session start. Nor from a command
     the service itself runs (`paths.SERVICE_CHILD_ENV`: its team-note sync):
     the service is the updater, and an ask from its first command would land
     while the rest of that job still runs from the CLI's files.
@@ -1227,7 +1298,8 @@ def _hand_update_to_service(command: str | None) -> None:
     the lock taken leaves the ask to its holder. A stamp that cannot be opened
     or locked asks nothing: one asking process per command is worse than none.
     Never raises."""
-    if command == _SERVICE_COMMAND or command in _UPDATE_HOT_PATH_COMMANDS:
+    exempt = command in _UPDATE_HOT_PATH_COMMANDS and command not in _ASK_OUTSIDE_A_RUN
+    if command == _SERVICE_COMMAND or exempt:
         return
     try:
         # `paths`, not `children`: loaded already by `_service_owns_updates`,
@@ -1236,10 +1308,53 @@ def _hand_update_to_service(command: str | None) -> None:
 
         if os.environ.get(SERVICE_CHILD_ENV):
             return
+        if command in _ASK_OUTSIDE_A_RUN and _inside_a_run():
+            return
         if _claim_window(_SERVICE_ASK_STAMP, _SERVICE_ASK_EVERY_S):
             _ask_service_to_update("cli")
     except Exception:  # noqa: BLE001 -- the check never breaks the command it runs before
         pass
+
+
+def _inside_a_run() -> bool:
+    """Is this command part of a run: a run's variables in its environment
+    (`_RUN_ENV`), or a run lock (`run_lock`'s flock tier, the SDK's and `probe
+    exec`'s) held by this process or one of its ancestors? A run in another
+    terminal is not this command's: the service decides about that one.
+    Unknown reads as inside (nothing is asked). Cheap when no run holds a lock:
+    one listing."""
+    if any((os.environ.get(name) or "").strip() for name in _RUN_ENV):
+        return True
+    try:
+        from probe._shared import run_lock
+
+        directory = run_lock.runs_dir()
+        if not directory.is_dir():
+            return False
+        holders: dict[int, Path] = {}
+        for entry in directory.iterdir():
+            if not entry.name.endswith(run_lock.FLOCK_SUFFIX):
+                continue
+            try:
+                pid = int(json.loads(entry.read_text(encoding="utf-8"))["pid"])
+            except (OSError, ValueError, TypeError, KeyError):
+                continue  # mid-write, or left by a process long gone: no holder to find
+            holders[pid] = entry
+        if not holders:
+            return False
+        from probe.service import procid
+
+        pid = os.getpid()
+        for _ in range(_RUN_ANCESTORS_MAX):
+            if pid in holders and run_lock._flock_is_held(holders[pid]):  # noqa: SLF001 -- its own probe
+                return True
+            proc = procid.proc(pid)
+            if proc is None or proc.ppid <= 1 or proc.ppid == pid:
+                return False
+            pid = proc.ppid
+        return False
+    except Exception:  # noqa: BLE001 -- unknown: ask nothing from what may be a run
+        return True
 
 
 def _claim_window(stamp_name: str, every_s: float) -> bool:
@@ -1304,12 +1419,12 @@ def _remote_update_notice() -> None:
       lands in place, so nothing may be running from the CLI's files. Not from a
       command a Probe daemon runs (`PROBE_DAEMON_SESSION`), nor while a daemon
       worker holds its lock, and a live run lock records `run in flight` and stops
-      here, as the every-command check does; otherwise `version_refresh
-      --apply-if-newer` (a fresh manifest, the update lock, the run lock again in
-      the child), the session-start update. It skips only the not-a-TTY gate:
-      every `probe` on a machine that only runs coding-agent hooks is off a
-      terminal, which is how two customer machines sat two days behind
-      (2026-10-24).
+      here (for a day at most: `autoupdate.defer_for_run`), as the every-command
+      check does; otherwise `version_refresh --apply-if-newer` (a fresh
+      manifest, the update lock, the run lock again in the child), the
+      session-start update. Every `probe` on a machine that only runs
+      coding-agent hooks is off a terminal, which is how two customer machines
+      sat two days behind (2026-10-24): no TTY gate here either.
     """
     command = _invoked_command()
     if command in _UPDATE_HOT_PATH_COMMANDS or command in _REMOTE_UPDATE_SKIP_COMMANDS:
@@ -1343,12 +1458,247 @@ def _remote_update_notice() -> None:
         if daemon_worker_running():
             autoupdate.record_skip(autoupdate.SKIP_DAEMON_RECORDING)
             return
-        if run_lock.any_live():
-            autoupdate.record_skip(autoupdate.SKIP_RUN_IN_FLIGHT)
+        live = run_lock.any_live()
+        if live and autoupdate.defer_for_run():  # a day at most (C3)
             return
+        if not live:
+            autoupdate.clear_run_deferral()
         _spawn_update("--apply-if-newer")
     except Exception:  # noqa: BLE001 -- the check never breaks the command it runs before
         pass
+
+
+def _capture_repair_notice() -> None:
+    """Probe staff opened a one-time capture repair for this machine: fetch the
+    replacement capture credentials, write them where the wizard's sign-in
+    would, lift those agents' `.disabled` locks, and confirm. Never raises;
+    prints one stderr line only when capture an agent had turned off resumes.
+
+    WHY. A wizard bug could revoke a capture credential nobody turned off (a
+    Settings commit read a sign-in's pending lock as "capture off" and ran the
+    full turn-off; Anthrogen, 2026-10-26). A new one normally needs the
+    person's browser approval. Staff can instead open a repair for ONE device
+    (research-os control/073): the server answers that device's CLI token with
+    `X-Probe-Capture-Repair`, whichever of our clients gets the answer leaves
+    the mark (`probe._shared.capture_repair`), and this, before every command,
+    acts on it.
+
+    Gates, cheapest first, like `_remote_update_notice`: not a run-scoped
+    command (`_UPDATE_HOT_PATH_COMMANDS`: nothing from inside a training loop)
+    and not the service, daemon, MCP, update or the wizard
+    (`_REMOTE_UPDATE_SKIP_COMMANDS`); a fresh mark; not a child of the Probe
+    service nor a command a Probe daemon runs (`PROBE_DAEMON_SESSION`: its key
+    is refused, and it would spend every window); a signed-in API token that IS
+    the config file's current context (`_repair_identity_is_the_files`: a
+    `PROBE_TOKEN` override would fetch for one account and write into another; a
+    URL override for the same token is the same account); one try per
+    `_CAPTURE_REPAIR_EVERY_S`
+    (`_claim_window`). The gates before the window keep the mark and spend
+    nothing. Then:
+
+        fetch 200  each credential is written (`setup.write_capture_credential`;
+                   Claude Code's stale tap `.token`, which its tap reads first,
+                   is replaced too) and that agent's lock removed. A lock the
+                   person set AFTER staff asked (`requested_at`), other than a
+                   sign-in's pending one, is kept: that agent is `kept_off`,
+                   nothing is written for it
+        unknown    an agent this CLI cannot capture is `unsupported`: settled,
+                   never retried
+        confirm    `CAPTURE_REPAIR_APPLIED_PATH` {requested_at, applied, kept_off,
+                   unsupported}, per agent: an agent whose write FAILED is left out
+                   and stays open on the server, so the next window fetches (and
+                   re-mints) only it. `state: cleared` or a 404 (closed or reopened
+                   already) clears the mark; `open` or no answer keeps it
+        fetch 404  no open repair for this device: the mark goes
+        else       the mark stays and the next window tries again
+
+    `capture.repair_applied` says what happened (`applied`, `kept_off`,
+    `write_failed`, `env_shadowed`: `PROBE_INGEST_TOKEN` outranks the Claude
+    Code credential just written).
+    """
+    command = _invoked_command()
+    if command in _UPDATE_HOT_PATH_COMMANDS or command in _REMOTE_UPDATE_SKIP_COMMANDS:
+        return
+    try:
+        from probe._shared import capture_repair
+
+        if not capture_repair.fresh():
+            return
+        from probe.sdk.agent_session import DAEMON_SESSION_ENV
+        from probe.service.paths import SERVICE_CHILD_ENV
+
+        if os.environ.get(SERVICE_CHILD_ENV) or os.environ.get(DAEMON_SESSION_ENV):
+            return
+        settings = resolve(base_url=_conn.base_url)
+        if not settings.token or not _repair_identity_is_the_files(settings):
+            return
+        if not _claim_window(_CAPTURE_REPAIR_STAMP, _CAPTURE_REPAIR_EVERY_S):
+            return
+        client = _new_client(base_url=_conn.base_url, spool_dir=_conn.spool_dir)
+        try:
+            try:
+                answer = client.transport.post(CAPTURE_REPAIR_PATH, {})
+            except NotFoundError:
+                capture_repair.clear()
+                return
+            except Exception:  # noqa: BLE001 -- no answer, a 5xx, a refusal: the next window retries
+                return
+            credentials = answer.get("credentials") if isinstance(answer, dict) else None
+            if not isinstance(credentials, list):
+                return
+            # Pinned into each tap's `.config`: the config context's own API, never
+            # a shell's override (a port-forward exists only in that shell).
+            pinned = (load_context().get("base_url") or settings.base_url).rstrip("/")
+            applied = _apply_capture_repair(credentials, _repair_requested_at(answer), pinned)
+            confirmed = False
+            if applied.settled():
+                # Per agent: what was written, kept off or cannot be captured here
+                # is settled; a failed agent stays open on the server, and only it
+                # is fetched (re-minted) next window.
+                try:
+                    settled = client.transport.post(
+                        CAPTURE_REPAIR_APPLIED_PATH,
+                        {
+                            "requested_at": answer.get("requested_at"),
+                            "applied": applied.written,
+                            "kept_off": applied.kept_off,
+                            "unsupported": applied.unsupported,
+                        },
+                    )
+                    confirmed = True
+                    if isinstance(settled, dict) and settled.get("state") == "cleared":
+                        capture_repair.clear()
+                except NotFoundError:
+                    confirmed = True  # closed (or reopened) already: nothing left to confirm
+                    capture_repair.clear()
+                except Exception:  # noqa: BLE001 -- unconfirmed: the next window fetches again
+                    confirmed = False
+        finally:
+            with contextlib.suppress(Exception):
+                client.close()
+        if applied.resumed:
+            from . import setup as wizard
+
+            print(
+                f"Probe staff restored session capture for {wizard.agent_label(applied.resumed)} on this "
+                "machine (a bug had turned it off). Turn it off any time with `probe wizard`.",
+                file=sys.stderr,
+            )
+        shadowed = "claude_code" in applied.written and bool(os.environ.get("PROBE_INGEST_TOKEN"))
+        outcome = (
+            "write_failed" if applied.failed
+            else "env_shadowed" if shadowed
+            else "kept_off" if applied.kept_off and not applied.written
+            else "unsupported" if applied.unsupported and not applied.written
+            else "applied"
+        )
+        from . import telemetry as telemetry_mod
+
+        telemetry_mod.emit_capture_repair_applied(
+            sources=applied.written,
+            outcome=outcome,
+            locks_lifted=applied.lifted,
+            base_url=settings.base_url,
+            kept_off=applied.kept_off,
+            confirmed=confirmed,
+            unsupported=applied.unsupported,
+        )
+    except Exception:  # noqa: BLE001 -- the check never breaks the command it runs before
+        pass
+
+
+def _repair_identity_is_the_files(settings) -> bool:
+    """The token the CLI would use is the config file's current context's. A
+    repair's credentials are written into that context (Claude Code's) and pinned
+    to that context's API (every other agent's), so fetching under another token
+    (`PROBE_TOKEN`) would hand one account's capture to another's context. The
+    token alone decides: a URL override for the same token reaches the same
+    account."""
+    stored = load_context()
+    # The token decides: the same token is the same account on the server that
+    # sent the header, whatever URL reaches it (an in-cluster alias, a port).
+    return bool(stored.get("token")) and settings.token == stored.get("token")
+
+
+def _repair_requested_at(answer: dict) -> float | None:
+    """The answer's `requested_at` as unix seconds; None when absent or unreadable."""
+    import datetime as _dt
+
+    raw = answer.get("requested_at")
+    if not isinstance(raw, str):
+        return None
+    try:
+        return _dt.datetime.fromisoformat(raw.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+@dataclasses.dataclass
+class _RepairApplied:
+    written: list[str] = dataclasses.field(default_factory=list)
+    kept_off: list[str] = dataclasses.field(default_factory=list)
+    #: Agents whose lock was a turn-off (not a sign-in's pending lock) and is lifted.
+    resumed: list[str] = dataclasses.field(default_factory=list)
+    #: Agents this CLI cannot capture: settled with the server, never retried.
+    unsupported: list[str] = dataclasses.field(default_factory=list)
+    lifted: int = 0
+    failed: int = 0
+
+    def settled(self) -> bool:
+        return bool(self.written or self.kept_off or self.unsupported)
+
+
+def _apply_capture_repair(credentials: list, requested_at: float | None, base_url: str) -> _RepairApplied:
+    """Write each credential and lift its agent's lock, keeping any turn-off set
+    after staff asked. An agent this CLI does not know is `unsupported` (settled,
+    never retried); a failed write or a lock that cannot be removed is `failed`:
+    the caller confirms the rest, and the server keeps only the failed agents
+    open, so the next window fetches (and re-mints) only those."""
+    from . import setup as wizard
+    from .capabilities import tap_plugin_dir
+    from .capture import AWAITING_CONFIRMATION
+
+    result = _RepairApplied()
+    for item in credentials:
+        source = item.get("capture_source") if isinstance(item, dict) else None
+        token = item.get("token") if isinstance(item, dict) else None
+        if not (isinstance(source, str) and isinstance(token, str) and token):
+            continue
+        try:
+            directory = tap_plugin_dir(source)  # an agent this CLI knows to capture
+        except (ValueError, KeyError):
+            result.unsupported.append(source)
+            continue
+        marker = directory / ".disabled"
+        try:
+            lock = marker.read_text(encoding="utf-8") if marker.exists() else None
+            set_at = marker.stat().st_mtime if lock is not None else None
+        except OSError:
+            result.failed += 1
+            continue
+        deliberate = lock is not None and lock != AWAITING_CONFIRMATION
+        # A turn-off the person made after staff asked stands. Without the
+        # request's time there is no telling, so every turn-off stands.
+        if deliberate and (requested_at is None or (set_at is not None and set_at > requested_at)):
+            result.kept_off.append(source)
+            continue
+        try:
+            wizard.write_capture_credential(source, token, base_url)
+            if source == "claude_code" and (directory / ".token").exists():
+                # Claude Code's tap reads its own `.token` before the CLI config:
+                # an older pairing's would shadow the credential just written.
+                wizard.write_paired_capture_token(source, token, base_url)
+            if lock is not None:
+                marker.unlink(missing_ok=True)
+        except (OSError, ValueError, KeyError):
+            result.failed += 1
+            continue
+        result.written.append(source)
+        if lock is not None:
+            result.lifted += 1
+            if deliberate:
+                result.resumed.append(source)
+    return result
 
 
 def _spawn_session_start_update() -> None:
@@ -1371,15 +1721,16 @@ def _spawn_session_start_update() -> None:
         pass
 
 
-def _spawn_autoupdate() -> None:
-    """Apply the upgrade from the root callback, where an update was found.
+def _spawn_autoupdate(available: str | None = None) -> None:
+    """Apply the upgrade from the root callback, where an update was found
+    (`available`, the version the cache names).
 
     `--apply` rather than `--apply-if-newer`: this path only runs after
     `_version_notice` already compared against the cached manifest, so a second
     comparison in the child would be redundant.
     """
     try:
-        _spawn_update("--apply")
+        _spawn_update("--apply", available=available)
     except Exception:  # noqa: BLE001 -- fail-open: never block the command
         pass
 
@@ -1422,15 +1773,16 @@ def _apply_deferred_update() -> None:
 
     THE GATES, and what each one is actually for:
 
-        enabled?      one small state-file read. Defaults False, so an install
-                      that never opted in touches one file and stops.
+        enabled?      one small state-file read. On for the managed CLI unless
+                      turned off; an install that is not it and never opted in
+                      touches one file and stops.
         any_live()?   the only real safety check here. It is what stops an
                       upgrade landing on a run in ANOTHER process -- an SDK
                       training script holds an flock for its whole life.
 
     No TTY test, deliberately. `probe exec python train.py > train.log` has a
-    non-tty stdout, and that is the shape this fix exists to reach; reusing
-    `_version_notice`'s TTY gate here would defeat it silently. Nothing is lost:
+    non-tty stdout, and that is the shape this fix exists to reach; the TTY gate
+    `_version_notice` had then would have defeated it silently. Nothing is lost:
     the hazard the TTY test proxies for is a live run, which `any_live()` answers
     directly, and `perform_update` re-checks it again in the child.
 
@@ -1602,7 +1954,7 @@ _SUBMIT_LAUNCHERS: dict[tuple[str, str | None], str] = {
     (
         "modal",
         "deploy",
-    ): 'modal: secrets=[modal.Secret.from_dict({{"PROBE_RUN_ID": "{run_id}", "PROBE_RUN_EPOCH": "{epoch}", "PROBE_API_KEY": ...}})]',
+    ): 'modal: secrets=[modal.Secret.from_dict({{"PROBE_RUN_ID": "{run_id}", "PROBE_RUN_EPOCH": "{epoch}"}}), modal.Secret.from_name("<the job token\'s secret>")]',
     (
         "ray",
         "submit",
@@ -1660,12 +2012,69 @@ def _launcher_key(argv: list[str]) -> tuple[str, str | None]:
     return name, sub
 
 
-def _submit_template(argv: list[str]) -> str | None:
+def _submit_template(argv: list[str], table: dict | None = None) -> str | None:
+    table = _SUBMIT_LAUNCHERS if table is None else table
     key = _launcher_key(argv)
-    return _SUBMIT_LAUNCHERS.get(key) or _SUBMIT_LAUNCHERS.get((key[0], None))
+    return table.get(key) or table.get((key[0], None))
 
 
-def _forwarding_hint(argv: list[str], run_id: str, epoch: int) -> str | None:
+#: `_SUBMIT_LAUNCHERS` once a per-run token was minted for the job. The launcher
+#: runs with it as PROBE_TOKEN beside the id and epoch, so a launcher that reads
+#: its own environment forwards all three by name (Modal reads it only locally:
+#: `from_local_environ`). Ray's driver runs on the head node, where that
+#: environment is not, so its hint names the values.
+_SUBMIT_LAUNCHERS_WITH_TOKEN: dict[tuple[str, str | None], str] = {
+    ("sbatch", None): "sbatch --export=ALL,PROBE_TOKEN,PROBE_RUN_ID={run_id},PROBE_RUN_EPOCH={epoch} ...",
+    ("modal", "deploy"): (
+        'modal: secrets=[modal.Secret.from_local_environ(["PROBE_TOKEN", "PROBE_RUN_ID", "PROBE_RUN_EPOCH"])]'
+    ),
+    ("ray", "submit"): (
+        'ray: runtime_env={{"env_vars": {{"PROBE_TOKEN": "<the PROBE_TOKEN above>", '
+        '"PROBE_RUN_ID": "{run_id}", "PROBE_RUN_EPOCH": "{epoch}"}}}}'
+    ),
+    ("ray", "job"): (
+        'ray: runtime_env={{"env_vars": {{"PROBE_TOKEN": "<the PROBE_TOKEN above>", '
+        '"PROBE_RUN_ID": "{run_id}", "PROBE_RUN_EPOCH": "{epoch}"}}}}'
+    ),
+    ("kubectl", "apply"): "kubectl: env: PROBE_TOKEN (above), PROBE_RUN_ID={run_id}, PROBE_RUN_EPOCH={epoch}",
+    ("kubectl", "create"): "kubectl: env: PROBE_TOKEN (above), PROBE_RUN_ID={run_id}, PROBE_RUN_EPOCH={epoch}",
+}
+
+
+def _job_token_env(minted: dict | None, why_not: str | None) -> dict[str, str] | None:
+    """PROBE_TOKEN for the launched process: the run's own token when one was
+    minted; EMPTY when one was asked for and the mint failed on a server that
+    has them (fail closed: never the researcher's key in a job); unchanged when
+    none was asked for, or the server predates them (the old hand-off)."""
+    if minted is not None:
+        return {"PROBE_TOKEN": minted["token"]}
+    if why_not is not None and why_not != _NO_RUN_TOKENS:
+        return {"PROBE_TOKEN": ""}
+    return None
+
+
+def _predates_run_tokens(exc: Exception) -> bool:
+    """A 404 from a server with no per-run token routes (FastAPI's unmatched
+    route answers exactly `Not Found`), not a run that does not exist."""
+    detail = getattr(exc, "detail", None)
+    return detail == "Not Found" or (detail is None and "Not Found" in str(exc))
+
+
+def _mint_handoff_token(c: Any, run_id: str, ttl_seconds: int | None) -> tuple[dict | None, str | None]:
+    """A per-run token for a hand-off's job, or (None, why) when there is none:
+    a server older than per-run tokens, or a refusal. Never raises -- the run is
+    already open, and the old forwarding still works."""
+    try:
+        return c.mint_run_token(run_id, ttl_seconds=ttl_seconds), None
+    except errors.NotFoundError as exc:
+        return None, _NO_RUN_TOKENS if _predates_run_tokens(exc) else f"no per-run token: {exc}"
+    except errors.RosError as exc:
+        return None, f"no per-run token: {exc}"
+
+
+def _forwarding_hint(
+    argv: list[str], run_id: str, epoch: int, *, token_minted: bool = False
+) -> str | None:
     """The line that makes a remote job reachable, or None.
 
     `PROBE_RUN_ID` does not cross a machine boundary on its own: Modal does not
@@ -1673,7 +2082,7 @@ def _forwarding_hint(argv: list[str], run_id: str, epoch: int) -> str | None:
     --export. Printing the exact incantation is cheaper than the researcher
     discovering it from an empty run three hours later. Advisory: never a gate.
     """
-    tmpl = _submit_template(argv)
+    tmpl = _submit_template(argv, _SUBMIT_LAUNCHERS_WITH_TOKEN if token_minted else None)
     return tmpl.format(run_id=run_id, epoch=epoch) if tmpl else None
 
 
@@ -1899,6 +2308,8 @@ def _root(
     _version_notice()
     # Probe staff asked this machine to update now (research-os control/071).
     _remote_update_notice()
+    # Probe staff opened a capture repair for this machine (research-os control/073).
+    _capture_repair_notice()
     # Trigger surface B: the one place that runs exactly once per CLI
     # invocation. NOT transport.py's `agent_session_headers()`, which fires
     # per HTTP request and would ask this question many times per command.
@@ -2057,6 +2468,8 @@ def _login(
         use_context(context)
     path = save_context(updates, name=context)
     print(f"config: {path} (context: {context or current_context_name()})")
+    if settings.token:
+        _hold_daemon_key(base_url=settings.base_url)
     json_events.agent_result(
         None, requested=signing_in, actual={"signed_in": bool(settings.token)},
         ok=bool(settings.token) == signing_in["signed_in"],
@@ -2070,6 +2483,27 @@ def _login(
             _kick_drainer()
         except Exception:  # noqa: BLE001 -- login must not fail on outbox hygiene
             pass
+
+
+def _hold_daemon_key(*, base_url: str | None = None) -> None:
+    """Who is signed in changed (`probe login`, `probe context use`): the
+    daemon key held to that sign-in, as an install does (plan
+    clean-uninstall-reinstall R-T4). `save_context` merges, so an earlier
+    sign-in's key of another team stayed, and the daemon wrote to the old team:
+    it is revoked and dropped (approved afresh where someone can). Lines on
+    stdout, problems on stderr. Never raises: the sign-in or the switch is done."""
+    try:
+        from probe.cli import identity_check
+
+        report = identity_check.reconcile(base_url=base_url, only_when_needed=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"! the daemon key could not be checked against this sign-in ({type(exc).__name__}); "
+              "`probe repair` checks it", file=sys.stderr)
+        return
+    for line in report.lines:
+        print(line)
+    for line in report.problems:
+        print(f"! {line}", file=sys.stderr)
 
 
 @app.command()
@@ -2168,6 +2602,12 @@ def backfill(
     transcripts_budget_mb: int = typer.Option(
         None, "--transcripts-budget-mb", help="stop after roughly this many MB of sessions"
     ),
+    include_hidden: Optional[list[str]] = typer.Option(  # noqa: UP007 - typer needs Optional
+        None,
+        "--include-hidden",
+        help="also import this hidden folder (e.g. .claude), wherever it sits; repeatable. "
+        "Hidden folders are skipped except .hydra, .dvc, .aim and .neptune",
+    ),
 ) -> None:
     """Import work you have already done: point an agent at a folder.
 
@@ -2200,6 +2640,11 @@ def backfill(
             f"unknown agent {agent!r}; expected one of: "
             f"{', '.join(a.value for a in backfill_impl.Agent)}"
         ) from None
+    try:
+        # Typer hands a called-directly function its OptionInfo default.
+        hidden = backfill_impl.hidden_includes(include_hidden if isinstance(include_hidden, list) else ())
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from None
 
     from probe.cli import telemetry as telemetry_mod
 
@@ -2262,6 +2707,7 @@ def backfill(
             import_unverified=import_unverified is True,
             retry_dead=retry_dead is True,
             review_excluded=review_excluded is True,
+            include_hidden=hidden,
         )
     if lines:
         tui.page(lines) if wizard.interactive() else print("\n".join(lines))
@@ -2306,6 +2752,7 @@ def update_compat(
     from probe.cli import tui
 
     trigger = _update_action_trigger(yes)
+    _hand_off_update(trigger, ["update", *(["--yes"] if yes else []), *([] if plugin else ["--no-plugin"])])
     with (
         _wizard_run_lock(command="probe update", update_trigger=trigger),
         tui.working("Updating the CLI and plugins"),
@@ -2337,6 +2784,55 @@ def _update_action_trigger(yes: bool):
     return update_report.trigger_from_env(
         update_report.Trigger.SESSION_START if unattended else update_report.Trigger.MANUAL
     )
+
+
+def _hand_off_update(trigger, argv: list[str], *, json_output: bool = False, before_exec=None) -> None:
+    """An Update's first step (`probe.core.adopt.begin`), before anything else
+    of it runs: with a newer release out, it is installed beside this one and
+    this process becomes the new release's `probe <argv>`, which switches the
+    CLI and runs the rest of the update in its own code. Returns to go on
+    here; an update that must end now (its adopt waits for a quiet machine, or
+    the new release cannot run it) exits with that status, said."""
+    from probe.core import adopt
+
+    ending = adopt.begin(trigger.value, argv=["-m", "probe.cli", *_root_options(), *argv], before_exec=before_exec)
+    if ending is None:
+        return
+    if json_output:
+        from probe.cli import json_events
+
+        json_events.done_events(
+            code=json_events.ErrorCode.BUSY if ending.status == adopt.DEFERRED_EXIT else json_events.ErrorCode.FAILED,
+            message=ending.message,
+            exit_code=ending.status,
+        )
+    print(f"probe update: {ending.message}", file=sys.stderr)
+    raise typer.Exit(ending.status)
+
+
+def _root_options() -> list[str]:
+    """The root options this `probe` was started with (`--base-url`,
+    `--spool-dir`), for the newest release to run the update with the same."""
+    options: list[str] = []
+    if _conn.base_url:
+        options += ["--base-url", _conn.base_url]
+    if _conn.spool_dir:
+        options += ["--spool-dir", _conn.spool_dir]
+    return options
+
+
+def _update_argv(*, yes: bool, json_output: bool = False, agent=None) -> list[str]:
+    """`probe wizard --action update` as this run was asked for it (the agents
+    named or picked), for the newest release to run in its place
+    (`_hand_off_update`)."""
+    argv = ["wizard", "--action", "update"]
+    for value in _agent_values(agent):
+        argv += ["--agent", value]
+    if yes:
+        argv.append("--yes")
+    if json_output:
+        argv.append("--json")
+    return argv
 
 
 @app.command()
@@ -2401,6 +2897,13 @@ def doctor(
     rescue = doctor_impl.rescue_outbox()
     if rescue and isinstance(caps.outbox_status, dict):
         caps.outbox_status = {**caps.outbox_status, "rescue": rescue}
+    # So is the lifeboat (plan fool-proof-updates B4), with the keeper's
+    # guards: installed or refreshed here too, where no Probe service ever runs
+    # to do it at its start (a pod under no_new_privs).
+    with contextlib.suppress(Exception):
+        from probe.service import keeper
+
+        keeper.refresh_lifeboat()
     print(
         doctor_impl.render(
             caps, codex_hooks=doctor_impl.codex_hook_rows(caps), service=service_calls.view()
@@ -2705,6 +3208,24 @@ def install(
     )
 
 
+@app.command(name="repair", cls=_JsonCommand)
+def repair(
+    json_output: bool = typer.Option(False, "--json", help=_JSON_HELP),
+) -> None:
+    """Check this machine's Probe and fix what is broken: the CLI, the keeper, the service, the credentials, the agents' plugins.
+
+    The install pipeline in repair mode: a broken CLI env is rebuilt beside
+    the running one and switched to, the `probe` command and the OS keeper
+    are put back, the daemon key is held to the signed-in account, and each
+    coding agent's plugins are made usable. Ends COMPLETE (exit 0) or
+    INCOMPLETE with the reasons (exit 1); refused while an uninstall runs
+    (exit 2). When `probe` itself will not run: `npx probe-research repair`.
+    """
+    from probe.cli import repair as repair_impl
+
+    repair_impl.run(json_output=json_output is True)
+
+
 def _clear_wizard_imports() -> None:
     from probe.cli import import_jobs, tui
 
@@ -2815,10 +3336,25 @@ def wizard(
     from probe.cli import capture as capture_mod
     from probe.cli import json_events, tui
 
+    adopted = False
+    if action == actions_mod.Action.UPDATE:
+        # The hand-off first, before the Update reads anything (or is sent to
+        # the service): the newest release runs it (`_hand_off_update`).
+        from probe.core import adopt
+
+        _hand_off_update(
+            _update_action_trigger(yes),
+            _update_argv(yes=yes, json_output=json_output is True, agent=agent),
+            json_output=json_output is True,
+        )
+        # This release took the update over and switched the CLI to itself:
+        # the rest runs HERE, in its code (the service still runs the old one).
+        adopted = adopt.adopted_from() is not None
+
     # An action the Probe service can run for this terminal runs there, as the
     # desktop app's do (`wizard_service`: which, and when not); its text
     # streams here and its exit status is this command's.
-    hosted = _wizard_on_service(
+    hosted = None if adopted else _wizard_on_service(
         action=action, yes=yes, json_output=json_output, agent=agent, tracking=tracking, capture=capture,
         auto_update=auto_update, agent_rules=agent_rules, reinstall=reinstall, who_records=who_records,
         folder=folder, uninstall=uninstall, auth_code=auth_code,
@@ -2997,32 +3533,135 @@ def _start_device_state(*, warm_manifest: bool = False):
     return capabilities_mod.start_device_state(request, warm_manifest_on_fallback=warm_manifest)
 
 
+#: The hold `_wizard_run_lock` keeps for the block it guards (an ExitStack), so
+#: the interactive menu can let go of the lock while it waits on a person and
+#: take it again for each action (`_hold_for_action`, plan C1). None outside one.
+_RUN_LOCK: contextvars.ContextVar[contextlib.ExitStack | None] = contextvars.ContextVar(
+    "probe_wizard_run_lock", default=None
+)
+
+
 @contextlib.contextmanager
 def _wizard_run_lock(needed: bool = True, *, command: str = "probe wizard", update_trigger=None):
     """Hold the device's wizard run lock (`wizard_lock`) for the block, or end
     the run at once: a second runner says so and exits `BUSY_EXIT_CODE`,
     having changed nothing. `command` names the runner in what it says; an
     update (`update_trigger`, an `update_report.Trigger`) turned away is also
-    recorded as a skip, so `probe doctor` shows why it did not run."""
+    recorded as a skip, so `probe doctor` shows why it did not run -- unless
+    the Probe service decided to update past a setup that has held the lock
+    for a day (`upgrading.forced_past`, C1): that update goes on without it.
+
+    The hold is `_RUN_LOCK` for the block: the interactive menu lets go of it
+    while it waits on a person (`_wizard_session`), and marks that it waits
+    instead (`_release_for_menu`); the mark goes with the block. An update is
+    also turned away by another process's waiting menu, when it would move the
+    files that menu runs from (`upgrading.menu_holds_update_off`)."""
     from probe.cli import json_events, wizard_lock
+
+    def turned_away() -> typer.Exit:
+        if update_trigger is not None:
+            from probe.cli import autoupdate
+
+            autoupdate.record_skip(autoupdate.SKIP_SETUP_RUNNING, trigger=update_trigger.value)
+        print(
+            f"{command}: {wizard_lock.BUSY_MESSAGE} on this device (a terminal or the "
+            "desktop app). Nothing has been changed: run this again when it finishes.",
+            file=sys.stderr,
+        )
+        json_events.error(json_events.ErrorCode.BUSY, wizard_lock.BUSY_MESSAGE)
+        return typer.Exit(wizard_lock.BUSY_EXIT_CODE)
 
     with contextlib.ExitStack() as stack:
         if needed:
             try:
                 stack.enter_context(wizard_lock.held())
             except wizard_lock.Busy:
-                if update_trigger is not None:
-                    from probe.cli import autoupdate
+                if update_trigger is None or not _update_forced_past_setup():
+                    raise turned_away() from None
+            if update_trigger is not None and _menu_holds_update_off():
+                raise turned_away()
+        token = _RUN_LOCK.set(stack)
+        try:
+            yield
+        finally:
+            _RUN_LOCK.reset(token)
+            if getattr(stack, "menu_marked", False):
+                _unmark_menu()
 
-                    autoupdate.record_skip(autoupdate.SKIP_SETUP_RUNNING, trigger=update_trigger.value)
-                print(
-                    f"{command}: {wizard_lock.BUSY_MESSAGE} on this device (a terminal or the "
-                    "desktop app). Nothing has been changed: run this again when it finishes.",
-                    file=sys.stderr,
-                )
-                json_events.error(json_events.ErrorCode.BUSY, wizard_lock.BUSY_MESSAGE)
-                raise typer.Exit(wizard_lock.BUSY_EXIT_CODE) from None
-        yield
+
+def _update_forced_past_setup() -> bool:
+    """Did the Probe service decide to update past a setup holding the lock (C1)?"""
+    from probe.cli import upgrading
+    from probe.service.protocol import DeferReason
+
+    return upgrading.forced_past(DeferReason.SETUP_RUNNING)
+
+
+def _menu_holds_update_off() -> bool:
+    """`upgrading.menu_holds_update_off`: another process's menu waits on a
+    person, and this update would move the files it runs from."""
+    from probe.cli import upgrading
+
+    return upgrading.menu_holds_update_off()
+
+
+def _release_for_menu() -> None:
+    """The interactive menu waits on a person: let go of the run lock, so a
+    menu left open never holds another setup off, nor an update for more than
+    a day (C1), and say that it waits (`setup_marks.mark_menu`): the files it
+    runs from must not be moved under it (an update in place, or the first
+    switch), while a side-by-side switch goes on. Its next action takes the
+    lock again (`_hold_for_action`)."""
+    stack = _RUN_LOCK.get()
+    if stack is None:
+        return
+    from probe._shared import setup_marks
+
+    # The mark first, then the lock: an updater that looks in between sees one.
+    setup_marks.mark_menu(session_marker.state_dir())
+    stack.menu_marked = True  # its `_wizard_run_lock` removes the mark at the end
+    stack.close()
+
+
+def _unmark_menu() -> None:
+    """The wizard's run ends: its menu, if it had one, waits no more."""
+    try:
+        from probe._shared import setup_marks
+
+        setup_marks.unmark_menu(session_marker.state_dir())
+    except Exception:  # noqa: BLE001 -- a marker left behind names a process that is gone
+        pass
+
+
+def _hold_for_action(action, *, yes: bool, who_records: str | None) -> bool:
+    """Take the run lock again for one action the menu chose, when the action
+    may change the device (`_wizard_changes_device`). False when another setup
+    holds it now -- or, for an Update, another process's menu waits and the
+    update may move its files (`_menu_holds_update_off`, looked at before the
+    lock is taken): nothing ran, and no lock is held while the page that says
+    so waits (an Update turned away is a skip, as ever). Within a hold this
+    process has (a run that started with `--action`), a no-op."""
+    from probe.cli import wizard_lock
+    from probe.cli import actions as actions_mod
+
+    stack = _RUN_LOCK.get()
+    if stack is None or not _wizard_changes_device(action, yes=yes, who_records=who_records):
+        return True
+    update = action == actions_mod.Action.UPDATE
+    try:
+        if update and _menu_holds_update_off():
+            raise wizard_lock.Busy(wizard_lock.BUSY_MESSAGE)
+        stack.enter_context(wizard_lock.held())
+    except wizard_lock.Busy:
+        if update and _update_forced_past_setup():
+            return True  # as `_wizard_run_lock`: the service decided (C1)
+        stack.close()
+        if update:
+            from probe.cli import autoupdate
+
+            autoupdate.record_skip(autoupdate.SKIP_SETUP_RUNNING, trigger=_update_action_trigger(yes).value)
+        return False
+    return True
 
 
 def _wizard_session(
@@ -3112,9 +3751,28 @@ def _wizard_session(
     device_state = _ask_server()
 
     boot = ensure_persistent_install()
+    refused = bool(getattr(boot, "refused", False))
+    if action == actions_mod.Action.CONFIGURE and getattr(boot, "already_persistent", False) and not refused:
+        # An install over an install of the same version: a health check that
+        # repairs what fails (plan clean-uninstall-reinstall R-T3), not "it is
+        # there, so it works".
+        from probe.cli import identity_check
+        from probe.cli.bootstrap import verify_installed
+
+        # Identity first (R-T4): the daemon key is held to the signed-in
+        # account BEFORE the check may restart the service, so no daemon
+        # worker starts on another team's key. Its problems end the configure
+        # unfinished (`_run_wizard_action`'s verification reads the same answer).
+        identity_check.reconcile_once()
+        boot = verify_installed() or boot
+        refused = bool(getattr(boot, "refused", False))
     if boot.message:
         print(boot.message)
     json_events.persistent_install(boot)
+    if refused and action == actions_mod.Action.CONFIGURE:
+        # Nothing installs while an uninstall runs (its barrier is LIVE), nor
+        # without uv: the message above says what to do.
+        raise typer.Exit(2)
 
     codex_session = bool(os.environ.get("CODEX_THREAD_ID") or os.environ.get("CODEX_SANDBOX"))
     # `wizard.detectable_sources()`, not a fresh literal and not
@@ -3257,10 +3915,28 @@ def _wizard_session(
                 tui.say(f"Left as it was — this device is still signed in as {switching_from}.")
                 raise typer.Exit(0)
 
+    # A DEVICE WITH NO PROBE ON IT opens straight into the guided install
+    # (Richard 2026-10-26; reverses the 2026-08-25 "a bare launch always opens
+    # the menu" for this case only): no credential, no coding agent set up, and
+    # at least one coding agent here for the install to act on. Its one browser
+    # approval at Review is the sign-in, so the menu's sign-in below is skipped;
+    # once it finishes, the menu opens as after any install.
+    fresh_onboarding = (
+        action is None
+        and not yes
+        and not explicit_flags
+        and install_code is None
+        and wizard.interactive()
+        and _opens_onboarding(state_caps_by_source, available_sources)
+    )
+
     # A bare launch signs in before showing the menu. `install CODE` waits for
     # the agent/capability selection so the one-time exchange grants exactly
     # what the user chose. Existing unattended maintenance stays independent.
-    menu_entry = action is None and not yes and not explicit_flags
+    menu_entry = action is None and not yes and not explicit_flags and not fresh_onboarding
+    # `wizard.action_chosen`'s `auto_onboarding`: the first pass only, not an
+    # Install picked from the menu later in the same run.
+    auto_onboarding_pending = fresh_onboarding
     authenticated_action_entry = (
         action in {"account", "defaults", "settings", "import-research", "recorder"} and not yes
     )
@@ -3334,6 +4010,9 @@ def _wizard_session(
         from probe.cli import import_jobs
 
         import_jobs.recover_jobs()
+        # The menu waits on a person, for as long as they like: it holds no run
+        # lock meanwhile (C1). The action picked takes it (`_hold_for_action`).
+        _release_for_menu()
         default_before = session_marker.default_session_state()
         picked = wizard.run_action_menu(state_caps_by_source)
         if (
@@ -3378,6 +4057,8 @@ def _wizard_session(
             tui.final(unknown, file=sys.stderr)
             json_events.error(json_events.ErrorCode.USAGE, unknown)
             raise typer.Exit(2) from None
+    elif fresh_onboarding:
+        chosen_action = actions_mod.Action.CONFIGURE
     elif not yes and not explicit_flags and wizard.interactive():
         tui.clear()
         picked = _show_main_menu()
@@ -3431,6 +4112,33 @@ def _wizard_session(
         if chosen_action is actions_mod.Action.EXIT:
             _exit_wizard()
 
+        # The menu let go of the run lock while it waited (C1): this action
+        # takes it again. Another setup that took it meanwhile turns the action
+        # away, having run nothing, back to the menu.
+        if not _hold_for_action(chosen_action, yes=yes, who_records=who_records):
+            from probe.cli import wizard_lock
+
+            if not looping:  # an `--action` run has no menu to go back to
+                tui.final(f"probe wizard: {wizard_lock.BUSY_MESSAGE} on this device. Nothing has been changed.",
+                          file=sys.stderr)
+                json_events.error(json_events.ErrorCode.BUSY, wizard_lock.BUSY_MESSAGE)
+                raise typer.Exit(wizard_lock.BUSY_EXIT_CODE)
+            tui.page(
+                [
+                    actions_mod.ACTION_COPY[chosen_action][0],
+                    "",
+                    f"{wizard_lock.BUSY_MESSAGE} on this device (a terminal or the desktop app). "
+                    "Nothing has been changed: try again when it finishes.",
+                ],
+                prompt="Press enter to return to the menu…",
+            )
+            tui.clear()
+            picked = _show_main_menu()
+            if picked is None or picked is tui.BACK:
+                _exit_wizard()
+            chosen_action = picked
+            continue
+
         # At the convergence point where the action is known for this pass,
         # whether it came from the menu or --action — never inside menu code,
         # which the test suite cannot execute.
@@ -3438,7 +4146,11 @@ def _wizard_session(
             telemetry_mod.EVENT_WIZARD_ACTION_CHOSEN,
             action=chosen_action.value,
             via_flag=action is not None,
+            # A fresh device's first install, opened without the menu: the
+            # funnel tells it apart from an Install picked there.
+            auto_onboarding=auto_onboarding_pending and chosen_action is actions_mod.Action.CONFIGURE,
         )
+        auto_onboarding_pending = False
 
         # THE GUIDED INSTALL: choose the coding agents (only when this
         # machine offers a choice), then review everything the install turns
@@ -3456,6 +4168,19 @@ def _wizard_session(
         guided_install = False
         agent_screen_shown = False
         back_to_menu = False
+        # The Defaults step's picks, HELD until the Install keypress: they start
+        # on what this device has now (a fresh one: agent, on).
+        onboarding_pick = wizard.DefaultsPick(
+            recorder=wizard.machine_recorder(),
+            session_state=session_marker.default_session_state(),
+        )
+        # What Who records opened on: only a CHANGED row moves agents. On a
+        # machine where some agents record through the daemon the row opens on
+        # `daemon`, and pressing Next must not move the others (an agent already
+        # set up never moves on its own, `follow_machine_recorder`).
+        opened_recorder = onboarding_pick.recorder
+        saved_default_lines: list[str] = []
+        wizard.INSTALL_RECORDER_PICK.set(None)
         while True:
             agent_sources = explicit_agent_sources
             if (
@@ -3584,15 +4309,31 @@ def _wizard_session(
             plugins_available = not plugin_promising_sources or any(
                 source in available_sources for source in plugin_promising_sources
             )
-            confirmed = wizard.run_confirm_install(
-                agent_sources,
-                # Omit the skipped agent screen from the progress count.
-                step=wizard.STEP_CONFIRM if agent_screen_shown else None,
-                plugins_available=plugins_available,
-                unavailable=tuple(
-                    source for source in plugin_promising_sources if source not in available_sources
-                ),
-            )
+            # Defaults (who records, what new sessions do), then Review: Back on
+            # Review returns to Defaults, Back on Defaults to the agent screen.
+            while True:
+                answer, onboarding_pick = wizard.run_defaults_step(
+                    onboarding_pick, agent_screen_shown=agent_screen_shown
+                )
+                if answer is None:
+                    _exit_wizard()
+                if answer is tui.BACK:
+                    confirmed = tui.BACK
+                    break
+                tui.clear()
+                confirmed = wizard.run_confirm_install(
+                    agent_sources,
+                    # Omit the skipped agent screen from the progress count.
+                    step=wizard.STEP_CONFIRM if agent_screen_shown else None,
+                    plugins_available=plugins_available,
+                    unavailable=tuple(
+                        source for source in plugin_promising_sources if source not in available_sources
+                    ),
+                    defaults=onboarding_pick,
+                )
+                if confirmed is not tui.BACK:
+                    break
+                tui.clear()
             if confirmed is None:
                 _exit_wizard()
             if confirmed is tui.BACK:
@@ -3603,6 +4344,31 @@ def _wizard_session(
                 back_to_menu = True
                 break
             guided_install = True
+            # The Install keypress applies the session default NOW, before any
+            # plugin is installed: an `off` picked here must hold even if the
+            # person walks away mid-install (Codex O2). Who records follows the
+            # installs (`_apply_recorder_pick`): it needs the plugins in place.
+            default_lines = _save_session_default(onboarding_pick.session_state)
+            # The installs read this: a changed Who records keeps a newly set-up
+            # agent from following the device's old recorder first.
+            wizard.INSTALL_RECORDER_PICK.set(
+                onboarding_pick.recorder if onboarding_pick.recorder != opened_recorder else None
+            )
+            if default_lines:
+                failed = next((line for line in default_lines if wizard.reports_failure(line)), None)
+                if failed is not None:
+                    tui.page(
+                        ["Probe in new sessions", "", failed, "", "Nothing was installed."],
+                        prompt="Press enter to return to the menu…",
+                    )
+                    back_to_menu = True
+                    break
+                tel.emit(
+                    telemetry_mod.EVENT_WIZARD_ACTION_CHOSEN,
+                    action=actions_mod.Action.DEFAULTS.value,
+                    via_flag=False,
+                )
+                saved_default_lines = default_lines  # said on the summary page
             # FORCE-ON: Install means install. Everything enables -- including
             # re-pairing a killswitched capture, which the confirm screen just
             # disclosed. Scripted paths never reach here; their omitted flags
@@ -3637,6 +4403,10 @@ def _wizard_session(
                     capture=current_union[wizard.Capability.CAPTURE],
                     auto_update=current_union[wizard.Capability.AUTO_UPDATE],
                     agent_rules=current_union[wizard.Capability.AGENT_RULES],
+                    # Never named on this screen, so kept as it stands: the union
+                    # read says off behind a sign-in's pending lock, and applying
+                    # that off revoked the parked credential (`Selection.preserve`).
+                    preserve=frozenset({wizard.Capability.CAPTURE}),
                 )
             install_needs = (
                 []
@@ -3644,6 +4414,15 @@ def _wizard_session(
                 and _install_grants_held(caps_by_source, shared_selection, base_url=base_now)
                 else wizard.grants_for(shared_selection)
             )
+            if (
+                install_needs
+                and onboarding_pick.recorder == session_marker.RECORDER_DAEMON
+                and wizard.COMPANION_GRANT not in install_needs
+                and not wizard.companion_token_held()
+            ):
+                # The install opens a browser approval anyway: the daemon's key
+                # rides it, and that page carries the daemon's disclosure.
+                install_needs.append(wizard.COMPANION_GRANT)
             install_context = wizard.install_client_context(caps_by_source)
             if not plugins_available:
                 # The degraded path preserves capture rather than granting it,
@@ -3661,6 +4440,11 @@ def _wizard_session(
 
         if back_to_menu:
             if not looping:
+                raise typer.Exit(0)
+            if fresh_onboarding and not resolve(base_url=_conn.base_url).token:
+                # Backed out of a fresh device's onboarding: there is no account
+                # yet, so there is no menu to go back to.
+                tui.final("Nothing changed. Run `npx probe-research` again to set up Probe.")
                 raise typer.Exit(0)
             tui.clear()
             picked = _show_main_menu()
@@ -3759,6 +4543,39 @@ def _wizard_session(
         elif chosen_action is actions_mod.Action.RECORDER and menu_recorder is not None:
             # Its rows are the agents the switch applies to (`_record_recorder`).
             json_events.begin_result(chosen_action.value, [])
+        # Update's one question for capture a sign-in left waiting
+        # (`_confirm_pending_capture`): above every Update path, one agent or
+        # several, and BEFORE the hand-off, which may exec the newest release
+        # and never come back to ask.
+        pending_capture_lines: list[str] = []
+        if (
+            chosen_action is actions_mod.Action.UPDATE
+            and not yes
+            and wizard.interactive()
+            and not os.environ.get(CAPTURE_QUESTION_ASKED_ENV)
+        ):
+            answered = _confirm_pending_capture(caps_by_source, base_now=base_now, telemetry=tel)
+            if answered is None:
+                _exit_wizard()
+            if answered is tui.BACK:
+                # Esc: back to the menu, the Update never started.
+                if not looping:
+                    raise typer.Exit(0)
+                tui.clear()
+                picked = _show_main_menu()
+                if picked is None or picked is tui.BACK:
+                    _exit_wizard()
+                chosen_action = picked
+                continue
+            if any(line.startswith("!") for line in answered):
+                # A failure is shown NOW: the hand-off below may exec the newest
+                # release, and this process would never reach the result page.
+                verdict, problems = _capture_answer(answered)
+                tui.page(wizard.result_page(verdict, details=problems), prompt="Press enter to continue the update…")
+                answered = []
+            pending_capture_lines = answered
+        # The final screen's summary, where the branch below keeps one.
+        run_summary = None
         if chosen_action in actions_mod.DEVICE_ACTIONS:
             # ONCE for the device, and unlabelled: the per-agent loop below
             # would run a browser approval per coding agent and file the result
@@ -3783,7 +4600,13 @@ def _wizard_session(
                 recorder=menu_recorder,
             )
         elif len(agent_sources) == 1:
-            with _agent_target(agent_sources[0]):
+            with (
+                _agent_target(agent_sources[0]),
+                wizard.install_run(agent_sources)
+                if chosen_action is actions_mod.Action.CONFIGURE
+                else contextlib.nullcontext(),
+                _run_summary(chosen_action, agent_sources) as run_summary,
+            ):
                 lines = _run_wizard_action(
                     chosen_action,
                     caps=caps,
@@ -3817,6 +4640,8 @@ def _wizard_session(
                     installation_completion=installation_completion,
                     telemetry=tel,
                 )
+                if run_summary and lines is not None and chosen_action is not actions_mod.Action.UNINSTALL:
+                    lines = run_summary.lines()
         elif chosen_action is actions_mod.Action.CONFIGURE:
             aggregate, resolved = _shared_selection(
                 caps_by_source,
@@ -3828,6 +4653,11 @@ def _wizard_session(
             )
             # The interactive steps ran ABOVE, where Back can still walk them.
             # What is left here is the headless answer.
+            # Headless (no install steps answered): an omitted capture flag means
+            # "leave it", and for an agent whose capture is a sign-in's pending
+            # lock that is "leave it pending" -- per agent, which the shared
+            # union read cannot say (`resolve_selection` does it for one agent).
+            leave_pending = shared_selection is None and capture is None and configured
             if shared_selection is None:
                 shared_selection = resolved
             # Guided installs already checked the saved credentials above.
@@ -3849,9 +4679,28 @@ def _wizard_session(
             )
             lines = []
             install_plan = _install_plan(caps_by_source, shared_selection)
-            with wizard.marketplace_refreshes(_installing(caps_by_source, shared_selection), install_plan):
+            with (
+                _run_summary(chosen_action, agent_sources) as run_summary,
+                wizard.marketplace_refreshes(_installing(caps_by_source, shared_selection), install_plan),
+                wizard.install_run(
+                    agent_sources,
+                    install_plan,
+                    # What each agent's screen will list, roughly: its plan
+                    # (none when already set up) and its refresh.
+                    expected={
+                        source: len(wizard.plan(caps_by_source[source], shared_selection))
+                        for source in agent_sources
+                    },
+                ) as install_run,
+            ):
                 for index, source in enumerate(agent_sources):
-                    current = _collect_agent(source, fresh=index > 0)
+                    # Between two agents' screens: the run's bar stays up.
+                    with tui.working("Checking what's installed on this device") if index else (
+                        contextlib.nullcontext()
+                    ) as status:
+                        if status is not None:
+                            status.set(fraction=install_run.fraction())
+                        current = _collect_agent(source, fresh=index > 0)
                     if install_plan.get(source):
                         # The batch may have installed this agent's plugins with
                         # the first refresh: its own install steps still run,
@@ -3882,7 +4731,14 @@ def _wizard_session(
                             uninstall=uninstall,
                             configured=configured,
                             folder=folder,
-                            selection_override=shared_selection,
+                            selection_override=(
+                                dataclasses.replace(
+                                    shared_selection,
+                                    preserve=shared_selection.preserve | {wizard.Capability.CAPTURE},
+                                )
+                                if leave_pending and current.capture_awaiting_confirmation
+                                else shared_selection
+                            ),
                             authorization_needs=authorization_needs,
                             capture_sources=missing_capture_sources,
                             authorization_context=install_context,
@@ -3900,9 +4756,13 @@ def _wizard_session(
                             installation_completion=installation_completion,
                             telemetry=tel,
                         )
+                    # Done, screen or not (already set up opens none).
+                    install_run.finished(source)
                     if result:
                         label = wizard.agent_label(source)
                         lines.extend([f"{label}:", *result, ""])
+                if run_summary:
+                    lines = run_summary.lines()
             # Configure streams its own progress; successful calls return no lines.
         else:
             # Diagnostics/removal are source-local. Manual instructions and
@@ -3941,59 +4801,87 @@ def _wizard_session(
             from probe.cli import client_installation, update_report
 
             updating = chosen_action is actions_mod.Action.UPDATE
-            with (
-                update_report.merged_run() if updating else contextlib.nullcontext(),
-                client_installation.merged_registration()
-                if updating
-                else contextlib.nullcontext([]) as registration_warnings,
-            ):
-                # Several agents' updates at once: the CLI and pi's package once,
-                # each agent's own plugins on a thread of its own.
-                updated = (
-                    _update_agents(targets, base_now=base_now, yes=action_yes)
-                    if updating and len(targets) > 1
-                    else {}
-                )
-                for index, source in enumerate(targets):
-                    # Uninstall revokes each agent's capture key as it goes, and
-                    # the next agent's answer can change under it (the server
-                    # state it reads moves). Diagnose and update change nothing
-                    # the server reports.
-                    # Diagnose's snapshot is the one just taken from the agents'
-                    # own CLIs (above); it changes nothing to read again.
-                    current = (
-                        caps_by_source[source]
-                        if chosen_action is actions_mod.Action.DIAGNOSE
-                        else _collect_agent(
-                            source,
-                            fresh=index > 0 and chosen_action is actions_mod.Action.UNINSTALL,
-                        )
+            if updating:
+                # The menu's Update: the hand-off first, as `--action update`
+                # does (`_hand_off_update`); the newest release then runs it.
+                with tui.working("Looking for the newest Probe"):
+                    _hand_off_update(
+                        _update_action_trigger(action_yes),
+                        # The agents this Update was going to update, named.
+                        _update_argv(yes=action_yes, agent=list(targets)),
+                        before_exec=tui.leave_window,
                     )
-                    if diagnose_unfiled is not None and current.unfiled_runs is None:
-                        current = dataclasses.replace(current, unfiled_runs=diagnose_unfiled)
-                    with _agent_target(source):
-                        result = _run_wizard_action(
-                            chosen_action,
-                            caps=current,
-                            base_now=base_now,
-                            yes=action_yes,
-                            tracking=tracking,
-                            capture=capture,
-                            auto_update=auto_update,
-                            agent_rules=agent_rules,
-                            uninstall=uninstall,
-                            configured=configured,
-                            folder=folder,
-                            selected_agents=agent_sources,
-                            telemetry=tel,
-                            update_outcome=updated.get(source),
+            together = updating and len(targets) > 1
+            # ONE spinner and bar for the whole Update, outside the merged
+            # registration and report: they are sent to the server as their
+            # block closes, and the bar reaches 100% once they have been.
+            with (
+                _run_summary(chosen_action, targets) as run_summary,
+                tui.working("Updating Probe") if together else contextlib.nullcontext() as status,
+            ):
+                update_progress = _UpdateProgress(targets, status) if together else None
+                with (
+                    update_report.merged_run() if updating else contextlib.nullcontext(),
+                    client_installation.merged_registration()
+                    if updating
+                    else contextlib.nullcontext([]) as registration_warnings,
+                ):
+                    # Several agents' updates at once: the CLI and pi's package once,
+                    # each agent's own plugins on a thread of its own.
+                    updated = (
+                        _update_agents(targets, base_now=base_now, yes=action_yes, progress=update_progress)
+                        if together
+                        else {}
+                    )
+                    for index, source in enumerate(targets):
+                        # Uninstall revokes each agent's capture key as it goes, and
+                        # the next agent's answer can change under it (the server
+                        # state it reads moves). Diagnose and update change nothing
+                        # the server reports.
+                        # Diagnose's snapshot is the one just taken from the agents'
+                        # own CLIs (above); it changes nothing to read again.
+                        current = (
+                            caps_by_source[source]
+                            if chosen_action is actions_mod.Action.DIAGNOSE
+                            else _collect_agent(
+                                source,
+                                fresh=index > 0 and chosen_action is actions_mod.Action.UNINSTALL,
+                            )
                         )
-                    if result is not None:
-                        all_backed_out = False
-                    if result:
-                        label = wizard.agent_label(source)
-                        lines.extend([f"{label}:", *result, ""])
+                        if diagnose_unfiled is not None and current.unfiled_runs is None:
+                            current = dataclasses.replace(current, unfiled_runs=diagnose_unfiled)
+                        with _agent_target(source):
+                            result = _run_wizard_action(
+                                chosen_action,
+                                caps=current,
+                                base_now=base_now,
+                                yes=action_yes,
+                                tracking=tracking,
+                                capture=capture,
+                                auto_update=auto_update,
+                                agent_rules=agent_rules,
+                                uninstall=uninstall,
+                                configured=configured,
+                                folder=folder,
+                                selected_agents=agent_sources,
+                                telemetry=tel,
+                                update_outcome=updated.get(source),
+                            )
+                        if update_progress is not None:
+                            update_progress.recorded(source)
+                        if result is not None:
+                            all_backed_out = False
+                        if result:
+                            label = wizard.agent_label(source)
+                            lines.extend([f"{label}:", *result, ""])
+                if update_progress is not None:
+                    update_progress.sent()
             lines.extend(registration_warnings)
+            if run_summary:
+                run_summary.note(*registration_warnings)
+                if chosen_action is not actions_mod.Action.UNINSTALL:
+                    # Uninstall's is drawn after the device's own removal below.
+                    lines = run_summary.lines()
             # Every target said "nothing happened" (today: only backfill's
             # folder/agent back-outs) -- carry the signal through so the menu
             # comes back without the pause or the state re-read.
@@ -4013,7 +4901,8 @@ def _wizard_session(
             # with no person attached, and the one event that says a customer
             # left is dropped by every destination filtering on a known person.
             tel.pin_identity()
-            lines = [*lines, *wizard.finish_removal()]
+            finished = list(wizard.finish_removal())
+            lines = [*lines, *finished]
             _record_device_sign_in(wanted=False)
             tel.emit(
                 telemetry_mod.EVENT_WIZARD_UNINSTALL_COMPLETED,
@@ -4030,6 +4919,16 @@ def _wizard_session(
                     else None
                 ),
             )
+            if run_summary:
+                # The page: every agent's removal counted, then the device's
+                # own (signed out, its tokens released) errors only.
+                run_summary.subtitle = (
+                    "This device is signed out."
+                    if not any(wizard.CREDENTIALS_NOT_CLEARED in line for line in finished)
+                    else "This device is NOT signed out: the saved credentials remain."
+                )
+                run_summary.note(*wizard.attention_lines(finished))
+                lines = run_summary.lines()
         elif chosen_action is actions_mod.Action.UNINSTALL and uninstall_started_at is not None:
             # Every selected agent declined at the per-agent confirmation.
             tel.emit(
@@ -4038,6 +4937,32 @@ def _wizard_session(
                 agent_count=len(agent_sources),
                 duration_seconds=round(time.monotonic() - uninstall_started_at, 3),
             )
+
+        if chosen_action is actions_mod.Action.CONFIGURE and lines is not None:
+            # Every install ends with the Probe service started, as an agent
+            # session's hooks start it; its start installs the OS keeper and
+            # the lifeboat. A fresh machine had none of the three until its
+            # first agent session (plan clean-uninstall-reinstall C5).
+            from probe.cli import install_pipeline
+
+            service_note = install_pipeline.start_service()
+            if service_note:
+                lines = [*lines, service_note]
+
+        if pending_capture_lines and lines is not None:
+            if run_summary:
+                # Under the Update's headline, the answer and its errors; not
+                # each agent's configure report (`_capture_answer`).
+                verdict, problems = _capture_answer(pending_capture_lines)
+                lines = [*lines[:1], *verdict, *lines[1:]]
+                if problems:
+                    if "Details:" in lines:
+                        at = lines.index("Details:") + 1
+                        lines[at:at] = [f"  {line}" for line in problems]
+                    else:
+                        lines += ["", "Details:", *(f"  {line}" for line in problems)]
+            else:
+                lines = [*pending_capture_lines, "", *lines]
 
         install_code = None
         if chosen_action is actions_mod.Action.IMPORT_RESEARCH:
@@ -4051,20 +4976,57 @@ def _wizard_session(
             if lines:
                 tui.final("\n".join(lines))
             raise typer.Exit(0)
+        # The install's Defaults step chose Who records: move the agents now
+        # that their plugins are in place, before the summary page, so its
+        # lines are on that page (Codex O2).
+        recorder_lines: list[str] = []
+        if (
+            guided_install
+            and chosen_action is actions_mod.Action.CONFIGURE
+            and onboarding_pick.recorder != opened_recorder
+        ):
+            recorder_lines = _apply_recorder_pick(
+                onboarding_pick.recorder,
+                sources=tuple(dict.fromkeys((
+                    *agent_sources,
+                    *(source for source, snapshot in state_caps_by_source.items() if snapshot.configured),
+                ))),
+                completion=installation_completion,
+                base_now=base_now,
+                collect=lambda source: _collect_agent(source, fresh=True),
+                telemetry=tel,
+            )
+        wizard.INSTALL_RECORDER_PICK.set(None)
+        if guided_install and (saved_default_lines or recorder_lines):
+            lines = [*(lines or []), *([""] if lines else []), *saved_default_lines, *recorder_lines]
+
+        # The action's work is done and its result page waits on a person. Only
+        # an install changes more after it (this computer's workspace, its
+        # imports): every other action lets go of the run lock here (C1).
+        if looping and chosen_action is not actions_mod.Action.CONFIGURE:
+            _release_for_menu()
         # Inside the menu loop this is a PAGE of the wizard, so it gets the
         # same centred treatment as every prompt. A one-shot `--action` run is
         # command output: printing it plainly leaves the user's scrollback
         # alone, which clearing the screen for a single result would not.
         paged = bool(lines) and looping and wizard.interactive()
+        copyable: bool | str = False
+        if paged and chosen_action is actions_mod.Action.DIAGNOSE:
+            # The verdict and the problems on screen; the whole report on `c`.
+            copyable = "\n".join(lines)
+            lines = doctor_impl.summary(caps_by_source, recorder=wizard.machine_recorder())
         if paged:
             tui.page(
                 lines,
                 prompt=(
                     "Press enter to continue…"
                     if guided_install
+                    # Signed out (an Uninstall): the wizard ends here, no menu.
+                    else "Press enter to finish…"
+                    if not resolve(base_url=_conn.base_url).token
                     else "Press enter to return to the menu…"
                 ),
-                copyable=chosen_action is actions_mod.Action.DIAGNOSE,
+                copyable=copyable,
             )
         elif lines:
             tui.final("\n".join(lines))
@@ -4219,13 +5181,119 @@ def _wizard_session(
         chosen_action = picked
 
 
-def _update_agents(sources, *, base_now: str, yes: bool) -> dict:
+#: The install screen's marketplace refresh step.
+REFRESH_STEP_LABEL = "refresh the plugin marketplace"
+
+
+def _problems(progress) -> list[str]:
+    """`tui.Progress.problems`; a stand-in screen (tests) has none."""
+    problems = getattr(progress, "problems", None)
+    return list(problems()) if problems is not None else []
+
+
+def _record_install(
+    source: str, *, ok: bool, summary: str = "", notes=(), restart: bool = False, must=()
+) -> bool:
+    """This agent's install, in the run's summary if there is one (`_run_summary`)."""
+    from probe.cli import setup as wizard
+
+    run_summary = wizard.current_run_summary()
+    if run_summary is None:
+        return False
+    run_summary.record(source, ok=ok, summary=summary, notes=notes, restart=restart, must=must)
+    return True
+
+
+def _run_summary(action, sources):
+    """The final screen's `setup.RunSummary` for an install or an Update the
+    wizard draws (a terminal); for anything else, and for a run whose output
+    is read by a program, nothing: those keep the full per-agent report."""
+    from probe.cli import actions as actions_mod
+    from probe.cli import setup as wizard
+
+    kind = {
+        actions_mod.Action.CONFIGURE: wizard.SummaryAction.INSTALL,
+        actions_mod.Action.UPDATE: wizard.SummaryAction.UPDATE,
+        actions_mod.Action.UNINSTALL: wizard.SummaryAction.UNINSTALL,
+    }.get(action)
+    if not wizard.interactive() or kind is None:
+        return contextlib.nullcontext()
+    return wizard.run_summary(kind, sources)
+
+
+class _UpdateProgress:
+    """The wizard's Update as a bar with its percentage under the spinner: the
+    CLI and pi's package once, every agent's plugins (at once), then what is
+    installed recorded for each agent, in that order, the label naming what
+    is running. `upgrading.reporting_progress`'s hook: called from the agents'
+    update threads too. `status` None (no spinner) shows nothing."""
+
+    def __init__(self, sources, status) -> None:
+        import threading
+
+        from probe.cli.upgrading import UpdatePart
+
+        self._sources = list(sources)
+        self._status = status
+        self._core = [UpdatePart.CLI, UpdatePart.PI_PACKAGE]
+        self._plugins = list(self._sources)
+        self._recording = list(self._sources)
+        # One more for sending it all (`sent`): only then is it 100%.
+        self._sending = True
+        self._total = len(self._core) + 2 * len(self._sources) + 1
+        self._lock = threading.Lock()
+        self._show()
+
+    def __call__(self, part: str) -> None:
+        with self._lock:
+            for left in (self._core, self._plugins):
+                if part in left:
+                    left.remove(part)
+                    break
+            self._show()
+
+    def recorded(self, source: str) -> None:
+        with self._lock:
+            if source in self._recording:
+                self._recording.remove(source)
+            self._show()
+
+    def sent(self) -> None:
+        """The merged registration and report went out: the update is done."""
+        with self._lock:
+            self._sending = False
+            self._show()
+
+    def _label(self) -> str:
+        from probe.cli import setup as wizard
+        from probe.cli.upgrading import UpdatePart, package_harness
+
+        if UpdatePart.CLI in self._core:
+            return "Updating the Probe CLI"
+        # pi's package moves above, once: its own pass has nothing to wait on.
+        package = package_harness()
+        updating = [wizard.agent_label(s) for s in self._plugins if s != package]
+        if UpdatePart.PI_PACKAGE in self._core and package in self._sources:
+            return f"Updating {wizard.agent_label(package)}'s Probe package"
+        if updating:
+            return f"Updating the plugins for {wizard.spoken_list(updating)}"
+        if self._recording:
+            return f"Recording what is installed for {wizard.agent_label(self._recording[0])}"
+        return "Sending the update's results to Probe"
+
+    def _show(self) -> None:
+        if self._status is None:
+            return
+        left = len(self._core) + len(self._plugins) + len(self._recording) + self._sending
+        self._status.set(label=self._label(), fraction=(self._total - left) / self._total)
+
+
+def _update_agents(sources, *, base_now: str, yes: bool, progress: "_UpdateProgress | None" = None) -> dict:
     """The Update action for several agents (`upgrading.perform_updates`):
     each agent's answer, which its own pass then reports (`_run_wizard_action`)."""
-    from probe.cli import tui
-    from probe.cli.upgrading import perform_updates
+    from probe.cli.upgrading import perform_updates, reporting_progress
 
-    with tui.working("Updating the CLI and plugins"):
+    with reporting_progress(progress) if progress is not None else contextlib.nullcontext():
         return perform_updates(
             list(sources), base_url=base_now, include_plugin=True, trigger=_update_action_trigger(yes)
         )
@@ -4359,6 +5427,10 @@ def _shared_selection(
             else ()
         ),
         capture_killswitched=any(item.capture_killswitched for item in caps_by_source.values()),
+        # Never the device's: a pending lock is one agent's, and the per-agent
+        # apply leaves it pending (`leave_pending`). On the aggregate it would
+        # make `resolve_selection` keep capture for every agent.
+        capture_awaiting_confirmation=False,
         agent_rules_installed=all(item.agent_rules_installed for item in caps_by_source.values()),
         agent_rules_stale=any(item.agent_rules_stale for item in caps_by_source.values()),
         mcp_authenticated=all(
@@ -4660,56 +5732,87 @@ def _run_wizard_action(
         return lines
 
     if chosen_action is actions_mod.Action.UPDATE:
-        from probe.cli.upgrading import perform_update
+        from probe.cli.upgrading import perform_update, reporting_progress
 
         # No "Upgrade the CLI now?" gate: picking "Update to the latest
         # version" from the menu IS the answer to that question, and asking it
         # again dropped a bare uncentred prompt into the middle of the wizard.
         # perform_update returns its lines rather than streaming, so without
         # the spinner this sits silent for the whole `uv tool upgrade` +
-        # plugin update -- the longest unexplained wait the wizard had.
-        if update_outcome is not None:
-            # Already done with the run's other agents (`_update_agents`).
-            outcome = update_outcome
-        else:
-            with tui.working("Updating the CLI and plugins"):
-                outcome = perform_update(
-                    base_url=base_now, include_plugin=True, trigger=_update_action_trigger(yes)
-                )
-        _record_update(caps.agent_source, outcome)
-        lines = list(outcome.lines)
-        from probe.cli.upgrading import after_update_line
+        # plugin update -- the longest unexplained wait the wizard had. It
+        # stays up, a bar and its percentage under it (`_UpdateProgress`),
+        # through the recording below too (a server call); in a several-agent
+        # Update it is the run's own.
+        with tui.working("Updating Probe") as status:
+            if update_outcome is not None:
+                # Already done with the run's other agents (`_update_agents`).
+                outcome = update_outcome
+                progress = None
+            else:
+                progress = _UpdateProgress([caps.agent_source], status)
+                with reporting_progress(progress):
+                    outcome = perform_update(
+                        base_url=base_now, include_plugin=True, trigger=_update_action_trigger(yes)
+                    )
+            _record_update(caps.agent_source, outcome)
+            lines = list(outcome.lines)
+            from probe.cli.upgrading import after_update_line
 
-        closing = after_update_line(outcome, wizard.agent_label(caps.agent_source), caps.agent_source)
-        if closing:
-            lines += ["", closing]
-        # The pointer block lives in the researcher's home directory, so no
-        # release can reach it: updating the CLI ships new POINTER_BODY wording
-        # that the installed block never picks up, and this action -- the one an
-        # upgrading machine actually takes -- used to leave it on whatever
-        # version it was first written at. Gated on already-installed-and-stale,
-        # so a machine that declined the block stays declined; `want=True` here
-        # would install one behind the researcher's back.
-        #
-        # A process cannot write wording it does not have, so the refresh lands
-        # on the first invocation AFTER the upgrade, not this one. It converges;
-        # it is not instant.
-        if caps.agent_rules_stale:
-            lines += wizard.apply_agent_rules(True, stale=True)
-        elif caps.agent_rules_installed:
-            # Kimi Code's footer shipped after its rules: one catch-up.
-            lines += wizard.catch_up_statusline(caps.agent_source)
-        # An update cannot have removed anything: what it does not see stays
-        # as the server last heard (`client_installation.snapshot`). Its server
-        # half from one `POST /v1/device-state` (the old way when that does
-        # not answer), not `/v1/me` and the capture key's status in a row.
-        with doctor_impl.device_state_scope(_old_way_unless_answered(_start_device_state())):
-            snapshot = doctor_impl.collect()
-        lines += _register_local_capabilities(
-            snapshot,
-            settings=resolve(base_url=base_now),
-            reports_removals=False,
-        )
+            closing = after_update_line(outcome, wizard.agent_label(caps.agent_source), caps.agent_source)
+            if closing:
+                lines += ["", closing]
+            # The pointer block lives in the researcher's home directory, so no
+            # release can reach it: updating the CLI ships new POINTER_BODY wording
+            # that the installed block never picks up, and this action -- the one an
+            # upgrading machine actually takes -- used to leave it on whatever
+            # version it was first written at. Gated on already-installed-and-stale,
+            # so a machine that declined the block stays declined; `want=True` here
+            # would install one behind the researcher's back.
+            #
+            # A process cannot write wording it does not have, so the refresh lands
+            # on the first invocation AFTER the upgrade, not this one. It converges;
+            # it is not instant.
+            if caps.agent_rules_stale:
+                lines += wizard.apply_agent_rules(True, stale=True)
+            elif caps.agent_rules_installed:
+                # Kimi Code's footer shipped after its rules: one catch-up.
+                lines += wizard.catch_up_statusline(caps.agent_source)
+            # An update cannot have removed anything: what it does not see stays
+            # as the server last heard (`client_installation.snapshot`). Its server
+            # half from one `POST /v1/device-state` (the old way when that does
+            # not answer), not `/v1/me` and the capture key's status in a row.
+            with doctor_impl.device_state_scope(_old_way_unless_answered(_start_device_state())):
+                snapshot = doctor_impl.collect()
+            lines += _register_local_capabilities(
+                snapshot,
+                settings=resolve(base_url=base_now),
+                reports_removals=False,
+            )
+            if progress is not None:
+                progress.recorded(caps.agent_source)
+                progress.sent()  # registered above, directly
+        run_summary = wizard.current_run_summary()
+        if run_summary is not None:
+            run_summary.subtitle = outcome.cli
+            run_summary.note(*outcome.run_notes)
+            if outcome.deferred:
+                # Nothing ran: every agent "not updated", the reason once.
+                run_summary.note(*outcome.lines)
+            run_summary.must_do(*outcome.run_actions)
+            run_summary.record(
+                caps.agent_source,
+                # Its own plugins: a CLI or pi package failure is the run's,
+                # named once under Details, not this agent's.
+                ok=not outcome.deferred and not outcome.problems and (outcome.ok or bool(outcome.run_notes)),
+                summary=outcome.summary,
+                notes=[
+                    *outcome.problems,
+                    # What the rules refresh and the registration said went wrong.
+                    *(line for line in lines[len(outcome.lines):] if wizard.needs_attention(line)),
+                ],
+                restart=outcome.restart_needed,
+                must=outcome.actions,
+            )
         return lines
 
     if chosen_action is actions_mod.Action.MANUAL:
@@ -4746,6 +5849,10 @@ def _run_wizard_action(
             settings=settings_before_removal,
         )
         _record_removal(caps.agent_source, removed, lines)
+        run_summary = wizard.current_run_summary()
+        if run_summary is not None:
+            problems = wizard.attention_lines(lines)
+            run_summary.record(caps.agent_source, ok=not problems, notes=problems)
         return lines
 
     if chosen_action is actions_mod.Action.IMPORT_RESEARCH:
@@ -4831,8 +5938,40 @@ def _run_wizard_action(
     # through to /probe-mcp-login's interactive OAuth -- the "Known limitation"
     # the README documents. The limitation WAS this branch.
 
+    # Installed means usable (plan clean-uninstall-reinstall R-T5): the retired
+    # tap or both recorders' plugins side by side, a disabled plugin or one
+    # whose files are gone, pi's filtered-out extension and Kimi's missing
+    # files are put right BEFORE the plan reads what is installed -- they read
+    # installed, and "Nothing to change" hid them. A configure is an install
+    # start too: the OS keeper may come back (R1).
+    from probe.cli import install_pipeline, integration_repair
+
+    install_pipeline.clear_keeper_off()
+    repaired: list[str] = []
+    from probe.cli import plugin_cli
+
+    codex_hooks_before = (integration_repair.codex_hooks_digest()
+                          if caps.agent_source == plugin_cli.CODEX else None)
+    if (selection.tracking or selection.capture) and (
+            integration_repair.unusable_plugins(caps.agent_source) or integration_repair.leftovers(caps.agent_source)):
+        fixed = integration_repair.repair(caps.agent_source)
+        repaired = [*fixed.lines, *(f"! {problem}" for problem in fixed.problems)]
+        with doctor_impl.device_state_scope(_old_way_unless_answered(_start_device_state())):
+            caps = doctor_impl.collect()
+
     steps = wizard.plan(caps, selection)
     mcp_token_drifted = selection.tracking and wizard.mcp_token_drifted()
+    # Codex skips Probe's hooks until they are approved, and says nothing: a
+    # machine set up before the wizard approved them, or after an update that
+    # changed an entry, reads "already set up" here while recording nothing.
+    # Asked only on a Codex run, where Probe's plugins are in Codex
+    # (`codex_hooks_waiting`); a Claude run never does Codex's work.
+    codex_hooks_waiting = (
+        caps.agent_source == plugin_cli.CODEX
+        and caps.codex_available
+        and (selection.tracking or selection.capture)
+        and wizard.codex_hooks_waiting()
+    )
     needs = (
         authorization_needs
         if authorization_needs is not None
@@ -4846,7 +5985,12 @@ def _run_wizard_action(
         # program reading the run shows its approval link (`device_prompt`).
         and not (needs and json_events.enabled())
         and not mcp_token_drifted
-        and not (selection.capture and caps.legacy_capture_plugin_installed)
+        and not codex_hooks_waiting
+        and not (
+            selection.capture
+            and not selection.keeps(Capability.CAPTURE)
+            and caps.legacy_capture_plugin_installed
+        )
     ):
         tel.emit(
             telemetry_mod.EVENT_WIZARD_CONFIGURE_STARTED,
@@ -4861,10 +6005,16 @@ def _run_wizard_action(
             duration_seconds=int(time.monotonic() - configure_t0),
         )
         _record_configure(caps.agent_source, selection, caps, ok=True)
-        return [
-            "Already set up the way you asked. Nothing to change.",
-            *register_configure(caps),
-        ]
+        registered = list(register_configure(caps))
+        _record_install(
+            caps.agent_source, ok=True, summary="already set up",
+            notes=[message for message in registered if wizard.needs_attention(message)],
+        )
+        hooks_line = ([integration_repair.CODEX_HOOKS_LINE] if codex_hooks_before is not None
+                      and integration_repair.codex_hooks_digest() != codex_hooks_before else [])
+        if repaired:
+            return [*repaired, "Set up the way you asked once those were put right.", *hooks_line, *registered]
+        return ["Already set up the way you asked. Nothing to change.", *hooks_line, *registered]
 
     # From here it STREAMS, through a Progress screen that redraws on every
     # state change. Installing a plugin shells out to `claude` and a browser
@@ -4899,8 +6049,9 @@ def _run_wizard_action(
     # -- and it was the step that failed, on the one path a new user is on.
     tel.emit(
         telemetry_mod.EVENT_WIZARD_CONFIGURE_STARTED,
-        tracking=selection.tracking,
-        capture=selection.capture,
+        # None for a kept capability: it was read, not asked for (`preserve`).
+        tracking=None if selection.keeps(Capability.TRACKING) else selection.tracking,
+        capture=None if selection.keeps(Capability.CAPTURE) else selection.capture,
         auto_update=selection.auto_update,
         agent_rules=selection.agent_rules,
         plan_steps=len(steps),
@@ -4953,7 +6104,12 @@ def _run_wizard_action(
             "After installing it, run `probe wizard` and pick “Install Probe”."
         ]
 
-    if selection.tracking and not caps.tracking_plugin_installed:
+    # `preserve` (Settings, Update's capture question): the booleans for a
+    # capability the caller is not changing are only a read, so they install
+    # and remove nothing (`Selection.preserve`).
+    if selection.keeps(Capability.TRACKING):
+        pass
+    elif selection.tracking and not caps.tracking_plugin_installed:
         if agent_here:
             work.append(
                 (
@@ -4983,13 +6139,14 @@ def _run_wizard_action(
         work.append((
             "remove the CLI + MCP plugin",
             # pi keeps its one package while capture stays selected.
-            lambda: wizard.apply_tracking(False, keep_capture=selection.capture),
+            lambda: wizard.apply_tracking(False, keep_capture=selection.capture or selection.keeps(Capability.CAPTURE)),
             None,
             Step.TRACKING_PLUGIN,
         ))
 
     if (
         selection.tracking
+        and not selection.keeps(Capability.TRACKING)
         and caps.agent_source == "codex"
         and agent_here
         and caps.mcp_authenticated is not True
@@ -5034,7 +6191,9 @@ def _run_wizard_action(
             )
         )
 
-    if selection.capture and not agent_here and not caps.capture_plugin_installed:
+    if selection.keeps(Capability.CAPTURE):
+        pass
+    elif selection.capture and not agent_here and not caps.capture_plugin_installed:
         work.append(
             ("skip the Session capture plugin", _skip_plugin("the Session capture plugin"), None, Step.CAPTURE)
         )
@@ -5086,6 +6245,29 @@ def _run_wizard_action(
                 Step.CAPTURE,
             )
         )
+
+    # After every Codex plugin install above: Codex runs none of a plugin's hooks
+    # until they are approved, so an install that stops at the plugin records
+    # nothing. Probe approves its own (`approve_codex_hooks`).
+    codex_installs = (
+        caps.agent_source == plugin_cli.CODEX
+        and agent_here
+        and (selection.tracking or selection.capture)
+        # An install or a re-enable carries its capability; a removal or "turn
+        # capture off" carries None and must not approve what it switched off.
+        and any(item[3] in (Step.TRACKING_PLUGIN, Step.CAPTURE) and item[2] is not None for item in work)
+    )
+    #: Whether that step left no Probe hook waiting: the closing "`/hooks` ›
+    #: approve" line is only for a Codex where it did not.
+    codex_hooks_done: list[bool] = []
+
+    def _approve_codex_hooks() -> list[str]:
+        lines, done = wizard.approve_codex_hooks(only=wizard.codex_plugins_kept_on(selection))
+        codex_hooks_done.append(done)
+        return lines
+
+    if agent_here and (codex_hooks_waiting or codex_installs):
+        work.append(("approve Probe's hooks in Codex", _approve_codex_hooks, None, Step.CODEX_HOOKS_TRUST))
 
     if selection.auto_update != caps.auto_update_enabled:
         work.append(
@@ -5155,7 +6337,7 @@ def _run_wizard_action(
         return []
 
     if any(label.startswith("install") for label, action, _, _ in work if action is not None):
-        work.insert(0, ("refresh the plugin marketplace", _refresh, None, Step.REFRESH_MARKETPLACE))
+        work.insert(0, (REFRESH_STEP_LABEL, _refresh, None, Step.REFRESH_MARKETPLACE))
 
     # The browser approval is REAL WORK and the longest wait in the run -- it
     # blocks on a human in a browser. Leaving it off the list is what made a
@@ -5175,9 +6357,15 @@ def _run_wizard_action(
         work.insert(0, (f"sign in ({', '.join(needs)})", None, None, Step.SIGN_IN))
 
     tui.clear()
+    install_run = wizard.current_install_run()
     progress = tui.Progress(
-        "This run will:", [label for label, *_ in work], overall=progress_header
+        "This run will:",
+        [label for label, *_ in work],
+        overall=progress_header,
+        run=install_run.for_agent(caps.agent_source) if install_run is not None else None,
     )
+    if install_run is not None:
+        install_run.watch(progress.render)
     progress.render()
 
     skipped: list[str] = []
@@ -5413,9 +6601,9 @@ def _run_wizard_action(
 
     def _wanted(snapshot) -> list[str]:
         names = []
-        if selection.tracking and not snapshot.tracking_plugin_installed:
+        if selection.tracking and not selection.keeps(Capability.TRACKING) and not snapshot.tracking_plugin_installed:
             names.append(capabilities.tracking_plugin_name(caps.agent_source))
-        if selection.capture and not snapshot.capture_plugin_installed:
+        if selection.capture and not selection.keeps(Capability.CAPTURE) and not snapshot.capture_plugin_installed:
             names.append(capabilities.TAP_PLUGIN_NAME)
         return names
 
@@ -5438,12 +6626,21 @@ def _run_wizard_action(
 
     missing = [grant for grant in needs if grant not in granted]
     runtime_failures: list[str] = []
-    if selection.capture and after.capture_credential_valid is False:
+    # A kept capability was not this run's to fix, so it cannot fail it either.
+    capture_asked = selection.capture and not selection.keeps(Capability.CAPTURE)
+    tracking_asked = selection.tracking and not selection.keeps(Capability.TRACKING)
+    if capture_asked and after.capture_credential_valid is False:
         runtime_failures.append("the capture credential is rejected")
-    if selection.capture and after.legacy_capture_plugin_installed:
+    if capture_asked and after.legacy_capture_plugin_installed:
         runtime_failures.append("the legacy Codex capture plugin is still installed")
-    if selection.tracking and after.agent_source == "codex" and after.mcp_authenticated is False:
+    if tracking_asked and after.agent_source == "codex" and after.mcp_authenticated is False:
         runtime_failures.append("the Codex MCP is not logged in")
+    # Identity first (plan clean-uninstall-reinstall R-T4): a daemon key of
+    # another account is replaced, and a credential variable that disagrees
+    # with the sign-in leaves the install unfinished, the variable named.
+    from probe.cli import identity_check
+
+    runtime_failures.extend(identity_check.reconcile_once().problems)
 
     if missing or absent or runtime_failures:
         # "Restart Claude Code to finish" after a FAILED run reads as success:
@@ -5485,6 +6682,14 @@ def _run_wizard_action(
             caps.agent_source, selection, after, ok=False, message=f"Not finished — {'; '.join(reasons)}."
         )
         progress.close()
+        if _record_install(
+            caps.agent_source, ok=False,
+            # The screen's own lines already say "Not finished — ..." and
+            # how to retry.
+            notes=_problems(progress) or [f"not finished: {'; '.join(reasons)}."],
+        ):
+            # The run stops here: its summary is the screen it leaves.
+            tui.page(wizard.current_run_summary().lines())
         # complete=False: this run did NOT finish, and the dashboard treats a
         # fresh registration as the install completing. Reporting the observed
         # state here made a failed install advance onboarding to the next step
@@ -5531,13 +6736,44 @@ def _run_wizard_action(
         steps_skipped=len(skipped),
         duration_seconds=int(time.monotonic() - configure_t0),
     )
-    progress.note_next(*wizard.restart_notice(caps, selection))
+    codex_hooks_approved = bool(codex_hooks_done) and all(codex_hooks_done)
+    notice = list(wizard.restart_notice(caps, selection, codex_hooks_approved=codex_hooks_approved))
+    if (not codex_hooks_approved and codex_hooks_before is not None
+            and integration_repair.codex_hooks_digest() != codex_hooks_before
+            and not any("/hooks" in line for line in notice)):
+        # Probe's hook entries changed (a plugin installed, updated or put
+        # back) and this run did not approve them: Codex runs none of them
+        # until a person approves them again.
+        notice.append(integration_repair.CODEX_HOOKS_LINE)
+    progress.note_next(*notice)
     progress.close()
-    for message in register_configure(
+    for line in repaired:
+        tui.say(line)
+    registered = list(register_configure(
         after,
         complete=not skipped and not (wanted_plugins and not after.plugins_verified),
-    ):
+    ))
+    for message in registered:
         tui.say(message)
+    unconfirmed = bool(wanted_plugins and not after.plugins_verified)
+    # A step that failed (the rules, auto-update), one never started (the time
+    # budget) or plugins nobody could confirm: not installed the way asked.
+    # A refresh that failed while the install worked from the copy on disk
+    # (`_used_copy_on_disk`) is a warning under Details, not an unfinished install.
+    failed = [step for step in getattr(progress, "failed_steps", list)() if step != REFRESH_STEP_LABEL]
+    finished = not skipped and not unconfirmed and not failed
+    restart, must = wizard.install_next(caps, selection, codex_hooks_approved=codex_hooks_approved)
+    _record_install(
+        caps.agent_source,
+        ok=finished,
+        notes=[
+            *_problems(progress),
+            *([unverified] if unconfirmed else []),
+            *(message for message in registered if wizard.needs_attention(message)),
+        ],
+        restart=restart,
+        must=must,
+    )
 
     return []
 
@@ -5565,12 +6801,78 @@ def _record_configure(source: str, selection, after, *, ok: bool, message: str =
     if not json_events.enabled():
         return
     requested = _capability_fields(selection)
+    for capability in requested:
+        if selection.keeps(capability):
+            requested[capability] = None  # kept as found, not asked for (`preserve`)
     actual = _capability_fields(after.enabled())
     unmet = [c for c in (Capability.AUTO_UPDATE, Capability.AGENT_RULES) if actual[c] != requested[c]]
     unmet += [c for c in (Capability.TRACKING, Capability.CAPTURE) if requested[c] is False and actual[c] is True]
     if unmet and not message:
         message = f"not as asked: {', '.join(unmet)}"
     json_events.agent_result(source, requested=requested, actual=actual, ok=ok and not unmet, message=message)
+
+
+def _opens_onboarding(snapshots: dict, available_sources) -> bool:
+    """A device with no Probe on it, which a bare launch takes straight into the
+    guided install: no saved credential, no coding agent set up, and at least
+    one coding agent here for the install to act on."""
+    return (
+        bool(available_sources)
+        and not resolve(base_url=_conn.base_url).token
+        and not any(snapshot.configured for snapshot in snapshots.values())
+    )
+
+
+def _save_session_default(state: str) -> list[str]:
+    """The install's Defaults pick for new sessions, saved at the Install
+    keypress. [] when the device already has it, or when an environment
+    variable holds it (a write that changes nothing anyone can see)."""
+    from probe.cli import setup as wizard
+
+    if session_marker.state_env_override() is not None:
+        return []
+    picked = wizard.setting_state(state)
+    if picked == wizard.setting_state(session_marker.default_session_state()):
+        return []
+    return wizard.apply_settings({wizard.Setting.TRACKING_DEFAULT: picked})
+
+
+def _apply_recorder_pick(
+    recorder: str,
+    *,
+    sources: tuple[str, ...],
+    completion,
+    base_now: str,
+    collect,
+    telemetry=None,
+) -> list[str]:
+    """The install's Defaults pick for Who records, once the agents are in.
+
+    Through the menu's own switch (`_run_recorder_action`: availability, the
+    daemon's key and libraries, the plugin move, telemetry), without its
+    consent page (the Defaults step carried it) or the daemon's page after.
+    Compared agent by agent, never by `machine_recorder()`, which reads
+    `daemon` when ANY agent is on it (Codex O3). Only after an install that
+    settled: a half install keeps its agents recording themselves.
+    """
+    from probe.cli import setup as wizard
+
+    movable = [source for source in sources if source in wizard.RECORDER_SOURCES]
+    if not any(session_marker.recorder(source) != recorder for source in movable):
+        return []
+    if completion is None or completion.remaining or not completion.settled:
+        return [f"{wizard.RECORDER_ROW_TITLE} stays as it was: the install did not finish. "
+                "Switch it from the menu's Defaults."]
+    caps_by_source = {source: collect(source) for source in sources}
+    return _run_recorder_action(
+        yes=False,
+        caps_by_source=caps_by_source,
+        base_now=base_now,
+        chosen=recorder,
+        telemetry=telemetry,
+        disclosed=True,
+        show_daemon_page=False,
+    ) or []
 
 
 def _run_defaults_action(
@@ -5713,20 +7015,116 @@ def _run_settings_action(
     if not changes:
         return None
     lines: list[str] = []
+    problems: list[str] = []
     capability_changes = {s: v for s, v in changes.items() if s in wizard.CAPABILITY_SETTINGS}
     if capability_changes:
-        lines.extend(
-            _apply_capability_settings(
-                capability_changes,
-                caps_by_source=caps_by_source,
-                base_now=base_now or resolve(base_url=_conn.base_url).base_url,
-                telemetry=telemetry,
-            )
+        # Each changed setting once, as the other rows say theirs ("Research
+        # plan review → on"); of the install machinery's per-agent report
+        # (`_apply_capability_settings`) only the errors: it said "Codex:",
+        # "Already set up the way you asked. Nothing to change." per agent.
+        applied = _apply_capability_settings(
+            capability_changes,
+            caps_by_source=caps_by_source,
+            base_now=base_now or resolve(base_url=_conn.base_url).base_url,
+            telemetry=telemetry,
         )
+        found = _labelled_problems(applied)
+        # What the device says now, not what was asked: Automatic updates is
+        # one device-wide file, and an agent's apply can fail after (or
+        # without) writing it.
+        for setting, value in capability_changes.items():
+            title = wizard.SETTINGS_COPY[setting][0]
+            now = _capability_setting_now(setting)
+            if now is None or now == value:
+                lines.append(f"{title} → {'on' if value else 'off'}")
+            else:
+                lines.append(f"{title} did not change")
+        problems += found
     plain = {s: v for s, v in changes.items() if s not in wizard.CAPABILITY_SETTINGS}
     if plain:
-        lines.extend(wizard.apply_settings(plain, caps_by_source=caps_by_source))
-    return lines
+        settled = wizard.apply_settings(plain, caps_by_source=caps_by_source)
+        lines += [line for line in settled if not wizard.needs_attention(line)]
+        problems += wizard.attention_lines(settled)
+    return wizard.result_page(
+        lines or ["Settings did not change" if problems else "Settings saved."], details=problems
+    )
+
+
+def _capability_setting_now(setting) -> bool | None:
+    """A capability setting as the device has it now (None: not one this
+    can read): what Settings' page reports after its apply."""
+    from probe.cli import autoupdate
+    from probe.cli import setup as wizard
+
+    if setting is wizard.Setting.AUTO_UPDATE:
+        try:
+            return bool(autoupdate.load().enabled)
+        except Exception:  # noqa: BLE001 - unreadable: report what was asked, errors below
+            return None
+    return None
+
+
+def _labelled_problems(lines: list[str]) -> list[str]:
+    """`setup.attention_lines` of a report made of `Agent:` sections, each
+    error named for its agent."""
+    from probe.cli import setup as wizard
+
+    labels = {f"{wizard.agent_label(source)}:" for source in wizard.INSTALLABLE_AGENT_SOURCES}
+    out: list[str] = []
+    sections: list[tuple[str, list[str]]] = [("", [])]
+    for line in lines:
+        if line.strip() in labels:
+            sections.append((line.strip()[:-1], []))
+        elif not line.strip():
+            # A section ends on its blank line: what follows is no agent's.
+            sections.append(("", []))
+        else:
+            sections[-1][1].append(line)
+    for label, section in sections:
+        out += [
+            f"{label}: {problem}" if label and not problem.startswith("  ") else problem
+            for problem in wizard.attention_lines(section)
+        ]
+    return out
+
+
+def _recorder_page(
+    chosen: str,
+    sources: list[str],
+    moved: list[str],
+    lines: list[str],
+    *,
+    daemon_page: list[str],
+    left_alone: list[str],
+    switched: list[str] | None = None,
+) -> list[str]:
+    """Who records' final page: who records now, for how many agents, what to
+    do next and the errors. It used to be every step for every agent ("Who
+    records in X → ...", "Takes effect in new X sessions." four times, the
+    reasoning-summaries paragraph, "Installed 11 skill(s) in <path>: <names>"
+    as its title)."""
+    from probe.cli import setup as wizard
+
+    # `moved` is who records as chosen now; `switched`, who this run moved
+    # (an agent already there is in the first only).
+    switched = moved if switched is None else switched
+    counted = wizard.agents_counted(sources, moved)
+    if not switched:
+        headline = ["Who records did not change", *left_alone]
+    elif chosen == session_marker.RECORDER_DAEMON:
+        headline = [f"The Probe daemon now records for {counted}", *left_alone]
+    elif len(sources) == 1:
+        headline = [f"{counted} records for itself again"]
+    else:
+        headline = [f"{counted[0].upper()}{counted[1:]} record for themselves again"]
+    # What the daemon page set (reasoning summaries) is part of the answer.
+    headline += [line for line in daemon_page if line.strip()]
+    next_steps = []
+    if switched:
+        next_steps.append("Start new sessions to use it: open ones keep recording as before.")
+    next_steps += [line.strip() for line in lines if "`/hooks`" in line or line.startswith("Kept the daemon's key")]
+    details = [line for line in wizard.attention_lines(lines) if line.strip() not in next_steps]
+    return wizard.result_page(headline, next_steps=next_steps, details=details)
 
 
 def _run_recorder_action(
@@ -5737,6 +7135,8 @@ def _run_recorder_action(
     chosen: str | None = None,
     telemetry=None,
     agent_rules: bool | None = None,
+    disclosed: bool = False,
+    show_daemon_page: bool = True,
 ) -> list[str] | None:
     """The main menu's Who records row: the agent or the Probe daemon, ONE value
     for every coding agent on this device (Richard 2026-09-29).
@@ -5754,6 +7154,12 @@ def _run_recorder_action(
     `agent_rules` is `--agent-rules/--no-agent-rules` beside `--who-records`:
     it decides each moved agent's instruction block, and None keeps whatever
     each file has (`setup.apply_recorder`).
+
+    A switch to the daemon that will mint its key shows the daemon's consent
+    first (`setup.run_daemon_consent`): the key comes from this device's
+    sign-in, so the browser page that used to disclose it never opens.
+    `disclosed` says a screen already showed it (the install's Defaults
+    step); `show_daemon_page=False` skips the page that follows a switch.
     """
     from probe.cli import setup as wizard
     from probe.cli import telemetry as telemetry_mod
@@ -5786,8 +7192,15 @@ def _run_recorder_action(
             # dashboard, or libraries gone after an update, have no other way
             # back in the wizard (switching away and back would revoke the key
             # and ask for a second approval).
-            repaired = _ensure_daemon(base)
+            # A revoked key is re-minted only after the consent is shown again:
+            # revoking it on the dashboard was a person turning the daemon off.
+            consent = _sign_in_mint_consent(base, [], disclosed=False)
+            if consent is None:
+                return None
+            repaired = _ensure_daemon(base, sign_in=consent)
             page = _run_daemon_page(caps_by_source=caps_by_source)
+            # A repair says what it replaced and why (a refused key): a line or
+            # two, and the reason a browser approval just opened.
             return [*repaired, *(page or [])] or None
         chosen = daemon
     sources = [source for source in wizard.RECORDER_SOURCES if source in caps_by_source]
@@ -5818,12 +7231,20 @@ def _run_recorder_action(
     # The rules edit above happened whatever stops the switch below.
     nothing = "Who records did not change" if lines else "nothing changed"
     unchanged = f"{nothing[0].upper()}{nothing[1:]}."
+
+    def _stopped(*why: str) -> list[str]:
+        """A switch that stopped: why, then only the errors of what ran before
+        (a key minted, skills copied are the routine report)."""
+        if headless:
+            return [*lines, *why]
+        return wizard.result_page([line.removeprefix("! ") for line in why], details=wizard.attention_lines(lines))
+
     if chosen == daemon and not resolve(base_url=base).token:
         # A signed-out machine would move every agent onto a profile with no
         # credential to record with. Back to the agent stays open: it is the
         # way off the daemon.
-        return [*lines, "Sign in before switching Who records to the daemon (`probe wizard --action login`).",
-                unchanged]
+        return _stopped("Sign in before switching Who records to the daemon (`probe wizard --action login`).",
+                        unchanged)
     if not sources:
         return ["No coding agent set up on this device has a daemon profile yet.", *left_alone, "Nothing changed."]
     from probe.cli import tui
@@ -5846,21 +7267,30 @@ def _run_recorder_action(
             offered, note = wizard.daemon_availability(base_url=base)
         if offered is False:
             _report(telemetry_mod.RecorderOutcome.REFUSED_PLAN, [])
-            return [*lines, note or wizard.DAEMON_UNAVAILABLE_NOTE, unchanged]
-        # The daemon's key (a browser approval, only when missing or refused)
-        # and its AI libraries (an install, only when missing, no approval),
-        # OUTSIDE the spinner: the approval prints its link and waits on the
-        # browser, and the install shows its own output (R12). Headless prints
-        # the link and never opens a browser.
+            return _stopped(note or wizard.DAEMON_UNAVAILABLE_NOTE, unchanged)
+        # A key minted from this device's sign-in opens no browser, so the
+        # daemon's consent shows here first; a run nobody is watching keeps the
+        # browser approval, where the consent is shown (`_sign_in_mint_consent`).
+        sign_in = False
+        if not headless:
+            consent = _sign_in_mint_consent(base, pending, disclosed=disclosed)
+            if consent is None:
+                return lines or None  # declined or backed out: nothing minted or moved
+            sign_in = consent
+        # The daemon's key (from the sign-in, else a browser approval; only when
+        # missing or refused) and its AI libraries (an install, only when
+        # missing), OUTSIDE the spinner: an approval prints its link and waits
+        # on the browser, and the install shows its own output (R12). Headless
+        # prints the link and never opens a browser.
         from probe.cli.daemon_cli import ai_libraries
 
-        lines.extend(_ensure_daemon(base, open_browser=not headless))
+        lines.extend(_ensure_daemon(base, open_browser=not headless, sign_in=sign_in))
         if not wizard.companion_token_held():
             _report(telemetry_mod.RecorderOutcome.NO_KEY, [])
-            return [*lines, f"! The daemon has no key, so {nothing}."]
+            return _stopped(f"! The daemon has no key, so {nothing}.")
         if ai_libraries() is None:
             _report(telemetry_mod.RecorderOutcome.NO_LIBRARIES, [])
-            return [*lines, f"! The daemon's AI libraries are missing, so {nothing}."]
+            return _stopped(f"! The daemon's AI libraries are missing, so {nothing}.")
         # An agent whose daemon starts from its own capture (pi) pairs it here,
         # outside the spinner below: the approval prints a link to open. Its
         # package is checked (and updated) FIRST: pairing mints its capture
@@ -5874,11 +7304,13 @@ def _run_recorder_action(
                 if not package.ok:
                     held.add(source)
                     continue
-                lines.extend(wizard.pair_capture(source, base_url=base, open_browser=not headless))
+                lines.extend(
+                    wizard.pair_capture(source, base_url=base, open_browser=not headless, sign_in=sign_in)
+                )
     if not pending:
         _report(telemetry_mod.RecorderOutcome.MOVED, sources)
         everyone = "every coding agent here" if not left_alone else wizard.agent_label(tuple(sources))
-        return [*lines, f"{wizard.RECORDER_ROW_TITLE}: already {chosen} for {everyone}.", *left_alone]
+        return _stopped(f"{wizard.RECORDER_ROW_TITLE}: already {chosen} for {everyone}.", *left_alone)
     # Plugin moves capture their own output, so the spinner owns the screen.
     with tui.working("Moving your coding agents to the daemon" if chosen == daemon
                      else "Moving your coding agents back to recording themselves"):
@@ -5895,10 +7327,17 @@ def _run_recorder_action(
         else telemetry_mod.RecorderOutcome.FAILED,
         moved,
     )
-    if chosen == daemon and wizard.machine_recorder() == daemon and not headless:
-        page = _run_daemon_page(caps_by_source=caps_by_source)
-        lines.extend(page or [])
-    return lines
+    if headless:
+        return lines
+    daemon_page = (
+        _run_daemon_page(caps_by_source=caps_by_source) or []
+        if chosen == daemon and wizard.machine_recorder() == daemon and show_daemon_page
+        else []
+    )
+    return _recorder_page(
+        chosen, sources, moved, lines, daemon_page=daemon_page, left_alone=left_alone,
+        switched=[source for source in moved if source in pending],
+    )
 
 
 def _record_recorder(chosen: str | None, caps_by_source: dict, lines: list[str] | None) -> None:
@@ -5996,11 +7435,13 @@ def _needs_for_this_run(needs: list[str], *, yes: bool) -> list[str]:
     return wizard.headless_needs(needs)
 
 
-def _ensure_daemon(base: str, *, open_browser: bool = True) -> list[str]:
+def _ensure_daemon(base: str, *, open_browser: bool = True, sign_in: bool = False) -> list[str]:
     """What the Probe daemon needs to record, fetched only where it is missing:
-    its key (one browser approval, when none is saved or the server refuses the
-    saved one) and its AI libraries (an install, no approval). Call it outside
-    any spinner: the approval prints a link and waits on the browser."""
+    its key (when none is saved or the server refuses the saved one: minted from
+    this device's sign-in when `sign_in` -- the caller showed the daemon's
+    consent -- else one browser approval) and its AI libraries (an install, no
+    approval). Call it outside any spinner: an approval prints a link and waits
+    on the browser."""
     from probe.cli import setup as wizard
     from probe.cli import tui
     from probe.cli.companion import provision_daemon
@@ -6021,7 +7462,36 @@ def _ensure_daemon(base: str, *, open_browser: bool = True) -> list[str]:
 
         save_context({"companion_token": None})
         lines.append("The server refuses the Probe daemon's key, so it needs a new one.")
-    return [*lines, *provision_daemon(base, open_browser=open_browser)]
+    return [*lines, *provision_daemon(base, open_browser=open_browser, sign_in=sign_in)]
+
+
+def _sign_in_mint_consent(base: str, capture_sources, *, disclosed: bool) -> "bool | None":
+    """Whether this interactive run may mint the daemon's key (and the capture
+    key a settings-profile agent such as pi needs) from this device's sign-in,
+    with no browser (Richard 2026-10-26): only once a person saw the daemon's
+    consent on THIS run.
+
+    True: they agreed, here or on the install's Defaults step (`disclosed`).
+    False: nothing new is needed (the saved key works, no capture to pair), so
+    nothing is minted and nothing is asked. None: they declined. A run nobody
+    is watching never calls this and keeps the browser approval, where the
+    consent is shown."""
+    from probe.cli import setup as wizard
+    from probe.cli import tui
+
+    if disclosed:
+        return True
+    with tui.working("Checking the Probe daemon's key"):
+        needed = (
+            not wizard.companion_token_held()
+            or _daemon_key_refused(base)
+            or any(wizard.needs_capture_pairing(source) for source in capture_sources)
+        )
+    if not needed:
+        return False
+    tui.clear()
+    sources = tuple(source for source in wizard.RECORDER_SOURCES) if not capture_sources else tuple(capture_sources)
+    return True if wizard.run_daemon_consent(sources) is True else None
 
 
 def _daemon_key_refused(base: str) -> bool:
@@ -6070,8 +7540,9 @@ def _run_daemon_page(*, caps_by_source: dict) -> list[str] | None:
     return wizard.apply_settings(changes, caps_by_source=caps_by_source) if changes else None
 
 
-def _authorize_companion(base_url: str, *, open_browser: bool = True) -> list[str]:
-    """Mint the Probe daemon's own credential through one browser approval.
+def _authorize_companion(base_url: str, *, open_browser: bool = True, sign_in: bool = False) -> list[str]:
+    """Mint the Probe daemon's own credential: from this device's sign-in when
+    it can (`setup.mint_from_sign_in`), else through one browser approval.
 
     Without it the daemon cannot write, and a session in the `daemon` state runs
     DEGRADED -- the agent records, exactly as under `on` -- so a declined or
@@ -6087,8 +7558,16 @@ def _authorize_companion(base_url: str, *, open_browser: bool = True) -> list[st
         print("Approve the Probe daemon's key in the browser:", flush=True)
         _show_device_prompt(prompt)
 
+    # From this device's sign-in when the caller showed the daemon's consent
+    # (`sign_in`): no browser. Otherwise, or when the device cannot (no
+    # installation-bound sign-in, an older server), the browser approval.
+    from_sign_in = wizard.mint_from_sign_in(wizard.COMPANION_GRANT, base_url=base_url) if sign_in else None
     minted, errors = wizard.authorize(
-        [wizard.COMPANION_GRANT], base_url=base_url, open_browser=open_browser, on_prompt=_prompt
+        [wizard.COMPANION_GRANT],
+        base_url=base_url,
+        open_browser=open_browser,
+        on_prompt=_prompt,
+        minted=from_sign_in,
     )
     if errors or not wizard.companion_token_held():
         return [
@@ -6096,7 +7575,7 @@ def _authorize_companion(base_url: str, *, open_browser: bool = True) -> list[st
             "! The daemon has no key yet, so your agent keeps recording.",
             "  Retry: probe wizard › Who records › daemon.",
         ]
-    return ["The Probe daemon has its own key (read + write; deletes go to the trash only)."]
+    return ["The Probe daemon has its own key."]
 
 
 def _apply_capability_settings(
@@ -6124,15 +7603,111 @@ def _apply_capability_settings(
     signed-out machine's tracking plugin.
 
     No agent is ever asked for a browser approval: grants follow the CHANGES,
-    and no row left on this screen needs one. An untouched capability may be
-    REPAIRED with credentials already held, never re-granted — deriving the
-    needs from the reconciled target is what once turned an unrelated toggle
-    into a login prompt.
+    and no row left on this screen needs one -- deriving the needs from the
+    reconciled target is what once turned an unrelated toggle into a login
+    prompt. An untouched tracking or capture is left exactly as found
+    (`Selection.preserve`): no repair, no install, no removal.
 
     A failing agent is CONTAINED: the CONFIGURE path reports failure by
     raising `typer.Exit`, and letting that escape here would kill the whole
     wizard mid-Settings and silently skip the remaining agent. Each agent's
     Exit is caught, reported in its own labelled lines, and the loop continues.
+    """
+    from probe.cli import setup as wizard
+
+    return _apply_capability_targets(
+        {wizard.SETTING_CAPABILITY[setting]: value for setting, value in changes.items()},
+        caps_by_source=caps_by_source,
+        base_now=base_now,
+        telemetry=telemetry,
+        retry_hint="re-run `probe wizard` › Settings to retry",
+    )
+
+
+#: Set once Update's capture question has been shown. The hand-off execs the
+#: newest release with this process's environment (`handoff._child_env`), and
+#: that release must not ask again: a "Not now" stands for the whole Update.
+CAPTURE_QUESTION_ASKED_ENV = "PROBE_CAPTURE_QUESTION_ASKED"
+
+
+def _confirm_pending_capture(caps_by_source: dict, *, base_now: str, telemetry=None):
+    """Update's one question when a sign-in left capture behind its pending lock.
+
+    The lock (`capture.AWAITING_CONFIRMATION`) waits for the person to confirm
+    capture, and only Install lifted it. On a machine whose plugins were
+    already installed people pick Update, so capture stayed off behind a live
+    credential while the menu called it "killswitch set" (Anthrogen,
+    2026-10-26). Asked only for agents that hold their own credential and have
+    the capture plugin: one with no credential needs Install's browser
+    approval, which this cannot give, and neither does a credential the
+    server refused. "Not now" changes nothing, and the menu keeps saying
+    "finish Install". Returns the result lines, or the question's own None
+    (Ctrl-C) / `tui.BACK` (Esc) for the caller to act on.
+    """
+    from probe.cli import setup as wizard
+    from probe.cli import tui
+    from probe.cli.capabilities import Capability, tap_plugin_dir
+
+    pending = {
+        source: snapshot
+        for source, snapshot in caps_by_source.items()
+        if snapshot.capture_awaiting_confirmation
+        and snapshot.capture_token_sources
+        and snapshot.capture_credential_valid is not False
+        and snapshot.capture_plugin_installed
+    }
+    if not pending:
+        return []
+    tui.clear()
+    answer = wizard.confirm_pending_capture(tuple(pending))
+    if answer is None or answer is tui.BACK:
+        return answer  # not answered: the next Update asks again
+    os.environ[CAPTURE_QUESTION_ASKED_ENV] = "1"
+    if answer is not True:
+        return []
+    lines = _apply_capability_targets(
+        {Capability.CAPTURE: True},
+        caps_by_source=pending,
+        base_now=base_now,
+        telemetry=telemetry,
+        retry_hint="pick “Install Probe” to turn capture on",
+    )
+    # Verified by the lock itself, not by the configure's word for it.
+    on = [source for source in pending if not (tap_plugin_dir(source) / ".disabled").exists()]
+    still_off = [source for source in pending if source not in on]
+    if on:
+        lines.append(f"Session capture is on for {wizard.agent_label(on)}.")
+    if still_off:
+        lines.append(f"! Session capture is still off for {wizard.agent_label(still_off)}.")
+    return lines
+
+
+def _capture_answer(lines: list[str]) -> tuple[list[str], list[str]]:
+    """`_confirm_pending_capture`'s result for a page: what is now true
+    ("Session capture is on for Codex."), then the errors named for their agent.
+    Each agent's configure report behind it stays off, as on Settings' page."""
+    said = [line.removeprefix("! ") for line in lines]
+    verdict = [line for line in said if line.startswith("Session capture is ")]
+    return verdict, _labelled_problems([line for line, plain in zip(lines, said) if plain not in verdict])
+
+
+def _apply_capability_targets(
+    wanted: dict,
+    *,
+    caps_by_source: dict,
+    base_now: str,
+    telemetry=None,
+    retry_hint: str,
+) -> list[str]:
+    """Change only the capabilities in `wanted`, per agent, through CONFIGURE.
+
+    Every other capability rides in each agent's target marked `preserve`: its
+    boolean is only that agent's read (`capability_state_for`), and a read
+    cannot say "leave it". `capture_on` is False for a deliberate off and for a
+    sign-in's pending lock alike, and applying that False ran the full
+    turn-off -- it revoked a capture credential minted 90 seconds earlier on a
+    machine where nobody had turned capture off (Anthrogen, 2026-10-26: the
+    Settings commit was automatic updates).
     """
     from probe.cli import actions as actions_mod
     from probe.cli import client_installation
@@ -6140,7 +7715,7 @@ def _apply_capability_settings(
     from probe.cli import setup as wizard
     from probe.cli.capabilities import Capability, agent_target
 
-    wanted = {wizard.SETTING_CAPABILITY[setting]: value for setting, value in changes.items()}
+    untouched = frozenset(Capability) - frozenset(wanted)
     targets: dict[str, object] = {}
     for source, snapshot in caps_by_source.items():
         state = wizard.capability_state_for(snapshot)
@@ -6150,6 +7725,7 @@ def _apply_capability_settings(
             capture=state[Capability.CAPTURE],
             auto_update=state[Capability.AUTO_UPDATE],
             agent_rules=state[Capability.AGENT_RULES],
+            preserve=untouched,
         )
 
     lines: list[str] = []
@@ -6181,9 +7757,7 @@ def _apply_capability_settings(
                 # The configure path already streamed WHAT failed on its progress
                 # screen; what must not happen is the whole wizard dying with the
                 # other agent unapplied.
-                lines.extend(
-                    [f"{label}:", "! not finished — re-run `probe wizard` › Settings to retry.", ""]
-                )
+                lines.extend([f"{label}:", f"! not finished — {retry_hint}.", ""])
                 continue
             if result:
                 lines.extend([f"{label}:", *result, ""])
@@ -6265,7 +7839,16 @@ def _run_account_action(
         # and an event resolved after that belongs to no person (`pin_identity`).
         tel.pin_identity()
         lines = wizard.sign_out(sources)
-        for line in lines:
+        # On a screen, what happened and the errors, not each step taken
+        # (imports cleared, every agent's capture turned off, each token
+        # revoked): the lines are what a script reads.
+        cleared = not any(wizard.CREDENTIALS_NOT_CLEARED in line for line in lines)
+        shown = lines if yes or not wizard.interactive() else wizard.result_page(
+            ["Signed out of Probe on this device." if cleared else "Not signed out: the saved credentials remain.",
+             "The plugins stay installed; Uninstall Probe removes them."],
+            details=wizard.attention_lines(lines),
+        )
+        for line in shown:
             tui.say(line)
         _record_device_sign_in(wanted=False)
         tel.emit(
@@ -6378,15 +7961,16 @@ def _probe_already_installed(snapshots) -> bool:
     Not `Capabilities.configured`: that counts the sign-in, and a fresh
     machine is signed in before the wizard's menu even opens, so every first
     install read as an agent added to a set-up machine. Only what an install
-    leaves behind counts -- a plugin, the agent rules, auto-update (off until
-    an install turns it on) -- and auto-update is device-wide, which is how
+    leaves behind counts -- a plugin, the agent rules, auto-update someone
+    turned on (the managed CLI's default is on before any install:
+    `auto_update_chosen`) -- and auto-update is device-wide, which is how
     `--agent codex` alone still sees a machine Claude Code was set up on."""
     return any(
         caps.tracking_plugin_installed
         or caps.capture_plugin_installed
         or caps.legacy_capture_plugin_installed
         or caps.agent_rules_installed
-        or caps.auto_update_enabled
+        or caps.auto_update_chosen
         for caps in snapshots
     )
 
@@ -6936,6 +8520,7 @@ def context_use(name: str = typer.Argument(..., help="context to make active")) 
     """Switch the active context, creating it empty if it is new."""
     path = use_context(name)
     print(f"active context: {name} ({path})")
+    _hold_daemon_key()
 
 
 @context_app.command("delete")
@@ -6944,8 +8529,11 @@ def context_delete(name: str = typer.Argument(..., help="context to remove")) ->
     if name not in (load_file().get("contexts") or {}):
         print(f"no such context: {name}", file=sys.stderr)
         raise typer.Exit(1)
+    active = current_context_name()
     delete_context(name)
     print(f"deleted context {name} (active: {current_context_name()})")
+    if current_context_name() != active:
+        _hold_daemon_key()  # the active context went: another one's sign-in is in use now
 
 
 # -- the declared headline metric and the best pick ---------------------------
@@ -7240,7 +8828,9 @@ def workspace_use(
     if refused:
         print(f"error: {refused}", file=sys.stderr)
         raise typer.Exit(1)
-    save_context({"workspace": workspace_limit_cmd.keep_limit_keys({"id": str(ws["id"]), "project": None})})
+    from . import computer_workspace
+
+    computer_workspace._pin(ws, pinned=computer_workspace._saved_pin(), reset_project=True)
     print(f"active workspace: {ws.get('name')} ({ws['id']}) — project cleared")
 
 
@@ -9973,6 +11563,92 @@ def run_end(
     _print_link("run", run)
 
 
+_DURATION_RE = re.compile(r"^\s*(\d+)\s*([smhdw]?)\s*$", re.IGNORECASE)
+_DURATION_UNIT_S = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+
+
+def _parse_duration(text: str) -> int:
+    """`36h`, `7d`, `2w`, `90m`, `3600s` or bare seconds -> seconds (BadParameter otherwise)."""
+    m = _DURATION_RE.match(str(text))
+    if not m or int(m.group(1)) <= 0:
+        raise typer.BadParameter(f"{text!r} is not a duration: use e.g. 36h, 7d, 2w")
+    return int(m.group(1)) * _DURATION_UNIT_S[m.group(2).lower()]
+
+
+def _when(iso: str | None) -> str:
+    """An ISO time as `YYYY-MM-DD HH:MM UTC`, or the raw text."""
+    from datetime import datetime, timezone
+
+    try:
+        at = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return str(iso)
+    return at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
+_NO_RUN_TOKENS = (
+    "this Probe server predates per-run tokens: give the job a token from "
+    "`probe token create --name <job> --scope read --scope write` instead"
+)
+
+
+@run_app.command("token")
+def run_token(
+    run: str = run_ref(),
+    ttl: str = typer.Option(
+        None,
+        "--ttl",
+        help="mint: how long the token lives, e.g. 36h, 7d, 2w (the run's expected length plus margin; default 30d)",
+    ),
+    extend: str = typer.Option(
+        None,
+        "--extend",
+        help="move the expiry of every token of this run to now + this, e.g. 7d; the running job keeps its token",
+    ),
+    revoke_all: bool = typer.Option(False, "--revoke-all", help="stop every token minted for this run"),
+    show: bool = typer.Option(False, "--show", help="print when this run's tokens expire (never a token)"),
+) -> None:
+    """Mint a token that records THIS run only, for a job on another machine.
+
+    The token goes to stdout alone, so `export PROBE_TOKEN=$(probe run token my-run --ttl 7d)`
+    works. Put it in the job's environment as PROBE_TOKEN: the job's `probe.init()` joins this
+    run with it, and the token can read or write nothing else (no other run, no project, no
+    new run). It is safe in a plain job spec or env file. `probe exec --detached-launcher`
+    mints one for you. Its life is set here and lives on the server: when Probe alerts that a
+    live run's token is close to expiring, `--extend 7d` moves it and the job keeps running.
+    """
+    chosen = [flag for flag, on in (("--ttl", ttl is not None), ("--extend", extend is not None),
+                                    ("--revoke-all", revoke_all), ("--show", show)) if on]
+    if len(chosen) > 1:
+        raise typer.BadParameter(f"choose one of --ttl, --extend, --revoke-all, --show (got {', '.join(chosen)})")
+    with _client() as c:
+        try:
+            if extend is not None:
+                state = c.extend_run_tokens(run, ttl_seconds=_parse_duration(extend))
+                print(f"run {run}: its tokens now expire {_when(state.get('expires_at'))}", file=sys.stderr)
+                return
+            if revoke_all:
+                c.revoke_run_tokens(run)
+                print(f"run {run}: every token minted so far is revoked", file=sys.stderr)
+                return
+            if show:
+                state = c.run_token_state(run)
+                print(f"run {run}: tokens expire {_when(state.get('expires_at'))} (generation {state.get('gen')})")
+                return
+            minted = c.mint_run_token(run, ttl_seconds=_parse_duration(ttl) if ttl else None)
+        except errors.NotFoundError as exc:
+            if "no tokens" in str(exc):
+                raise typer.BadParameter(f"run {run} has no tokens yet: mint one with `probe run token {run}`") from exc
+            print(f"probe: {_NO_RUN_TOKENS if _predates_run_tokens(exc) else exc}", file=sys.stderr)
+            raise typer.Exit(1) from exc
+    print(minted["token"])
+    print(
+        f"probe: token for run {run}: records this run only, expires {_when(minted.get('expires_at'))}"
+        + ("" if ttl else " (default 30 days; set --ttl to the run's expected length plus margin)"),
+        file=sys.stderr,
+    )
+
+
 @run_app.command("check")
 def run_check(
     run: str = run_ref(),
@@ -10222,6 +11898,11 @@ def exec(
         "--detached-launcher",
         help="this command SUBMITS and returns; do not treat its exit code as the job's",
     ),
+    token_ttl: str = typer.Option(
+        None,
+        "--token-ttl",
+        help="give the job a per-run token (PROBE_TOKEN in the launcher's environment) living this long, e.g. 36h, 7d, 2w -- the run's expected length plus margin; a hand-off always gets one (default 30d)",
+    ),
     outputs: str = typer.Option(
         None,
         "--outputs",
@@ -10311,6 +11992,8 @@ def exec(
     if not argv:
         raise typer.BadParameter("probe exec requires a command after --")
 
+    # Before the run opens: a bad --token-ttl must not leave a run awaiting a job.
+    token_ttl_seconds = _parse_duration(token_ttl) if isinstance(token_ttl, str) and token_ttl else None
     # Same OptionInfo caution as above: `is True` / isinstance, never truthiness.
     hands_off = detached_launcher is True or (
         launcher.lower() in _LAUNCHER_ALIASES
@@ -10419,21 +12102,51 @@ def exec(
         # wraps it (`run.hold`); the run lock above stays, for an older service
         # and the CLI's own updater. A hand-off wraps nothing.
         held = None if hands_off else _hold_run_with_service(handle)
+        minted, why_not = None, None
         try:
+            if not hands_off and token_ttl_seconds is not None:
+                # A blocking launcher (`modal run`) whose job runs elsewhere:
+                # the job gets the run's own token through the launcher's
+                # environment, and this process still records the exit code.
+                minted, why_not = _mint_handoff_token(c, handle.id, token_ttl_seconds)
+                typer.echo(
+                    f"probe: the job's PROBE_TOKEN records run {handle.slug or handle.id} only and expires "
+                    f"{_when(minted.get('expires_at'))}; forward it with PROBE_RUN_ID and PROBE_RUN_EPOCH"
+                    if minted is not None else f"probe: {why_not}",
+                    err=True,
+                )
             if hands_off:
-                hint = _forwarding_hint(argv, handle.id, handle.write_epoch)
+                # The job's credential: a per-run token that records this run
+                # only, safe in a plain job spec. An older server has none; the
+                # job then needs a token from the researcher's secret store.
+                minted, why_not = _mint_handoff_token(c, handle.id, token_ttl_seconds)
+                hint = _forwarding_hint(argv, handle.id, handle.write_epoch, token_minted=minted is not None)
                 # The agent session too (audit E2), so the job's runs carry the
                 # session tag the Probe daemon finds them by.
                 session_lines = "".join(
                     f"\n         {key}={value}"
                     for key, value in agent_session.forwarding_env().items()
                 )
+                ref = handle.slug or handle.id
+                if minted is not None:
+                    token_line = f"         PROBE_TOKEN={minted['token']}\n"
+                    life = (
+                        f"\n       the token records this run only and expires {_when(minted.get('expires_at'))}"
+                        + ("" if token_ttl_seconds
+                           else " (default 30 days: set --token-ttl to the run's expected length plus margin)")
+                        + f"; extend it with `probe run token {ref} --extend 7d`"
+                    )
+                else:
+                    token_line = "         PROBE_TOKEN from your secret store (probe token create)\n"
+                    life = f"\n       ({why_not})" if why_not else ""
                 typer.echo(
-                    f"probe: run {handle.slug or handle.id} is awaiting attach.\n"
+                    f"probe: run {ref} is awaiting attach.\n"
                     f"       forward these into the job or it reports nothing:\n"
-                    f"         PROBE_RUN_ID={handle.id}\n"
+                    + token_line
+                    + f"         PROBE_RUN_ID={handle.id}\n"
                     f"         PROBE_RUN_EPOCH={handle.write_epoch}"
                     + session_lines
+                    + life
                     + (f"\n       {hint}" if hint else ""),
                     err=True,
                 )
@@ -10453,6 +12166,9 @@ def exec(
             result = handle.execute(
                 argv,
                 cwd=cwd,
+                # The launcher submits with the run's own token, so what it
+                # forwards from its environment is never the researcher's key.
+                env=_job_token_env(minted, why_not),
                 finalize=not hands_off,
                 outputs=outputs if isinstance(outputs, str) and outputs else None,
                 capture_outputs=False if no_capture_outputs is True else None,
@@ -11778,10 +13494,9 @@ def session_status(
             # lease the daemon records and this is False; degraded, it is True.
             "writes_allowed": None if by_daemon else session_marker.agent_writes_freely(resolved, session_state),
             "daemon": _daemon_block(resolved, session_state),
-            # The daemon paused itself: the session's work is not ML and its
-            # state is a default (`state_source`), never the researcher's choice.
-            "auto_paused": session_marker.auto_paused(resolved, session_state),
-            # `unrecorded`: an older client seeded it (counts as explicit).
+            # Whether the researcher set the state (`explicit`) or it is a
+            # machine default (`default`); `unrecorded`: an older client seeded
+            # it (counts as explicit).
             "state_source": session_marker.state_source_label(resolved),
             # WHY, not just what. The status line shows two states on purpose, so
             # "off because I said so" and "off because this machine defaults off"

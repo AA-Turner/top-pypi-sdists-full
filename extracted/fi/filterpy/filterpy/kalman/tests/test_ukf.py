@@ -28,7 +28,9 @@ from numpy.random import randn
 from numpy import asarray
 import numpy as np
 from pytest import approx
+import scipy.linalg as linalg
 from scipy.spatial.distance import mahalanobis as scipy_mahalanobis
+from filterpy.kalman import ExtendedKalmanFilter
 from filterpy.kalman import UnscentedKalmanFilter
 from filterpy.kalman import (unscented_transform, MerweScaledSigmaPoints,
                              JulierSigmaPoints, SimplexSigmaPoints,
@@ -161,6 +163,32 @@ def test_simplex_sigma_points_1D():
     assert Xi.shape == (2, 1)
 
 
+def test_simplex_sigma_points_2D():
+    """ tests passing 1D data into sigma_points"""
+
+    sp = SimplexSigmaPoints(4)
+
+    Wm, Wc = sp.Wm, sp.Wc
+    assert np.allclose(Wm, Wc, 1e-12)
+    assert len(Wm) == 5
+
+    mean = np.array([-1, 2, 0, 5])
+
+    cov1 = np.array([[1, 0.5],
+                     [0.5, 1]])
+
+    cov2 = np.array([[5, 0.5],
+                     [0.5, 3]])
+
+    cov = linalg.block_diag(cov1, cov2)
+
+    Xi = sp.sigma_points(mean, cov)
+    xm, ucov = unscented_transform(Xi, Wm, Wc)
+
+    assert np.allclose(xm, mean)
+    assert np.allclose(cov, ucov)
+
+
 class RadarSim(object):
     def __init__(self, dt):
         self.x = 0
@@ -252,7 +280,7 @@ def test_linear_2d_merwe():
     kf = UnscentedKalmanFilter(dim_x=4, dim_z=2, dt=dt,
                                fx=fx, hx=hx, points=points)
 
-    kf.x = np.array([-1., 1., -1., 1])
+    kf.x = np.array([-1., 1, -1, 1])
     kf.P *= 1.1
 
     # test __repr__ doesn't crash
@@ -295,9 +323,20 @@ def test_linear_2d_simplex():
     kf.x = np.array([-1., 1., -1., 1])
     kf.P *= 0.0001
 
+    mss = MerweScaledSigmaPoints(4, .1, 2., -1)
+    ukf = UnscentedKalmanFilter(dim_x=4, dim_z=2, dt=dt,
+                               fx=fx, hx=hx, points=mss)
+
+    ukf.x = np.array([-1., 1., -1., 1])
+    ukf.P *= 1
+
+    x = kf.x
     zs = []
+
     for i in range(20):
-        z = np.array([i+randn()*0.1, i+randn()*0.1])
+        x = fx(x, dt)
+        z = np.array([x[0]+randn()*0.1, x[2]+randn()*0.1])
+
         zs.append(z)
 
     Ms, Ps = kf.batch_filter(zs)
@@ -308,6 +347,48 @@ def test_linear_2d_simplex():
         plt.plot(Ms[:, 0])
         plt.plot(smooth_x[:, 0], smooth_x[:, 2])
         print(smooth_x)
+
+
+def test_ukf_ekf_comparison():
+    def fx(x, dt):
+        # state transition function - predict next state based
+        # on constant velocity model x = vt + x_0
+        F = np.array([[1.]], dtype=np.float32)
+        return np.dot(F, x)
+
+    def hx(x):
+        # measurement function - convert state into a measurement
+        # where measurements are [x_pos, y_pos]
+        return np.array([x[0]])
+
+    dt = 1.0
+    # create sigma points to use in the filter. This is standard for Gaussian processes
+    points = MerweScaledSigmaPoints(1, alpha=1, beta=2., kappa=0.1)
+
+    ukf = UnscentedKalmanFilter(dim_x=1, dim_z=1, dt=dt, fx=fx, hx=hx, points=points)
+    ukf.x = np.array([0.]) # initial state
+    ukf.P = np.array([[1]]) # initial uncertainty
+    ukf.R = np.diag([1]) # 1 standard
+    ukf.Q = np.diag([1]) # 1 standard
+
+    ekf = ExtendedKalmanFilter(dim_x=1, dim_z=1)
+    ekf.F = np.array([[1]])
+
+    ekf.x = np.array([0.]) # initial state
+    ekf.P = np.array([[1]]) # initial uncertainty
+    ekf.R = np.diag([1]) # 1 standard
+    ekf.Q = np.diag([1]) # 1 standard
+
+    np.random.seed(0)
+    zs = [[np.random.randn()] for i in range(50)] # measurements
+    for z in zs:
+        ukf.predict()
+        ekf.predict()
+        assert np.allclose(ekf.P, ukf.P), 'ekf and ukf differ after prediction'
+
+        ukf.update(z)
+        ekf.update(z, lambda x: np.array([[1]]), hx)
+        assert np.allclose(ekf.P, ukf.P), 'ekf and ukf differ after update'
 
 
 def test_linear_1d():
@@ -504,20 +585,21 @@ def test_fixed_lag():
     flxs = np.asarray(flxs)
     print(xs[:, 0].shape)
 
-    plt.figure()
-    plt.subplot(311)
-    plt.plot(t, xs[:, 0])
-    plt.plot(t, flxs[:, 0], c='r')
-    plt.plot(t, M2[:, 0], c='g')
-    plt.subplot(312)
-    plt.plot(t, xs[:, 1])
-    plt.plot(t, flxs[:, 1], c='r')
-    plt.plot(t, M2[:, 1], c='g')
+    if DO_PLOT:
+        plt.figure()
+        plt.subplot(311)
+        plt.plot(t, xs[:, 0])
+        plt.plot(t, flxs[:, 0], c='r')
+        plt.plot(t, M2[:, 0], c='g')
+        plt.subplot(312)
+        plt.plot(t, xs[:, 1])
+        plt.plot(t, flxs[:, 1], c='r')
+        plt.plot(t, M2[:, 1], c='g')
 
-    plt.subplot(313)
-    plt.plot(t, xs[:, 2])
-    plt.plot(t, flxs[:, 2], c='r')
-    plt.plot(t, M2[:, 2], c='g')
+        plt.subplot(313)
+        plt.plot(t, xs[:, 2])
+        plt.plot(t, flxs[:, 2], c='r')
+        plt.plot(t, M2[:, 2], c='g')
 
 
 def test_circle():
@@ -771,40 +853,41 @@ def two_radar():
     track = asarray(track)
     time = np.arange(0, len(xs) * dt, dt)
 
-    plt.figure()
-    plt.subplot(411)
-    plt.plot(time, track[:, 0])
-    plt.plot(time, xs[:, 0])
-    plt.legend(loc=4)
-    plt.xlabel('time (sec)')
-    plt.ylabel('x position (m)')
-    plt.tight_layout()
+    if DO_PLOT:
+        plt.figure()
+        plt.subplot(411)
+        plt.plot(time, track[:, 0])
+        plt.plot(time, xs[:, 0])
+        plt.legend(loc=4)
+        plt.xlabel('time (sec)')
+        plt.ylabel('x position (m)')
+        plt.tight_layout()
 
-    plt.subplot(412)
-    plt.plot(time, track[:, 1])
-    plt.plot(time, xs[:, 2])
-    plt.legend(loc=4)
-    plt.xlabel('time (sec)')
-    plt.ylabel('y position (m)')
-    plt.tight_layout()
+        plt.subplot(412)
+        plt.plot(time, track[:, 1])
+        plt.plot(time, xs[:, 2])
+        plt.legend(loc=4)
+        plt.xlabel('time (sec)')
+        plt.ylabel('y position (m)')
+        plt.tight_layout()
 
-    plt.subplot(413)
-    plt.plot(time, xs[:, 1])
-    plt.plot(time, ms[:, 1])
-    plt.legend(loc=4)
-    plt.ylim([0, 0.2])
-    plt.xlabel('time (sec)')
-    plt.ylabel('x velocity (m/s)')
-    plt.tight_layout()
+        plt.subplot(413)
+        plt.plot(time, xs[:, 1])
+        plt.plot(time, ms[:, 1])
+        plt.legend(loc=4)
+        plt.ylim([0, 0.2])
+        plt.xlabel('time (sec)')
+        plt.ylabel('x velocity (m/s)')
+        plt.tight_layout()
 
-    plt.subplot(414)
-    plt.plot(time, xs[:, 3])
-    plt.plot(time, ms[:, 3])
-    plt.ylabel('y velocity (m/s)')
-    plt.legend(loc=4)
-    plt.xlabel('time (sec)')
-    plt.tight_layout()
-    plt.show()
+        plt.subplot(414)
+        plt.plot(time, xs[:, 3])
+        plt.plot(time, ms[:, 3])
+        plt.ylabel('y velocity (m/s)')
+        plt.legend(loc=4)
+        plt.xlabel('time (sec)')
+        plt.tight_layout()
+        plt.show()
 
 
 def test_linear_rts():
@@ -828,7 +911,7 @@ def test_linear_rts():
         return np.dot(H, x)
 
     sig_t = .1    # peocess
-    sig_o = .00000001   # measurement
+    sig_o = .0001   # measurement
 
     N = 50
     X_true, X_obs = [], []
@@ -937,32 +1020,89 @@ def _test_log_likelihood():
 
     s.to_array()
 
+    if DO_PLOT:
+        plt.plot(s.x[:, 0], s.x[:, 2])
 
-    plt.plot(s.x[:, 0], s.x[:, 2])
 
+def test_vhartman():
+    """
+    Code provided by vhartman on github #172
+
+    https://github.com/rlabbe/filterpy/issues/172
+    """
+
+    def fx(x, dt):
+        # state transition function - predict next state based
+        # on constant velocity model x = vt + x_0
+        F = np.array([[1.]], dtype=np.float32)
+        return np.dot(F, x)
+
+    def hx(x):
+       # measurement function - convert state into a measurement
+       # where measurements are [x_pos, y_pos]
+       return np.array([x[0]])
+
+    dt = 1.0
+    # create sigma points to use in the filter. This is standard for Gaussian processes
+    points = MerweScaledSigmaPoints(1, alpha=1, beta=2., kappa=0.1)
+
+    kf = UnscentedKalmanFilter(dim_x=1, dim_z=1, dt=dt, fx=fx, hx=hx, points=points)
+    kf.x = np.array([0.]) # initial state
+    kf.P = np.array([[1]]) # initial uncertainty
+    kf.R = np.diag([1]) # 1 standard
+    kf.Q = np.diag([1]) # 1 standard
+
+    ekf = ExtendedKalmanFilter(dim_x=1, dim_z=1)
+    ekf.F = np.array([[1]])
+
+    ekf.x = np.array([0.]) # initial state
+    ekf.P = np.array([[1]]) # initial uncertainty
+    ekf.R = np.diag([1]) # 1 standard
+    ekf.Q = np.diag([1]) # 1 standard
+
+    np.random.seed(0)
+    zs = [[np.random.randn()] for i in range(50)] # measurements
+    for z in zs:
+        kf.predict()
+        ekf.predict()
+        assert np.allclose(ekf.P, kf.P)
+        assert np.allclose(ekf.x, kf.x)
+
+        kf.update(z)
+        ekf.update(z, lambda x: np.array([[1]]), hx)
+        assert np.allclose(ekf.P, kf.P)
+        assert np.allclose(ekf.x, kf.x)
 
 if __name__ == "__main__":
-
     plt.close('all')
+
+    test_vhartman()
+    test_simplex_sigma_points_2D()
+
+    test_julier_sigma_points_1D()
+    test_simplex_sigma_points_1D()
+
     test_scaled_weights()
     _test_log_likelihood()
 
     test_linear_rts()
 
-    DO_PLOT = True
+    DO_PLOT = False
     test_sigma_plot()
     test_linear_1d()
+    test_ukf_ekf_comparison()
     test_batch_missing_data()
     #
     #est_linear_2d()
-    test_julier_sigma_points_1D()
-    test_simplex_sigma_points_1D()
     test_fixed_lag()
     # DO_PLOT = True
     test_rts()
     kf_circle()
     test_circle()
 
+
+    test_linear_2d_merwe()
+    test_linear_2d_simplex()
 
     '''test_1D_sigma_points()
     plot_sigma_test ()

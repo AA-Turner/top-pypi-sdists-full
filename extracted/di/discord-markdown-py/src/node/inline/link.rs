@@ -568,7 +568,7 @@ fn is_suspicious_whitespace(ch: char) -> bool {
 #[must_use]
 pub fn link<'ctx, 'data, S, E>(
 	context: &'ctx Context,
-) -> impl Parser<Input<'data>, Output = Link<S, Element<'data, S>>, Error = E> + 'ctx
+) -> impl Parser<Input<'data>, Output = (Link<S, Element<'data, S>>, S::Syntax), Error = E> + 'ctx
 where
 	S: Span,
 	E: ParseError<'data> + 'ctx,
@@ -579,10 +579,13 @@ where
 		alt((
 			masked::masked(context),
 			detection::detection(context),
-			map(auto::auto(context.clone()), |url| Link {
-				text: None,
-				title: None,
-				url,
+			map(auto::auto::<S, E>(context.clone()), |(url, syntax)| {
+				let link = Link {
+					text: None,
+					title: None,
+					url,
+				};
+				(link, syntax)
 			}),
 			contact::contact(context.clone()),
 		)),

@@ -216,6 +216,7 @@ class CfnCollection(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -262,7 +263,7 @@ class CfnCollection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8475d528ae41527da38a3e3ef20b3988703938f0440df9c74be2cd4234cdb6d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "collectionId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "collectionId", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -278,7 +279,7 @@ class CfnCollection(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__77f5ab15cea02999fa32036e3558af08ca21b17032d4915d2d3fc7c0c790bbbc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -469,6 +470,7 @@ class CfnDataset(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -515,7 +517,7 @@ class CfnDataset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4cafe517b316a1300008c8846a109e60b08b2b9c814cdb4e2c5e5718a0dfd265)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "datasetType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "datasetType", value)
 
     @builtins.property
     @jsii.member(jsii_name="projectArn")
@@ -528,7 +530,7 @@ class CfnDataset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5dbc0fff003233e15036856f6efa3cb56949e097dcfbf4093cde829bf1233b91)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "projectArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "projectArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -544,7 +546,7 @@ class CfnDataset(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb98f3ef618bc036e1ae9661d1df53d2d1c5440fc16afd7c37b07749454f7df0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -753,6 +755,7 @@ class CfnProject(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -799,7 +802,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a1962fa2cac2e24ef346e8a95c9cce8b1cf9023aaeae155bf61e10c5dbddf83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "projectName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "projectName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -815,7 +818,7 @@ class CfnProject(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9f76ffccbbdb561fc9875ae03156f8aa3928826112049f6a1dc78a9dee69dc1a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -1088,6 +1091,7 @@ class CfnStreamProcessor(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1159,7 +1163,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__544bd519e8f2f595255e1dda00353bdad3a1f366808872e2a020ab7ac0c68ede)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kinesisVideoStream", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kinesisVideoStream", value)
 
     @builtins.property
     @jsii.member(jsii_name="polygonRegionsOfInterest")
@@ -1172,7 +1176,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__32adcb2805477bf062e3a38ebed38564ceb277accb2b42fac998c1b5ce354c54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "polygonRegionsOfInterest", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "polygonRegionsOfInterest", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -1185,7 +1189,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6ceb033b416a9b50d7e1f7b205e95dc9fc9eeaa5ebe8b01d77b8db945e1617e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="boundingBoxRegionsOfInterest")
@@ -1203,7 +1207,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__acc75e18dc798eb00941485f051f88d386cbeab51667cb8be061da0b98c63396)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "boundingBoxRegionsOfInterest", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "boundingBoxRegionsOfInterest", value)
 
     @builtins.property
     @jsii.member(jsii_name="connectedHomeSettings")
@@ -1221,7 +1225,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8917bfe75ce52160b79d51e35bc32988d0117df4b4c5c2fcc5738d3adcbff9b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "connectedHomeSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "connectedHomeSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataSharingPreference")
@@ -1239,7 +1243,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb32e5089c11a4939bd2e9bee353c9a78566e808db896e1c677dd43c12926ebd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataSharingPreference", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataSharingPreference", value)
 
     @builtins.property
     @jsii.member(jsii_name="faceSearchSettings")
@@ -1257,7 +1261,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__566df51893024802a690a50b28be352b9fc757428a22f708bee01096b284279f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "faceSearchSettings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "faceSearchSettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="kinesisDataStream")
@@ -1275,7 +1279,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__389631c246d3fdbe6ca66d4b9806147f81f4854193101c9c3341c10c3a06de51)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kinesisDataStream", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kinesisDataStream", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -1288,7 +1292,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e9c6d353ba33bff601fce6ba9916bbea7fe2b890b0842c5ce26e962eb292dc57)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1301,7 +1305,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eea2935c2a6e509f6f9b8bac8defe6d3a7c700401c6d0e1fed5c595cc78a49a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="notificationChannel")
@@ -1319,7 +1323,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8781502f6d929597da76936c53e5a7d0df2ea7201c636dff5961d377bee07178)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "notificationChannel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "notificationChannel", value)
 
     @builtins.property
     @jsii.member(jsii_name="s3Destination")
@@ -1337,7 +1341,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0366aae7f57073426925f9ebba0e5762ee7449ce53690b7fc2381679f27838c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3Destination", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "s3Destination", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1353,7 +1357,7 @@ class CfnStreamProcessor(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a544bfd783dfe89e1f97d483f2cfa712d54a14e78538c5e39f6f4febe9970aeb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rekognition.CfnStreamProcessor.BoundingBoxProperty",

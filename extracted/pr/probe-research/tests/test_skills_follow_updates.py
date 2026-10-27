@@ -583,7 +583,7 @@ def test_refresh_brings_the_copies_to_the_installed_plugin(claude, monkeypatch):
 
     lines = root_skills.refresh("claude_code")
 
-    assert any("Refreshed 2 skill(s)" in line for line in lines), lines
+    assert any("Refreshed 2 skills" in line for line in lines), lines
     assert all(_text(claude, slug).endswith(f"NEW: {slug}\n") for slug in SLUGS)
     assert root_skills.refresh("claude_code") == [], "a second pass has nothing to say"
 
@@ -634,7 +634,7 @@ def test_an_update_refreshes_the_skills_every_open_session_reads(updating, monke
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
 
     text = "\n".join(outcome.lines)
-    assert f"plugin updated to {NEW}" in text and "Refreshed 2 skill(s)" in text, text
+    assert f"plugin updated to {NEW}" in text and "Refreshed 2 skills" in text, text
     assert all(_text(updating, slug).endswith(f"NEW: {slug}\n") for slug in SLUGS)
 
 

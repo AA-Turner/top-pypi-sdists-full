@@ -1029,6 +1029,7 @@ class CfnDomain(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1094,7 +1095,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e88303355599d25861730b061f1bc223b85a3768dad89b9fe895dcb0acbb018)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accessPolicies", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accessPolicies", value)
 
     @builtins.property
     @jsii.member(jsii_name="advancedOptions")
@@ -1112,7 +1113,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eccb4465105fe2d68c634cb9897defc7a979b09c5873770bdb861cc3cf9f6050)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "advancedOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "advancedOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="advancedSecurityOptions")
@@ -1130,7 +1131,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9970ee48d4d95c4a50fba27f7ecf5d29a7799901a417a50d5ea2d80bb2a7da73)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "advancedSecurityOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "advancedSecurityOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="cognitoOptions")
@@ -1148,7 +1149,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee253fc130f6145a5f54d7b09ff1166a449bd9ecc8b1142d2cd799fd8c3e8122)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cognitoOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cognitoOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainArn")
@@ -1160,7 +1161,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8adbdde3df8afce52a188616c8a9ed40b29c6c6ea3a14493572b5169a4bbcaaf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainEndpointOptions")
@@ -1178,7 +1179,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ff33eeb03219f470f43d7c038ac4ad48acfa3561168de4acd90068625c223f8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainEndpointOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainEndpointOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -1191,7 +1192,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__547819c192aff9b477504559c5f7c768a4e9c9606b6bcb8fed954fa8a2f967c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="ebsOptions")
@@ -1209,7 +1210,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b92aff95c5a4b46939639f06cb47d5cb23bc8cce780233b7fed861d0a33b21b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ebsOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ebsOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="elasticsearchClusterConfig")
@@ -1227,7 +1228,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02e4164981f0950c083faf5427ec43d8fa41b58062af5ea5e2be947066d05721)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "elasticsearchClusterConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "elasticsearchClusterConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="elasticsearchVersion")
@@ -1240,7 +1241,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e2effedbe60ffc2fb8fe65b2cdddd9a29cfdcb61eef184721846e6b028414da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "elasticsearchVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "elasticsearchVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionAtRestOptions")
@@ -1258,7 +1259,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c2f6f3e7bbcfd1c4ed35e1ea39cf14fc7af68d4b175db0fd18d69c66b89ad9d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionAtRestOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionAtRestOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="logPublishingOptions")
@@ -1276,7 +1277,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b68ea5f4731e0bc02f7a196cd4b14d0ac22f6e22a661283031c3be761ff5c610)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logPublishingOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logPublishingOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="nodeToNodeEncryptionOptions")
@@ -1294,7 +1295,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__20a665cc917a112af2348ce54c28aa2743e93ef9dabf60cfbee200092f3bb7c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "nodeToNodeEncryptionOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "nodeToNodeEncryptionOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="snapshotOptions")
@@ -1312,7 +1313,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ceb39ec0c3dca28571cbfbe9689bd6457a60fd17d054c9abf0a2c09165aef74)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snapshotOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snapshotOptions", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1328,7 +1329,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c9076d2462cf49a948d9ea5d30b6392387174b389efc4e1dda4e4789f95edc66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcOptions")
@@ -1346,7 +1347,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dff64c1f5c7bb8053ed4408ea633c0472baa0e83f0f43be1e87eb569f30f6739)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcOptions", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_elasticsearch.CfnDomain.AdvancedSecurityOptionsInputProperty",
@@ -4197,114 +4198,133 @@ class ElasticsearchVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_5")
+    @builtins.classmethod
     def V1_5(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 1.5.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V1_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_3")
+    @builtins.classmethod
     def V2_3(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 2.3.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V2_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V5_1")
+    @builtins.classmethod
     def V5_1(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 5.1.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V5_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V5_3")
+    @builtins.classmethod
     def V5_3(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 5.3.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V5_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V5_5")
+    @builtins.classmethod
     def V5_5(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 5.5.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V5_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V5_6")
+    @builtins.classmethod
     def V5_6(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 5.6.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V5_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V6_0")
+    @builtins.classmethod
     def V6_0(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 6.0.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V6_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V6_2")
+    @builtins.classmethod
     def V6_2(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 6.2.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V6_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V6_3")
+    @builtins.classmethod
     def V6_3(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 6.3.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V6_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V6_4")
+    @builtins.classmethod
     def V6_4(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 6.4.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V6_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V6_5")
+    @builtins.classmethod
     def V6_5(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 6.5.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V6_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V6_7")
+    @builtins.classmethod
     def V6_7(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 6.7.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V6_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V6_8")
+    @builtins.classmethod
     def V6_8(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 6.8.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V6_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V7_1")
+    @builtins.classmethod
     def V7_1(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 7.1.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V7_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V7_10")
+    @builtins.classmethod
     def V7_10(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 7.10.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V7_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V7_4")
+    @builtins.classmethod
     def V7_4(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 7.4.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V7_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V7_7")
+    @builtins.classmethod
     def V7_7(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 7.7.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V7_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V7_8")
+    @builtins.classmethod
     def V7_8(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 7.8.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V7_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V7_9")
+    @builtins.classmethod
     def V7_9(cls) -> "ElasticsearchVersion":
         '''AWS Elasticsearch 7.9.'''
         return typing.cast("ElasticsearchVersion", jsii.sget(cls, "V7_9"))
@@ -7976,6 +7996,7 @@ class Domain(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''(deprecated) Uniquely identifies this class.
 

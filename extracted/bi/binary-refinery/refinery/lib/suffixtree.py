@@ -4,10 +4,9 @@ This module contains an implementation of Ukkonen's suffix tree algorithm.
 from __future__ import annotations
 
 from abc import ABCMeta
-from collections import deque
-from io import BytesIO
+from collections.abc import Iterator
 
-from refinery.lib.types import Iterable, Self, buf
+from refinery.lib.types import Self, buf
 
 
 class NodeMeta(ABCMeta):
@@ -16,28 +15,38 @@ class NodeMeta(ABCMeta):
         return ABCMeta.__new__(mcls, name, bases, namespace)
 
 
+class Source:
+    """
+    The data of a `refinery.lib.suffixtree.SuffixTree` and the position of the last byte that was
+    added to the tree, which is where every leaf ends. The nodes of a tree share it; it refers to
+    no node, so that the tree forms no reference cycle.
+    """
+    __slots__ = 'data', 'end'
+
+    def __init__(self, data: memoryview):
+        self.data = data
+        self.end = -1
+
+
 class Node(metaclass=NodeMeta):
+    """
+    A node of a `refinery.lib.suffixtree.SuffixTree`. The edge to the node spells the data from
+    `start` to `end`. While the tree is built, `link` is the suffix link of the node.
+    """
     children: dict[int, Self]
     end: int
     link: Node | None
     start: int
-    tree: SuffixTree
+    source: Source
 
-    def __init__(self, tree: SuffixTree):
-        self.tree = tree
+    def __init__(self, source: Source):
+        self.source = source
         self.link = None
         self.children = {}
 
     @property
     def label(self) -> buf:
-        return self.tree.data[self.start:self.end + 1]
-
-    @property
-    def rootpath(self) -> Iterable[Node]:
-        if self.link is None:
-            return
-        yield from self.link.rootpath
-        yield self
+        return self.source.data[self.start:self.end + 1]
 
     def visualize(self, depth=0, **kwargs):
         r = repr(self)
@@ -45,70 +54,61 @@ class Node(metaclass=NodeMeta):
         for child in self.children.values():
             child.visualize(depth + 1, **kwargs)
 
-    @property
-    def depth(self) -> int:
-        if self.link is None:
-            return 0
-        return 1 + self.link.depth
-
-    @property
-    def suffix(self) -> bytes:
-        with BytesIO() as stream:
-            for node in self.rootpath:
-                stream.write(node.label)
-            return stream.getvalue()
-
-    def fixlinks(self):
-        queue = deque([self])
-        while queue:
-            node = queue.pop()
-            for child in node.children.values():
-                queue.appendleft(child)
-                child.link = node
+    def unlink(self):
+        """
+        Drops the suffix links of this node and of all nodes below it. They are needed only while
+        the tree is built, and they would keep the tree in reference cycles.
+        """
+        pending = [self]
+        while pending:
+            node = pending.pop()
+            node.link = None
+            pending.extend(node.children.values())
 
     def __repr__(self) -> str:
         label = bytes(self.label).decode('utf8', errors='backslashreplace')
         label = label and F': {label}'
         return F'<{self.__class__.__name__}{label}>'
 
-    def __iter__(self) -> Iterable[Node]:
+    def __iter__(self) -> Iterator[Node]:
         yield from self.children.values()
 
 
 class Link(Node):
 
-    def __init__(self, tree: SuffixTree, start=None, end=None):
-        Node.__init__(self, tree)
+    def __init__(self, source: Source, root: Root, start: int, end: int):
+        Node.__init__(self, source)
         self.start = start
-        self.link = tree.root
+        self.link = root
         self.end = end
 
 
 class Leaf(Node):
-    def __init__(self, tree: SuffixTree, start=None):
-        Node.__init__(self, tree)
+
+    def __init__(self, source: Source, root: Root, start: int):
+        Node.__init__(self, source)
         self.start = start
-        self.link = tree.root
+        self.link = root
 
     @property
     def end(self):
-        return self.tree.cursor
+        return self.source.end
 
 
 class Root(Node):
-    def __init__(self, tree: SuffixTree):
-        Node.__init__(self, tree)
+    def __init__(self, source: Source):
+        Node.__init__(self, source)
         self.start = self.end = -1
 
 
 class SuffixTree:
     root: Root
-    data: buf
-    cursor: int
+    data: memoryview
 
     def __init__(self, data: buf):
         self.data = memoryview(data)
-        self.root = Root(self)
+        self.source = source = Source(self.data)
+        self.root = Root(source)
 
         self.half = None
         self.node = self.root
@@ -117,8 +117,9 @@ class SuffixTree:
         self.length_left = 0
         self.leaves: list[Leaf] = []
 
-        for self.cursor in range(len(self.data)):
-            self.extend()
+        for cursor in range(len(self.data)):
+            source.end = cursor
+            self.extend(cursor)
 
         del self.suffix_left
         del self.length_left
@@ -126,9 +127,9 @@ class SuffixTree:
         del self.node
         del self.half
 
-        self.root.fixlinks()
+        self.root.unlink()
 
-    def __iter__(self) -> Iterable[Node]:
+    def __iter__(self) -> Iterator[Node]:
         yield from self.root.children.values()
 
     def traversable(self, node):
@@ -140,41 +141,41 @@ class SuffixTree:
         self.length_left -= length
         return True
 
-    def sprout(self) -> Leaf:
-        leaf = Leaf(self, self.cursor)
+    def sprout(self, cursor: int) -> Leaf:
+        leaf = Leaf(self.source, self.root, cursor)
         self.leaves.append(leaf)
         return leaf
 
-    def extend(self):
+    def extend(self, cursor: int):
         self.suffix_left += 1
         self.half = None
 
         while self.suffix_left > 0:
 
             if not self.length_left:
-                self.end = self.cursor
+                self.end = cursor
 
             bridge = self.node.children.get(self.data[self.end])
 
             if bridge:
                 if self.traversable(bridge):
                     continue
-                if self.data[bridge.start + self.length_left] == self.data[self.cursor]:
+                if self.data[bridge.start + self.length_left] == self.data[cursor]:
                     if self.half is not None and self.node != self.root:
                         self.half.link = self.node
                         self.half = None
                     self.length_left += 1
                     break
-                split = Link(self, bridge.start, bridge.start + self.length_left - 1)
+                split = Link(self.source, self.root, bridge.start, bridge.start + self.length_left - 1)
                 self.node.children[self.data[self.end]] = split
-                split.children[self.data[self.cursor]] = self.sprout()
+                split.children[self.data[cursor]] = self.sprout(cursor)
                 bridge.start += self.length_left
                 split.children[self.data[bridge.start]] = bridge
                 if self.half:
                     self.half.link = split
                 self.half = split
             else:
-                self.node.children[self.data[self.end]] = self.sprout()
+                self.node.children[self.data[self.end]] = self.sprout(cursor)
                 if self.half:
                     self.half.link = self.node
                     self.half = None
@@ -185,4 +186,4 @@ class SuffixTree:
                 self.node = self.node.link
             elif self.length_left:
                 self.length_left -= 1
-                self.end = self.cursor - self.suffix_left + 1
+                self.end = cursor - self.suffix_left + 1

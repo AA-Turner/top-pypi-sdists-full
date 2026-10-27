@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agenticstar-platform
-Version: 3.1.4
+Version: 3.2.0
 Summary: AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure
 Project-URL: Homepage, https://developers.fd.agenticstar.tm.softbank.jp/
 Project-URL: Documentation, https://developers.fd.agenticstar.tm.softbank.jp/
@@ -935,7 +935,7 @@ client_secret = "your-client-secret"
 
 [auth.agenticstar]
 base_url = "https://auth.example.com"
-api_key = ""
+api_key = ""  # Bearer token, sent as "Authorization: Bearer ..."
 timeout = 30.0
 max_retries = 3
 
@@ -992,6 +992,14 @@ api_version = "2024-02-15-preview"
 See the [developer portal](https://developers.fd.agenticstar.tm.softbank.jp/) for the SDK guides and API reference.
 
 ## Changelog
+
+### 3.2.0 (2026-10-26) — auth: the `api_key` authentication mode (`X-Internal-API-Key` header) is removed
+
+The version follows the platform release (3.2.0).
+
+- **Breaking: `auth_type="api_key"` is removed.** `AgenticStarAuthConfig` accepts only `auth_type="bearer"`, the default. Passing `"api_key"` — the old mode that sent `api_key` in an `X-Internal-API-Key` header — or any other value now raises `AuthConfigError` when the config is built (`AgenticStarAuthConfig.create(...)`, the constructor or `dataclasses.replace`), and `AgenticStarAuthClient` refuses a config whose `auth_type` was changed afterwards. The platform's auth service no longer accepts that header, so a client in this mode could not authenticate anyway.
+- **What to do**: remove `auth_type="api_key"` and pass a Bearer token as `api_key` (sent as `Authorization: Bearer ...`), or a `token_provider` that returns one. Code that passes `auth_type="bearer"` or leaves it out works as before; requests never carry an `X-Internal-API-Key` header.
+- No behaviour change: in the workflow child's failure summary (3.1.3), each exception of the cause chain is described by its own helper. The chain and the text written to stderr are the same.
 
 ### 3.1.4 (2026-10-24) — docs: the A2A `payload` of an external request
 
@@ -1421,4 +1429,4 @@ Marketplace SDK reliability fixes (surfaced while building agents from the guide
 
 ## Version
 
-3.1.4
+3.2.0

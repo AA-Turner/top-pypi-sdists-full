@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from itertools import zip_longest
+from math import prod
 from numbers import Integral
 
 import numba
@@ -18,6 +19,7 @@ def getitem(x, key):
     2-dimensional key and then iterate through each of the relevent rows and
     columns.
     """
+    from .._sparse_array import SparseArray
     from .compressed import GCXS
 
     if x.ndim == 1:
@@ -26,7 +28,14 @@ def getitem(x, key):
             return result
         return GCXS.from_coo(result)
 
+    orig_key = key
     key = list(normalize_index(key, x.shape))
+
+    # Several index arrays select elements pointwise (like ``zip``), not their
+    # Cartesian product, which the compressed selection below assumes
+    if sum(isinstance(k, np.ndarray) for k in key) > 1:
+        result = x.tocoo()[orig_key]
+        return GCXS.from_coo(result) if isinstance(result, SparseArray) else result
 
     # zip_longest so things like x[..., None] are picked up.
     if len(key) != 0 and all(isinstance(k, slice) and k == slice(0, dim, 1) for k, dim in zip_longest(key, x.shape)):
@@ -45,6 +54,13 @@ def getitem(x, key):
 
     # remove Nones from key, evaluate them at the end
     Nones_removed = [k for k in key if k is not None]
+
+    # a single element with new axes, e.g. x[1, None, 2]
+    if all(isinstance(k, Integral) for k in Nones_removed):
+        value = get_single_element(x, Nones_removed)
+        shape = (1,) * (len(key) - len(Nones_removed))
+        return GCXS.from_numpy(np.full(shape, value, dtype=x.dtype), fill_value=x.fill_value)
+
     count = 0
     for i, ind in enumerate(Nones_removed):
         if isinstance(ind, Integral):
@@ -79,38 +95,30 @@ def getitem(x, key):
         elif isinstance(ind, Iterable) and not is_sorted(ind):
             pos_slice = False
 
-    # convert all ints and slices to iterables before flattening
-    for i, ind in enumerate(reordered_key):
-        if isinstance(ind, Integral):
-            reordered_key[i] = np.array([ind])
-        elif isinstance(ind, slice):
-            reordered_key[i] = np.arange(ind.start, ind.stop, ind.step)
-        elif isinstance(ind, np.ndarray) and ind.ndim > 1:
-            raise IndexError("Only one-dimensional iterable indices supported.")
-
-        reordered_key[i] = reordered_key[i].astype(x.indices.dtype, copy=False)
-
-    reordered_key = List(reordered_key)
-    shape = np.array(shape)
+    shape = np.array(shape, dtype=np.intp)
 
     # convert all indices of compressed axes to a single array index
     # this tells us which 'rows' of the underlying csr matrix to iterate through
     rows = convert_to_flat(
-        reordered_key[: x._axisptr],
+        _asindexarrays(reordered_key[: x._axisptr], x.indices.dtype),
         x._reordered_shape[: x._axisptr],
-        x.indices.dtype,
-    )
-
-    # convert all indices of uncompressed axes to a single array index
-    # this tells us which 'columns' of the underlying csr matrix to iterate through
-    cols = convert_to_flat(
-        reordered_key[x._axisptr :],
-        x._reordered_shape[x._axisptr :],
         x.indices.dtype,
     )
 
     starts = x.indptr[:-1][rows]  # find the start and end of each of the rows
     ends = x.indptr[1:][rows]
+
+    column_key = reordered_key[x._axisptr :]
+    basic_columns = all(isinstance(ind, (Integral, slice)) for ind in column_key)
+    if basic_columns:
+        column_lengths = np.array(
+            [len(range(ind.start, ind.stop, ind.step)) if isinstance(ind, slice) else 1 for ind in column_key],
+            dtype=np.intp,
+        )
+        column_count = prod(int(length) for length in column_lengths)
+        # A broad basic slice should visit stored entries, not materialise the
+        # Cartesian product of its columns. Keep binary searches for narrow keys.
+        basic_columns = column_count == 0 or column_count > np.max(ends - starts, initial=0)
     if np.any(compressed_inds):
         compressed_axes = shape_key[compressed_inds]
 
@@ -125,12 +133,43 @@ def getitem(x, key):
         compressed_axes = (0,)  # defaults to 0
         row_size = starts.size
 
+    # This is the output buffer; selection helpers never write to x.indptr.
     indptr = np.empty(row_size + 1, dtype=x.indptr.dtype)
     indptr[0] = 0
-    if pos_slice:
-        arg = get_slicing_selection(x.data, x.indices, indptr, starts, ends, cols)
+    if basic_columns:
+        column_starts = np.array([ind.start if isinstance(ind, slice) else ind for ind in column_key], dtype=np.intp)
+        # Python slice steps can exceed intp. A zero/one-element axis can use
+        # step one without changing which coordinates match.
+        column_steps = np.array(
+            [
+                ind.step if isinstance(ind, slice) and length > 1 else 1
+                for ind, length in zip(column_key, column_lengths, strict=True)
+            ],
+            dtype=np.intp,
+        )
+        arg = get_basic_selection(
+            x.data,
+            x.indices,
+            indptr,
+            starts,
+            ends,
+            np.asarray(x._reordered_shape[x._axisptr :], dtype=np.intp),
+            column_starts,
+            column_steps,
+            column_lengths,
+        )
     else:
-        arg = get_array_selection(x.data, x.indices, indptr, starts, ends, cols)
+        # Advanced indices can repeat columns. Flatten only those, or a basic
+        # key whose column count is bounded by the selected rows' stored entries.
+        cols = convert_to_flat(
+            _asindexarrays(column_key, x.indices.dtype),
+            x._reordered_shape[x._axisptr :],
+            x.indices.dtype,
+        )
+        if pos_slice:
+            arg = get_slicing_selection(x.data, x.indices, indptr, starts, ends, cols)
+        else:
+            arg = get_array_selection(x.data, x.indices, indptr, starts, ends, cols)
 
     data, indices, indptr = arg
     size = np.prod(shape[1:])
@@ -157,13 +196,23 @@ def getitem(x, key):
 
     arg = (data, indices, indptr)
 
-    # if there were Nones in the key, we insert them back here
+    if indptr is None and len(Nones_removed) != len(key):
+        # A 1-d result has no index pointer, so add the new axes by reshaping it
+        result = GCXS(arg, shape=tuple(shape.tolist()), fill_value=x.fill_value)
+        return result.reshape(tuple(1 if ind is None else -1 for ind in key if not isinstance(ind, Integral)))
+
+    # if there were Nones in the key, we insert them back here, counting only
+    # the axes that are kept in the result (integer indices remove an axis)
     compressed_axes = np.array(compressed_axes)
     shape = shape.tolist()
-    for i in range(len(key)):
-        if key[i] is None:
-            shape.insert(i, 1)
-            compressed_axes[compressed_axes >= i] += 1
+    axis = 0
+    for ind in key:
+        if ind is None:
+            shape.insert(axis, 1)
+            compressed_axes[compressed_axes >= axis] += 1
+            axis += 1
+        elif not isinstance(ind, Integral):
+            axis += 1
 
     compressed_axes = tuple(compressed_axes)
     shape = tuple(shape)
@@ -172,6 +221,76 @@ def getitem(x, key):
         compressed_axes = None
 
     return GCXS(arg, shape=shape, compressed_axes=compressed_axes, fill_value=x.fill_value)
+
+
+def _asindexarrays(key, dtype):
+    """Convert normalized indices to typed arrays for Cartesian flattening."""
+    arrays = List.empty_list(numba.types.Array(numba.from_dtype(np.dtype(dtype)), 1, "A", readonly=True))
+    for ind in key:
+        if isinstance(ind, Integral):
+            ind = np.array([ind])
+        elif isinstance(ind, slice):
+            ind = np.arange(ind.start, ind.stop, ind.step)
+        elif isinstance(ind, np.ndarray) and ind.ndim > 1:
+            raise IndexError("Only one-dimensional iterable indices supported.")
+        arrays.append(ind.astype(dtype, copy=False))
+    return arrays
+
+
+@numba.jit(nopython=True, nogil=True)
+def get_basic_selection(
+    arr_data, arr_indices, out_indptr, starts, ends, shape, column_starts, steps, lengths
+):  # pragma: no cover
+    """
+    Filter stored columns for basic indexing without expanding the slice grid.
+
+    Decode each stored column into coordinates and map matching coordinates to
+    the sliced shape. Integer keys are represented by a length-one slice. The
+    temporary storage is bounded by the entries in the selected compressed rows,
+    including repetitions of a row, rather than the logical number of columns.
+    The caller provides a newly allocated output buffer in ``out_indptr``.
+    """
+    if np.any(lengths == 0):
+        out_indptr[:] = 0
+        return arr_data[:0].copy(), arr_indices[:0].copy(), out_indptr
+
+    strides = np.empty(len(shape), dtype=np.intp)
+    out_strides = np.empty(len(shape), dtype=np.intp)
+    stride = 1
+    out_stride = 1
+    # Numba's nopython mode does not support reversed(range(...)).
+    for axis in range(len(shape) - 1, -1, -1):
+        strides[axis] = stride
+        out_strides[axis] = out_stride
+        stride *= shape[axis]
+        out_stride *= lengths[axis]
+
+    positions = np.empty(np.sum(ends - starts), dtype=np.intp)
+    indices = np.empty(positions.size, dtype=arr_indices.dtype)
+    count = 0
+    reverse = np.any(steps < 0)
+    for row in range(len(starts)):
+        row_start = count
+        for position in range(starts[row], ends[row]):
+            column = np.intp(arr_indices[position])
+            new_column = 0
+            for axis in range(len(shape)):
+                coordinate = column // strides[axis] % shape[axis]
+                delta = coordinate - column_starts[axis]
+                offset = delta // steps[axis]
+                if delta % steps[axis] != 0 or offset < 0 or offset >= lengths[axis]:
+                    break
+                new_column += offset * out_strides[axis]
+            else:
+                positions[count] = position
+                indices[count] = new_column
+                count += 1
+        if reverse:
+            order = np.argsort(indices[row_start:count])
+            indices[row_start:count] = indices[row_start:count][order]
+            positions[row_start:count] = positions[row_start:count][order]
+        out_indptr[row + 1] = count
+    return arr_data[positions[:count]], indices[:count].copy(), out_indptr
 
 
 @numba.jit(nopython=True, nogil=True)

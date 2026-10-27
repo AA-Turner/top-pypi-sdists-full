@@ -205,7 +205,7 @@ class ProjectService:
         return self._api.patch(
             f"/v1/projects/{project_name}",
             response_model=ProjectUpdateResponse,
-            json_data=payload.model_dump(exclude_none=True),
+            json_data=payload.model_dump(mode="json", exclude_none=True),
         )
 
     def delete_project(self, project_name: str) -> ProjectDeleteResponse:

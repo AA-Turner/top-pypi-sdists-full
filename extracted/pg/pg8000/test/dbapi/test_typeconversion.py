@@ -27,7 +27,6 @@ from pg8000.converters import (
     pg_interval_out,
 )
 
-
 # Type conversion tests
 
 

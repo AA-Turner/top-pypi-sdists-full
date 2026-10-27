@@ -8,13 +8,8 @@ Reference: https://github.com/lzfse/lzfse
 """
 from __future__ import annotations
 
-import struct
-
-_LZFSE_V1_MAGIC: int = 0x31787662
-_LZFSE_V2_MAGIC: int = 0x32787662
-_LZVN_MAGIC: int = 0x6E787662
-_UNCOMPRESSED_MAGIC: int = 0x2D787662
-_ENDOFSTREAM_MAGIC: int = 0x24787662
+from refinery.lib.exceptions import RefineryPartialResult
+from refinery.lib.fast.lzfse_header import BlockHeader, BlockKind, read_block_header
 
 _ENCODE_L_SYMBOLS: int = 20
 _ENCODE_M_SYMBOLS: int = 20
@@ -75,6 +70,8 @@ _LZVN_OPC_TABLE: list[int] = [
     8, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
     10, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
 ]
+_LZVN_INSTRUCTION_SIZE: list[int] = [1, 1, 1, 2, 3, 3, 1, 1, 2, 1, 2]
+
 _FREQ_NBITS_TABLE: list[int] = [
     2, 3, 2, 5, 2, 3, 2, 8, 2, 3, 2, 5, 2, 3, 2, 14,
     2, 3, 2, 5, 2, 3, 2, 8, 2, 3, 2, 5, 2, 3, 2, 14,
@@ -94,33 +91,42 @@ def _clz32(x: int) -> int:
     return 32 - x.bit_length()
 
 
-def _read_le_u64_safe(buf: bytes | bytearray | memoryview, pos: int) -> int:
+def _fse_in_load(state: list, pos: int) -> int:
     """
-    Read up to 8 bytes as LE uint64, zero-padding if near buffer boundary.
+    Read 8 bytes at `pos` as LE uint64; bytes outside the payload of the stream read as zero.
     """
-    end = pos + 8
-    if end <= len(buf):
-        return struct.unpack_from('<Q', buf, pos)[0]
-    result = 0
-    for i in range(min(len(buf) - pos, 8)):
-        result |= buf[pos + i] << (8 * i)
-    return result
+    lo = max(pos, state[4])
+    hi = min(pos + 8, state[5])
+    if lo >= hi:
+        return 0
+    return int.from_bytes(state[0][lo:hi], 'little') << (8 * (lo - pos))
 
 
-def _fse_in_init(buf: bytes | bytearray | memoryview, offset: int, nbytes: int, nbits: int) -> list:
+def _fse_in_init(buf: memoryview, start: int, end: int, nbits: int) -> list:
     """
-    Initialise a backward bit-stream reader for the 64-bit FSE decoding path.
+    Initialise a backward bit-stream reader for the 64-bit FSE decoding path over the payload from
+    `start` to `end`.
     """
-    buf_pos = offset + nbytes
+    state = [buf, 0, 0, 0, start, end]
     if nbits:
-        buf_pos -= 8
-        accum = _read_le_u64_safe(buf, buf_pos)
-        accum_nbits = nbits + 64
+        state[1] = end - 8
+        state[2] = _fse_in_load(state, end - 8)
+        state[3] = nbits + 64
     else:
-        buf_pos -= 7
-        accum = _read_le_u64_safe(buf, buf_pos) & 0xFFFFFFFFFFFFFF
-        accum_nbits = 56
-    return [buf, buf_pos, accum, accum_nbits]
+        state[1] = end - 7
+        state[2] = _fse_in_load(state, end - 7) & 0xFFFFFFFFFFFFFF
+        state[3] = 56
+    if state[2] >> state[3]:
+        raise ValueError('the unused bits of an LZFSE bit stream are not zero')
+    return state
+
+
+def _fse_in_remaining(state: list) -> int:
+    """
+    The number of payload bits that were not consumed yet; it is negative when bits from before the
+    start of the payload were consumed.
+    """
+    return state[3] + 8 * (state[1] - state[4])
 
 
 def _fse_in_flush(state: list) -> None:
@@ -130,16 +136,15 @@ def _fse_in_flush(state: list) -> None:
     Matches fse_in_checked_flush64 from the C reference: left-shift the
     existing accumulator, then OR in new bits at the bottom.
     """
+    if _fse_in_remaining(state) < 0:
+        raise ValueError('an LZFSE bit stream ends before its last symbol')
     accum_nbits = state[3]
     nbits = (63 - accum_nbits) & ~7
     if nbits <= 0:
         return
-    nbytes = nbits >> 3
-    buf_pos = state[1] - nbytes
-    if buf_pos < 0:
-        return
+    buf_pos = state[1] - (nbits >> 3)
     state[1] = buf_pos
-    incoming = _read_le_u64_safe(state[0], buf_pos)
+    incoming = _fse_in_load(state, buf_pos)
     state[2] = (state[2] << nbits) | (incoming & ((1 << nbits) - 1))
     state[3] = accum_nbits + nbits
 
@@ -224,12 +229,10 @@ def _fse_init_value_decoder_table(
     return table
 
 
-def _decode_v2_freq_table(buf: bytes | bytearray | memoryview, offset: int, header_size: int) -> list[int]:
+def _decode_v2_freq_table(buf: memoryview, pos: int, end: int) -> list[int]:
     """
-    Decode the variable-length compressed frequency table from a V2 header.
-
-    The frequency payload starts at offset (after the fixed fields) and extends
-    to header_size bytes from the block start.
+    Decode the variable-length compressed frequency table from a V2 header, which must consume the
+    bytes from `pos` to `end`.
 
     Returns a list of 360 frequency values (L:20 + M:20 + D:64 + literal:256).
     """
@@ -237,106 +240,42 @@ def _decode_v2_freq_table(buf: bytes | bytearray | memoryview, offset: int, head
 
     accum = 0
     accum_nbits = 0
-    src_pos = offset
 
     freqs: list[int] = []
 
     while len(freqs) < total_freq_count:
-        while accum_nbits < 14:
-            if src_pos < len(buf):
-                accum |= buf[src_pos] << accum_nbits
-                src_pos += 1
-                accum_nbits += 8
-            else:
-                break
+        while accum_nbits < 14 and pos < end:
+            accum |= buf[pos] << accum_nbits
+            pos += 1
+            accum_nbits += 8
 
         lookup = accum & 0x1F
         nbits = _FREQ_NBITS_TABLE[lookup]
-        value = _FREQ_VALUE_TABLE[lookup]
-
-        if nbits <= 5:
-            accum >>= nbits
-            accum_nbits -= nbits
-            freqs.append(value)
-        elif nbits == 8:
-            accum >>= 4
-            accum_nbits -= 4
-            value = 8 + (accum & 0xF)
-            accum >>= 4
-            accum_nbits -= 4
-            freqs.append(value)
+        if nbits > accum_nbits:
+            raise ValueError('an LZFSE frequency table ends before its last value')
+        if nbits == 8:
+            freqs.append(8 + ((accum >> 4) & 0xF))
         elif nbits == 14:
-            accum >>= 4
-            accum_nbits -= 4
-            value = 24 + (accum & 0x3FF)
-            accum >>= 10
-            accum_nbits -= 10
-            freqs.append(value)
+            freqs.append(24 + ((accum >> 4) & 0x3FF))
         else:
-            raise ValueError(F'unexpected nbits={nbits} in V2 frequency table')
+            freqs.append(_FREQ_VALUE_TABLE[lookup])
+        accum >>= nbits
+        accum_nbits -= nbits
+
+    if pos < end or accum_nbits >= 8:
+        raise ValueError('an LZFSE frequency table does not fill its header')
 
     return freqs
 
 
-def _decode_lzfse_block(
-    buf: bytes | bytearray | memoryview,
-    pos: int,
-    output: bytearray,
-) -> int:
+def _decode_lzfse_block(buf: memoryview, header: BlockHeader, output: bytearray) -> None:
     """
-    Decode a single LZFSE compressed block (V1 or V2) starting at pos.
-
-    Returns the new position in buf after consuming the block.
-    Appends decompressed data to output.
+    Decode an LZFSE V1 or V2 block and append the decompressed data to output.
     """
-    magic = struct.unpack_from('<I', buf, pos)[0]
-
-    if magic == _LZFSE_V2_MAGIC:
-        return _decode_lzfse_v2_block(buf, pos, output)
-    elif magic == _LZFSE_V1_MAGIC:
-        return _decode_lzfse_v1_block(buf, pos, output)
+    if header.kind is BlockKind.LZFSE_V2:
+        freqs = _decode_v2_freq_table(buf, header.freq_table, header.payload)
     else:
-        raise ValueError(F'expected LZFSE block magic, got 0x{magic:08X}')
-
-
-def _decode_lzfse_v2_block(
-    buf: bytes | bytearray | memoryview,
-    pos: int,
-    output: bytearray,
-) -> int:
-    """
-    Decode a V2 LZFSE block. Returns new position.
-    """
-    block_start = pos
-    pos += 4
-
-    n_raw_bytes = struct.unpack_from('<I', buf, pos)[0]
-    pos += 4
-
-    pf0, pf1, pf2 = struct.unpack_from('<QQQ', buf, pos)
-    pos += 24
-
-    n_literals = pf0 & 0xFFFFF
-    n_literal_payload_bytes = (pf0 >> 20) & 0xFFFFF
-    n_matches = (pf0 >> 40) & 0xFFFFF
-    literal_bits = ((pf0 >> 60) & 0x7) - 7
-
-    literal_state0 = pf1 & 0x3FF
-    literal_state1 = (pf1 >> 10) & 0x3FF
-    literal_state2 = (pf1 >> 20) & 0x3FF
-    literal_state3 = (pf1 >> 30) & 0x3FF
-    n_lmd_payload_bytes = (pf1 >> 40) & 0xFFFFF
-    lmd_bits = ((pf1 >> 60) & 0x7) - 7
-
-    header_size = pf2 & 0xFFFFFFFF
-    l_state = (pf2 >> 32) & 0x3FF
-    m_state = (pf2 >> 42) & 0x3FF
-    d_state = (pf2 >> 52) & 0x3FF
-
-    n_payload_bytes = n_literal_payload_bytes + n_lmd_payload_bytes
-
-    freq_start = pos
-    freqs = _decode_v2_freq_table(buf, freq_start, header_size)
+        freqs = list(header.freqs)
 
     i = 0
     l_freq = freqs[i:(i := i + _ENCODE_L_SYMBOLS)]
@@ -344,25 +283,33 @@ def _decode_lzfse_v2_block(
     d_freq = freqs[i:(i := i + _ENCODE_D_SYMBOLS)]
     literal_freq = freqs[i:i + _ENCODE_LITERAL_SYMBOLS]
 
-    payload_offset = block_start + header_size
+    if (
+        sum(l_freq) != _ENCODE_L_STATES
+        or sum(m_freq) != _ENCODE_M_STATES
+        or sum(d_freq) != _ENCODE_D_STATES
+        or sum(literal_freq) != _ENCODE_LITERAL_STATES
+    ):
+        raise ValueError('an LZFSE frequency table does not sum to its number of states')
+
+    literal_state0, literal_state1, literal_state2, literal_state3 = header.literal_states
 
     _decode_lzfse_payload(
         buf,
-        payload_offset,
-        n_raw_bytes,
-        n_literals,
-        n_matches,
-        n_literal_payload_bytes,
-        n_lmd_payload_bytes,
-        literal_bits,
+        header.payload,
+        header.literal_payload_size,
+        header.lmd_payload_size,
+        header.raw_size,
+        header.n_literals,
+        header.n_matches,
+        header.literal_bits,
         literal_state0,
         literal_state1,
         literal_state2,
         literal_state3,
-        lmd_bits,
-        l_state,
-        m_state,
-        d_state,
+        header.lmd_bits,
+        header.l_state,
+        header.m_state,
+        header.d_state,
         l_freq,
         m_freq,
         d_freq,
@@ -370,65 +317,15 @@ def _decode_lzfse_v2_block(
         output,
     )
 
-    return payload_offset + n_payload_bytes
-
-
-def _decode_lzfse_v1_block(
-    buf: bytes | bytearray | memoryview,
-    pos: int,
-    output: bytearray,
-) -> int:
-    """
-    Decode a V1 LZFSE block. Returns new position.
-    """
-    pos += 4
-
-    (n_raw_bytes, n_payload_bytes, n_literals, n_matches,
-     n_literal_payload_bytes, n_lmd_payload_bytes,
-     literal_bits) = struct.unpack_from('<IIIIIIi', buf, pos)
-    pos += 28
-
-    literal_state0, literal_state1, literal_state2, literal_state3 = struct.unpack_from('<HHHH', buf, pos)
-    pos += 8
-
-    lmd_bits = struct.unpack_from('<i', buf, pos)[0]
-    pos += 4
-
-    l_state, m_state, d_state = struct.unpack_from('<HHH', buf, pos)
-    pos += 6
-
-    l_freq = list(struct.unpack_from(F'<{_ENCODE_L_SYMBOLS}H', buf, pos))
-    pos += _ENCODE_L_SYMBOLS * 2
-    m_freq = list(struct.unpack_from(F'<{_ENCODE_M_SYMBOLS}H', buf, pos))
-    pos += _ENCODE_M_SYMBOLS * 2
-    d_freq = list(struct.unpack_from(F'<{_ENCODE_D_SYMBOLS}H', buf, pos))
-    pos += _ENCODE_D_SYMBOLS * 2
-    literal_freq = list(struct.unpack_from(F'<{_ENCODE_LITERAL_SYMBOLS}H', buf, pos))
-    pos += _ENCODE_LITERAL_SYMBOLS * 2
-
-    payload_offset = pos
-
-    _decode_lzfse_payload(
-        buf, payload_offset,
-        n_raw_bytes, n_literals, n_matches,
-        n_literal_payload_bytes, n_lmd_payload_bytes,
-        literal_bits, literal_state0, literal_state1, literal_state2, literal_state3,
-        lmd_bits, l_state, m_state, d_state,
-        l_freq, m_freq, d_freq, literal_freq,
-        output,
-    )
-
-    return payload_offset + n_payload_bytes
-
 
 def _decode_lzfse_payload(
-    buf: bytes | bytearray | memoryview,
-    payload_offset: int,
-    n_raw_bytes: int,
+    buf: memoryview,
+    payload: int,
+    literal_payload_size: int,
+    lmd_payload_size: int,
+    raw_size: int,
     n_literals: int,
     n_matches: int,
-    n_literal_payload_bytes: int,
-    n_lmd_payload_bytes: int,
     literal_bits: int,
     literal_state0: int,
     literal_state1: int,
@@ -453,7 +350,8 @@ def _decode_lzfse_payload(
     m_table = _fse_init_value_decoder_table(_ENCODE_M_STATES, _ENCODE_M_SYMBOLS, m_freq, _M_EXTRA_BITS, _M_BASE_VALUE)
     d_table = _fse_init_value_decoder_table(_ENCODE_D_STATES, _ENCODE_D_SYMBOLS, d_freq, _D_EXTRA_BITS, _D_BASE_VALUE)
 
-    lit_stream = _fse_in_init(buf, payload_offset, n_literal_payload_bytes, literal_bits)
+    lmd_payload = payload + literal_payload_size
+    lit_stream = _fse_in_init(buf, payload, lmd_payload, literal_bits)
 
     literals = bytearray(n_literals)
     s0 = literal_state0
@@ -495,11 +393,14 @@ def _decode_lzfse_payload(
 
         i += 4
 
-    lmd_offset = payload_offset + n_literal_payload_bytes
-    lmd_stream = _fse_in_init(buf, lmd_offset, n_lmd_payload_bytes, lmd_bits)
+    if _fse_in_remaining(lit_stream) != 0:
+        raise ValueError('an LZFSE literal stream does not end with its last literal')
+
+    lmd_stream = _fse_in_init(buf, lmd_payload, lmd_payload + lmd_payload_size, lmd_bits)
 
     lit_pos = 0
     prev_d = -1
+    block_start = len(output)
 
     for _ in range(n_matches):
         _fse_in_flush(lmd_stream)
@@ -536,216 +437,127 @@ def _decode_lzfse_payload(
         else:
             prev_d = d_value
 
+        if lit_pos + l_value > n_literals:
+            raise ValueError('an LZFSE match uses more literals than its block has')
+        if len(output) - block_start + l_value + m_value > raw_size:
+            raise ValueError('an LZFSE block decodes to more than the size in its header')
+        if m_value > 0 and not 0 < d_value <= len(output) + l_value:
+            raise ValueError('an LZFSE match starts before the start of the output')
+
         if l_value > 0:
             output.extend(literals[lit_pos:lit_pos + l_value])
             lit_pos += l_value
 
         if m_value > 0:
-            out_len = len(output)
-            match_start = out_len - d_value
-            if d_value >= m_value:
-                output.extend(output[match_start:match_start + m_value])
-            else:
-                for j in range(m_value):
-                    output.append(output[match_start + j])
+            _copy_match(output, d_value, m_value)
 
-    if lit_pos < n_literals:
-        output.extend(literals[lit_pos:n_literals])
+    if _fse_in_remaining(lmd_stream) != 64 or any(buf[lmd_payload:lmd_payload + 8]):
+        raise ValueError('an LZFSE match stream does not end with its eight bytes of zero padding')
+    if len(output) - block_start != raw_size:
+        raise ValueError('an LZFSE block decodes to less than the size in its header')
 
 
-def _decode_lzvn_block(
-    buf: bytes | bytearray | memoryview,
-    pos: int,
-    output: bytearray,
-) -> int:
+def _copy_match(output: bytearray, distance: int, length: int) -> None:
     """
-    Decode an LZVN compressed block starting at pos.
-
-    Returns the new position in buf after consuming the block.
-    Appends decompressed data to output.
+    Append `length` bytes that repeat the output from `distance` bytes before its end.
     """
-    pos += 4
-    n_raw_bytes = struct.unpack_from('<I', buf, pos)[0]
-    pos += 4
-    n_payload_bytes = struct.unpack_from('<I', buf, pos)[0]
-    pos += 4
-
-    payload_start = pos
-    payload_end = pos + n_payload_bytes
-    _lzvn_decode(buf, payload_start, payload_end, n_raw_bytes, output)
-
-    return payload_end
+    start = len(output) - distance
+    if distance >= length:
+        output.extend(output[start:start + length])
+    else:
+        for k in range(start, start + length):
+            output.append(output[k])
 
 
 def _lzvn_decode(
-    src: bytes | bytearray | memoryview,
+    src: memoryview,
     src_pos: int,
     src_end: int,
     n_raw_bytes: int,
     output: bytearray,
 ) -> None:
     """
-    Decode an LZVN byte stream. Appends up to n_raw_bytes to output.
-
-    Uses a 256-entry lookup table for opcode classification, matching the
-    C reference implementation exactly.
+    Decode the LZVN payload of a block up to its end-of-stream instruction, which must append
+    exactly `n_raw_bytes` bytes to the output.
     """
-    dst_start = len(output)
-    d_prev = 0
+    dst_end = len(output) + n_raw_bytes
+    D = 0
 
-    while src_pos < src_end and (len(output) - dst_start) < n_raw_bytes:
+    while True:
+        if src_pos >= src_end:
+            raise ValueError('an LZVN block ends before its end-of-stream instruction')
         opc = src[src_pos]
         kind = _LZVN_OPC_TABLE[opc]
-
         if kind == _LZVN_EOS:
             break
-        elif kind == _LZVN_NOP:
+        if kind == _LZVN_NOP:
             src_pos += 1
             continue
-        elif kind == _LZVN_UDEF:
-            break
-        elif kind == _LZVN_SML_L:
-            L = opc & 0x0F
-            src_pos += 1
-            if src_pos + L > src_end:
-                L = src_end - src_pos
-            output.extend(src[src_pos:src_pos + L])
-            src_pos += L
-            continue
-        elif kind == _LZVN_LRG_L:
-            if src_pos + 1 >= src_end:
-                break
-            L = src[src_pos + 1] + 16
-            src_pos += 2
-            if src_pos + L > src_end:
-                L = src_end - src_pos
-            output.extend(src[src_pos:src_pos + L])
-            src_pos += L
-            continue
-        elif kind == _LZVN_SML_M:
-            M = opc & 0x0F
-            src_pos += 1
-            D = d_prev
-            if D == 0:
-                break
-            _lzvn_copy_match(output, D, M)
-        elif kind == _LZVN_LRG_M:
-            if src_pos + 1 >= src_end:
-                break
-            M = src[src_pos + 1] + 16
-            src_pos += 2
-            D = d_prev
-            if D == 0:
-                break
-            _lzvn_copy_match(output, D, M)
-        elif kind == _LZVN_PRE_D:
-            L = (opc >> 6) & 0x03
-            M = ((opc >> 3) & 0x07) + 3
-            src_pos += 1
-            D = d_prev
-            if D == 0:
-                break
-            if L > 0:
-                if src_pos + L > src_end:
-                    break
-                output.extend(src[src_pos:src_pos + L])
-                src_pos += L
-            _lzvn_copy_match(output, D, M)
-        elif kind == _LZVN_LRG_D:
-            if src_pos + 2 >= src_end:
-                break
-            L = (opc >> 6) & 0x03
-            M = ((opc >> 3) & 0x07) + 3
-            D = struct.unpack_from('<H', src, src_pos + 1)[0]
-            src_pos += 3
-            if D == 0:
-                break
-            d_prev = D
-            if L > 0:
-                if src_pos + L > src_end:
-                    break
-                output.extend(src[src_pos:src_pos + L])
-                src_pos += L
-            _lzvn_copy_match(output, D, M)
+        if kind == _LZVN_UDEF:
+            raise ValueError(F'an LZVN block contains the undefined instruction 0x{opc:02X}')
+        size = _LZVN_INSTRUCTION_SIZE[kind]
+        if src_pos + size > src_end:
+            raise ValueError('an LZVN block ends inside an instruction')
+        L = opc >> 6
+        M = ((opc >> 3) & 7) + 3
+        if kind == _LZVN_SML_D:
+            D = ((opc & 7) << 8) | src[src_pos + 1]
         elif kind == _LZVN_MED_D:
-            if src_pos + 2 >= src_end:
-                break
-            L = (opc >> 3) & 0x03
-            opc23 = struct.unpack_from('<H', src, src_pos + 1)[0]
-            M = ((opc & 0x07) << 2 | (opc23 & 0x03)) + 3
-            D = opc23 >> 2
-            src_pos += 3
-            if D == 0:
-                break
-            d_prev = D
-            if L > 0:
-                if src_pos + L > src_end:
-                    break
-                output.extend(src[src_pos:src_pos + L])
-                src_pos += L
-            _lzvn_copy_match(output, D, M)
-        elif kind == _LZVN_SML_D:
-            if src_pos + 1 >= src_end:
-                break
-            L = (opc >> 6) & 0x03
-            M = ((opc >> 3) & 0x07) + 3
-            D = ((opc & 0x07) << 8) | src[src_pos + 1]
-            src_pos += 2
-            if D == 0:
-                break
-            d_prev = D
-            if L > 0:
-                if src_pos + L > src_end:
-                    break
-                output.extend(src[src_pos:src_pos + L])
-                src_pos += L
-            _lzvn_copy_match(output, D, M)
+            L = (opc >> 3) & 3
+            M = (((opc & 7) << 2) | (src[src_pos + 1] & 3)) + 3
+            D = (src[src_pos + 1] >> 2) | (src[src_pos + 2] << 6)
+        elif kind == _LZVN_LRG_D:
+            D = src[src_pos + 1] | (src[src_pos + 2] << 8)
+        elif kind == _LZVN_SML_L:
+            L, M = opc & 0x0F, 0
+        elif kind == _LZVN_LRG_L:
+            L, M = src[src_pos + 1] + 16, 0
+        elif kind == _LZVN_SML_M:
+            L, M = 0, opc & 0x0F
+        elif kind == _LZVN_LRG_M:
+            L, M = 0, src[src_pos + 1] + 16
+        src_pos += size
 
+        if len(output) + L + M > dst_end:
+            raise ValueError('an LZVN block decodes to more than the size in its header')
+        if L:
+            if src_pos + L > src_end:
+                raise ValueError('an LZVN block ends inside a run of literals')
+            output.extend(src[src_pos:src_pos + L])
+            src_pos += L
+        if M:
+            if not 0 < D <= len(output):
+                raise ValueError(F'an LZVN match distance of {D} is outside the output of size {len(output)}')
+            _copy_match(output, D, M)
 
-def _lzvn_copy_match(output: bytearray, D: int, M: int) -> None:
-    """
-    Copy M bytes from output[-D] to end of output.
-    """
-    out_len = len(output)
-    start = out_len - D
-    if start < 0:
-        raise ValueError(F'LZVN match distance {D} exceeds output size {out_len}')
-    if D >= M:
-        output.extend(output[start:start + M])
-    else:
-        for _ in range(M):
-            output.append(output[start])
-            start += 1
+    if len(output) != dst_end:
+        raise ValueError('an LZVN block decodes to less than the size in its header')
 
 
 def lzfse_decompress(src: bytes | bytearray | memoryview) -> bytearray:
     """
-    Decompress an LZFSE compressed stream.
-
-    The stream consists of a sequence of typed blocks (LZFSE, LZVN, raw, or
-    end-of-stream). Returns the concatenated decompressed output.
+    Decompress an LZFSE stream, which ends with an end-of-stream block. Input that ends before that
+    block, or that cannot be decoded after some output, raises a `RefineryPartialResult` with the
+    output of the blocks decoded so far.
     """
-    pos = 0
-    end = len(src)
+    view = memoryview(src)
     output = bytearray()
+    decoded = 0
+    pos = 0
 
-    while pos + 4 <= end:
-        magic = struct.unpack_from('<I', src, pos)[0]
-
-        if magic == _ENDOFSTREAM_MAGIC:
-            pos += 4
-            break
-        elif magic == _UNCOMPRESSED_MAGIC:
-            pos += 4
-            n_raw_bytes = struct.unpack_from('<I', src, pos)[0]
-            pos += 4
-            output.extend(src[pos:pos + n_raw_bytes])
-            pos += n_raw_bytes
-        elif magic == _LZFSE_V1_MAGIC or magic == _LZFSE_V2_MAGIC:
-            pos = _decode_lzfse_block(src, pos, output)
-        elif magic == _LZVN_MAGIC:
-            pos = _decode_lzvn_block(src, pos, output)
-        else:
-            raise ValueError(F'unknown LZFSE block magic: 0x{magic:08X}')
+    try:
+        while (header := read_block_header(view, pos)).kind is not BlockKind.END:
+            if header.kind is BlockKind.RAW:
+                output.extend(view[header.payload:header.end])
+            elif header.kind is BlockKind.LZVN:
+                _lzvn_decode(view, header.payload, header.end, header.raw_size, output)
+            else:
+                _decode_lzfse_block(view, header, output)
+            decoded = len(output)
+            pos = header.end
+    except ValueError as error:
+        if not decoded:
+            raise
+        raise RefineryPartialResult(F'Decoding failed after {decoded} bytes: {error!s}', output[:decoded]) from error
 
     return output

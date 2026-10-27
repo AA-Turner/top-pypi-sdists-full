@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from reflex_base.components.component import ComponentNamespace
 from reflex_base.event import FORM_SUBMIT_MAPPING, EventType, PointerEventInfo
+from reflex_base.utils.form import FormData as _FormData
 from reflex_base.vars.base import Var
 from reflex_components_core.core.breakpoints import Breakpoints
 from reflex_components_core.el.elements.forms import Form as HTMLForm
@@ -1124,9 +1125,10 @@ class FormNamespace(ComponentNamespace):
     message = staticmethod(FormMessage.create)
     submit = staticmethod(FormSubmit.create)
     validity_state = staticmethod(FormValidityState.create)
+    FormData = _FormData
 
-    @staticmethod
-    def __call__(
+    def __new__(
+        cls,
         *children,
         as_child: Var[bool] | bool | None = None,
         accept: Var[str] | str | None = None,
@@ -1411,4 +1413,4 @@ class FormNamespace(ComponentNamespace):
             The form component.
         """
 
-form = FormNamespace()
+form = FormNamespace

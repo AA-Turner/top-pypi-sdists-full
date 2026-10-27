@@ -1620,6 +1620,7 @@ class CfnCanary(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1686,7 +1687,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cdaba4ac1ed08cbb682b002e6d07aabeaccadbe7c5a6d4bbbc1aaaa15bb4831c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "artifactS3Location", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "artifactS3Location", value)
 
     @builtins.property
     @jsii.member(jsii_name="code")
@@ -1704,7 +1705,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__940d05df3a63f7ad05e985fa05317d4b896a6a845409a8d700cbf186fd8e49d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "code", value)
 
     @builtins.property
     @jsii.member(jsii_name="executionRoleArn")
@@ -1717,7 +1718,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__21989f82228cbbd4b8df02c1285ab8cf3635cf4eb894f4a4c999e6b763e92ded)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "executionRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1730,7 +1731,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02a5568fdb7b5da09cb493a9883d04e695a0b6375532601c26ea6ba719fd869a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="runtimeVersion")
@@ -1743,7 +1744,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__64f9d8326de93a51cdd4ab89bc4c5431c218c9b46372d81f4fe7a8961b26fa2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "runtimeVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "runtimeVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="schedule")
@@ -1761,7 +1762,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e387628a17b84461f77d8fdc851f2b16bcda58e50d8e9279d02062270a5516f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schedule", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "schedule", value)
 
     @builtins.property
     @jsii.member(jsii_name="artifactConfig")
@@ -1779,7 +1780,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5946ee35eff32e4581a6d2e3e0c69d62cdc3c17f079123211f7251bc1a10d878)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "artifactConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "artifactConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="browserConfigs")
@@ -1797,7 +1798,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__91233a90f3d4d918352b4597b2dee50c3da02176501744c2dc696dbd8a735b68)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "browserConfigs", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "browserConfigs", value)
 
     @builtins.property
     @jsii.member(jsii_name="deleteLambdaResourcesOnCanaryDeletion")
@@ -1820,7 +1821,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__442577c2c36e4274dca25b3d866e1aeec3f4ffc18732e01050131a31f768f2b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deleteLambdaResourcesOnCanaryDeletion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deleteLambdaResourcesOnCanaryDeletion", value)
 
     @builtins.property
     @jsii.member(jsii_name="dryRunAndUpdate")
@@ -1838,7 +1839,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__59860e5fb72da4da1108545c9e0b8f706d34cf83eb363fda05f04cbb14baf1fe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dryRunAndUpdate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dryRunAndUpdate", value)
 
     @builtins.property
     @jsii.member(jsii_name="failureRetentionPeriod")
@@ -1851,7 +1852,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02a7e43f45419c4cb8e909f309f8848d4ced91d17b01d14e5ea0b8cec28aab1b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "failureRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "failureRetentionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
@@ -1864,7 +1865,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__04631a9f0e2021a499f30f72ffa11c84d18702f0dc79d69dc901b3746afe36f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="provisionedResourceCleanup")
@@ -1880,7 +1881,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96109df9d60c71521163998336c5f5484d9c206feb0e627cbb2db11c169128bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisionedResourceCleanup", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "provisionedResourceCleanup", value)
 
     @builtins.property
     @jsii.member(jsii_name="replicas")
@@ -1898,7 +1899,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f4349880a69be5b8c367f4cec1292801e20cb670d42c87183394d425f76ab86d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replicas", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replicas", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourcesToReplicateTags")
@@ -1914,7 +1915,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__97145dbcbdc52baa9bf7a42cbdc47e51d64c8bdad34335923fcf585d09e27978)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcesToReplicateTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcesToReplicateTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="runConfig")
@@ -1932,7 +1933,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e65fb80249e43aebfe46950832be73ed0795003be5d74ca1ef7cd12bb2408557)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "runConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "runConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="startCanaryAfterCreation")
@@ -1950,7 +1951,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5a98feaf45022b36ef5c9888f87b978029d5e1fde70599e1972543b1778adfad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "startCanaryAfterCreation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "startCanaryAfterCreation", value)
 
     @builtins.property
     @jsii.member(jsii_name="successRetentionPeriod")
@@ -1963,7 +1964,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f8bbba327f646025c54903ccf2c19cedc26cf07f79658c389f65ef40b263130f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "successRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "successRetentionPeriod", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1979,7 +1980,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__212d1e59a4bd96a18f447b1c742abcfeb7c668063c8e1670fa0770e339ac4077)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="visualReference")
@@ -2001,7 +2002,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__21e93a70969fa03a3f0aa85f6b1615a26d9a0afef8a0cf27f0888fc59aef420b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "visualReference", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "visualReference", value)
 
     @builtins.property
     @jsii.member(jsii_name="visualReferences")
@@ -2019,7 +2020,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__004341f5a58c9e6e190c4bc518ea476aac62201a1708bb1650a22fbf74c64b52)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "visualReferences", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "visualReferences", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcConfig")
@@ -2037,7 +2038,7 @@ class CfnCanary(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__be63ed6816e3043aef63f6e7c0d0dfcc35f1249735acd4eff8530f8c2253b747)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.ArtifactConfigProperty",
@@ -4030,6 +4031,7 @@ class CfnGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4079,7 +4081,7 @@ class CfnGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6401b033d62b6cede0e2328e1f7c75c5607ed33e285fb529afce4814a3551bee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="resourceArns")
@@ -4092,7 +4094,7 @@ class CfnGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__078802d6cab1e35c6ba04d10e648f52314cd74f1c2d198563fb8a7d6435999ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceArns", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourceArns", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -4108,7 +4110,7 @@ class CfnGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0d85cd0ddf465884c3990e0492b92e22606ecfb33b8127bf42d0c344b78427aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
 
 @jsii.data_type(
@@ -5008,6 +5010,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_3_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_3_0(cls) -> "Runtime":
         '''``syn-nodejs-3.0`` includes the following: - Lambda runtime Node.js 20.x.
 
@@ -5021,6 +5024,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_3_1")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_3_1(cls) -> "Runtime":
         '''``syn-nodejs-3.1`` includes the following: - Lambda runtime Node.js 20.x.
 
@@ -5035,6 +5039,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_1_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PLAYWRIGHT_1_0(cls) -> "Runtime":
         '''``syn-nodejs-playwright-1.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.45 - Chromium version 126.0.6478.126.
 
@@ -5052,6 +5057,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_2_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PLAYWRIGHT_2_0(cls) -> "Runtime":
         '''``syn-nodejs-playwright-2.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.49.1 - Chromium version 131.0.6778.264.
 
@@ -5066,6 +5072,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_3_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PLAYWRIGHT_3_0(cls) -> "Runtime":
         '''``syn-nodejs-playwright-3.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.53.0 - Chromium version 138.0.7204.168.
 
@@ -5080,6 +5087,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_4_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PLAYWRIGHT_4_0(cls) -> "Runtime":
         '''``syn-nodejs-playwright-4.0`` includes the following: - Lambda runtime Node.js 22.x - Playwright version 1.55.0 - Chromium version 140.0.7339.16 - Firefox version 141.0.
 
@@ -5093,6 +5101,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_5_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PLAYWRIGHT_5_0(cls) -> "Runtime":
         '''``syn-nodejs-playwright-5.0`` includes the following: - Lambda runtime Node.js 22.x - Playwright version 1.57.0 - Chromium version 143.0.7499.4 - Firefox version 142.0.1.
 
@@ -5106,6 +5115,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_5_1")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PLAYWRIGHT_5_1(cls) -> "Runtime":
         '''``syn-nodejs-playwright-5.1`` includes the following: - Lambda runtime Node.js 22.x - Playwright version 1.57.0 - Chromium version 143.0.7499.169 - Firefox version 142.0.1.
 
@@ -5120,6 +5130,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_6_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PLAYWRIGHT_6_0(cls) -> "Runtime":
         '''``syn-nodejs-playwright-6.0`` includes the following: - Lambda runtime Node.js 22.x - Playwright version 1.58.2 - Chromium version 145.0.7632.77 - Firefox version 146.0.1.
 
@@ -5133,6 +5144,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_10_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_10_0(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-10.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 24.2.0 - Chromium version 131.0.6778.264.
 
@@ -5147,6 +5159,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_11_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_11_0(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-11.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 24.15.0 - Chromium version 138.0.7204.168.
 
@@ -5169,6 +5182,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_12_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_12_0(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-12.0`` includes the following: - Lambda runtime Node.js 22.x - Puppeteer-core version 24.22.1 - Chromium version 140.0.7339.185 - Firefox version 143.0.1.
 
@@ -5185,6 +5199,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_13_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_13_0(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-13.0`` includes the following: - Lambda runtime Node.js 22.x - Puppeteer-core version 24.25.0 - Chromium version 142.0.7444.175 - Firefox version 145.x.
 
@@ -5199,6 +5214,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_5")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_3_5(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-3.5`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
 
@@ -5215,6 +5231,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_6")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_3_6(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-3.6`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
 
@@ -5227,6 +5244,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_7")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_3_7(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-3.7`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
 
@@ -5244,6 +5262,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_8")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_3_8(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-3.8`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 10.1.0 - Chromium version 92.0.4512.
 
@@ -5260,6 +5279,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_9")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_3_9(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-3.9`` includes the following:.
 
@@ -5280,6 +5300,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_4_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_4_0(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-4.0`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
 
@@ -5296,6 +5317,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_5_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_5_0(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-5.0`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
 
@@ -5312,6 +5334,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_5_1")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_5_1(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-5.1`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
 
@@ -5328,6 +5351,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_5_2")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_5_2(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-5.2`` includes the following: - Lambda runtime Node.js 16.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
 
@@ -5342,6 +5366,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_6_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_6_0(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-6.0`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
 
@@ -5360,6 +5385,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_6_1")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_6_1(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-6.1`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
 
@@ -5378,6 +5404,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_6_2")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_6_2(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-6.2`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 19.7.0 - Chromium version 111.0.5563.146.
 
@@ -5393,6 +5420,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_7_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_7_0(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-7.0`` includes the following: - Lambda runtime Node.js 18.x - Puppeteer-core version 21.9.0 - Chromium version 121.0.6167.139.
 
@@ -5406,6 +5434,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_8_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_8_0(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-8.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 22.10.0 - Chromium version 125.0.6422.112.
 
@@ -5420,6 +5449,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_9_0")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_9_0(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-9.0`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 22.12.1 - Chromium version 126.0.6478.126.
 
@@ -5433,6 +5463,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_9_1")
+    @builtins.classmethod
     def SYNTHETICS_NODEJS_PUPPETEER_9_1(cls) -> "Runtime":
         '''``syn-nodejs-puppeteer-9.1`` includes the following: - Lambda runtime Node.js 20.x - Puppeteer-core version 22.12.1 - Chromium version 126.0.6478.126.
 
@@ -5446,6 +5477,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_0")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_1_0(cls) -> "Runtime":
         '''(deprecated) ``syn-python-selenium-1.0`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 83.0.4103.0.
 
@@ -5458,6 +5490,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_1")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_1_1(cls) -> "Runtime":
         '''(deprecated) ``syn-python-selenium-1.1`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 83.0.4103.0.
 
@@ -5477,6 +5510,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_2")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_1_2(cls) -> "Runtime":
         '''(deprecated) ``syn-python-selenium-1.2`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 92.0.4512.0.
 
@@ -5493,6 +5527,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_1_3")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_1_3(cls) -> "Runtime":
         '''(deprecated) ``syn-python-selenium-1.3`` includes the following: - Lambda runtime Python 3.8 - Selenium version 3.141.0 - Chromium version 92.0.4512.0.
 
@@ -5509,6 +5544,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_2_0")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_2_0(cls) -> "Runtime":
         '''(deprecated) ``syn-python-selenium-2.0`` includes the following: - Lambda runtime Python 3.8 - Selenium version 4.10.0 - Chromium version 111.0.5563.146.
 
@@ -5531,6 +5567,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_2_1")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_2_1(cls) -> "Runtime":
         '''``syn-python-selenium-2.1`` includes the following: - Lambda runtime Python 3.8 - Selenium version 4.15.1 - Chromium version 111.0.5563.146.
 
@@ -5544,6 +5581,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_3_0")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_3_0(cls) -> "Runtime":
         '''``syn-python-selenium-3.0`` includes the following: - Lambda runtime Python 3.8 - Selenium version 4.15.1 - Chromium version 121.0.6167.139.
 
@@ -5557,6 +5595,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_4_0")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_4_0(cls) -> "Runtime":
         '''``syn-python-selenium-4.0`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.15.1 - Chromium version 126.0.6478.126.
 
@@ -5570,6 +5609,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_4_1")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_4_1(cls) -> "Runtime":
         '''``syn-python-selenium-4.1`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.15.1 - Chromium version 126.0.6478.126.
 
@@ -5583,6 +5623,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_5_0")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_5_0(cls) -> "Runtime":
         '''``syn-python-selenium-5.0`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.21.0 - Chromium version 131.0.6778.264.
 
@@ -5596,6 +5637,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_5_1")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_5_1(cls) -> "Runtime":
         '''``syn-python-selenium-5.1`` includes the following: - Lambda runtime Python 3.9 - Selenium version 4.21.0 - Chromium version 131.0.6778.264.
 
@@ -5609,6 +5651,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_6_0")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_6_0(cls) -> "Runtime":
         '''``syn-python-selenium-6.0`` includes the following: - Lambda runtime Python 3.11 - Selenium version 4.21.0 - Chromium version 131.0.6778.264.
 
@@ -5618,6 +5661,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_7_0")
+    @builtins.classmethod
     def SYNTHETICS_PYTHON_SELENIUM_7_0(cls) -> "Runtime":
         '''``syn-python-selenium-7.0`` includes the following: - Lambda runtime Python 3.11 - Selenium version 4.32.0 - Chromium version 138.0.7204.168.
 
@@ -6305,6 +6349,7 @@ class Canary(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -6477,6 +6522,7 @@ class Group(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

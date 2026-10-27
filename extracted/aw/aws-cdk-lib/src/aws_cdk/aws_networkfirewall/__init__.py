@@ -199,6 +199,7 @@ class CfnContainerAssociation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -265,7 +266,7 @@ class CfnContainerAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f14d0ab332f7d962b974a87ba2bd5349e7e98d6e9071f8352b37812df365781c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "containerAssociationName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "containerAssociationName", value)
 
     @builtins.property
     @jsii.member(jsii_name="containerMonitoringConfigurations")
@@ -283,7 +284,7 @@ class CfnContainerAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__40e905229157d1c9a2586d78defc6b47ce020f853be5d4f9c9315e7b1610f0d2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "containerMonitoringConfigurations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "containerMonitoringConfigurations", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -296,7 +297,7 @@ class CfnContainerAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0cde559ef3eb30892f4a25d40b83b73312772328ec67aeea60466c654e358e38)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -309,7 +310,7 @@ class CfnContainerAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__abca25cd059f19a9a6845c79edeff57728d326e23692f65ea5f53dc55218c0ee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -325,7 +326,7 @@ class CfnContainerAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__222ac4c401141d1a2e951a55f2d9cc05e1291cacdcdea3b8389789168e34c022)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkfirewall.CfnContainerAssociation.ContainerAttributeProperty",
@@ -660,6 +661,16 @@ class CfnFirewall(
             description="description",
             enabled_analysis_types=["enabledAnalysisTypes"],
             firewall_policy_change_protection=False,
+            nat_gateway_mappings=[networkfirewall.CfnFirewall.NatGatewayMappingProperty(
+                nat_gateway_id="natGatewayId"
+            )],
+            no_source_preservation=False,
+            proxy_settings=networkfirewall.CfnFirewall.ProxySettingsProperty(
+                listener_properties=[networkfirewall.CfnFirewall.ListenerPropertyProperty(
+                    port=123,
+                    type="type"
+                )]
+            ),
             subnet_change_protection=False,
             subnet_mappings=[networkfirewall.CfnFirewall.SubnetMappingProperty(
                 subnet_id="subnetId",
@@ -672,6 +683,15 @@ class CfnFirewall(
                 value="value"
             )],
             transit_gateway_id="transitGatewayId",
+            vpc_endpoint=networkfirewall.CfnFirewall.VpcEndpointProperty(
+                subnet_mappings=[networkfirewall.CfnFirewall.SubnetMappingProperty(
+                    subnet_id="subnetId",
+        
+                    # the properties below are optional
+                    ip_address_type="ipAddressType"
+                )],
+                vpc_id="vpcId"
+            ),
             vpc_id="vpcId"
         )
     '''
@@ -689,10 +709,14 @@ class CfnFirewall(
         description: typing.Optional[builtins.str] = None,
         enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        nat_gateway_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.NatGatewayMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        no_source_preservation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        proxy_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.ProxySettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         subnet_change_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         subnet_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         transit_gateway_id: typing.Optional[builtins.str] = None,
+        vpc_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.VpcEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_id: typing.Optional[typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]] = None,
     ) -> None:
         '''Create a new ``AWS::NetworkFirewall::Firewall``.
@@ -707,10 +731,14 @@ class CfnFirewall(
         :param description: A description of the firewall.
         :param enabled_analysis_types: An optional setting indicating the specific traffic analysis types to enable on the firewall.
         :param firewall_policy_change_protection: A setting indicating whether the firewall is protected against a change to the firewall policy association. Use this setting to protect against accidentally modifying the firewall policy for a firewall that is in use. When you create a firewall, the operation initializes this setting to ``TRUE`` .
+        :param nat_gateway_mappings: The NAT gateways that the firewall proxies egress traffic through when NoSourcePreservation is true.
+        :param no_source_preservation: Indicates whether the firewall operates in proxy mode, where the source IP address of traffic is not preserved. When true, specify NatGatewayMappings and VpcEndpoint instead of the top-level VpcId and SubnetMappings. You can't change this setting after you create the firewall.
+        :param proxy_settings: The proxy listener configuration for a proxy-mode (no source preservation) firewall.
         :param subnet_change_protection: A setting indicating whether the firewall is protected against changes to the subnet associations. Use this setting to protect against accidentally modifying the subnet associations for a firewall that is in use. When you create a firewall, the operation initializes this setting to ``TRUE`` .
         :param subnet_mappings: The primary public subnets that Network Firewall is using for the firewall. Network Firewall creates a firewall endpoint in each subnet. Create a subnet mapping for each Availability Zone where you want to use the firewall. These subnets are all defined for a single, primary VPC, and each must belong to a different Availability Zone. Each of these subnets establishes the availability of the firewall in its Availability Zone. In addition to these subnets, you can define other endpoints for the firewall in ``VpcEndpointAssociation`` resources. You can define these additional endpoints for any VPC, and for any of the Availability Zones where the firewall resource already has a subnet mapping. VPC endpoint associations give you the ability to protect multiple VPCs using a single firewall, and to define multiple firewall endpoints for a VPC in a single Availability Zone.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         :param transit_gateway_id: The unique identifier of the transit gateway associated with this firewall. This field is only present for transit gateway-attached firewalls.
+        :param vpc_endpoint: The VPC and subnets for a proxy-mode firewall's endpoint. Provide this instead of the top-level VpcId and SubnetMappings when NoSourcePreservation is true.
         :param vpc_id: The unique identifier of the VPC where the firewall is in use. You can't change the VPC of a firewall after you create the firewall.
         '''
         if __debug__:
@@ -726,10 +754,14 @@ class CfnFirewall(
             description=description,
             enabled_analysis_types=enabled_analysis_types,
             firewall_policy_change_protection=firewall_policy_change_protection,
+            nat_gateway_mappings=nat_gateway_mappings,
+            no_source_preservation=no_source_preservation,
+            proxy_settings=proxy_settings,
             subnet_change_protection=subnet_change_protection,
             subnet_mappings=subnet_mappings,
             tags=tags,
             transit_gateway_id=transit_gateway_id,
+            vpc_endpoint=vpc_endpoint,
             vpc_id=vpc_id,
         )
 
@@ -787,6 +819,7 @@ class CfnFirewall(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -819,6 +852,15 @@ class CfnFirewall(
         :cloudformationAttribute: FirewallId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrFirewallId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNumberOfAssociations")
+    def attr_number_of_associations(self) -> jsii.Number:
+        '''The number of VPC endpoint associations attached to the firewall.
+
+        :cloudformationAttribute: NumberOfAssociations
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrNumberOfAssociations"))
 
     @builtins.property
     @jsii.member(jsii_name="attrTransitGatewayAttachmentId")
@@ -864,7 +906,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fdb28f607bba18f9f1db46f554b41c7ddfaaf01fe3c74c5f99726bd72458a115)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firewallName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firewallName", value)
 
     @builtins.property
     @jsii.member(jsii_name="firewallPolicyArn")
@@ -877,7 +919,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c711ef7af7567ab69b12f083b26c4033f7cdf1593bf27227f989d7c73e8c9fc2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firewallPolicyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firewallPolicyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZoneChangeProtection")
@@ -895,7 +937,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9264301e2259874347a035c96f8c2b41c3eace108b10ab012df466442d7477f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZoneChangeProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZoneChangeProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZoneMappings")
@@ -913,7 +955,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cf571f7b78cee2a31a1b36a9ada83e153f52c7a14fea3f65c9362d1d4634dd77)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilityZoneMappings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilityZoneMappings", value)
 
     @builtins.property
     @jsii.member(jsii_name="deleteProtection")
@@ -931,7 +973,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__12d69795554b50f9f4f46a0470d9cf06e4d826d030dcab9f0adfc3a3d566c8b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deleteProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deleteProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -944,7 +986,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fea0349bbbe56acfbf8d2e11ce10cdd2221eb418df0a6df3602174f8015ca4f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="enabledAnalysisTypes")
@@ -960,7 +1002,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dfc5ed44d930f34c8aab89f35a98f79157366d4a6307eb58bfc63ed737000a53)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enabledAnalysisTypes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enabledAnalysisTypes", value)
 
     @builtins.property
     @jsii.member(jsii_name="firewallPolicyChangeProtection")
@@ -978,7 +1020,61 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee50239d13ab311a798770d372dccb418872f67c3e07c873f5d87e11df129a35)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firewallPolicyChangeProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firewallPolicyChangeProtection", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="natGatewayMappings")
+    def nat_gateway_mappings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.NatGatewayMappingProperty"]]]]:
+        '''The NAT gateways that the firewall proxies egress traffic through when NoSourcePreservation is true.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.NatGatewayMappingProperty"]]]], jsii.get(self, "natGatewayMappings"))
+
+    @nat_gateway_mappings.setter
+    def nat_gateway_mappings(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.NatGatewayMappingProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__96da9f8792c0d294cdbac072507495ba802efb6b3360d9f3447eb98255e99222)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "natGatewayMappings", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="noSourcePreservation")
+    def no_source_preservation(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Indicates whether the firewall operates in proxy mode, where the source IP address of traffic is not preserved.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "noSourcePreservation"))
+
+    @no_source_preservation.setter
+    def no_source_preservation(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bd8cbd03a98ea51dd38e2c76c0093acff5f938a6a1e15eb9bbb36389b8257a89)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "noSourcePreservation", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="proxySettings")
+    def proxy_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.ProxySettingsProperty"]]:
+        '''The proxy listener configuration for a proxy-mode (no source preservation) firewall.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.ProxySettingsProperty"]], jsii.get(self, "proxySettings"))
+
+    @proxy_settings.setter
+    def proxy_settings(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.ProxySettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c06675c049a6cbd19ff43287410fed91a8ec4c2b5dc90b9fefcd37d6b8788a45)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "proxySettings", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnetChangeProtection")
@@ -996,7 +1092,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3edeae6cf81be7cb1d87c21080d7c060fb1fdbd872b4292af576701d514ade47)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetChangeProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnetChangeProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnetMappings")
@@ -1014,7 +1110,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f2f1e41c3294b6f9ed43f3936b8feb28ed4bd73021f059aae4743db717241ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetMappings", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnetMappings", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1030,7 +1126,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e1b2b141c4b9a04d63365f9d8a2a5636d417c4a087ebfbfd40be7336d4d258da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="transitGatewayId")
@@ -1043,7 +1139,25 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ebf25e7b4ccdda1a25794e9d426e24b28f37c786df4576a4b499042b55c26bc6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "transitGatewayId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "transitGatewayId", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcEndpoint")
+    def vpc_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.VpcEndpointProperty"]]:
+        '''The VPC and subnets for a proxy-mode firewall's endpoint.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.VpcEndpointProperty"]], jsii.get(self, "vpcEndpoint"))
+
+    @vpc_endpoint.setter
+    def vpc_endpoint(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.VpcEndpointProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__23c7cae786026192417e659d079cb74dc517d64a10ab717f557c812490d144bb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcEndpoint", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcId")
@@ -1056,7 +1170,7 @@ class CfnFirewall(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ba092b3d0c9ca8819ad31fd4320cebdee3150a45603af80de70f2c0bbb9e04b5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcId", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewall.AvailabilityZoneMappingProperty",
@@ -1113,6 +1227,187 @@ class CfnFirewall(
 
         def __repr__(self) -> str:
             return "AvailabilityZoneMappingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewall.ListenerPropertyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"port": "port", "type": "type"},
+    )
+    class ListenerPropertyProperty:
+        def __init__(
+            self,
+            *,
+            port: typing.Optional[jsii.Number] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A port and protocol that a proxy-mode firewall's proxy listener accepts traffic on.
+
+            :param port: The port the proxy listener accepts traffic on.
+            :param type: The protocol the proxy listener uses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-listenerproperty.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                listener_property_property = networkfirewall.CfnFirewall.ListenerPropertyProperty(
+                    port=123,
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b9c1058a1586ec9a5b23fb99665d1176f62b042c662b972699af58ce2188a085)
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if port is not None:
+                self._values["port"] = port
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def port(self) -> typing.Optional[jsii.Number]:
+            '''The port the proxy listener accepts traffic on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-listenerproperty.html#cfn-networkfirewall-firewall-listenerproperty-port
+            '''
+            result = self._values.get("port")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''The protocol the proxy listener uses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-listenerproperty.html#cfn-networkfirewall-firewall-listenerproperty-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ListenerPropertyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewall.NatGatewayMappingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"nat_gateway_id": "natGatewayId"},
+    )
+    class NatGatewayMappingProperty:
+        def __init__(self, *, nat_gateway_id: builtins.str) -> None:
+            '''A mapping to a NAT gateway that a proxy-mode firewall proxies egress traffic through.
+
+            :param nat_gateway_id: The unique identifier of a NAT gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-natgatewaymapping.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                nat_gateway_mapping_property = networkfirewall.CfnFirewall.NatGatewayMappingProperty(
+                    nat_gateway_id="natGatewayId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d14c401cf4ec21fba0db6c9f6c05daca38dc881b30b62015cb4a9a2e6b241a4d)
+                check_type(argname="argument nat_gateway_id", value=nat_gateway_id, expected_type=type_hints["nat_gateway_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "nat_gateway_id": nat_gateway_id,
+            }
+
+        @builtins.property
+        def nat_gateway_id(self) -> builtins.str:
+            '''The unique identifier of a NAT gateway.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-natgatewaymapping.html#cfn-networkfirewall-firewall-natgatewaymapping-natgatewayid
+            '''
+            result = self._values.get("nat_gateway_id")
+            assert result is not None, "Required property 'nat_gateway_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NatGatewayMappingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewall.ProxySettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"listener_properties": "listenerProperties"},
+    )
+    class ProxySettingsProperty:
+        def __init__(
+            self,
+            *,
+            listener_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.ListenerPropertyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''The proxy listener configuration for a proxy-mode (no source preservation) firewall.
+
+            :param listener_properties: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-proxysettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                proxy_settings_property = networkfirewall.CfnFirewall.ProxySettingsProperty(
+                    listener_properties=[networkfirewall.CfnFirewall.ListenerPropertyProperty(
+                        port=123,
+                        type="type"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__19963129bffa39423f281507d7b2bf03c1af49e115bfd6e15d5c81903c885325)
+                check_type(argname="argument listener_properties", value=listener_properties, expected_type=type_hints["listener_properties"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if listener_properties is not None:
+                self._values["listener_properties"] = listener_properties
+
+        @builtins.property
+        def listener_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.ListenerPropertyProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-proxysettings.html#cfn-networkfirewall-firewall-proxysettings-listenerproperties
+            '''
+            result = self._values.get("listener_properties")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.ListenerPropertyProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProxySettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1190,6 +1485,84 @@ class CfnFirewall(
 
         def __repr__(self) -> str:
             return "SubnetMappingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewall.VpcEndpointProperty",
+        jsii_struct_bases=[],
+        name_mapping={"subnet_mappings": "subnetMappings", "vpc_id": "vpcId"},
+    )
+    class VpcEndpointProperty:
+        def __init__(
+            self,
+            *,
+            subnet_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            vpc_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The VPC and subnets for a proxy-mode firewall's endpoint.
+
+            Provide this instead of the top-level VpcId and SubnetMappings when NoSourcePreservation is true.
+
+            :param subnet_mappings: 
+            :param vpc_id: The unique identifier of the VPC for the firewall endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-vpcendpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                vpc_endpoint_property = networkfirewall.CfnFirewall.VpcEndpointProperty(
+                    subnet_mappings=[networkfirewall.CfnFirewall.SubnetMappingProperty(
+                        subnet_id="subnetId",
+                
+                        # the properties below are optional
+                        ip_address_type="ipAddressType"
+                    )],
+                    vpc_id="vpcId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3d5ca6186c3e1f8390b21e2285b977eedcab737745c1d0a61ed10a0e51c30224)
+                check_type(argname="argument subnet_mappings", value=subnet_mappings, expected_type=type_hints["subnet_mappings"])
+                check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if subnet_mappings is not None:
+                self._values["subnet_mappings"] = subnet_mappings
+            if vpc_id is not None:
+                self._values["vpc_id"] = vpc_id
+
+        @builtins.property
+        def subnet_mappings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.SubnetMappingProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-vpcendpoint.html#cfn-networkfirewall-firewall-vpcendpoint-subnetmappings
+            '''
+            result = self._values.get("subnet_mappings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.SubnetMappingProperty"]]]], result)
+
+        @builtins.property
+        def vpc_id(self) -> typing.Optional[builtins.str]:
+            '''The unique identifier of the VPC for the firewall endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-firewall-vpcendpoint.html#cfn-networkfirewall-firewall-vpcendpoint-vpcid
+            '''
+            result = self._values.get("vpc_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcEndpointProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1358,6 +1731,7 @@ class CfnFirewallPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1420,7 +1794,7 @@ class CfnFirewallPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__706340078bfabf1ab4df2417fc17af1521f1718330cb1fc0087bd9afbac6b09e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firewallPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firewallPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="firewallPolicyName")
@@ -1433,7 +1807,7 @@ class CfnFirewallPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__96c7e3a8041e7e54afea999d4d0ef02ac9ae2b07dcdf0a03eae03b540da1897f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firewallPolicyName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firewallPolicyName", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1446,7 +1820,7 @@ class CfnFirewallPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__17c32ed9aaa9f9ee7c0bc9d17e141d75109032a7a60deaf6aed2663b8c4728a3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1462,7 +1836,7 @@ class CfnFirewallPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8c11c99d52a27fc2ece4bf3400c4dd843466996564051d6963ae198097626d76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkfirewall.CfnFirewallPolicy.ActionDefinitionProperty",
@@ -2736,10 +3110,14 @@ class CfnFirewallPolicyProps:
         "description": "description",
         "enabled_analysis_types": "enabledAnalysisTypes",
         "firewall_policy_change_protection": "firewallPolicyChangeProtection",
+        "nat_gateway_mappings": "natGatewayMappings",
+        "no_source_preservation": "noSourcePreservation",
+        "proxy_settings": "proxySettings",
         "subnet_change_protection": "subnetChangeProtection",
         "subnet_mappings": "subnetMappings",
         "tags": "tags",
         "transit_gateway_id": "transitGatewayId",
+        "vpc_endpoint": "vpcEndpoint",
         "vpc_id": "vpcId",
     },
 )
@@ -2755,10 +3133,14 @@ class CfnFirewallProps:
         description: typing.Optional[builtins.str] = None,
         enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        nat_gateway_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.NatGatewayMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        no_source_preservation: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        proxy_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.ProxySettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         subnet_change_protection: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
         subnet_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         transit_gateway_id: typing.Optional[builtins.str] = None,
+        vpc_endpoint: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnFirewall.VpcEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_id: typing.Optional[typing.Union[builtins.str, "_aws_ec2_18162e09.IVPCRef"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnFirewall``.
@@ -2771,10 +3153,14 @@ class CfnFirewallProps:
         :param description: A description of the firewall.
         :param enabled_analysis_types: An optional setting indicating the specific traffic analysis types to enable on the firewall.
         :param firewall_policy_change_protection: A setting indicating whether the firewall is protected against a change to the firewall policy association. Use this setting to protect against accidentally modifying the firewall policy for a firewall that is in use. When you create a firewall, the operation initializes this setting to ``TRUE`` .
+        :param nat_gateway_mappings: The NAT gateways that the firewall proxies egress traffic through when NoSourcePreservation is true.
+        :param no_source_preservation: Indicates whether the firewall operates in proxy mode, where the source IP address of traffic is not preserved. When true, specify NatGatewayMappings and VpcEndpoint instead of the top-level VpcId and SubnetMappings. You can't change this setting after you create the firewall.
+        :param proxy_settings: The proxy listener configuration for a proxy-mode (no source preservation) firewall.
         :param subnet_change_protection: A setting indicating whether the firewall is protected against changes to the subnet associations. Use this setting to protect against accidentally modifying the subnet associations for a firewall that is in use. When you create a firewall, the operation initializes this setting to ``TRUE`` .
         :param subnet_mappings: The primary public subnets that Network Firewall is using for the firewall. Network Firewall creates a firewall endpoint in each subnet. Create a subnet mapping for each Availability Zone where you want to use the firewall. These subnets are all defined for a single, primary VPC, and each must belong to a different Availability Zone. Each of these subnets establishes the availability of the firewall in its Availability Zone. In addition to these subnets, you can define other endpoints for the firewall in ``VpcEndpointAssociation`` resources. You can define these additional endpoints for any VPC, and for any of the Availability Zones where the firewall resource already has a subnet mapping. VPC endpoint associations give you the ability to protect multiple VPCs using a single firewall, and to define multiple firewall endpoints for a VPC in a single Availability Zone.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         :param transit_gateway_id: The unique identifier of the transit gateway associated with this firewall. This field is only present for transit gateway-attached firewalls.
+        :param vpc_endpoint: The VPC and subnets for a proxy-mode firewall's endpoint. Provide this instead of the top-level VpcId and SubnetMappings when NoSourcePreservation is true.
         :param vpc_id: The unique identifier of the VPC where the firewall is in use. You can't change the VPC of a firewall after you create the firewall.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html
@@ -2800,6 +3186,16 @@ class CfnFirewallProps:
                 description="description",
                 enabled_analysis_types=["enabledAnalysisTypes"],
                 firewall_policy_change_protection=False,
+                nat_gateway_mappings=[networkfirewall.CfnFirewall.NatGatewayMappingProperty(
+                    nat_gateway_id="natGatewayId"
+                )],
+                no_source_preservation=False,
+                proxy_settings=networkfirewall.CfnFirewall.ProxySettingsProperty(
+                    listener_properties=[networkfirewall.CfnFirewall.ListenerPropertyProperty(
+                        port=123,
+                        type="type"
+                    )]
+                ),
                 subnet_change_protection=False,
                 subnet_mappings=[networkfirewall.CfnFirewall.SubnetMappingProperty(
                     subnet_id="subnetId",
@@ -2812,6 +3208,15 @@ class CfnFirewallProps:
                     value="value"
                 )],
                 transit_gateway_id="transitGatewayId",
+                vpc_endpoint=networkfirewall.CfnFirewall.VpcEndpointProperty(
+                    subnet_mappings=[networkfirewall.CfnFirewall.SubnetMappingProperty(
+                        subnet_id="subnetId",
+            
+                        # the properties below are optional
+                        ip_address_type="ipAddressType"
+                    )],
+                    vpc_id="vpcId"
+                ),
                 vpc_id="vpcId"
             )
         '''
@@ -2825,10 +3230,14 @@ class CfnFirewallProps:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument enabled_analysis_types", value=enabled_analysis_types, expected_type=type_hints["enabled_analysis_types"])
             check_type(argname="argument firewall_policy_change_protection", value=firewall_policy_change_protection, expected_type=type_hints["firewall_policy_change_protection"])
+            check_type(argname="argument nat_gateway_mappings", value=nat_gateway_mappings, expected_type=type_hints["nat_gateway_mappings"])
+            check_type(argname="argument no_source_preservation", value=no_source_preservation, expected_type=type_hints["no_source_preservation"])
+            check_type(argname="argument proxy_settings", value=proxy_settings, expected_type=type_hints["proxy_settings"])
             check_type(argname="argument subnet_change_protection", value=subnet_change_protection, expected_type=type_hints["subnet_change_protection"])
             check_type(argname="argument subnet_mappings", value=subnet_mappings, expected_type=type_hints["subnet_mappings"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument transit_gateway_id", value=transit_gateway_id, expected_type=type_hints["transit_gateway_id"])
+            check_type(argname="argument vpc_endpoint", value=vpc_endpoint, expected_type=type_hints["vpc_endpoint"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "firewall_name": firewall_name,
@@ -2846,6 +3255,12 @@ class CfnFirewallProps:
             self._values["enabled_analysis_types"] = enabled_analysis_types
         if firewall_policy_change_protection is not None:
             self._values["firewall_policy_change_protection"] = firewall_policy_change_protection
+        if nat_gateway_mappings is not None:
+            self._values["nat_gateway_mappings"] = nat_gateway_mappings
+        if no_source_preservation is not None:
+            self._values["no_source_preservation"] = no_source_preservation
+        if proxy_settings is not None:
+            self._values["proxy_settings"] = proxy_settings
         if subnet_change_protection is not None:
             self._values["subnet_change_protection"] = subnet_change_protection
         if subnet_mappings is not None:
@@ -2854,6 +3269,8 @@ class CfnFirewallProps:
             self._values["tags"] = tags
         if transit_gateway_id is not None:
             self._values["transit_gateway_id"] = transit_gateway_id
+        if vpc_endpoint is not None:
+            self._values["vpc_endpoint"] = vpc_endpoint
         if vpc_id is not None:
             self._values["vpc_id"] = vpc_id
 
@@ -2954,6 +3371,41 @@ class CfnFirewallProps:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
 
     @builtins.property
+    def nat_gateway_mappings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.NatGatewayMappingProperty"]]]]:
+        '''The NAT gateways that the firewall proxies egress traffic through when NoSourcePreservation is true.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-natgatewaymappings
+        '''
+        result = self._values.get("nat_gateway_mappings")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.NatGatewayMappingProperty"]]]], result)
+
+    @builtins.property
+    def no_source_preservation(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Indicates whether the firewall operates in proxy mode, where the source IP address of traffic is not preserved.
+
+        When true, specify NatGatewayMappings and VpcEndpoint instead of the top-level VpcId and SubnetMappings. You can't change this setting after you create the firewall.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-nosourcepreservation
+        '''
+        result = self._values.get("no_source_preservation")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def proxy_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.ProxySettingsProperty"]]:
+        '''The proxy listener configuration for a proxy-mode (no source preservation) firewall.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-proxysettings
+        '''
+        result = self._values.get("proxy_settings")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.ProxySettingsProperty"]], result)
+
+    @builtins.property
     def subnet_change_protection(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
@@ -3004,6 +3456,19 @@ class CfnFirewallProps:
         '''
         result = self._values.get("transit_gateway_id")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.VpcEndpointProperty"]]:
+        '''The VPC and subnets for a proxy-mode firewall's endpoint.
+
+        Provide this instead of the top-level VpcId and SubnetMappings when NoSourcePreservation is true.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-firewall.html#cfn-networkfirewall-firewall-vpcendpoint
+        '''
+        result = self._values.get("vpc_endpoint")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFirewall.VpcEndpointProperty"]], result)
 
     @builtins.property
     def vpc_id(
@@ -3146,6 +3611,7 @@ class CfnLoggingConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3179,7 +3645,7 @@ class CfnLoggingConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d71125ddf5ba2d377facff407ef5a2fcdbd3c618a7499d3633c68130f56adcee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firewallArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firewallArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfiguration")
@@ -3197,7 +3663,7 @@ class CfnLoggingConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6379a583f20adcddf04ea938455ca9e96ed6e0a2293ffa4b83968515494d8120)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loggingConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "loggingConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="enableMonitoringDashboard")
@@ -3214,7 +3680,7 @@ class CfnLoggingConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd9d520dc417896b42fea56a33166ad81596a611f62bb71b7dca2be701c49cbe)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "enableMonitoringDashboard", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "enableMonitoringDashboard", value)
 
     @builtins.property
     @jsii.member(jsii_name="firewallName")
@@ -3227,7 +3693,7 @@ class CfnLoggingConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e3640e7313e33945bc2b7c00caa777b47e14239e160ded6a349405aeb0b47da)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firewallName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firewallName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkfirewall.CfnLoggingConfiguration.LogDestinationConfigProperty",
@@ -3765,6 +4231,7 @@ class CfnRuleGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3820,7 +4287,7 @@ class CfnRuleGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__51c7651794925713a49400586d47fdec281f3586c00b18d62055515fd2ef2791)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "capacity", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "capacity", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleGroupName")
@@ -3833,7 +4300,7 @@ class CfnRuleGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__23a7df76066fa7162c289f359c412bcb9765e3d5b573e0d06d7daf300d391ff3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -3846,7 +4313,7 @@ class CfnRuleGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__87ac4c425ad11cc87f637d21e3373819fe72741deca8ec3a39ab57b97c38a2e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -3859,7 +4326,7 @@ class CfnRuleGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b0c85f5fc86d4cd20434a5458984123db8b76ff5d649d26af8be38c56af6a7b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleGroup")
@@ -3877,7 +4344,7 @@ class CfnRuleGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6ed6ac96ae6360b92bfdf6614d9832ba1cad5080dce3a3257a75537c93626bb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleGroup", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleGroup", value)
 
     @builtins.property
     @jsii.member(jsii_name="summaryConfiguration")
@@ -3895,7 +4362,7 @@ class CfnRuleGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46973fc09b1e3c3e87b38c8ac10ef1cb472bfde25cd2947723ae44a7d98733e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "summaryConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "summaryConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -3911,7 +4378,7 @@ class CfnRuleGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5969fe74fc1a24641d71678e96d3133e152f5f87c43e5f7d72af22aa055d7db5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkfirewall.CfnRuleGroup.ActionDefinitionProperty",
@@ -6658,6 +7125,7 @@ class CfnTLSInspectionConfiguration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6722,7 +7190,7 @@ class CfnTLSInspectionConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d0caa3698092eac04f0f3cb6ef31ee8a37b5620e7b43e83135c822e030a956e5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tlsInspectionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tlsInspectionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tlsInspectionConfigurationName")
@@ -6735,7 +7203,7 @@ class CfnTLSInspectionConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dc056f1763c9b07511c09bccb7850663b8f285be14ee1f3cb521a402d621782f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tlsInspectionConfigurationName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tlsInspectionConfigurationName", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -6748,7 +7216,7 @@ class CfnTLSInspectionConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a315bf64b464c871474cdb7416d97974a1f1ecea9dca5b529ccb217aa9b8bdbc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -6764,7 +7232,7 @@ class CfnTLSInspectionConfiguration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1705dcb0cd17e874ce96cef7a6499dffda595fe61408ae3b8537babc4ea07e7d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkfirewall.CfnTLSInspectionConfiguration.AddressProperty",
@@ -7725,6 +8193,7 @@ class CfnVpcEndpointAssociation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7791,7 +8260,7 @@ class CfnVpcEndpointAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4873642090d846acb67b83d329a7b6809d25db02946e5fd84612c726b796b3e3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "firewallArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "firewallArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnetMapping")
@@ -7809,7 +8278,7 @@ class CfnVpcEndpointAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a3d9b0b82919d3ce70488dc76e2455ae08bd18480a9794afad69806d772cd593)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnetMapping", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnetMapping", value)
 
     @builtins.property
     @jsii.member(jsii_name="vpcId")
@@ -7822,7 +8291,7 @@ class CfnVpcEndpointAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ebc60917207a96abc5156cbba4fef32ab70bea3895d16bee96406b9486bc0767)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "vpcId", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -7835,7 +8304,7 @@ class CfnVpcEndpointAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__64391adefe7631ddc6978ebdc3e7251c31e95e8ed23e78e1c1e9d7261fa16f80)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7851,7 +8320,7 @@ class CfnVpcEndpointAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c17d9f2411e238295a7de2e84411c37ec368c1d40468f81aec3ce8b756fcc4a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_networkfirewall.CfnVpcEndpointAssociation.SubnetMappingProperty",
@@ -8194,10 +8663,14 @@ def _typecheckingstub__8735e4ce7e79159823190ad059af802b7721b71930c6b4b8805c4676b
     description: typing.Optional[builtins.str] = None,
     enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    nat_gateway_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.NatGatewayMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    no_source_preservation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    proxy_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.ProxySettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     subnet_change_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     subnet_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     transit_gateway_id: typing.Optional[builtins.str] = None,
+    vpc_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.VpcEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_id: typing.Optional[typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -8275,6 +8748,24 @@ def _typecheckingstub__ee50239d13ab311a798770d372dccb418872f67c3e07c873f5d87e11d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__96da9f8792c0d294cdbac072507495ba802efb6b3360d9f3447eb98255e99222(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFirewall.NatGatewayMappingProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd8cbd03a98ea51dd38e2c76c0093acff5f938a6a1e15eb9bbb36389b8257a89(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c06675c049a6cbd19ff43287410fed91a8ec4c2b5dc90b9fefcd37d6b8788a45(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFirewall.ProxySettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3edeae6cf81be7cb1d87c21080d7c060fb1fdbd872b4292af576701d514ade47(
     value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
 ) -> None:
@@ -8299,6 +8790,12 @@ def _typecheckingstub__ebf25e7b4ccdda1a25794e9d426e24b28f37c786df4576a4b499042b5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__23c7cae786026192417e659d079cb74dc517d64a10ab717f557c812490d144bb(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnFirewall.VpcEndpointProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ba092b3d0c9ca8819ad31fd4320cebdee3150a45603af80de70f2c0bbb9e04b5(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -8312,10 +8809,40 @@ def _typecheckingstub__e12d4b074bc6fa59b990e1d43ef30390330da9da999dbf3bac9bf5e98
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b9c1058a1586ec9a5b23fb99665d1176f62b042c662b972699af58ce2188a085(
+    *,
+    port: typing.Optional[jsii.Number] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d14c401cf4ec21fba0db6c9f6c05daca38dc881b30b62015cb4a9a2e6b241a4d(
+    *,
+    nat_gateway_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__19963129bffa39423f281507d7b2bf03c1af49e115bfd6e15d5c81903c885325(
+    *,
+    listener_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.ListenerPropertyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cf86d50b8eec902ee512afbe0dfd3b1ee2bc8f0b9f4fb9acb4ac637ae3662fc0(
     *,
     subnet_id: builtins.str,
     ip_address_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d5ca6186c3e1f8390b21e2285b977eedcab737745c1d0a61ed10a0e51c30224(
+    *,
+    subnet_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    vpc_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8500,10 +9027,14 @@ def _typecheckingstub__8d4108d5c35b1608da0d36c8bb60f52501d3b0634ca4324342a71c57b
     description: typing.Optional[builtins.str] = None,
     enabled_analysis_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     firewall_policy_change_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    nat_gateway_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.NatGatewayMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    no_source_preservation: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    proxy_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.ProxySettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     subnet_change_protection: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     subnet_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     transit_gateway_id: typing.Optional[builtins.str] = None,
+    vpc_endpoint: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnFirewall.VpcEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_id: typing.Optional[typing.Union[builtins.str, _aws_ec2_18162e09.IVPCRef]] = None,
 ) -> None:
     """Type checking stubs"""

@@ -1969,6 +1969,29 @@ cluster.add_helm_chart("ExternalSecretsOperator",
 )
 ```
 
+`null` values are passed through to Helm, which is how many charts let you remove a default
+(for example, disabling one of the OpenTelemetry Collector's default receivers). This works in
+TypeScript and JavaScript. In the other jsii languages (Python, Java, .NET, Go), the jsii runtime
+turns `null` (`None` in Python) inside `values` into `undefined`, so those keys are silently
+left out of the rendered values. To keep them, pass the values as a JSON string with a property
+override on the chart's underlying resource:
+
+```python
+# cluster: eks.Cluster
+
+
+chart = cluster.add_helm_chart("OpenTelemetryCollector",
+    chart="opentelemetry-collector",
+    release="opentelemetry-collector",
+    repository="https://open-telemetry.github.io/opentelemetry-helm-charts",
+    namespace="opentelemetry"
+)
+
+# A JSON string keeps `null` values intact in every language.
+chart_resource = chart.node.find_child("Resource").node.default_child
+chart_resource.add_property_override("Values", "{\"mode\":\"deployment\",\"image\":{\"repository\":\"otel/opentelemetry-collector-k8s\"},\"config\":{\"receivers\":{\"jaeger\":null,\"zipkin\":null},\"service\":{\"pipelines\":{\"traces\":{\"receivers\":[\"otlp\"]}}}}}")
+```
+
 Helm chart can come with Custom Resource Definitions (CRDs) defined that by default will be installed by helm as well. However in special cases it might be needed to skip the installation of CRDs, for that the property `skipCrds` can be used.
 
 ```python
@@ -2688,6 +2711,7 @@ class AccessPolicyArn(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_EKS_ADMIN_POLICY")
+    @builtins.classmethod
     def AMAZON_EKS_ADMIN_POLICY(cls) -> "AccessPolicyArn":
         '''The Amazon EKS Admin Policy.
 
@@ -2699,6 +2723,7 @@ class AccessPolicyArn(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_EKS_ADMIN_VIEW_POLICY")
+    @builtins.classmethod
     def AMAZON_EKS_ADMIN_VIEW_POLICY(cls) -> "AccessPolicyArn":
         '''The Amazon EKS Admin View Policy.
 
@@ -2709,6 +2734,7 @@ class AccessPolicyArn(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_EKS_CLUSTER_ADMIN_POLICY")
+    @builtins.classmethod
     def AMAZON_EKS_CLUSTER_ADMIN_POLICY(cls) -> "AccessPolicyArn":
         '''The Amazon EKS Cluster Admin Policy.
 
@@ -2720,6 +2746,7 @@ class AccessPolicyArn(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_EKS_EDIT_POLICY")
+    @builtins.classmethod
     def AMAZON_EKS_EDIT_POLICY(cls) -> "AccessPolicyArn":
         '''The Amazon EKS Edit Policy.
 
@@ -2730,6 +2757,7 @@ class AccessPolicyArn(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_EKS_VIEW_POLICY")
+    @builtins.classmethod
     def AMAZON_EKS_VIEW_POLICY(cls) -> "AccessPolicyArn":
         '''The Amazon EKS View Policy.
 
@@ -3803,348 +3831,406 @@ class AlbControllerVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_0_0")
+    @builtins.classmethod
     def V2_0_0(cls) -> "AlbControllerVersion":
         '''v2.0.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_0_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_0_1")
+    @builtins.classmethod
     def V2_0_1(cls) -> "AlbControllerVersion":
         '''v2.0.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_0_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_1_0")
+    @builtins.classmethod
     def V2_1_0(cls) -> "AlbControllerVersion":
         '''v2.1.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_1_1")
+    @builtins.classmethod
     def V2_1_1(cls) -> "AlbControllerVersion":
         '''v2.1.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_1_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_1_2")
+    @builtins.classmethod
     def V2_1_2(cls) -> "AlbControllerVersion":
         '''v2.1.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_1_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_1_3")
+    @builtins.classmethod
     def V2_1_3(cls) -> "AlbControllerVersion":
         '''v2.1.3.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_1_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_10_0")
+    @builtins.classmethod
     def V2_10_0(cls) -> "AlbControllerVersion":
         '''v2.10.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_10_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_10_1")
+    @builtins.classmethod
     def V2_10_1(cls) -> "AlbControllerVersion":
         '''v2.10.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_10_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_11_0")
+    @builtins.classmethod
     def V2_11_0(cls) -> "AlbControllerVersion":
         '''v2.11.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_11_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_12_0")
+    @builtins.classmethod
     def V2_12_0(cls) -> "AlbControllerVersion":
         '''v2.12.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_12_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_13_0")
+    @builtins.classmethod
     def V2_13_0(cls) -> "AlbControllerVersion":
         '''v2.13.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_13_1")
+    @builtins.classmethod
     def V2_13_1(cls) -> "AlbControllerVersion":
         '''v2.13.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_13_2")
+    @builtins.classmethod
     def V2_13_2(cls) -> "AlbControllerVersion":
         '''v2.13.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_13_3")
+    @builtins.classmethod
     def V2_13_3(cls) -> "AlbControllerVersion":
         '''v2.13.3.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_13_4")
+    @builtins.classmethod
     def V2_13_4(cls) -> "AlbControllerVersion":
         '''v2.13.4.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_13_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_14_0")
+    @builtins.classmethod
     def V2_14_0(cls) -> "AlbControllerVersion":
         '''v2.14.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_14_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_14_1")
+    @builtins.classmethod
     def V2_14_1(cls) -> "AlbControllerVersion":
         '''v2.14.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_14_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_15_0")
+    @builtins.classmethod
     def V2_15_0(cls) -> "AlbControllerVersion":
         '''v2.15.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_15_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_16_0")
+    @builtins.classmethod
     def V2_16_0(cls) -> "AlbControllerVersion":
         '''v2.16.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_16_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_17_0")
+    @builtins.classmethod
     def V2_17_0(cls) -> "AlbControllerVersion":
         '''v2.17.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_17_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_17_1")
+    @builtins.classmethod
     def V2_17_1(cls) -> "AlbControllerVersion":
         '''v2.17.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_17_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_2_0")
+    @builtins.classmethod
     def V2_2_0(cls) -> "AlbControllerVersion":
         '''v2.0.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_2_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_2_1")
+    @builtins.classmethod
     def V2_2_1(cls) -> "AlbControllerVersion":
         '''v2.2.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_2_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_2_2")
+    @builtins.classmethod
     def V2_2_2(cls) -> "AlbControllerVersion":
         '''v2.2.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_2_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_2_3")
+    @builtins.classmethod
     def V2_2_3(cls) -> "AlbControllerVersion":
         '''v2.2.3.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_2_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_2_4")
+    @builtins.classmethod
     def V2_2_4(cls) -> "AlbControllerVersion":
         '''v2.2.4.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_2_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_3_0")
+    @builtins.classmethod
     def V2_3_0(cls) -> "AlbControllerVersion":
         '''v2.3.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_3_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_3_1")
+    @builtins.classmethod
     def V2_3_1(cls) -> "AlbControllerVersion":
         '''v2.3.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_3_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_4_1")
+    @builtins.classmethod
     def V2_4_1(cls) -> "AlbControllerVersion":
         '''v2.4.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_4_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_4_2")
+    @builtins.classmethod
     def V2_4_2(cls) -> "AlbControllerVersion":
         '''v2.4.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_4_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_4_3")
+    @builtins.classmethod
     def V2_4_3(cls) -> "AlbControllerVersion":
         '''v2.4.3.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_4_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_4_4")
+    @builtins.classmethod
     def V2_4_4(cls) -> "AlbControllerVersion":
         '''v2.4.4.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_4_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_4_5")
+    @builtins.classmethod
     def V2_4_5(cls) -> "AlbControllerVersion":
         '''v2.4.5.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_4_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_4_6")
+    @builtins.classmethod
     def V2_4_6(cls) -> "AlbControllerVersion":
         '''v2.4.6.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_4_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_4_7")
+    @builtins.classmethod
     def V2_4_7(cls) -> "AlbControllerVersion":
         '''v2.4.7.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_4_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_5_0")
+    @builtins.classmethod
     def V2_5_0(cls) -> "AlbControllerVersion":
         '''v2.5.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_5_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_5_1")
+    @builtins.classmethod
     def V2_5_1(cls) -> "AlbControllerVersion":
         '''v2.5.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_5_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_5_2")
+    @builtins.classmethod
     def V2_5_2(cls) -> "AlbControllerVersion":
         '''v2.5.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_5_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_5_3")
+    @builtins.classmethod
     def V2_5_3(cls) -> "AlbControllerVersion":
         '''v2.5.3.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_5_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_5_4")
+    @builtins.classmethod
     def V2_5_4(cls) -> "AlbControllerVersion":
         '''v2.5.4.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_5_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_6_0")
+    @builtins.classmethod
     def V2_6_0(cls) -> "AlbControllerVersion":
         '''v2.6.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_6_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_6_1")
+    @builtins.classmethod
     def V2_6_1(cls) -> "AlbControllerVersion":
         '''v2.6.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_6_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_6_2")
+    @builtins.classmethod
     def V2_6_2(cls) -> "AlbControllerVersion":
         '''v2.6.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_6_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_7_0")
+    @builtins.classmethod
     def V2_7_0(cls) -> "AlbControllerVersion":
         '''v2.7.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_7_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_7_1")
+    @builtins.classmethod
     def V2_7_1(cls) -> "AlbControllerVersion":
         '''v2.7.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_7_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_7_2")
+    @builtins.classmethod
     def V2_7_2(cls) -> "AlbControllerVersion":
         '''v2.7.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_7_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_8_0")
+    @builtins.classmethod
     def V2_8_0(cls) -> "AlbControllerVersion":
         '''v2.8.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_8_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_8_1")
+    @builtins.classmethod
     def V2_8_1(cls) -> "AlbControllerVersion":
         '''v2.8.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_8_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_8_2")
+    @builtins.classmethod
     def V2_8_2(cls) -> "AlbControllerVersion":
         '''v2.8.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_8_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_8_3")
+    @builtins.classmethod
     def V2_8_3(cls) -> "AlbControllerVersion":
         '''v2.8.3.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_8_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_9_0")
+    @builtins.classmethod
     def V2_9_0(cls) -> "AlbControllerVersion":
         '''v2.9.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_9_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_9_1")
+    @builtins.classmethod
     def V2_9_1(cls) -> "AlbControllerVersion":
         '''v2.9.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_9_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V2_9_2")
+    @builtins.classmethod
     def V2_9_2(cls) -> "AlbControllerVersion":
         '''v2.9.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V2_9_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V3_0_0")
+    @builtins.classmethod
     def V3_0_0(cls) -> "AlbControllerVersion":
         '''v3.0.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_0_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V3_1_0")
+    @builtins.classmethod
     def V3_1_0(cls) -> "AlbControllerVersion":
         '''v3.1.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V3_2_0")
+    @builtins.classmethod
     def V3_2_0(cls) -> "AlbControllerVersion":
         '''v3.2.0.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_2_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V3_2_1")
+    @builtins.classmethod
     def V3_2_1(cls) -> "AlbControllerVersion":
         '''v3.2.1.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_2_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V3_2_2")
+    @builtins.classmethod
     def V3_2_2(cls) -> "AlbControllerVersion":
         '''v3.2.2.'''
         return typing.cast("AlbControllerVersion", jsii.sget(cls, "V3_2_2"))
@@ -5657,6 +5743,7 @@ class CfnAccessEntry(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5703,7 +5790,7 @@ class CfnAccessEntry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f39f11be83c62cd1ef0b79bbec37cd76332b93db644a6f5f897a2fd1c6e4d15a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clusterName", value)
 
     @builtins.property
     @jsii.member(jsii_name="principalArn")
@@ -5716,7 +5803,7 @@ class CfnAccessEntry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__53028d8402e60bf71e6a724645feb7096873c998ac8df5343a3472840aba20b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "principalArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "principalArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="accessPolicies")
@@ -5734,7 +5821,7 @@ class CfnAccessEntry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__72525fb57b071712551a1a70513a19122fa4b07addc9565813f0c1ad6c531aa6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accessPolicies", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accessPolicies", value)
 
     @builtins.property
     @jsii.member(jsii_name="kubernetesGroups")
@@ -5750,7 +5837,7 @@ class CfnAccessEntry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eeca928ef55890afb86c2a4b773e5b085ea41bbda1031d5514018ff03ea79670)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kubernetesGroups", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kubernetesGroups", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5766,7 +5853,7 @@ class CfnAccessEntry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__343de9e1ac76cbf6a67d73d349089c21fca695294c67398109df2c6ad597bba3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -5779,7 +5866,7 @@ class CfnAccessEntry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d75f74439880fd1ba12bf85f7549ef8ddce92bd3683d6d8b7818c245923ce357)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="username")
@@ -5792,7 +5879,7 @@ class CfnAccessEntry(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__de59b674f92cd0ad5088412238c3b9a96b647a258d8a75b03ffc744e43723761)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "username", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnAccessEntry.AccessPolicyProperty",
@@ -6287,6 +6374,7 @@ class CfnAddon(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -6333,7 +6421,7 @@ class CfnAddon(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aa2f59cc2f15ceecb25c97a05918b5204a973e21e99d20f1a8d5ccaf93d479dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "addonName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "addonName", value)
 
     @builtins.property
     @jsii.member(jsii_name="clusterName")
@@ -6346,7 +6434,7 @@ class CfnAddon(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__32e5d7f68b583ad28c101848b4b9915ac4edfdb52f37771404157d760548a2f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clusterName", value)
 
     @builtins.property
     @jsii.member(jsii_name="addonVersion")
@@ -6359,7 +6447,7 @@ class CfnAddon(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eb85a2b34531ebb86af42e5229b0ed17a08e49a0d033880c119269f998089248)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "addonVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "addonVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="configurationValues")
@@ -6372,7 +6460,7 @@ class CfnAddon(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f2b158aed78a78d2962c2650df64f6c3880ccb508ebd6b281bda6c1a1961620a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configurationValues", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configurationValues", value)
 
     @builtins.property
     @jsii.member(jsii_name="namespaceConfig")
@@ -6390,7 +6478,7 @@ class CfnAddon(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__039b518895f39f54dce3ea31a35bed66445fb7b5e7f4c52a89adafc86911f331)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespaceConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "namespaceConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="podIdentityAssociations")
@@ -6408,7 +6496,7 @@ class CfnAddon(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__04a430658e28600fba10a8c3e5edab2978904829dda6f2c70e9cca8560f7e400)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "podIdentityAssociations", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "podIdentityAssociations", value)
 
     @builtins.property
     @jsii.member(jsii_name="preserveOnDelete")
@@ -6426,7 +6514,7 @@ class CfnAddon(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c38bc0bc32707ba96b79f5dda73d99054ea5b77577796b10a0f95ff6fe51b133)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "preserveOnDelete", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "preserveOnDelete", value)
 
     @builtins.property
     @jsii.member(jsii_name="resolveConflicts")
@@ -6439,7 +6527,7 @@ class CfnAddon(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5ae5d99ca6a1d34e61263b73b34a1a3a9b8ec0abb558a77c4507f0d9ea472046)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resolveConflicts", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resolveConflicts", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceAccountRoleArn")
@@ -6452,7 +6540,7 @@ class CfnAddon(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__533ac32ef2e5bc8d5ce0313c18089cdf16b45b01e51842a29288fbe7ffec2431)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceAccountRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceAccountRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -6468,7 +6556,7 @@ class CfnAddon(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__61cfcc2cd9aba81e02df7f2a5c976044dc5e5cbf6c05b880c4944cb357ebd775)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnAddon.NamespaceConfigProperty",
@@ -7000,6 +7088,7 @@ class CfnCapability(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7114,7 +7203,7 @@ class CfnCapability(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c046434d1f0003cf6c193f33ec344a15fd8a93ed983e22e037417c0d3f3d0b53)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "capabilityName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "capabilityName", value)
 
     @builtins.property
     @jsii.member(jsii_name="clusterName")
@@ -7127,7 +7216,7 @@ class CfnCapability(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8944e2621bc212176b7a03974f2d283e76e6f44654d3ede504af18dafbdbd326)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clusterName", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletePropagationPolicy")
@@ -7140,7 +7229,7 @@ class CfnCapability(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e41af4f092d594380ebcadf382eed9967d6d10801fdd36af1a96d2c638ca425b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletePropagationPolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletePropagationPolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -7153,7 +7242,7 @@ class CfnCapability(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__112e9832a83c03604514a35b9f36a7e1f319893f8e9a5bb9638ec97757d22f97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -7166,7 +7255,7 @@ class CfnCapability(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a300d45d5039bfdf19a45d25811fbb6ad49d39c4bca2ceae8adb816ac7c3f471)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="configuration")
@@ -7184,7 +7273,7 @@ class CfnCapability(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__292eb262615ca3e11e4723da01bedda397199714a5de67b4c36de40819e1b905)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "configuration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -7200,7 +7289,7 @@ class CfnCapability(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eb37ce6f0e5ae3f7fc9be815c224238918f0f32968ca83cdb3707245d23f81d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCapability.AckProperty",
@@ -8151,6 +8240,7 @@ class CfnCertificateAuthority(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -8319,7 +8409,7 @@ class CfnCertificateAuthority(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b26cdfef8b16be73841e45d7cd61e6a03fe1e5aa910f8e22f2cf261e010d279)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clusterName", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCertificateAuthority.ScheduledEventsProperty",
@@ -8867,6 +8957,7 @@ class CfnCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -9016,7 +9107,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7faae717d69e9ef08dfb05330d411b9baaf6babf8cf2b4715f8a02a4bd949f0c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcesVpcConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "resourcesVpcConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -9029,7 +9120,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__206ca712455daef1d5df9029fc8d95ff1ce9b54bd3c64781c94f6e97961f0df6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="accessConfig")
@@ -9047,7 +9138,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__249431e71bfb6d15cdb94aea4df14d4b3371f709cb261f00cb7dc77e72be7680)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accessConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "accessConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="activeCertificateAuthorityId")
@@ -9063,7 +9154,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__584a86ecfea141013833706ee4b4bf5686c667f11c9b8ecc38b43e87ab4baf18)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "activeCertificateAuthorityId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "activeCertificateAuthorityId", value)
 
     @builtins.property
     @jsii.member(jsii_name="bootstrapSelfManagedAddons")
@@ -9081,7 +9172,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b3725246139251af199def1d548b17a13e8ddd4df825377563ea01cdea555c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "bootstrapSelfManagedAddons", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "bootstrapSelfManagedAddons", value)
 
     @builtins.property
     @jsii.member(jsii_name="certificateAuthority")
@@ -9099,7 +9190,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__880f09f5bf74c3c50e89cb5eb9615547a5bcf0bd8c93a5a46a0f12d734f0ca5d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateAuthority", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "certificateAuthority", value)
 
     @builtins.property
     @jsii.member(jsii_name="computeConfig")
@@ -9117,7 +9208,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d35f88b28db161e1414d604c41ffc1d10fcf76351a0503d110f81158a8e15ca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "computeConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "computeConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="controlPlaneScalingConfig")
@@ -9135,7 +9226,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4436ea4cc18d196aa3ff9d13eb20f342735d0595592ac8760060155ddcb0a250)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "controlPlaneScalingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "controlPlaneScalingConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtection")
@@ -9153,7 +9244,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__19e2a4eccf6e2e232dc5d0a9572dba914015320e88042ef8f90020cd0d14b037)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deletionProtection", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionConfig")
@@ -9171,7 +9262,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b161fda542258d1cd8a20fecd3943cacecb658f19ab16b918baf49908459644c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="force")
@@ -9189,7 +9280,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ec11778764d939bb12cbec68a418a76be768d7a638339c5189ae6cfe44059ebd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "force", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "force", value)
 
     @builtins.property
     @jsii.member(jsii_name="kubeApiServerConfig")
@@ -9207,7 +9298,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__085459953a7a8b73aa1b400d420f7dc1f950ded340382311e565152379927413)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kubeApiServerConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kubeApiServerConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="kubeControllerManagerConfig")
@@ -9225,7 +9316,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3706b9414c549743848753676a0ce212b6ba421516dd6bd4610ee75cf7a34ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kubeControllerManagerConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kubeControllerManagerConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="kubernetesNetworkConfig")
@@ -9243,7 +9334,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1a14e543582631e80cb6fc2093270dba17f568b8779b381e3bc7398bfafb6699)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kubernetesNetworkConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kubernetesNetworkConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="kubeSchedulerConfig")
@@ -9261,7 +9352,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07ec31572c6ddc6cd8433b413ca82a4c9e5757eef80c1e02d9037d5a4369c444)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kubeSchedulerConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kubeSchedulerConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="logging")
@@ -9279,7 +9370,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b894c6ae9e0b1d84fb3b436c969bb8c93262be35c47c6439769089b1b511372)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logging", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logging", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -9292,7 +9383,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2abdb0223ce1a286014d3194e6bdb56dedf9d45dcf81c88f7982910040414c06)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="outpostConfig")
@@ -9310,7 +9401,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f8fa649bbaac6b12d9fb99e325d6fa46e4aea0d9d4d376abd8c7ac60009fc3d6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outpostConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "outpostConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="remoteNetworkConfig")
@@ -9328,7 +9419,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cbca5e74535463c8d56fe42358d9cdf712c85039267d6580c6b1dbd855c5f255)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "remoteNetworkConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "remoteNetworkConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="rollbackConfig")
@@ -9346,7 +9437,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ebd2bf2fbec782817642714790f00d1e2419e755fb9a99cd570bc3fee1c4b83)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "rollbackConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "rollbackConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="storageConfig")
@@ -9364,7 +9455,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d43c0cb2280b293bbb9f09aa10579d43dbb7df4786771157ba149230c817ecfa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "storageConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "storageConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -9380,7 +9471,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__201bfcb16f7ebd474e1c66a732f38f2234c0211f4a0ed45e7caebec7a8eb318a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="upgradePolicy")
@@ -9398,7 +9489,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__877948a2bf4549e042b17570af8e5dd5d247428b7baca13d83a600f308601333)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "upgradePolicy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "upgradePolicy", value)
 
     @builtins.property
     @jsii.member(jsii_name="version")
@@ -9411,7 +9502,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b02d8ac6f71535d635ac9b6a00c5e6c427f81f7fd71264c11d7353d212085e7a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "version", value)
 
     @builtins.property
     @jsii.member(jsii_name="zonalShiftConfig")
@@ -9429,7 +9520,7 @@ class CfnCluster(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__42ffc6381adc5fa8c427a16d5fff74a44f4b6ebca1899d06adc2bd5949d0cfca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "zonalShiftConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "zonalShiftConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCluster.AccessConfigProperty",
@@ -12691,6 +12782,7 @@ class CfnFargateProfile(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -12737,7 +12829,7 @@ class CfnFargateProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__67c0af53421929d46be84728da3b0c110c22a4c1524b69d145f4b40578d660a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clusterName", value)
 
     @builtins.property
     @jsii.member(jsii_name="podExecutionRoleArn")
@@ -12750,7 +12842,7 @@ class CfnFargateProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0898914ea4216cb0612ddbbd8ae321af052b066ed58f2de99ea8cb26e78b3564)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "podExecutionRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "podExecutionRoleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="selectors")
@@ -12768,7 +12860,7 @@ class CfnFargateProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3467e37d13629d1721d8e96f13c9b469fdaf5eb821e204838ae461e856021d34)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "selectors", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "selectors", value)
 
     @builtins.property
     @jsii.member(jsii_name="fargateProfileName")
@@ -12781,7 +12873,7 @@ class CfnFargateProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__52c64967dbf24e58f449238fa9259bd8892dadc64bcf87d5d998efb9efbf9596)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fargateProfileName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fargateProfileName", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnets")
@@ -12794,7 +12886,7 @@ class CfnFargateProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__03bcf21600a97aafc8e6d8376599c773b37b4c36c562644eaaa8ec11bee5dab6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnets", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnets", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -12810,7 +12902,7 @@ class CfnFargateProfile(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__93fe5db83ef1635270c7973406a7644b19576f909eda3840d06be03d3182d9aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnFargateProfile.LabelProperty",
@@ -13257,6 +13349,7 @@ class CfnIdentityProviderConfig(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -13305,7 +13398,7 @@ class CfnIdentityProviderConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6f1edfdd1a019d81346000b97e8efa1ff85d5a87672d59b6da96ffe29a83bebf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clusterName", value)
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -13318,7 +13411,7 @@ class CfnIdentityProviderConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee09b440e3a44fe78f165402158b981b9ea03938b33dcb754948e432f6231789)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "type", value)
 
     @builtins.property
     @jsii.member(jsii_name="identityProviderConfigName")
@@ -13334,7 +13427,7 @@ class CfnIdentityProviderConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__61ed3819d1ad5446bf8deef67e4587b9fb5317ad3756afebd93604eb9b6beb96)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "identityProviderConfigName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "identityProviderConfigName", value)
 
     @builtins.property
     @jsii.member(jsii_name="oidc")
@@ -13352,7 +13445,7 @@ class CfnIdentityProviderConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b3cbe654a8630cea4fa1389f38c348cf1618c501d058aa09878d216f3bc8d816)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "oidc", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "oidc", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -13368,7 +13461,7 @@ class CfnIdentityProviderConfig(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__67379d77a7e93ae2068934f518398b760115c19c314ddb0ce7aff1f3c0dfdb24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnIdentityProviderConfig.OidcIdentityProviderConfigProperty",
@@ -13984,6 +14077,7 @@ class CfnNodegroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -14056,7 +14150,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__329bcf82464d6a9c568249464ff57d3b274cb5ad910619278bdffcc807095f6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clusterName", value)
 
     @builtins.property
     @jsii.member(jsii_name="nodeRole")
@@ -14069,7 +14163,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__467ca0d8c05cf0da6447c7ff6f0041c9de68fa584c110ab5415ef4445f50989b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "nodeRole", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "nodeRole", value)
 
     @builtins.property
     @jsii.member(jsii_name="subnets")
@@ -14082,7 +14176,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1044111401adec5b1ee9395d5c43c39358192850ffc1a6609ff114e5f131dff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "subnets", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "subnets", value)
 
     @builtins.property
     @jsii.member(jsii_name="amiType")
@@ -14095,7 +14189,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f36a5e9b2e583fba8ca22f2ea52e76686b1f69526eb390cab382cf44c0ba644b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "amiType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "amiType", value)
 
     @builtins.property
     @jsii.member(jsii_name="capacityType")
@@ -14108,7 +14202,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c6c720be1e59b98ec3e40b47c8f3cc04d3280bef9ba638e855a6888c777fe157)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "capacityType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "capacityType", value)
 
     @builtins.property
     @jsii.member(jsii_name="diskSize")
@@ -14121,7 +14215,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3516f16c81673ae72899d2c96f98e95ae2e5abd57afd40b83d7a1435ed459d27)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "diskSize", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "diskSize", value)
 
     @builtins.property
     @jsii.member(jsii_name="forceUpdateEnabled")
@@ -14139,7 +14233,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7cce0ad9b5b51aaeaa6d678d457aa515ac721bcdd6f2676cca34a3fb307a858b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "forceUpdateEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "forceUpdateEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="instanceTypes")
@@ -14152,7 +14246,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d7945a05c2376d70b30fc28a96959abf6f7e23d90fd6e700764137f4b551604d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceTypes", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "instanceTypes", value)
 
     @builtins.property
     @jsii.member(jsii_name="labels")
@@ -14170,7 +14264,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bfdcdc90e2da680bcf24a101a162039fcfa5c8ddbf5eae9a97a45451dc10a0e1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "labels", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "labels", value)
 
     @builtins.property
     @jsii.member(jsii_name="launchTemplate")
@@ -14188,7 +14282,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f986a2a8b814558b87814aecfa28259e5d1b52be1fde18a8f0252c4f20b20b44)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "launchTemplate", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "launchTemplate", value)
 
     @builtins.property
     @jsii.member(jsii_name="nodegroupName")
@@ -14201,7 +14295,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4f424c6e7f54a85ddc7d4750a4a59bfb7f9e1faed7e8263996db88acd70c2546)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "nodegroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "nodegroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="nodeRepairConfig")
@@ -14219,7 +14313,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__32d9a193c1fbf4f744119faa14907eda38fe01339dc08c10a27310a3e1360bee)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "nodeRepairConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "nodeRepairConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="releaseVersion")
@@ -14232,7 +14326,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d0a201b4d5113f2762fa5568ac8994d40e377b014ef0043d75172492c9679fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "releaseVersion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "releaseVersion", value)
 
     @builtins.property
     @jsii.member(jsii_name="remoteAccess")
@@ -14250,7 +14344,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2306ea427981e78be59e04448bcf0d6eacd69ff104d5df09fcb847b77a2903c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "remoteAccess", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "remoteAccess", value)
 
     @builtins.property
     @jsii.member(jsii_name="scalingConfig")
@@ -14268,7 +14362,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a5e379ed1faa0fad6a31a3083279e1b70d6e65ab0aeb2918f33039ee9868e7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scalingConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scalingConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -14284,7 +14378,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__94ec64dc986623100a074c1a0c77742b6dd8af77e4a7b1b62cafec394cf8e03e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="taints")
@@ -14302,7 +14396,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2a536373a8cd2abd0a608e8b4018137f75247b8cfdc1d5dd505b555e1f8679d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "taints", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "taints", value)
 
     @builtins.property
     @jsii.member(jsii_name="updateConfig")
@@ -14320,7 +14414,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a91d7f81c1a3c53f8f75a4727dbdc4bdd123a517aa6a6faa4540c448309ab792)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "updateConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "updateConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="version")
@@ -14333,7 +14427,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c7b5dd411ee27c14eb459522efe494a08bd3f2592d384283dbbcc7a5c3e8834)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "version", value)
 
     @builtins.property
     @jsii.member(jsii_name="warmPoolConfig")
@@ -14351,7 +14445,7 @@ class CfnNodegroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b87ca981008fc4b80b57151a129b691b6f7ad1dfb3889e67c46b10c274c18fcc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "warmPoolConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "warmPoolConfig", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnNodegroup.LaunchTemplateSpecificationProperty",
@@ -15793,6 +15887,7 @@ class CfnPodIdentityAssociation(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -15863,7 +15958,7 @@ class CfnPodIdentityAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b2143669c4f5de45fe1227ae8c525fd924072b1aeaecb67e1334b0f293ce9bb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clusterName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "clusterName", value)
 
     @builtins.property
     @jsii.member(jsii_name="namespace")
@@ -15876,7 +15971,7 @@ class CfnPodIdentityAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d926eb0433042c883c2612bd63954350831d0e2bc0b93accd3707ab8375f1288)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "namespace", value)
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -15889,7 +15984,7 @@ class CfnPodIdentityAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1bb4ff18d6b0174e9d12bd2098a77eaabd9d96392e92da7e0fe1521109814e7d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "roleArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceAccount")
@@ -15902,7 +15997,7 @@ class CfnPodIdentityAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ea3bb34348aff57e29a5352e7460510bda8dd51720dbf7d275297137fb59e6c1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceAccount", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceAccount", value)
 
     @builtins.property
     @jsii.member(jsii_name="disableSessionTags")
@@ -15923,7 +16018,7 @@ class CfnPodIdentityAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb3dbe4cc3b44e9265bbfe13e41235db909b0c1dc0e052b3bdda07fd4b228e8b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "disableSessionTags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "disableSessionTags", value)
 
     @builtins.property
     @jsii.member(jsii_name="policy")
@@ -15936,7 +16031,7 @@ class CfnPodIdentityAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__999a87481174c22f124c5820eccbdce5ddb18fef113174cff7a0201e6600f7c9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policy", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -15952,7 +16047,7 @@ class CfnPodIdentityAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b0e0a0551adefc10761733af04b8c51e7dad6b483be9252882ecff10539c7dcc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="targetRoleArn")
@@ -15965,7 +16060,7 @@ class CfnPodIdentityAssociation(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cb6220c6db8cf93a8a307b1ba0630d6bc64b4a09325e7cfe5854228aa75ff833)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetRoleArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "targetRoleArn", value)
 
 
 @jsii.data_type(
@@ -17084,6 +17179,7 @@ class EndpointAccess(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PRIVATE")
+    @builtins.classmethod
     def PRIVATE(cls) -> "EndpointAccess":
         '''The cluster endpoint is only accessible through your VPC.
 
@@ -17093,6 +17189,7 @@ class EndpointAccess(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PUBLIC")
+    @builtins.classmethod
     def PUBLIC(cls) -> "EndpointAccess":
         '''The cluster endpoint is accessible from outside of your VPC.
 
@@ -17107,6 +17204,7 @@ class EndpointAccess(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PUBLIC_AND_PRIVATE")
+    @builtins.classmethod
     def PUBLIC_AND_PRIVATE(cls) -> "EndpointAccess":
         '''The cluster endpoint is accessible from outside of your VPC.
 
@@ -17644,12 +17742,18 @@ class HelmChart(
         # cluster: eks.Cluster
         
         # option 1: use a construct
-        eks.HelmChart(self, "MyOCIChart",
+        eks.HelmChart(self, "NginxIngress",
             cluster=cluster,
-            chart="some-chart",
-            repository="oci://${ACCOUNT_ID}.dkr.ecr.${ACCOUNT_REGION}.amazonaws.com/${REPO_NAME}",
-            namespace="oci",
-            version="0.0.1"
+            chart="nginx-ingress",
+            repository="https://helm.nginx.com/stable",
+            namespace="kube-system"
+        )
+        
+        # or, option2: use `addHelmChart`
+        cluster.add_helm_chart("NginxIngress",
+            chart="nginx-ingress",
+            repository="https://helm.nginx.com/stable",
+            namespace="kube-system"
         )
     '''
 
@@ -17687,7 +17791,7 @@ class HelmChart(
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
-        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } Default: - No values are provided to the chart.
+        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } In languages other than TypeScript and JavaScript, ``null`` values (such as ``None`` in Python) are dropped when crossing the jsii boundary. To pass ``null`` values to the chart, see the "Helm Charts" section of the module README. Default: - No values are provided to the chart.
         :param version: The chart version to install. Default: - If this is not specified, the latest version is installed
         :param wait: Whether or not Helm should wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment, StatefulSet, or ReplicaSet are in a ready state before marking the release as successful. Default: - Helm will not wait before marking release as successful
         '''
@@ -17716,6 +17820,7 @@ class HelmChart(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RESOURCE_TYPE")
+    @builtins.classmethod
     def RESOURCE_TYPE(cls) -> builtins.str:
         '''The CloudFormation resource type.'''
         return typing.cast(builtins.str, jsii.sget(cls, "RESOURCE_TYPE"))
@@ -17795,7 +17900,7 @@ class HelmChartOptions:
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
-        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } Default: - No values are provided to the chart.
+        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } In languages other than TypeScript and JavaScript, ``null`` values (such as ``None`` in Python) are dropped when crossing the jsii boundary. To pass ``null`` values to the chart, see the "Helm Charts" section of the module README. Default: - No values are provided to the chart.
         :param version: The chart version to install. Default: - If this is not specified, the latest version is installed
         :param wait: Whether or not Helm should wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment, StatefulSet, or ReplicaSet are in a ready state before marking the release as successful. Default: - Helm will not wait before marking release as successful
 
@@ -17803,17 +17908,16 @@ class HelmChartOptions:
 
         Example::
 
-            import aws_cdk.aws_s3_assets as s3_assets
-            
             # cluster: eks.Cluster
             
-            chart_asset = s3_assets.Asset(self, "ChartAsset",
-                path="/path/to/asset"
+            chart1 = cluster.add_helm_chart("MyChart",
+                chart="foo"
+            )
+            chart2 = cluster.add_helm_chart("MyChart",
+                chart="bar"
             )
             
-            cluster.add_helm_chart("test-chart",
-                chart_asset=chart_asset
-            )
+            chart2.node.add_dependency(chart1)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f6972a55b9cddfcfdae45e3907a04dc773d9fa367223106572ea64bf22eafe3d)
@@ -17976,6 +18080,10 @@ class HelmChartOptions:
         webhook: { port: 9443 }
         }
 
+        In languages other than TypeScript and JavaScript, ``null`` values (such as
+        ``None`` in Python) are dropped when crossing the jsii boundary. To pass
+        ``null`` values to the chart, see the "Helm Charts" section of the module README.
+
         :default: - No values are provided to the chart.
         '''
         result = self._values.get("values")
@@ -18062,7 +18170,7 @@ class HelmChartProps(HelmChartOptions):
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
-        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } Default: - No values are provided to the chart.
+        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } In languages other than TypeScript and JavaScript, ``null`` values (such as ``None`` in Python) are dropped when crossing the jsii boundary. To pass ``null`` values to the chart, see the "Helm Charts" section of the module README. Default: - No values are provided to the chart.
         :param version: The chart version to install. Default: - If this is not specified, the latest version is installed
         :param wait: Whether or not Helm should wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment, StatefulSet, or ReplicaSet are in a ready state before marking the release as successful. Default: - Helm will not wait before marking release as successful
         :param cluster: The EKS cluster to apply this configuration to. [disable-awslint:ref-via-interface]
@@ -18245,6 +18353,10 @@ class HelmChartProps(HelmChartOptions):
         installationCRDs: true,
         webhook: { port: 9443 }
         }
+
+        In languages other than TypeScript and JavaScript, ``null`` values (such as
+        ``None`` in Python) are dropped when crossing the jsii boundary. To pass
+        ``null`` values to the chart, see the "Helm Charts" section of the module README.
 
         :default: - No values are provided to the chart.
         '''
@@ -18760,7 +18872,7 @@ class ICluster(
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
-        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } Default: - No values are provided to the chart.
+        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } In languages other than TypeScript and JavaScript, ``null`` values (such as ``None`` in Python) are dropped when crossing the jsii boundary. To pass ``null`` values to the chart, see the "Helm Charts" section of the module README. Default: - No values are provided to the chart.
         :param version: The chart version to install. Default: - If this is not specified, the latest version is installed
         :param wait: Whether or not Helm should wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment, StatefulSet, or ReplicaSet are in a ready state before marking the release as successful. Default: - Helm will not wait before marking release as successful
 
@@ -19158,7 +19270,7 @@ class _IClusterProxy(
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
-        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } Default: - No values are provided to the chart.
+        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } In languages other than TypeScript and JavaScript, ``null`` values (such as ``None`` in Python) are dropped when crossing the jsii boundary. To pass ``null`` values to the chart, see the "Helm Charts" section of the module README. Default: - No values are provided to the chart.
         :param version: The chart version to install. Default: - If this is not specified, the latest version is installed
         :param wait: Whether or not Helm should wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment, StatefulSet, or ReplicaSet are in a ready state before marking the release as successful. Default: - Helm will not wait before marking release as successful
 
@@ -19843,12 +19955,14 @@ class KubernetesManifest(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RESOURCE_TYPE")
+    @builtins.classmethod
     def RESOURCE_TYPE(cls) -> builtins.str:
         '''The CloudFormation resource type.'''
         return typing.cast(builtins.str, jsii.sget(cls, "RESOURCE_TYPE"))
@@ -20327,6 +20441,7 @@ class KubernetesObjectValue(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="RESOURCE_TYPE")
+    @builtins.classmethod
     def RESOURCE_TYPE(cls) -> builtins.str:
         '''The CloudFormation resource type.'''
         return typing.cast(builtins.str, jsii.sget(cls, "RESOURCE_TYPE"))
@@ -20755,6 +20870,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_14")
+    @builtins.classmethod
     def V1_14(cls) -> "KubernetesVersion":
         '''(deprecated) Kubernetes version 1.14.
 
@@ -20766,6 +20882,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_15")
+    @builtins.classmethod
     def V1_15(cls) -> "KubernetesVersion":
         '''(deprecated) Kubernetes version 1.15.
 
@@ -20777,6 +20894,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_16")
+    @builtins.classmethod
     def V1_16(cls) -> "KubernetesVersion":
         '''(deprecated) Kubernetes version 1.16.
 
@@ -20788,6 +20906,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_17")
+    @builtins.classmethod
     def V1_17(cls) -> "KubernetesVersion":
         '''(deprecated) Kubernetes version 1.17.
 
@@ -20799,6 +20918,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_18")
+    @builtins.classmethod
     def V1_18(cls) -> "KubernetesVersion":
         '''(deprecated) Kubernetes version 1.18.
 
@@ -20810,6 +20930,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_19")
+    @builtins.classmethod
     def V1_19(cls) -> "KubernetesVersion":
         '''(deprecated) Kubernetes version 1.19.
 
@@ -20821,6 +20942,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_20")
+    @builtins.classmethod
     def V1_20(cls) -> "KubernetesVersion":
         '''(deprecated) Kubernetes version 1.20.
 
@@ -20832,6 +20954,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_21")
+    @builtins.classmethod
     def V1_21(cls) -> "KubernetesVersion":
         '''(deprecated) Kubernetes version 1.21.
 
@@ -20843,6 +20966,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_22")
+    @builtins.classmethod
     def V1_22(cls) -> "KubernetesVersion":
         '''(deprecated) Kubernetes version 1.22.
 
@@ -20854,6 +20978,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_23")
+    @builtins.classmethod
     def V1_23(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.23.
 
@@ -20865,6 +20990,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_24")
+    @builtins.classmethod
     def V1_24(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.24.
 
@@ -20876,6 +21002,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_25")
+    @builtins.classmethod
     def V1_25(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.25.
 
@@ -20887,6 +21014,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_26")
+    @builtins.classmethod
     def V1_26(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.26.
 
@@ -20898,6 +21026,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_27")
+    @builtins.classmethod
     def V1_27(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.27.
 
@@ -20909,6 +21038,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_28")
+    @builtins.classmethod
     def V1_28(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.28.
 
@@ -20920,6 +21050,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_29")
+    @builtins.classmethod
     def V1_29(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.29.
 
@@ -20931,6 +21062,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_30")
+    @builtins.classmethod
     def V1_30(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.30.
 
@@ -20942,6 +21074,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_31")
+    @builtins.classmethod
     def V1_31(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.31.
 
@@ -20953,6 +21086,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_32")
+    @builtins.classmethod
     def V1_32(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.32.
 
@@ -20964,6 +21098,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_33")
+    @builtins.classmethod
     def V1_33(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.33.
 
@@ -20975,6 +21110,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_34")
+    @builtins.classmethod
     def V1_34(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.34.
 
@@ -20986,6 +21122,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_35")
+    @builtins.classmethod
     def V1_35(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.35.
 
@@ -20997,6 +21134,7 @@ class KubernetesVersion(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="V1_36")
+    @builtins.classmethod
     def V1_36(cls) -> "KubernetesVersion":
         '''Kubernetes version 1.36.
 
@@ -21324,6 +21462,7 @@ class Nodegroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -22498,6 +22637,7 @@ class OidcProviderNative(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -22561,6 +22701,7 @@ class OpenIdConnectProvider(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -23621,6 +23762,7 @@ class AccessEntry(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -23836,6 +23978,7 @@ class Addon(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -24358,7 +24501,7 @@ class Cluster(
         :param repository: The repository which contains the chart. For example: https://charts.helm.sh/stable/ Default: - No repository will be used, which means that the chart needs to be an absolute URL.
         :param skip_crds: if set, no CRDs will be installed. Default: - CRDs are installed if not already present
         :param timeout: Amount of time to wait for any individual Kubernetes operation. Maximum 15 minutes. Default: Duration.minutes(5)
-        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } Default: - No values are provided to the chart.
+        :param values: The values to be used by the chart. For nested values use a nested dictionary. For example: values: { installationCRDs: true, webhook: { port: 9443 } } In languages other than TypeScript and JavaScript, ``null`` values (such as ``None`` in Python) are dropped when crossing the jsii boundary. To pass ``null`` values to the chart, see the "Helm Charts" section of the module README. Default: - No values are provided to the chart.
         :param version: The chart version to install. Default: - If this is not specified, the latest version is installed
         :param wait: Whether or not Helm should wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment, StatefulSet, or ReplicaSet are in a ready state before marking the release as successful. Default: - Helm will not wait before marking release as successful
 
@@ -24655,6 +24798,7 @@ class Cluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -26547,6 +26691,7 @@ class FargateCluster(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

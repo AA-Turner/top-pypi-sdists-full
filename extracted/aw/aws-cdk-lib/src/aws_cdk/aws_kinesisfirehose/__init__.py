@@ -1237,6 +1237,7 @@ class CfnDeliveryStream(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1290,7 +1291,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9361f4405d0a8e9a0285d4b343c6420073eedc822c339d1a147f151a3b03f641)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "amazonOpenSearchServerlessDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "amazonOpenSearchServerlessDestinationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="amazonopensearchserviceDestinationConfiguration")
@@ -1308,7 +1309,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__58964b8831d37cbba22a48328508a0d1fc866bb6da992a0c3f544fc6649acc5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "amazonopensearchserviceDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "amazonopensearchserviceDestinationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="databaseSourceConfiguration")
@@ -1326,7 +1327,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__671f3a3eb25ab7249d3b64fb9d1c6865a8a68b8a7b92841ab6890851853da1f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "databaseSourceConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "databaseSourceConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="deliveryStreamEncryptionConfigurationInput")
@@ -1344,7 +1345,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b541613844a306d329ee6aaf12a513672a01cea651f015810fd2ab896394415)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deliveryStreamEncryptionConfigurationInput", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deliveryStreamEncryptionConfigurationInput", value)
 
     @builtins.property
     @jsii.member(jsii_name="deliveryStreamName")
@@ -1357,7 +1358,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d90731f57c337a34bb7290e3bb4239e949b5caeea354433c46c25998a03b39f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deliveryStreamName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deliveryStreamName", value)
 
     @builtins.property
     @jsii.member(jsii_name="deliveryStreamType")
@@ -1373,7 +1374,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0749b7e1cb2e266044df272e646eba4d2505c56ccb68f4ce96de186aeb83ba9b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deliveryStreamType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deliveryStreamType", value)
 
     @builtins.property
     @jsii.member(jsii_name="directPutSourceConfiguration")
@@ -1391,7 +1392,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0c2e3d41bd399b2de627c15c37d5d5a53d60ea55a256dc5f1b73146429dd1f24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "directPutSourceConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "directPutSourceConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="elasticsearchDestinationConfiguration")
@@ -1409,7 +1410,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2485fd6e8467da83435abf801383e98fea4d4ae9797551e1774f2327e1b069c5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "elasticsearchDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "elasticsearchDestinationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="extendedS3DestinationConfiguration")
@@ -1427,7 +1428,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4b3827d67811452e6783eeef4d719d420c5534229b93597dbfafa7256a89932e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "extendedS3DestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "extendedS3DestinationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="httpEndpointDestinationConfiguration")
@@ -1445,7 +1446,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c45396814a2f1f16d85b99c121f14ab851eda0a9f84038025d5ae44a858837a1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "httpEndpointDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "httpEndpointDestinationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="icebergDestinationConfiguration")
@@ -1463,7 +1464,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__94c8f409ef0a75500e50bbf49d47688097508bd257b3ce092b027c552453cd59)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "icebergDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "icebergDestinationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="kinesisStreamSourceConfiguration")
@@ -1481,7 +1482,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__025f54a26e52ce42f679eff3aa8b95a5fee2e0e5b3aba7c4320f9900690e60b9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kinesisStreamSourceConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kinesisStreamSourceConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="mskSourceConfiguration")
@@ -1499,7 +1500,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d05261de796c66b290d3bf9493dedca3a4f904726566b1e0d28cd6f7e525757)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mskSourceConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mskSourceConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="redshiftDestinationConfiguration")
@@ -1517,7 +1518,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9283febc90a4404b9eb41b227b6baf567d66cf4929f4f56dc67252a81e997f1f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "redshiftDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "redshiftDestinationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="s3DestinationConfiguration")
@@ -1535,7 +1536,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb8b949ac7c9700a5ef03cddf3b3be451041166fe7583faee720a903b17ffd7c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3DestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "s3DestinationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="snowflakeDestinationConfiguration")
@@ -1553,7 +1554,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4334e067c783ee048616b856f03ad5fb828c1a4c18bbdce130d9850ac2ce4034)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "snowflakeDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "snowflakeDestinationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="splunkDestinationConfiguration")
@@ -1571,7 +1572,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1143a0f5e018d10fdc1fff0bbcada0e3653e2264078be8b5a6441f6918b95c91)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "splunkDestinationConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "splunkDestinationConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1587,7 +1588,7 @@ class CfnDeliveryStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b611aca673873100e4f1f1366dada7f80beaecdafd39582bd00fb48881dca276)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_kinesisfirehose.CfnDeliveryStream.AmazonOpenSearchServerlessBufferingHintsProperty",
@@ -10502,30 +10503,35 @@ class Compression(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GZIP")
+    @builtins.classmethod
     def GZIP(cls) -> "Compression":
         '''gzip.'''
         return typing.cast("Compression", jsii.sget(cls, "GZIP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HADOOP_SNAPPY")
+    @builtins.classmethod
     def HADOOP_SNAPPY(cls) -> "Compression":
         '''Hadoop-compatible Snappy.'''
         return typing.cast("Compression", jsii.sget(cls, "HADOOP_SNAPPY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SNAPPY")
+    @builtins.classmethod
     def SNAPPY(cls) -> "Compression":
         '''Snappy.'''
         return typing.cast("Compression", jsii.sget(cls, "SNAPPY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="UNCOMPRESSED")
+    @builtins.classmethod
     def UNCOMPRESSED(cls) -> "Compression":
         '''Uncompressed.'''
         return typing.cast("Compression", jsii.sget(cls, "UNCOMPRESSED"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ZIP")
+    @builtins.classmethod
     def ZIP(cls) -> "Compression":
         '''ZIP.'''
         return typing.cast("Compression", jsii.sget(cls, "ZIP"))
@@ -11040,96 +11046,112 @@ class DatadogEndpoint(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONFIGURATION_AP1")
+    @builtins.classmethod
     def CONFIGURATION_AP1(cls) -> "DatadogEndpoint":
         '''Configurations — AP1 (Japan).'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_AP1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONFIGURATION_EU")
+    @builtins.classmethod
     def CONFIGURATION_EU(cls) -> "DatadogEndpoint":
         '''Configurations — EU.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_EU"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONFIGURATION_US_GOV")
+    @builtins.classmethod
     def CONFIGURATION_US_GOV(cls) -> "DatadogEndpoint":
         '''Configurations — US Government.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_US_GOV"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONFIGURATION_US1")
+    @builtins.classmethod
     def CONFIGURATION_US1(cls) -> "DatadogEndpoint":
         '''Configurations — US1.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_US1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONFIGURATION_US3")
+    @builtins.classmethod
     def CONFIGURATION_US3(cls) -> "DatadogEndpoint":
         '''Configurations — US3.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_US3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CONFIGURATION_US5")
+    @builtins.classmethod
     def CONFIGURATION_US5(cls) -> "DatadogEndpoint":
         '''Configurations — US5.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "CONFIGURATION_US5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LOGS_AP1")
+    @builtins.classmethod
     def LOGS_AP1(cls) -> "DatadogEndpoint":
         '''Logs — AP1 (Japan).'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_AP1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LOGS_EU")
+    @builtins.classmethod
     def LOGS_EU(cls) -> "DatadogEndpoint":
         '''Logs — EU.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_EU"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LOGS_GOV")
+    @builtins.classmethod
     def LOGS_GOV(cls) -> "DatadogEndpoint":
         '''Logs — US Government.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_GOV"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LOGS_US1")
+    @builtins.classmethod
     def LOGS_US1(cls) -> "DatadogEndpoint":
         '''Logs — US1.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_US1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LOGS_US3")
+    @builtins.classmethod
     def LOGS_US3(cls) -> "DatadogEndpoint":
         '''Logs — US3.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_US3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LOGS_US5")
+    @builtins.classmethod
     def LOGS_US5(cls) -> "DatadogEndpoint":
         '''Logs — US5.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "LOGS_US5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="METRICS_AP1")
+    @builtins.classmethod
     def METRICS_AP1(cls) -> "DatadogEndpoint":
         '''Metrics — AP1 (Japan).'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "METRICS_AP1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="METRICS_EU")
+    @builtins.classmethod
     def METRICS_EU(cls) -> "DatadogEndpoint":
         '''Metrics — EU.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "METRICS_EU"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="METRICS_US")
+    @builtins.classmethod
     def METRICS_US(cls) -> "DatadogEndpoint":
         '''Metrics — US.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "METRICS_US"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="METRICS_US5")
+    @builtins.classmethod
     def METRICS_US5(cls) -> "DatadogEndpoint":
         '''Metrics — US5.'''
         return typing.cast("DatadogEndpoint", jsii.sget(cls, "METRICS_US5"))
@@ -11409,6 +11431,7 @@ class DecompressionProcessorCompressionFormat(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GZIP")
+    @builtins.classmethod
     def GZIP(cls) -> "DecompressionProcessorCompressionFormat":
         '''GZIP compression.'''
         return typing.cast("DecompressionProcessorCompressionFormat", jsii.sget(cls, "GZIP"))
@@ -13941,12 +13964,14 @@ class InputFormat(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HIVE_JSON")
+    @builtins.classmethod
     def HIVE_JSON(cls) -> "HiveJsonInputFormat":
         '''Parse input JSON with Hive JSON specification.'''
         return typing.cast("HiveJsonInputFormat", jsii.sget(cls, "HIVE_JSON"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENX_JSON")
+    @builtins.classmethod
     def OPENX_JSON(cls) -> "OpenXJsonInputFormat":
         '''Parse input JSON with OpenX JSON specification.
 
@@ -13986,6 +14011,7 @@ class JsonParsingEngine(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="JQ_1_6")
+    @builtins.classmethod
     def JQ_1_6(cls) -> "JsonParsingEngine":
         '''The JQ 1.6 parsing engine.'''
         return typing.cast("JsonParsingEngine", jsii.sget(cls, "JQ_1_6"))
@@ -14490,18 +14516,21 @@ class OrcCompression(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NONE")
+    @builtins.classmethod
     def NONE(cls) -> "OrcCompression":
         '''Uncompressed.'''
         return typing.cast("OrcCompression", jsii.sget(cls, "NONE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SNAPPY")
+    @builtins.classmethod
     def SNAPPY(cls) -> "OrcCompression":
         '''Snappy.'''
         return typing.cast("OrcCompression", jsii.sget(cls, "SNAPPY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ZLIB")
+    @builtins.classmethod
     def ZLIB(cls) -> "OrcCompression":
         '''Gzip.'''
         return typing.cast("OrcCompression", jsii.sget(cls, "ZLIB"))
@@ -14897,12 +14926,14 @@ class OutputFormat(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORC")
+    @builtins.classmethod
     def ORC(cls) -> "OrcOutputFormat":
         '''Write output files in ORC.'''
         return typing.cast("OrcOutputFormat", jsii.sget(cls, "ORC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PARQUET")
+    @builtins.classmethod
     def PARQUET(cls) -> "ParquetOutputFormat":
         '''Write output files in Parquet.'''
         return typing.cast("ParquetOutputFormat", jsii.sget(cls, "PARQUET"))
@@ -14943,18 +14974,21 @@ class ParquetCompression(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GZIP")
+    @builtins.classmethod
     def GZIP(cls) -> "ParquetCompression":
         '''Gzip.'''
         return typing.cast("ParquetCompression", jsii.sget(cls, "GZIP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SNAPPY")
+    @builtins.classmethod
     def SNAPPY(cls) -> "ParquetCompression":
         '''Snappy.'''
         return typing.cast("ParquetCompression", jsii.sget(cls, "SNAPPY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="UNCOMPRESSED")
+    @builtins.classmethod
     def UNCOMPRESSED(cls) -> "ParquetCompression":
         '''Uncompressed.'''
         return typing.cast("ParquetCompression", jsii.sget(cls, "UNCOMPRESSED"))
@@ -16139,6 +16173,7 @@ class TimestampParser(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="EPOCH_MILLIS")
+    @builtins.classmethod
     def EPOCH_MILLIS(cls) -> "TimestampParser":
         '''Parses timestamps formatted in milliseconds since epoch.'''
         return typing.cast("TimestampParser", jsii.sget(cls, "EPOCH_MILLIS"))
@@ -16847,6 +16882,7 @@ class DeliveryStream(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

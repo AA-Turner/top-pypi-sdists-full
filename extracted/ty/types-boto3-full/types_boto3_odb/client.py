@@ -188,6 +188,8 @@ from .type_defs import (
     UpdateCloudExadataInfrastructureOutputTypeDef,
     UpdateExadbVmClusterInputTypeDef,
     UpdateExadbVmClusterOutputTypeDef,
+    UpdateExascaleCloudExadataInfrastructureInputTypeDef,
+    UpdateExascaleCloudExadataInfrastructureOutputTypeDef,
     UpdateExascaleDbStorageVaultInputTypeDef,
     UpdateExascaleDbStorageVaultOutputTypeDef,
     UpdateOdbNetworkInputTypeDef,
@@ -1023,6 +1025,16 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_exadb_vm_cluster.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_exadb_vm_cluster)
+        """
+
+    def update_exascale_cloud_exadata_infrastructure(
+        self, **kwargs: Unpack[UpdateExascaleCloudExadataInfrastructureInputTypeDef]
+    ) -> UpdateExascaleCloudExadataInfrastructureOutputTypeDef:
+        """
+        Configures or updates the Exascale storage on an Exadata infrastructure.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_exascale_cloud_exadata_infrastructure.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_exascale_cloud_exadata_infrastructure)
         """
 
     def update_exascale_db_storage_vault(

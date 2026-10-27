@@ -107,6 +107,16 @@ class CheckboxCardsRoot(RadixThemesComponent):
         ]
         | str
         | None = None,
+        default_value: Sequence[str] | Var[Sequence[str]] | None = None,
+        value: Sequence[str] | Var[Sequence[str]] | None = None,
+        name: Var[str] | str | None = None,
+        disabled: Var[bool] | bool | None = None,
+        required: Var[bool] | bool | None = None,
+        orientation: Literal["horizontal", "vertical"]
+        | Var[Literal["horizontal", "vertical"]]
+        | None = None,
+        dir: Literal["ltr", "rtl"] | Var[Literal["ltr", "rtl"]] | None = None,
+        loop: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -133,6 +143,7 @@ class CheckboxCardsRoot(RadixThemesComponent):
         on_scroll: EventType[()] | None = None,
         on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
+        on_value_change: EventType[()] | EventType[list[str]] | None = None,
         **props,
     ) -> CheckboxCardsRoot:
         """Create a new component instance.
@@ -148,6 +159,14 @@ class CheckboxCardsRoot(RadixThemesComponent):
             high_contrast: Uses a higher contrast color for the component.
             columns: The number of columns:
             gap: The gap between the checkbox cards:
+            default_value: determines which cards, if any, are checked by default.
+            value: The controlled value of the checked cards. Should be used in conjunction with on_value_change.
+            name: The name of the group. Submitted with its owning form as part of a name/value pair.
+            disabled: Whether the checkbox cards group is disabled
+            required: When true, every card in the group must be checked before the owning form can be submitted.
+            orientation: The orientation of the component.
+            dir: The reading direction of the checkbox cards group. If omitted, inherits globally from DirectionProvider or assumes LTR (left-to-right) reading mode.
+            loop: When true, keyboard navigation will loop from last item to first, and vice versa.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -170,6 +189,7 @@ class CheckboxCardsRoot(RadixThemesComponent):
             on_scroll_end: Fired when scrolling ends on the element.
             on_mount: Fired when the component is mounted to the page.
             on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+            on_value_change: Fired when the set of checked cards changes.
             **props: Component properties.
 
         Returns:
@@ -181,6 +201,9 @@ class CheckboxCardsItem(RadixThemesComponent):
     def create(
         cls,
         *children,
+        value: Var[str] | str | None = None,
+        disabled: Var[bool] | bool | None = None,
+        required: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -216,6 +239,9 @@ class CheckboxCardsItem(RadixThemesComponent):
 
         Args:
             *children: Child components.
+            value: The value given as data when submitted with a name.
+            disabled: When true, prevents the user from interacting with the checkbox item.
+            required: When true, indicates that the user must check the checkbox item before the owning form can be submitted.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

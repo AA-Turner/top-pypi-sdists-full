@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -129,13 +130,16 @@ struct ShapeValueTraits {
   constexpr static bool IsSoftConstraintValue(Index value) {
     return value == -1;
   }
-  constexpr static bool IsValid(Index x) { return x == -1 || x >= 0; }
+  constexpr static bool IsValid(Index x) {
+    return x >= -1 && x <= kMaxFiniteIndex;
+  }
 
   static Result<Index> TransformInputValue(Index value, Index offset,
                                            Index stride) {
     Index new_value;
     if (stride == std::numeric_limits<Index>::min() ||
-        internal::MulOverflow(std::abs(stride), value, &new_value)) {
+        internal::MulOverflow(std::abs(stride), value, &new_value) ||
+        new_value > kMaxFiniteIndex) {
       return absl::OutOfRangeError(absl::StrFormat(
           "Integer overflow computing abs(%d) * %d", stride, value));
     }
@@ -154,7 +158,7 @@ struct AspectRatioValueTraits {
   using Element = double;
   constexpr static double kDefaultValue = ChunkLayout::kDefaultAspectRatioValue;
   constexpr static bool IsSoftConstraintValue(double value) { return false; }
-  constexpr static bool IsValid(double x) { return x >= 0; }
+  static bool IsValid(double x) { return std::isfinite(x) && x >= 0; }
 
   static Result<double> TransformInputValue(double value, Index offset,
                                             Index stride) {
@@ -490,8 +494,7 @@ ChunkLayout::ChunkAspectRatioBase GetChunkAspectRatio(const ChunkLayout& self,
       storage->chunk_aspect_ratio_hard_constraint_[usage_index]);
 }
 
-constexpr inline HardConstraintBit GetChunkElementsHardConstraintBit(
-    Usage usage) {
+constexpr HardConstraintBit GetChunkElementsHardConstraintBit(Usage usage) {
   return static_cast<HardConstraintBit>(
       static_cast<int>(HardConstraintBit::write_chunk_elements) +
       static_cast<int>(usage));
@@ -524,16 +527,16 @@ ChunkLayout::GridView GetGridConstraints(const ChunkLayout& self, Usage usage) {
 absl::Status SetInnerOrderInternal(ChunkLayout& self,
                                    ChunkLayout::InnerOrder value,
                                    StoragePtr& storage_to_be_destroyed) {
+  const DimensionIndex rank = value.size();
   if (!IsValidPermutation(value)) {
     return absl::InvalidArgumentError(
         absl::StrFormat("Invalid permutation: %v", GenericStringify(value)));
   }
-  const DimensionIndex rank = value.size();
   TENSORSTORE_RETURN_IF_ERROR(
       EnsureRank(self.storage_, rank, storage_to_be_destroyed));
   auto& impl = *self.storage_;
   DimensionIndex* inner_order = impl.inner_order();
-  if (inner_order[0] != -1) {
+  if (rank > 0 && inner_order[0] != -1) {
     if (!value.hard_constraint) return absl::OkStatus();
     if (IsHardConstraint(impl, HardConstraintBit::inner_order)) {
       if (!std::equal(value.data(), value.data() + rank, inner_order)) {
@@ -612,7 +615,7 @@ absl::Status SetChunkElementsInternal(Index& elements,
                                       HardConstraintRef is_hard_constraint,
                                       ChunkLayout::ChunkElementsBase value) {
   if (value.valid()) {
-    if (value < 0) {
+    if (value < 0 || value > kMaxFiniteIndex) {
       return absl::InvalidArgumentError(
           absl::StrFormat("Invalid value: %d", value.value));
     }
@@ -1527,8 +1530,29 @@ void ChooseChunkSizeFromAspectRatio(
       max_size =
           std::min(max_size, std::max(1.0, static_cast<double>(bounds.size())));
     }
-    max_size = std::min(max_size, 0x1.0p62);
+    max_size = std::min(max_size, 0x1.fffffffffffffp61);
     max_chunk_shape[i] = max_size;
+  }
+
+  double normalized_aspect_ratio[kMaxRank];
+  double max_aspect_ratio = 0;
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    if (chunk_shape[i] != 0) continue;
+    if (std::isfinite(aspect_ratio[i]) && aspect_ratio[i] > max_aspect_ratio) {
+      max_aspect_ratio = aspect_ratio[i];
+    }
+  }
+  for (DimensionIndex i = 0; i < rank; ++i) {
+    double ratio = aspect_ratio[i];
+    if (!std::isfinite(ratio) || ratio <= 0) {
+      ratio = 1.0;
+    } else if (max_aspect_ratio > 0) {
+      ratio /= max_aspect_ratio;
+      if (ratio == 0) {
+        ratio = std::numeric_limits<double>::min();
+      }
+    }
+    normalized_aspect_ratio[i] = ratio;
   }
 
   // Computes the chunk size for a given dimension and scale factor.  We will
@@ -1540,8 +1564,9 @@ void ChooseChunkSizeFromAspectRatio(
     // because `max_chunk_shape[i]` is guaranteed to be <=
     // `std::numeric_limits<Index>::max()`.
     Index size =
-        std::max(Index(1), static_cast<Index>(std::min(aspect_ratio[i] * factor,
-                                                       max_chunk_shape[i])));
+        std::max(Index(1),
+                 static_cast<Index>(std::min(
+                     normalized_aspect_ratio[i] * factor, max_chunk_shape[i])));
     size = map_size(i, size);
     return size;
   };
@@ -1577,20 +1602,29 @@ void ChooseChunkSizeFromAspectRatio(
   double max_factor = 0;
   for (DimensionIndex i = 0; i < rank; ++i) {
     if (chunk_shape[i] != 0) continue;
-    const double factor = aspect_ratio[i];
+    const double factor = normalized_aspect_ratio[i];
     min_factor_increment = std::min(min_factor_increment, 1.0 / factor);
     max_factor = std::max(max_factor, max_chunk_shape[i] / factor);
   }
   // Add some leeway room to account for rounding.
-  min_factor_increment /= 2;
-  max_factor *= 2;
+  min_factor_increment =
+      std::max(min_factor_increment / 2, std::numeric_limits<double>::min());
+  max_factor =
+      std::min(max_factor, std::numeric_limits<double>::max() / 4.0) * 2.0;
 
   double min_factor = min_factor_increment;
   Index max_factor_elements = get_total_elements(max_factor);
 
   // Binary search to find best factor.
-  while (min_factor + min_factor_increment < max_factor) {
-    double mid_factor = min_factor + (max_factor - min_factor) / 2.0;
+  for (int iter = 0;
+       iter < 100 && min_factor + min_factor_increment < max_factor; ++iter) {
+    double mid_factor = (max_factor > min_factor * 4.0 && min_factor > 0)
+                            ? std::sqrt(min_factor * max_factor)
+                            : min_factor + (max_factor - min_factor) / 2.0;
+    if (!std::isfinite(mid_factor) || mid_factor <= min_factor ||
+        mid_factor >= max_factor) {
+      break;
+    }
     Index mid_factor_elements = get_total_elements(mid_factor);
     if (mid_factor_elements >= target_chunk_elements) {
       max_factor = mid_factor;
@@ -1714,6 +1748,11 @@ absl::Status CompleteChunkShapeFromAspectRatio(
       }
       std::copy_n(aspect_ratio_constraints.begin(), rank, aspect_ratio);
       for (DimensionIndex i = 0; i < rank; ++i) {
+        if (!AspectRatioValueTraits::IsValid(aspect_ratio[i])) {
+          return absl::InvalidArgumentError(
+              absl::StrFormat("Invalid chunk aspect_ratio: %v",
+                              GenericStringify(aspect_ratio_constraints)));
+        }
         if (aspect_ratio[i] == 0) {
           aspect_ratio[i] = 1;
         }
@@ -1801,7 +1840,11 @@ Index FindNearestMultiple(Index divisor, Index target) {
     return divisor;
   }
   const Index lower = target / divisor * divisor;
-  const Index upper = lower + divisor;
+  Index upper;
+  if (internal::AddOverflow(lower, divisor, &upper) ||
+      upper > kMaxFiniteIndex) {
+    return lower;
+  }
   if (target - lower <= upper - target) {
     return lower;
   } else {

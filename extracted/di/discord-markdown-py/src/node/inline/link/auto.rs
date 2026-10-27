@@ -5,7 +5,7 @@
 
 use std::{fmt::Debug, marker::PhantomData};
 
-use nom::{Mode, Parser, character::complete::char, error::ErrorKind, sequence::delimited};
+use nom::{Mode, Parser, character::complete::char, error::ErrorKind};
 use tracing::Level;
 use url::Url;
 
@@ -13,8 +13,9 @@ use crate::{
 	Input,
 	context::Context,
 	error::ParseError,
+	lossless::TokenKind,
 	scope::Scope,
-	span::{TraceOk, TraceParse},
+	span::{Span, Syntax as _, TraceOk, TraceParse, WithToken},
 	syntax::Syntax,
 };
 
@@ -25,12 +26,13 @@ pub const OPEN_DELIMITER: &str = "<";
 /// The terminal character of an auto-link.
 pub const TERMINAL: u8 = b'>';
 
-struct AutoParser<E> {
+struct AutoParser<S, E> {
 	context: Context,
+	span: PhantomData<S>,
 	error: PhantomData<E>,
 }
 
-impl<E> Debug for AutoParser<E> {
+impl<S, E> Debug for AutoParser<S, E> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("AutoParser")
 			.field("context", &self.context)
@@ -39,11 +41,12 @@ impl<E> Debug for AutoParser<E> {
 	}
 }
 
-impl<'data, E> Parser<Input<'data>> for AutoParser<E>
+impl<'data, S, E> Parser<Input<'data>> for AutoParser<S, E>
 where
+	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = Url;
+	type Output = (Url, S::Syntax);
 	type Error = E;
 
 	#[tracing::instrument(name = "auto_parser", level = Level::TRACE, fields(ok, output))]
@@ -59,7 +62,12 @@ where
 		}
 		nom::error::context(
 			"link::auto",
-			delimited(char('<'), verify_url(&self.context), char('>')),
+			(
+				char('<').token::<S>(TokenKind::LinkOpen),
+				verify_url(&self.context).with_token::<S>(TokenKind::Url),
+				char('>').token::<S>(TokenKind::LinkClose),
+			)
+				.map(|(open, (url, syntax), close)| (url, open.join(syntax).join(close))),
 		)
 		.trace_parse()
 		.process::<OM>(input)
@@ -72,12 +80,16 @@ where
 /// # Errors
 /// If the content does not begin with an auto-link.
 #[must_use]
-pub fn auto<'data, E>(context: Context) -> impl Parser<Input<'data>, Output = Url, Error = E>
+pub fn auto<'data, S, E>(
+	context: Context,
+) -> impl Parser<Input<'data>, Output = (Url, S::Syntax), Error = E>
 where
+	S: Span,
 	E: ParseError<'data>,
 {
 	AutoParser {
 		context: context.with_scope(Scope::AutoLink),
+		span: PhantomData::<S>,
 		error: PhantomData,
 	}
 }
@@ -93,7 +105,7 @@ mod test {
 	#[test]
 	fn simple_link() {
 		let s = "<https://wnelson.dev>";
-		let (rem, res) = auto(Context::default())
+		let (rem, (res, ())) = auto::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -107,7 +119,7 @@ mod test {
 	#[test]
 	fn schemaless_link() {
 		let s = "<discord.gg/abc>";
-		let (rem, res) = auto(Context::default())
+		let (rem, (res, ())) = auto::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -120,7 +132,7 @@ mod test {
 	#[test]
 	fn tel_link() {
 		let s = "<tel:+1-800-588-2300>";
-		let (rem, res) = auto(Context::default())
+		let (rem, (res, ())) = auto::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))
@@ -134,7 +146,7 @@ mod test {
 	#[test]
 	fn schemaless_non_routed_link_is_rejected() {
 		let s = "<discord.com/developers/docs>";
-		auto(Context::default())
+		auto::<(), _>(Context::default())
 			.parse_complete(s.into())
 			.finish()
 			.map_err(handle_nom_err(s))

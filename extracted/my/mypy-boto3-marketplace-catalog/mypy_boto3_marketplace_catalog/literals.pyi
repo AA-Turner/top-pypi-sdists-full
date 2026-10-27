@@ -60,6 +60,8 @@ __all__ = (
     "SaaSProductVisibilityStringType",
     "ServiceName",
     "SortOrderType",
+    "SubsidiaryAuthorizationSortByType",
+    "SubsidiaryAuthorizationStatusStringType",
 )
 
 AmiProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
@@ -137,6 +139,10 @@ SaaSProductSortByType = Literal[
 ]
 SaaSProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
+SubsidiaryAuthorizationSortByType = Literal[
+    "CreatedDate", "EntityId", "LastModifiedDate", "ResourceId", "Status", "SubsidiaryAccountId"
+]
+SubsidiaryAuthorizationStatusStringType = Literal["Active", "Draft", "Restricted"]
 MarketplaceCatalogServiceName = Literal["marketplace-catalog"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -246,6 +252,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -297,8 +304,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -552,7 +557,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

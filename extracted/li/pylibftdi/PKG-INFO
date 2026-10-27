@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylibftdi
-Version: 0.24.0
+Version: 0.24.2
 Summary: Pythonic interface to FTDI devices using libftdi.
 Author-email: Ben Bass <benbass@codedstructure.net>
 License-Expression: MIT

@@ -223,6 +223,7 @@ class CfnChannel(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -315,7 +316,7 @@ class CfnChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9226145b09f87b401f2f5e357dafd5cd14b0b6a288f53bb6f985030a67a2ac8c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="channelName")
@@ -328,7 +329,7 @@ class CfnChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f1e91bde8ef4635665f6fef9c2cf22478a1d6e8a29ee675d883277fd4eb950f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelName", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -341,7 +342,7 @@ class CfnChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ee07183524d44b124938ad354f47b29384e1ea3a14ba4e7fa739d6847d2cdf12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="inputSwitchConfiguration")
@@ -359,7 +360,7 @@ class CfnChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3390ae8163479dfdbac5df53086ecff4210fbf97553d12d70faac0b628fe5c00)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inputSwitchConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "inputSwitchConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="inputType")
@@ -372,7 +373,7 @@ class CfnChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1fd45bf182a4bcd922fc7964817a4166c9d667e78eb548b915896743cf024664)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inputType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "inputType", value)
 
     @builtins.property
     @jsii.member(jsii_name="multiviewConfiguration")
@@ -389,7 +390,7 @@ class CfnChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__868bec5e7b539cdb1b779073eef5d2e76dc423742060917c357220f9542e52df)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiviewConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "multiviewConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="outputHeaderConfiguration")
@@ -407,7 +408,7 @@ class CfnChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6cd874b506cfe4b7e50b6cfa6b36888413d69d5ce0a7f4649d690587ed70c417)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outputHeaderConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "outputHeaderConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="outputLockingMode")
@@ -419,7 +420,7 @@ class CfnChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8b0e6a1c2745ba5fb190a154adb302935e42d339e40c230f00ba81bae0e6bd8a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "outputLockingMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "outputLockingMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -434,7 +435,7 @@ class CfnChannel(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__61a8d14ccc4954881d5a995d8d9c088f4870a4a3a28d0b44314514a2fbb02a01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnChannel.IngestEndpointProperty",
@@ -832,6 +833,7 @@ class CfnChannelGroup(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -905,7 +907,7 @@ class CfnChannelGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ab608f9f2545c6bf246db306be81d4790f5052ef181c364ada9dfba9527799b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -918,7 +920,7 @@ class CfnChannelGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7398d92754f71ac10dc5aea2094dad8322025c79ae1302b6a69e6216e4e16144)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -934,7 +936,7 @@ class CfnChannelGroup(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__07fbb1a31d1fae7c89e591bbcc359f5dc55386649647301df2f2e0b4e9727f81)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -1128,6 +1130,7 @@ class CfnChannelPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1161,7 +1164,7 @@ class CfnChannelPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fb6da332e5cbe78bc72a7af1de80f930372aa6490fa2d573b540c4b4050a16b7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="channelName")
@@ -1174,7 +1177,7 @@ class CfnChannelPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ffc77e98d707d0206432d1f5669baff83936b87558c5f6b3966d25c6d2682bcb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelName", value)
 
     @builtins.property
     @jsii.member(jsii_name="policy")
@@ -1187,7 +1190,7 @@ class CfnChannelPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9f9e54d124a239f2e45623971b96e9da027d679f90368ed2a8e63d67a707784f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policy", value)
 
 
 @jsii.data_type(
@@ -1558,6 +1561,10 @@ class CfnOriginEndpoint(
                     drm_settings="drmSettings",
                     end="end",
                     manifest_filter="manifestFilter",
+                    multiview=mediapackagev2.CfnOriginEndpoint.MultiviewFilterConfigurationProperty(
+                        layout="layout",
+                        sources=["sources"]
+                    ),
                     start="start",
                     time_delay_seconds=123
                 ),
@@ -1604,6 +1611,10 @@ class CfnOriginEndpoint(
                     drm_settings="drmSettings",
                     end="end",
                     manifest_filter="manifestFilter",
+                    multiview=mediapackagev2.CfnOriginEndpoint.MultiviewFilterConfigurationProperty(
+                        layout="layout",
+                        sources=["sources"]
+                    ),
                     start="start",
                     time_delay_seconds=123
                 ),
@@ -1628,7 +1639,7 @@ class CfnOriginEndpoint(
         
                 # the properties below are optional
                 child_manifest_name="childManifestName",
-                filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
+                filter_configuration=mediapackagev2.CfnOriginEndpoint.LowLatencyHlsFilterConfigurationProperty(
                     clip_start_time="clipStartTime",
                     drm_settings="drmSettings",
                     end="end",
@@ -1656,7 +1667,7 @@ class CfnOriginEndpoint(
                 manifest_name="manifestName",
         
                 # the properties below are optional
-                filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
+                filter_configuration=mediapackagev2.CfnOriginEndpoint.MssFilterConfigurationProperty(
                     clip_start_time="clipStartTime",
                     drm_settings="drmSettings",
                     end="end",
@@ -1685,7 +1696,11 @@ class CfnOriginEndpoint(
                         url="url",
         
                         # the properties below are optional
-                        certificate_arn="certificateArn"
+                        certificate_arn="certificateArn",
+                        content_key_period_configuration=mediapackagev2.CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty(
+                            content_key_period_timing="contentKeyPeriodTiming"
+                        ),
+                        speke_version="spekeVersion"
                     ),
         
                     # the properties below are optional
@@ -1832,6 +1847,7 @@ class CfnOriginEndpoint(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1933,7 +1949,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7078125edd1beb221f7e3a35a200ce058d31cb41756eb7b1dca1af5dfe90c96f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="channelName")
@@ -1946,7 +1962,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__300d202906247d29b698e05c2891ad6a3e8f72748a5cb046f44ee1cde390954a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelName", value)
 
     @builtins.property
     @jsii.member(jsii_name="containerType")
@@ -1959,7 +1975,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ded0ec9a4a78b0a13f4013526976d3ef27bae8928fb665d57679f95325a85b6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "containerType", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "containerType", value)
 
     @builtins.property
     @jsii.member(jsii_name="originEndpointName")
@@ -1972,7 +1988,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__32b645ac54fdc447a14891e1f23268d3a802e1d51ab06333dab9a1ae79ae88fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "originEndpointName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "originEndpointName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dashManifests")
@@ -1990,7 +2006,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__316fdfa36cde837c49bfecdf48716a30e11db3879a7276c8207beeff9aff9317)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dashManifests", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dashManifests", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -2003,7 +2019,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d2dcbe74f178ed4fd2315de3210f8a81e6084e3e73f7337556d68a41cc54333)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="forceEndpointErrorConfiguration")
@@ -2021,7 +2037,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8bd0bc6ee367a0d016a630be9b91f1bbb3565f44feb4d59db2010dbadda4a8a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "forceEndpointErrorConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "forceEndpointErrorConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="hlsManifests")
@@ -2039,7 +2055,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__de310c90fc64be46bd788fedd55681eba63f450cc4f6537fe91890137af54019)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "hlsManifests", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "hlsManifests", value)
 
     @builtins.property
     @jsii.member(jsii_name="lowLatencyHlsManifests")
@@ -2057,7 +2073,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0ab0da83ecaf5e8b2eb477e1a7bb2f955c99813829faeb44ce46e408a3739304)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "lowLatencyHlsManifests", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "lowLatencyHlsManifests", value)
 
     @builtins.property
     @jsii.member(jsii_name="mssManifests")
@@ -2075,7 +2091,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05c39e22a8fee804960ccb55c9ca3411dc4e96823b582c9162b38b1ea0f78253)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "mssManifests", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "mssManifests", value)
 
     @builtins.property
     @jsii.member(jsii_name="segment")
@@ -2093,7 +2109,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__761931cab894d0c1a04fe9fe8aad0785de043e26b7f476c427bb231ae9fc1eeb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "segment", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "segment", value)
 
     @builtins.property
     @jsii.member(jsii_name="startoverWindowSeconds")
@@ -2106,7 +2122,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__285ecfef5a8ec9ebb3f1c4d2193922e98318f11cce543c9b9c4221cfee42fc11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "startoverWindowSeconds", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "startoverWindowSeconds", value)
 
     @builtins.property
     @jsii.member(jsii_name="streamNameOutputMode")
@@ -2118,7 +2134,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dc9640c8d2a4d21cc088ee3a1c5c0996f99db1001b36751765e2b4f6fa23f4b3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "streamNameOutputMode", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "streamNameOutputMode", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -2134,7 +2150,7 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__65cc25545f38d01b8ccc61c9494f0994747ef22d12fc3c94c71cb091aff2f324)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="uriSeparator")
@@ -2146,7 +2162,60 @@ class CfnOriginEndpoint(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0578864b3e0b6596626a33a27e42499cab016dedcde625fdc9cd5d70adc1ff26)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "uriSeparator", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "uriSeparator", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"content_key_period_timing": "contentKeyPeriodTiming"},
+    )
+    class ContentKeyPeriodConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            content_key_period_timing: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param content_key_period_timing: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-contentkeyperiodconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                content_key_period_configuration_property = mediapackagev2.CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty(
+                    content_key_period_timing="contentKeyPeriodTiming"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d26ee9d4070e940dc8a6606a0e103e4cffcc8c179710b46d60444b1ee54546c3)
+                check_type(argname="argument content_key_period_timing", value=content_key_period_timing, expected_type=type_hints["content_key_period_timing"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if content_key_period_timing is not None:
+                self._values["content_key_period_timing"] = content_key_period_timing
+
+        @builtins.property
+        def content_key_period_timing(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-contentkeyperiodconfiguration.html#cfn-mediapackagev2-originendpoint-contentkeyperiodconfiguration-contentkeyperiodtiming
+            '''
+            result = self._values.get("content_key_period_timing")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContentKeyPeriodConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty",
@@ -2693,6 +2762,10 @@ class CfnOriginEndpoint(
                         drm_settings="drmSettings",
                         end="end",
                         manifest_filter="manifestFilter",
+                        multiview=mediapackagev2.CfnOriginEndpoint.MultiviewFilterConfigurationProperty(
+                            layout="layout",
+                            sources=["sources"]
+                        ),
                         start="start",
                         time_delay_seconds=123
                     ),
@@ -3560,7 +3633,11 @@ class CfnOriginEndpoint(
                         url="url",
                 
                         # the properties below are optional
-                        certificate_arn="certificateArn"
+                        certificate_arn="certificateArn",
+                        content_key_period_configuration=mediapackagev2.CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty(
+                            content_key_period_timing="contentKeyPeriodTiming"
+                        ),
+                        speke_version="spekeVersion"
                     ),
                 
                     # the properties below are optional
@@ -3674,6 +3751,7 @@ class CfnOriginEndpoint(
             "drm_settings": "drmSettings",
             "end": "end",
             "manifest_filter": "manifestFilter",
+            "multiview": "multiview",
             "start": "start",
             "time_delay_seconds": "timeDelaySeconds",
         },
@@ -3686,6 +3764,7 @@ class CfnOriginEndpoint(
             drm_settings: typing.Optional[builtins.str] = None,
             end: typing.Optional[builtins.str] = None,
             manifest_filter: typing.Optional[builtins.str] = None,
+            multiview: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.MultiviewFilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             start: typing.Optional[builtins.str] = None,
             time_delay_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -3695,6 +3774,7 @@ class CfnOriginEndpoint(
             :param drm_settings:  When you include a DRM setting, note that you cannot use an identical DRM setting query parameter for this manifest's endpoint URL.
             :param end: Optionally specify the end time for all of your manifest egress requests. When you include end time, note that you cannot use end time query parameters for this manifest's endpoint URL.
             :param manifest_filter: Optionally specify one or more manifest filters for all of your manifest egress requests. When you include a manifest filter, note that you cannot use an identical manifest filter query parameter for this manifest's endpoint URL.
+            :param multiview:  MediaPackage serves the manifest with this layout and these sources, so players request it without an aws.multiview query parameter. If a request for a pinned manifest also includes an aws.multiview query parameter, MediaPackage rejects the request, even when that parameter requests the same combination.
             :param start: Optionally specify the start time for all of your manifest egress requests. When you include start time, note that you cannot use start time query parameters for this manifest's endpoint URL.
             :param time_delay_seconds: Optionally specify the time delay for all of your manifest egress requests. Enter a value that is smaller than your endpoint's startover window. When you include time delay, note that you cannot use time delay query parameters for this manifest's endpoint URL.
 
@@ -3712,6 +3792,10 @@ class CfnOriginEndpoint(
                     drm_settings="drmSettings",
                     end="end",
                     manifest_filter="manifestFilter",
+                    multiview=mediapackagev2.CfnOriginEndpoint.MultiviewFilterConfigurationProperty(
+                        layout="layout",
+                        sources=["sources"]
+                    ),
                     start="start",
                     time_delay_seconds=123
                 )
@@ -3722,6 +3806,7 @@ class CfnOriginEndpoint(
                 check_type(argname="argument drm_settings", value=drm_settings, expected_type=type_hints["drm_settings"])
                 check_type(argname="argument end", value=end, expected_type=type_hints["end"])
                 check_type(argname="argument manifest_filter", value=manifest_filter, expected_type=type_hints["manifest_filter"])
+                check_type(argname="argument multiview", value=multiview, expected_type=type_hints["multiview"])
                 check_type(argname="argument start", value=start, expected_type=type_hints["start"])
                 check_type(argname="argument time_delay_seconds", value=time_delay_seconds, expected_type=type_hints["time_delay_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3733,6 +3818,8 @@ class CfnOriginEndpoint(
                 self._values["end"] = end
             if manifest_filter is not None:
                 self._values["manifest_filter"] = manifest_filter
+            if multiview is not None:
+                self._values["multiview"] = multiview
             if start is not None:
                 self._values["start"] = start
             if time_delay_seconds is not None:
@@ -3780,6 +3867,18 @@ class CfnOriginEndpoint(
             '''
             result = self._values.get("manifest_filter")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def multiview(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.MultiviewFilterConfigurationProperty"]]:
+            '''
+            MediaPackage serves the manifest with this layout and these sources, so players request it without an aws.multiview query parameter. If a request for a pinned manifest also includes an aws.multiview query parameter, MediaPackage rejects the request, even when that parameter requests the same combination.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-filterconfiguration.html#cfn-mediapackagev2-originendpoint-filterconfiguration-multiview
+            '''
+            result = self._values.get("multiview")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.MultiviewFilterConfigurationProperty"]], result)
 
         @builtins.property
         def start(self) -> typing.Optional[builtins.str]:
@@ -3939,6 +4038,10 @@ class CfnOriginEndpoint(
                         drm_settings="drmSettings",
                         end="end",
                         manifest_filter="manifestFilter",
+                        multiview=mediapackagev2.CfnOriginEndpoint.MultiviewFilterConfigurationProperty(
+                            layout="layout",
+                            sources=["sources"]
+                        ),
                         start="start",
                         time_delay_seconds=123
                     ),
@@ -4107,6 +4210,149 @@ class CfnOriginEndpoint(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.LowLatencyHlsFilterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "clip_start_time": "clipStartTime",
+            "drm_settings": "drmSettings",
+            "end": "end",
+            "manifest_filter": "manifestFilter",
+            "start": "start",
+            "time_delay_seconds": "timeDelaySeconds",
+        },
+    )
+    class LowLatencyHlsFilterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            clip_start_time: typing.Optional[builtins.str] = None,
+            drm_settings: typing.Optional[builtins.str] = None,
+            end: typing.Optional[builtins.str] = None,
+            manifest_filter: typing.Optional[builtins.str] = None,
+            start: typing.Optional[builtins.str] = None,
+            time_delay_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+
+            :param clip_start_time:  When you include clip start time, note that you cannot use clip start time query parameters for this manifest's endpoint URL.
+            :param drm_settings:  When you include a DRM setting, note that you cannot use an identical DRM setting query parameter for this manifest's endpoint URL.
+            :param end:  When you include end time, note that you cannot use end time query parameters for this manifest's endpoint URL.
+            :param manifest_filter:  When you include a manifest filter, note that you cannot use an identical manifest filter query parameter for this manifest's endpoint URL.
+            :param start:  When you include start time, note that you cannot use start time query parameters for this manifest's endpoint URL.
+            :param time_delay_seconds:  Enter a value that is smaller than your endpoint's startover window. When you include time delay, note that you cannot use time delay query parameters for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                low_latency_hls_filter_configuration_property = mediapackagev2.CfnOriginEndpoint.LowLatencyHlsFilterConfigurationProperty(
+                    clip_start_time="clipStartTime",
+                    drm_settings="drmSettings",
+                    end="end",
+                    manifest_filter="manifestFilter",
+                    start="start",
+                    time_delay_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0bd8086645ca558b6ed5996be2077033a9d325bc34253ba74e568c74d6ab6f84)
+                check_type(argname="argument clip_start_time", value=clip_start_time, expected_type=type_hints["clip_start_time"])
+                check_type(argname="argument drm_settings", value=drm_settings, expected_type=type_hints["drm_settings"])
+                check_type(argname="argument end", value=end, expected_type=type_hints["end"])
+                check_type(argname="argument manifest_filter", value=manifest_filter, expected_type=type_hints["manifest_filter"])
+                check_type(argname="argument start", value=start, expected_type=type_hints["start"])
+                check_type(argname="argument time_delay_seconds", value=time_delay_seconds, expected_type=type_hints["time_delay_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if clip_start_time is not None:
+                self._values["clip_start_time"] = clip_start_time
+            if drm_settings is not None:
+                self._values["drm_settings"] = drm_settings
+            if end is not None:
+                self._values["end"] = end
+            if manifest_filter is not None:
+                self._values["manifest_filter"] = manifest_filter
+            if start is not None:
+                self._values["start"] = start
+            if time_delay_seconds is not None:
+                self._values["time_delay_seconds"] = time_delay_seconds
+
+        @builtins.property
+        def clip_start_time(self) -> typing.Optional[builtins.str]:
+            '''
+            When you include clip start time, note that you cannot use clip start time query parameters for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration-clipstarttime
+            '''
+            result = self._values.get("clip_start_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def drm_settings(self) -> typing.Optional[builtins.str]:
+            '''
+            When you include a DRM setting, note that you cannot use an identical DRM setting query parameter for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration-drmsettings
+            '''
+            result = self._values.get("drm_settings")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def end(self) -> typing.Optional[builtins.str]:
+            '''
+            When you include end time, note that you cannot use end time query parameters for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration-end
+            '''
+            result = self._values.get("end")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def manifest_filter(self) -> typing.Optional[builtins.str]:
+            '''
+            When you include a manifest filter, note that you cannot use an identical manifest filter query parameter for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration-manifestfilter
+            '''
+            result = self._values.get("manifest_filter")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def start(self) -> typing.Optional[builtins.str]:
+            '''
+            When you include start time, note that you cannot use start time query parameters for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration-start
+            '''
+            result = self._values.get("start")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def time_delay_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            Enter a value that is smaller than your endpoint's startover window. When you include time delay, note that you cannot use time delay query parameters for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsfilterconfiguration-timedelayseconds
+            '''
+            result = self._values.get("time_delay_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LowLatencyHlsFilterConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.LowLatencyHlsManifestConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4128,7 +4374,7 @@ class CfnOriginEndpoint(
             *,
             manifest_name: builtins.str,
             child_manifest_name: typing.Optional[builtins.str] = None,
-            filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.LowLatencyHlsFilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             manifest_window_seconds: typing.Optional[jsii.Number] = None,
             program_date_time_interval_seconds: typing.Optional[jsii.Number] = None,
             scte_hls: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.ScteHlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4164,7 +4410,7 @@ class CfnOriginEndpoint(
                 
                     # the properties below are optional
                     child_manifest_name="childManifestName",
-                    filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
+                    filter_configuration=mediapackagev2.CfnOriginEndpoint.LowLatencyHlsFilterConfigurationProperty(
                         clip_start_time="clipStartTime",
                         drm_settings="drmSettings",
                         end="end",
@@ -4247,13 +4493,13 @@ class CfnOriginEndpoint(
         @builtins.property
         def filter_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.LowLatencyHlsFilterConfigurationProperty"]]:
             '''Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration-filterconfiguration
             '''
             result = self._values.get("filter_configuration")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.LowLatencyHlsFilterConfigurationProperty"]], result)
 
         @builtins.property
         def manifest_window_seconds(self) -> typing.Optional[jsii.Number]:
@@ -4343,6 +4589,149 @@ class CfnOriginEndpoint(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.MssFilterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "clip_start_time": "clipStartTime",
+            "drm_settings": "drmSettings",
+            "end": "end",
+            "manifest_filter": "manifestFilter",
+            "start": "start",
+            "time_delay_seconds": "timeDelaySeconds",
+        },
+    )
+    class MssFilterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            clip_start_time: typing.Optional[builtins.str] = None,
+            drm_settings: typing.Optional[builtins.str] = None,
+            end: typing.Optional[builtins.str] = None,
+            manifest_filter: typing.Optional[builtins.str] = None,
+            start: typing.Optional[builtins.str] = None,
+            time_delay_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+
+            :param clip_start_time:  When you include clip start time, note that you cannot use clip start time query parameters for this manifest's endpoint URL.
+            :param drm_settings:  When you include a DRM setting, note that you cannot use an identical DRM setting query parameter for this manifest's endpoint URL.
+            :param end:  When you include end time, note that you cannot use end time query parameters for this manifest's endpoint URL.
+            :param manifest_filter:  When you include a manifest filter, note that you cannot use an identical manifest filter query parameter for this manifest's endpoint URL.
+            :param start:  When you include start time, note that you cannot use start time query parameters for this manifest's endpoint URL.
+            :param time_delay_seconds:  Enter a value that is smaller than your endpoint's startover window. When you include time delay, note that you cannot use time delay query parameters for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-mssfilterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                mss_filter_configuration_property = mediapackagev2.CfnOriginEndpoint.MssFilterConfigurationProperty(
+                    clip_start_time="clipStartTime",
+                    drm_settings="drmSettings",
+                    end="end",
+                    manifest_filter="manifestFilter",
+                    start="start",
+                    time_delay_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__dcf7c1087366d2e838504b937a9f4eaa6aa927ae120d8a231c52b9c3b9f43853)
+                check_type(argname="argument clip_start_time", value=clip_start_time, expected_type=type_hints["clip_start_time"])
+                check_type(argname="argument drm_settings", value=drm_settings, expected_type=type_hints["drm_settings"])
+                check_type(argname="argument end", value=end, expected_type=type_hints["end"])
+                check_type(argname="argument manifest_filter", value=manifest_filter, expected_type=type_hints["manifest_filter"])
+                check_type(argname="argument start", value=start, expected_type=type_hints["start"])
+                check_type(argname="argument time_delay_seconds", value=time_delay_seconds, expected_type=type_hints["time_delay_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if clip_start_time is not None:
+                self._values["clip_start_time"] = clip_start_time
+            if drm_settings is not None:
+                self._values["drm_settings"] = drm_settings
+            if end is not None:
+                self._values["end"] = end
+            if manifest_filter is not None:
+                self._values["manifest_filter"] = manifest_filter
+            if start is not None:
+                self._values["start"] = start
+            if time_delay_seconds is not None:
+                self._values["time_delay_seconds"] = time_delay_seconds
+
+        @builtins.property
+        def clip_start_time(self) -> typing.Optional[builtins.str]:
+            '''
+            When you include clip start time, note that you cannot use clip start time query parameters for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-mssfilterconfiguration.html#cfn-mediapackagev2-originendpoint-mssfilterconfiguration-clipstarttime
+            '''
+            result = self._values.get("clip_start_time")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def drm_settings(self) -> typing.Optional[builtins.str]:
+            '''
+            When you include a DRM setting, note that you cannot use an identical DRM setting query parameter for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-mssfilterconfiguration.html#cfn-mediapackagev2-originendpoint-mssfilterconfiguration-drmsettings
+            '''
+            result = self._values.get("drm_settings")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def end(self) -> typing.Optional[builtins.str]:
+            '''
+            When you include end time, note that you cannot use end time query parameters for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-mssfilterconfiguration.html#cfn-mediapackagev2-originendpoint-mssfilterconfiguration-end
+            '''
+            result = self._values.get("end")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def manifest_filter(self) -> typing.Optional[builtins.str]:
+            '''
+            When you include a manifest filter, note that you cannot use an identical manifest filter query parameter for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-mssfilterconfiguration.html#cfn-mediapackagev2-originendpoint-mssfilterconfiguration-manifestfilter
+            '''
+            result = self._values.get("manifest_filter")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def start(self) -> typing.Optional[builtins.str]:
+            '''
+            When you include start time, note that you cannot use start time query parameters for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-mssfilterconfiguration.html#cfn-mediapackagev2-originendpoint-mssfilterconfiguration-start
+            '''
+            result = self._values.get("start")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def time_delay_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            Enter a value that is smaller than your endpoint's startover window. When you include time delay, note that you cannot use time delay query parameters for this manifest's endpoint URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-mssfilterconfiguration.html#cfn-mediapackagev2-originendpoint-mssfilterconfiguration-timedelayseconds
+            '''
+            result = self._values.get("time_delay_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MssFilterConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.MssManifestConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4357,7 +4746,7 @@ class CfnOriginEndpoint(
             self,
             *,
             manifest_name: builtins.str,
-            filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.FilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            filter_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.MssFilterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             manifest_layout: typing.Optional[builtins.str] = None,
             manifest_window_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -4382,7 +4771,7 @@ class CfnOriginEndpoint(
                     manifest_name="manifestName",
                 
                     # the properties below are optional
-                    filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
+                    filter_configuration=mediapackagev2.CfnOriginEndpoint.MssFilterConfigurationProperty(
                         clip_start_time="clipStartTime",
                         drm_settings="drmSettings",
                         end="end",
@@ -4424,13 +4813,13 @@ class CfnOriginEndpoint(
         @builtins.property
         def filter_configuration(
             self,
-        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.MssFilterConfigurationProperty"]]:
             '''
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-mssmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-mssmanifestconfiguration-filterconfiguration
             '''
             result = self._values.get("filter_configuration")
-            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.FilterConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.MssFilterConfigurationProperty"]], result)
 
         @builtins.property
         def manifest_layout(self) -> typing.Optional[builtins.str]:
@@ -4458,6 +4847,80 @@ class CfnOriginEndpoint(
 
         def __repr__(self) -> str:
             return "MssManifestConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpoint.MultiviewFilterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"layout": "layout", "sources": "sources"},
+    )
+    class MultiviewFilterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            layout: builtins.str,
+            sources: typing.Sequence[builtins.str],
+        ) -> None:
+            '''
+            MediaPackage serves the manifest with this layout and these sources, so players request it without an aws.multiview query parameter. If a request for a pinned manifest also includes an aws.multiview query parameter, MediaPackage rejects the request, even when that parameter requests the same combination.
+
+            :param layout:  Each layout determines how many source tiles are composited into the output and how those tiles are arranged. The allowed values are: LAYOUT_2EH – Two tiles of equal size, arranged horizontally. LAYOUT_2PL – Two tiles, with one larger primary tile. LAYOUT_3EL – Three tiles of equal size, arranged in two columns. LAYOUT_3PL – Three tiles, with one larger primary tile on the left and two stacked on the right. LAYOUT_4E – Four tiles of equal size, arranged in a two-by-two grid. LAYOUT_4PL – Four tiles, with one larger primary tile on the left and three stacked on the right.
+            :param sources:  Each channel must be one of the AvailableSources of the channel that this origin endpoint is on, and the number of channels must equal the number of tiles in Layout.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-multiviewfilterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediapackagev2 as mediapackagev2
+                
+                multiview_filter_configuration_property = mediapackagev2.CfnOriginEndpoint.MultiviewFilterConfigurationProperty(
+                    layout="layout",
+                    sources=["sources"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2b8ec48ba52503473ef47a69f67377e3db277b304e666aa0a9152ebe53aa4b93)
+                check_type(argname="argument layout", value=layout, expected_type=type_hints["layout"])
+                check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "layout": layout,
+                "sources": sources,
+            }
+
+        @builtins.property
+        def layout(self) -> builtins.str:
+            '''
+            Each layout determines how many source tiles are composited into the output and how those tiles are arranged. The allowed values are:    LAYOUT_2EH – Two tiles of equal size, arranged horizontally.    LAYOUT_2PL – Two tiles, with one larger primary tile.    LAYOUT_3EL – Three tiles of equal size, arranged in two columns.    LAYOUT_3PL – Three tiles, with one larger primary tile on the left and two stacked on the right.    LAYOUT_4E – Four tiles of equal size, arranged in a two-by-two grid.    LAYOUT_4PL – Four tiles, with one larger primary tile on the left and three stacked on the right.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-multiviewfilterconfiguration.html#cfn-mediapackagev2-originendpoint-multiviewfilterconfiguration-layout
+            '''
+            result = self._values.get("layout")
+            assert result is not None, "Required property 'layout' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def sources(self) -> typing.List[builtins.str]:
+            '''
+            Each channel must be one of the AvailableSources of the channel that this origin endpoint is on, and the number of channels must equal the number of tiles in Layout.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-multiviewfilterconfiguration.html#cfn-mediapackagev2-originendpoint-multiviewfilterconfiguration-sources
+            '''
+            result = self._values.get("sources")
+            assert result is not None, "Required property 'sources' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MultiviewFilterConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4772,7 +5235,11 @@ class CfnOriginEndpoint(
                             url="url",
                 
                             # the properties below are optional
-                            certificate_arn="certificateArn"
+                            certificate_arn="certificateArn",
+                            content_key_period_configuration=mediapackagev2.CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty(
+                                content_key_period_timing="contentKeyPeriodTiming"
+                            ),
+                            speke_version="spekeVersion"
                         ),
                 
                         # the properties below are optional
@@ -4923,6 +5390,8 @@ class CfnOriginEndpoint(
             "role_arn": "roleArn",
             "url": "url",
             "certificate_arn": "certificateArn",
+            "content_key_period_configuration": "contentKeyPeriodConfiguration",
+            "speke_version": "spekeVersion",
         },
     )
     class SpekeKeyProviderProperty:
@@ -4935,6 +5404,8 @@ class CfnOriginEndpoint(
             role_arn: builtins.str,
             url: builtins.str,
             certificate_arn: typing.Optional[builtins.str] = None,
+            content_key_period_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            speke_version: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The parameters for the SPEKE key provider.
 
@@ -4944,6 +5415,8 @@ class CfnOriginEndpoint(
             :param role_arn: The ARN for the IAM role granted by the key provider that provides access to the key provider API. This role must have a trust policy that allows MediaPackage to assume the role, and it must have a sufficient permissions policy to allow access to the specific key retrieval URL. Get this from your DRM solution provider. Valid format: ``arn:aws:iam::{accountID}:role/{name}`` . The following example shows a role ARN: ``arn:aws:iam::444455556666:role/SpekeAccess``
             :param url: The URL of the SPEKE key provider.
             :param certificate_arn:  For this feature to work, your DRM key provider must support content key encryption.
+            :param content_key_period_configuration: 
+            :param speke_version: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-spekekeyprovider.html
             :exampleMetadata: fixture=_generated
@@ -4965,7 +5438,11 @@ class CfnOriginEndpoint(
                     url="url",
                 
                     # the properties below are optional
-                    certificate_arn="certificateArn"
+                    certificate_arn="certificateArn",
+                    content_key_period_configuration=mediapackagev2.CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty(
+                        content_key_period_timing="contentKeyPeriodTiming"
+                    ),
+                    speke_version="spekeVersion"
                 )
             '''
             if __debug__:
@@ -4976,6 +5453,8 @@ class CfnOriginEndpoint(
                 check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
                 check_type(argname="argument url", value=url, expected_type=type_hints["url"])
                 check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+                check_type(argname="argument content_key_period_configuration", value=content_key_period_configuration, expected_type=type_hints["content_key_period_configuration"])
+                check_type(argname="argument speke_version", value=speke_version, expected_type=type_hints["speke_version"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "drm_systems": drm_systems,
                 "encryption_contract_configuration": encryption_contract_configuration,
@@ -4985,6 +5464,10 @@ class CfnOriginEndpoint(
             }
             if certificate_arn is not None:
                 self._values["certificate_arn"] = certificate_arn
+            if content_key_period_configuration is not None:
+                self._values["content_key_period_configuration"] = content_key_period_configuration
+            if speke_version is not None:
+                self._values["speke_version"] = speke_version
 
         @builtins.property
         def drm_systems(self) -> typing.List[builtins.str]:
@@ -5054,6 +5537,24 @@ class CfnOriginEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-spekekeyprovider.html#cfn-mediapackagev2-originendpoint-spekekeyprovider-certificatearn
             '''
             result = self._values.get("certificate_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def content_key_period_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-spekekeyprovider.html#cfn-mediapackagev2-originendpoint-spekekeyprovider-contentkeyperiodconfiguration
+            '''
+            result = self._values.get("content_key_period_configuration")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty"]], result)
+
+        @builtins.property
+        def speke_version(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-spekekeyprovider.html#cfn-mediapackagev2-originendpoint-spekekeyprovider-spekeversion
+            '''
+            result = self._values.get("speke_version")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -5256,6 +5757,7 @@ class CfnOriginEndpointPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5289,7 +5791,7 @@ class CfnOriginEndpointPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ece6fe1f3215cf8ea357ac0ae337fd3ee216bd554b13e1ed66f380a551871cf8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelGroupName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelGroupName", value)
 
     @builtins.property
     @jsii.member(jsii_name="channelName")
@@ -5302,7 +5804,7 @@ class CfnOriginEndpointPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__061507a42f38505f6e3060097229ce610dd50d3f6f96ac0cdbd883d1e13cad8a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "channelName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "channelName", value)
 
     @builtins.property
     @jsii.member(jsii_name="originEndpointName")
@@ -5315,7 +5817,7 @@ class CfnOriginEndpointPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1a22e35010e441892b8eae01173c80ff68e7e2c1da6f52737a724971f5555743)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "originEndpointName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "originEndpointName", value)
 
     @builtins.property
     @jsii.member(jsii_name="policy")
@@ -5328,7 +5830,7 @@ class CfnOriginEndpointPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__03b8094def1eae0770367451a814cb41dcad8e59ef89ff30e7423278b23af07b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policy", value)
 
     @builtins.property
     @jsii.member(jsii_name="cdnAuthConfiguration")
@@ -5346,7 +5848,7 @@ class CfnOriginEndpointPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb5c350a2cc1621e0ea6d63c230deab544127f834aa0418f2d3ec475c6dfc3d3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "cdnAuthConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "cdnAuthConfiguration", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediapackagev2.CfnOriginEndpointPolicy.CdnAuthConfigurationProperty",
@@ -5667,6 +6169,10 @@ class CfnOriginEndpointProps:
                         drm_settings="drmSettings",
                         end="end",
                         manifest_filter="manifestFilter",
+                        multiview=mediapackagev2.CfnOriginEndpoint.MultiviewFilterConfigurationProperty(
+                            layout="layout",
+                            sources=["sources"]
+                        ),
                         start="start",
                         time_delay_seconds=123
                     ),
@@ -5713,6 +6219,10 @@ class CfnOriginEndpointProps:
                         drm_settings="drmSettings",
                         end="end",
                         manifest_filter="manifestFilter",
+                        multiview=mediapackagev2.CfnOriginEndpoint.MultiviewFilterConfigurationProperty(
+                            layout="layout",
+                            sources=["sources"]
+                        ),
                         start="start",
                         time_delay_seconds=123
                     ),
@@ -5737,7 +6247,7 @@ class CfnOriginEndpointProps:
             
                     # the properties below are optional
                     child_manifest_name="childManifestName",
-                    filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
+                    filter_configuration=mediapackagev2.CfnOriginEndpoint.LowLatencyHlsFilterConfigurationProperty(
                         clip_start_time="clipStartTime",
                         drm_settings="drmSettings",
                         end="end",
@@ -5765,7 +6275,7 @@ class CfnOriginEndpointProps:
                     manifest_name="manifestName",
             
                     # the properties below are optional
-                    filter_configuration=mediapackagev2.CfnOriginEndpoint.FilterConfigurationProperty(
+                    filter_configuration=mediapackagev2.CfnOriginEndpoint.MssFilterConfigurationProperty(
                         clip_start_time="clipStartTime",
                         drm_settings="drmSettings",
                         end="end",
@@ -5794,7 +6304,11 @@ class CfnOriginEndpointProps:
                             url="url",
             
                             # the properties below are optional
-                            certificate_arn="certificateArn"
+                            certificate_arn="certificateArn",
+                            content_key_period_configuration=mediapackagev2.CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty(
+                                content_key_period_timing="contentKeyPeriodTiming"
+                            ),
+                            speke_version="spekeVersion"
                         ),
             
                         # the properties below are optional
@@ -6445,6 +6959,13 @@ def _typecheckingstub__0578864b3e0b6596626a33a27e42499cab016dedcde625fdc9cd5d70a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d26ee9d4070e940dc8a6606a0e103e4cffcc8c179710b46d60444b1ee54546c3(
+    *,
+    content_key_period_timing: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b08f61ec9db3f1fdcd263035446f62e72246fa10baf1fdc8683a110410f5d4a7(
     *,
     fixed_availability_start_time: builtins.str,
@@ -6580,6 +7101,7 @@ def _typecheckingstub__cd4523035a4ce6e5ff7d759a2d3d8f5fc12e2c0c96ad04c9ef1b884c6
     drm_settings: typing.Optional[builtins.str] = None,
     end: typing.Optional[builtins.str] = None,
     manifest_filter: typing.Optional[builtins.str] = None,
+    multiview: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.MultiviewFilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     start: typing.Optional[builtins.str] = None,
     time_delay_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -6609,11 +7131,23 @@ def _typecheckingstub__b59520e6fbce62f410265deeb9cc043e1cf408c2c3cc498907eb73fcc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0bd8086645ca558b6ed5996be2077033a9d325bc34253ba74e568c74d6ab6f84(
+    *,
+    clip_start_time: typing.Optional[builtins.str] = None,
+    drm_settings: typing.Optional[builtins.str] = None,
+    end: typing.Optional[builtins.str] = None,
+    manifest_filter: typing.Optional[builtins.str] = None,
+    start: typing.Optional[builtins.str] = None,
+    time_delay_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7ba3db62514b88b8da1b21ec0b9459116f857508c0670adb698a120b326fed5e(
     *,
     manifest_name: builtins.str,
     child_manifest_name: typing.Optional[builtins.str] = None,
-    filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.LowLatencyHlsFilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     manifest_window_seconds: typing.Optional[jsii.Number] = None,
     program_date_time_interval_seconds: typing.Optional[jsii.Number] = None,
     scte_hls: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.ScteHlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6625,12 +7159,32 @@ def _typecheckingstub__7ba3db62514b88b8da1b21ec0b9459116f857508c0670adb698a120b3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dcf7c1087366d2e838504b937a9f4eaa6aa927ae120d8a231c52b9c3b9f43853(
+    *,
+    clip_start_time: typing.Optional[builtins.str] = None,
+    drm_settings: typing.Optional[builtins.str] = None,
+    end: typing.Optional[builtins.str] = None,
+    manifest_filter: typing.Optional[builtins.str] = None,
+    start: typing.Optional[builtins.str] = None,
+    time_delay_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5eb842c2ab9f37a97b78623838b99a1722e0398b4d9b44ac0a32ee5e11a89b1c(
     *,
     manifest_name: builtins.str,
-    filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.FilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    filter_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.MssFilterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     manifest_layout: typing.Optional[builtins.str] = None,
     manifest_window_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b8ec48ba52503473ef47a69f67377e3db277b304e666aa0a9152ebe53aa4b93(
+    *,
+    layout: builtins.str,
+    sources: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6682,6 +7236,8 @@ def _typecheckingstub__e4c003b5dabc0ccf6e42c45fb4504036521870f7799525c5b18f42c7c
     role_arn: builtins.str,
     url: builtins.str,
     certificate_arn: typing.Optional[builtins.str] = None,
+    content_key_period_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.ContentKeyPeriodConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    speke_version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

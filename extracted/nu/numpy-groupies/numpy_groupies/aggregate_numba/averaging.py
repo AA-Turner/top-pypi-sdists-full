@@ -3,7 +3,7 @@
 Integer input is centered on the first value of each group and the global
 min/max is tracked in the same accumulation pass; the exactness gates run
 between the passes and raise ``OverflowError`` for the same inputs in every
-backend (see ``common`` for the policy constants).
+backend (see ``validation`` for the policy constants).
 """
 
 from collections.abc import Callable
@@ -13,9 +13,15 @@ import numba as nb
 import numpy as np
 import numpy.typing as npt
 
-from numpy_groupies.aggregate_numba.compose import build_kernel, rule_float, rule_real_float
+from numpy_groupies.aggregate_numba.compose import build_kernel, complex_less, rule_float, rule_real_float
 from numpy_groupies.aggregate_numba.jit import njit_stable
-from numpy_groupies.common import EXACT_FLOAT64_INTEGER_LIMIT, INT64_DEVIATION_LIMIT, INT64_MIN
+from numpy_groupies.validation import (
+    EXACT_FLOAT64_INTEGER_LIMIT,
+    INT64_DEVIATION_LIMIT,
+    INT64_MIN,
+    mean_overflow_message,
+    variance_span_overflow_message,
+)
 
 
 # the building blocks and overload shims of this file are jitted: numba
@@ -50,21 +56,13 @@ def _track_extrema_overload(val: float, low: float, high: float) -> Callable[...
     return _impl
 
 
-@njit_stable
-def _mean_overflow_message(count: int, bound: int) -> str:
-    """The numba twin of ``check_integer_mean_overflow`` - numba cannot call
-    the python helper (common must stay numpy-free), so the text is
-    mirrored here and must be kept in sync with it."""
-    return (
-        "cannot compute an exact mean of "
-        + str(count)
-        + " integer values with magnitude up to "
-        + str(bound)
-        + ": their sums can exceed +/-"
-        + str(EXACT_FLOAT64_INTEGER_LIMIT)
-        + ", the range float64 represents exactly - cast the input to a float dtype to accept "
-        + "rounding, or use sum and len"
-    )
+# the compiled twins of the message builders of ``validation`` - numba cannot
+# call a python function, but it can compile one, so the text of the
+# complaint exists once
+_mean_overflow_message: Callable[[int, int], str] = njit_stable(mean_overflow_message, name="mean_overflow_message")
+_span_message: Callable[[str, int], str] = njit_stable(
+    variance_span_overflow_message, name="variance_span_overflow_message"
+)
 
 
 @njit_stable
@@ -73,16 +71,7 @@ def _span_overflow_message(low: int, high: int) -> str:
     # numba's str() negates int64-min internally, wraps, and then fails to
     # size the string buffer - spell that one value out
     low_text = "-9223372036854775808" if low == INT64_MIN else str(low)
-    return (
-        "cannot compute an exact variance: the integer values span ["
-        + low_text
-        + ", "
-        + str(high)
-        + "], wider than +/-"
-        + str(INT64_DEVIATION_LIMIT)
-        + ", so centering each group on its first value would overflow the signed 64-bit "
-        + "deviation - cast the input to a float dtype first"
-    )
+    return _span_message(low_text, high)
 
 
 def _mean_limit_check(low: float, high: float, count: int) -> None:
@@ -193,7 +182,7 @@ def _mean_seed(st: MeanState, a: npt.NDArray[np.number]) -> None:
         st.high[0] = a[0]
 
 
-def _mean_update(st: MeanState, ri: int, i: int, val: float, fill_value: float, ddof: int) -> None:
+def _mean_update(st: MeanState, ri: int, i: int, val: float, fill_value: float, extra: Any) -> None:
     st.count[ri] += 1
     st.out[ri] += val
     _track_extrema(val, st.low, st.high)  # type: ignore[arg-type]  # low/high are 1-element arrays; body uses low[0]
@@ -203,16 +192,42 @@ def _mean_gate(st: MeanState, n_values: int) -> None:
     _mean_limit_check(st.low[0], st.high[0], n_values)
 
 
-def _mean_finish(st: MeanState, g: int, fill_value: float, ddof: int) -> Any:
-    if st.count[g] > ddof:
+def _mean_finish(st: MeanState, g: int, fill_value: float, extra: Any) -> Any:
+    # the mean takes nothing of its own, so the driver reaches this with the
+    # zero of an operation without an argument and the test is the plain one of
+    # a group that received a value at all
+    if st.count[g] > extra:
         return st.out[g] / st.count[g]
     return fill_value
+
+
+def _mean_combine(acc: MeanState, other: MeanState, fill_value: float, extra: Any) -> None:
+    """The states of two chunks of the data, folded into one: the sums and the
+    counts add up, and the global extrema that feed the exactness gate are
+    the ones of both chunks."""
+    out: np.ndarray = acc.out
+    out += other.out
+    count: np.ndarray = acc.count
+    count += other.count
+    # the extrema are compared the way the kernel compares them: min() and
+    # max() have no meaning for complex values, and the kernel takes them
+    # for complex input
+    low: np.ndarray = acc.low
+    if complex_less(other.low[0], low[0]):
+        low[0] = other.low[0]
+    high: np.ndarray = acc.high
+    if complex_less(high[0], other.high[0]):
+        high[0] = other.high[0]
 
 
 mean = build_kernel(
     "mean",
     init=_mean_init,
     update=_mean_update,
+    combine=_mean_combine,
+    # the state of the mean holds four arrays (the sum, the count and the two
+    # extrema of the exactness gate) against the two of the sum
+    state_size=2,
     seed=_mean_seed,
     gate=_mean_gate,
     finish=_mean_finish,
@@ -270,7 +285,7 @@ def _moment_seed(st: MomentState, a: npt.NDArray[np.number]) -> None:
         st.high[0] = a[0]
 
 
-def _moment_update(st: MomentState, ri: int, i: int, val: float, fill_value: float, ddof: int) -> None:
+def _moment_update(st: MomentState, ri: int, i: int, val: float, fill_value: float, extra: Any) -> None:
     """Accumulate one value into the running central moments.
 
     The update is the one of Welford (and the one pandas uses): the moments
@@ -295,7 +310,7 @@ def _moment_update(st: MomentState, ri: int, i: int, val: float, fill_value: flo
     _track_extrema(val, st.low, st.high)  # type: ignore[arg-type]  # low/high are 1-element arrays; body uses low[0]
 
 
-def _moment_update_nan(st: MomentState, ri: int, i: int, val: float, fill_value: float, ddof: int) -> None:
+def _moment_update_nan(st: MomentState, ri: int, i: int, val: float, fill_value: float, extra: Any) -> None:
     """The same accumulation, with the nans left out.
 
     The body is a copy of the one above: a call would make the loop of the
@@ -324,7 +339,7 @@ def _moment_gate(st: MomentState, n_values: int) -> None:
     _mean_limit_check(st.low[0], st.high[0], n_values)
 
 
-def _skew_finish(st: MomentState, g: int, fill_value: float, ddof: int) -> Any:
+def _skew_finish(st: MomentState, g: int, fill_value: float, extra: Any) -> Any:
     n = st.count[g]
     if n == 0:
         return fill_value
@@ -338,7 +353,7 @@ def _skew_finish(st: MomentState, g: int, fill_value: float, ddof: int) -> Any:
     return n * np.sqrt(n - 1) / (n - 2) * st.m3[g] / st.m2[g] ** 1.5
 
 
-def _kurt_finish(st: MomentState, g: int, fill_value: float, ddof: int) -> Any:
+def _kurt_finish(st: MomentState, g: int, fill_value: float, extra: Any) -> Any:
     n = st.count[g]
     if n == 0:
         return fill_value
@@ -461,7 +476,7 @@ def _std_seed(st: StdState, a: npt.NDArray[np.number]) -> None:
         st.high[0] = a[0]
 
 
-def _std_update(st: StdState, ri: int, i: int, val: float, fill_value: float, ddof: int) -> None:
+def _std_update(st: StdState, ri: int, i: int, val: float, fill_value: float, extra: Any) -> None:
     st.count[ri] += 1
     if isinstance(val, bool):
         st.dev[ri] += val
@@ -473,6 +488,92 @@ def _std_update(st: StdState, ri: int, i: int, val: float, fill_value: float, dd
 
 def _std_gate(st: StdState, n_values: int) -> None:
     _span_limit_check(st.low[0], st.high[0], n_values)
+
+
+def _std_combine(acc: StdState, other: StdState, fill_value: float, extra: Any) -> None:
+    """The states of two chunks of the data, folded into one.
+
+    The counts add up, and with them the sums of the deviations and of their
+    squares - for the integer input, where every chunk is centered on its own
+    first value, the correction for the two different anchors goes with it.
+
+    The two cases need different bodies, and the overload that tells them
+    apart has to replace a function that is *called* - an overload of this
+    function itself would be of no use, since compiling this function
+    compiles its body and not the overload.
+    """
+    _fold_std(acc, other, fill_value, extra)
+
+
+def _fold_std(acc: StdState, other: StdState, fill_value: float, extra: Any) -> None:
+    """The fold of the two states - the integer and the inexact input differ."""
+    raise NotImplementedError  # replaced by the overload below
+
+
+@nb.extending.overload(_fold_std)
+def _fold_std_overload(acc: StdState, other: StdState, fill_value: float, extra: Any) -> Callable[..., None]:
+    # the dtype of the anchor field tells the two cases apart: the integer
+    # input is centered on the first value of its group, the inexact one on
+    # zero.  The fields of a named tuple are reached through their types in
+    # the typing of the overload - the anchor is the fourth field.  The
+    # annotation of the arguments has to be the one of the implementation:
+    # numba checks the two signatures against each other (strict=True).
+    if isinstance(acc.types[3].dtype, nb.types.Integer):  # type: ignore[attr-defined]  # the types of the fields are a property of the numba type
+
+        def _impl(acc: StdState, other: StdState, fill_value: float, extra: Any) -> None:
+            # the integer input is centered on the first value of its group,
+            # and every chunk has its own first value - the deviations and
+            # the squares of the second chunk are therefore relative to a
+            # different anchor and have to be corrected:
+            #   sum(v - a)     = sum(v - b) + (b - a) * n
+            #   sum((v - a)^2) = sum((v - b)^2) + 2 (b - a) sum(v - b) + (b - a)^2 n
+            count: np.ndarray = acc.count
+            out: np.ndarray = acc.out
+            dev: np.ndarray = acc.dev
+            for g in range(count.size):
+                n_other = other.count[g]
+                if n_other == 0:
+                    continue
+                if count[g] == 0:
+                    # the first chunk has no value of this group: its anchor
+                    # is the one of the second chunk
+                    acc.first[g] = other.first[g]
+                else:
+                    delta = np.int64(other.first[g]) - np.int64(acc.first[g])
+                    out[g] += 2 * delta * other.dev[g] + delta * delta * n_other
+                    dev[g] += delta * n_other
+                out[g] += other.out[g]
+                dev[g] += other.dev[g]
+                count[g] += n_other
+            _std_combine_extrema(acc, other)
+
+        return _impl
+
+    def _impl(acc: StdState, other: StdState, fill_value: float, extra: Any) -> None:  # type: ignore[no-redef]  # the overload hands numba one of the two same-named alternatives
+        # the inexact input is centered on zero: the sums add up as they are
+        count: np.ndarray = acc.count
+        count += other.count
+        dev: np.ndarray = acc.dev
+        dev += other.dev
+        out: np.ndarray = acc.out
+        out += other.out
+        _std_combine_extrema(acc, other)
+
+    return _impl
+
+
+@njit_stable
+def _std_combine_extrema(acc: StdState, other: StdState) -> None:
+    """The extrema of two chunks of the data, folded into one.
+
+    They feed the exactness gate, which runs after the fold.
+    """
+    low: np.ndarray = acc.low
+    if complex_less(other.low[0], low[0]):
+        low[0] = other.low[0]
+    high: np.ndarray = acc.high
+    if complex_less(high[0], other.high[0]):
+        high[0] = other.high[0]
 
 
 def _std_finish(st: StdState, g: int, fill_value: float, ddof: int) -> Any:
@@ -490,10 +591,14 @@ std = build_kernel(
     seed=_std_seed,
     gate=_std_gate,
     finish=_std_finish,
+    combine=_std_combine,
+    # the state of the dispersion holds six arrays against the two of the sum
+    state_size=3,
     forced_fill=0,
     fill_default=np.nan,
     rule=rule_real_float,
     aux_widen=True,
+    variant="ddof",
     doc="Standard deviation of the values of every group",
 )
 
@@ -513,9 +618,13 @@ var = build_kernel(
     seed=_std_seed,
     gate=_std_gate,
     finish=_var_finish,
+    combine=_std_combine,
+    # the state of the dispersion holds six arrays against the two of the sum
+    state_size=3,
     forced_fill=0,
     fill_default=np.nan,
     rule=rule_real_float,
     aux_widen=True,
+    variant="ddof",
     doc="Variance of the values of every group",
 )

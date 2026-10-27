@@ -30,50 +30,57 @@ the complete runtime divergence taxonomy for code that parses in both modes:
 from __future__ import annotations
 
 from refinery.lib.scripts import Node
+from refinery.lib.scripts.js.analysis.effects import container_literal_access_is_plain
+from refinery.lib.scripts.js.analysis.model import (
+    FUNCTION_NODES,
+    BindingKind,
+    Role,
+    SemanticModel,
+    has_mapped_arguments,
+    is_direct_eval_call,
+    is_member_write_target,
+    reference_role,
+)
 from refinery.lib.scripts.js.model import (
-    JsArrayExpression,
+    JsArrowFunctionExpression,
     JsBlockStatement,
     JsFunctionDeclaration,
     JsFunctionExpression,
     JsIdentifier,
     JsMemberExpression,
-    JsObjectExpression,
     JsScript,
     JsStringLiteral,
     JsSwitchCase,
     JsThisExpression,
     strip_parens,
 )
-from refinery.lib.scripts.js.analysis.model import (
-    FUNCTION_NODES,
-    BindingKind,
-    Role,
-    SemanticModel,
-    is_direct_eval_call,
-    is_member_write_target,
-    is_use_position,
-    reference_role,
-)
-from refinery.lib.scripts.js.analysis.effects import object_member_access_runs_accessor
 from refinery.lib.scripts.js.strict import collect_strict_violations
-from refinery.lib.scripts.js.deobfuscation.helpers import walk_receiver_scope
 
 _POISON_PILL_PROPERTIES = frozenset({'caller', 'callee', 'arguments'})
 
 
-def diverges_under_strict(parsed: JsScript, model: SemanticModel) -> bool:
+def diverges_under_strict(
+    parsed: JsScript,
+    model: SemanticModel,
+    site_resolved: frozenset[str] = frozenset(),
+) -> bool:
     """
     Whether the reflected body *parsed* — global sloppy code — would behave differently if it ran in strict
     mode, so that inlining it into a strict context would change meaning. *model* is a `SemanticModel` built
     over *parsed*. Reports divergence conservatively: any construct not provably mode-invariant declines. The
     reflection caller must have already rewritten the payload's own receiver `this` to `globalThis` (R2 sees
     only nested-function `this`).
+
+    *site_resolved* names the identifiers a pack substitution resolved to a binding defined at the call
+    site — a getter or setter target — so that they are references to a real binding there rather than
+    free names. R3 excludes them: a write to such a name targets the site binding and creates no
+    implicit global, so it does not diverge, though every other free-name write still does.
     """
     return (
         bool(collect_strict_violations(parsed, strict=True))
         or _has_direct_eval(parsed)
         or _references_this(parsed)
-        or _writes_free_name(parsed, model)
+        or _writes_free_name(parsed, model, site_resolved)
         or _writes_unsafe_member(parsed)
         or _has_block_function(parsed)
         or _has_mapped_arguments(parsed)
@@ -99,17 +106,23 @@ def _references_this(parsed: JsScript) -> bool:
     return any(isinstance(node, JsThisExpression) for node in parsed.walk())
 
 
-def _writes_free_name(parsed: JsScript, model: SemanticModel) -> bool:
+def _writes_free_name(parsed: JsScript, model: SemanticModel, site_resolved: frozenset[str]) -> bool:
     """
     R3 — whether the body assigns to a name that binds to no local declaration. Under sloppy such a write
     creates a global; under strict it throws a `ReferenceError` (or a `TypeError` for a read-only global
     such as `undefined`). A bare read of a free name throws in both modes and does not diverge, so only
     write and read-write references count.
+
+    A name in *site_resolved* is one a pack substitution rewrote to a getter/setter target defined at the
+    call site, so it resolves to a real binding there and its write creates no implicit global; it is free
+    only in *model*, which is built over the payload alone, and is skipped here for that reason.
     """
     for node in parsed.walk():
         if not isinstance(node, JsIdentifier) or not model.is_reference(node):
             continue
         if reference_role(node) is Role.READ:
+            continue
+        if node.name in site_resolved:
             continue
         binding = model.resolve(node)
         if binding is None or binding.kind is BindingKind.IMPLICIT_GLOBAL:
@@ -136,13 +149,18 @@ def _fresh_writable_base(base: Node | None) -> bool:
     Whether *base* is an object or array literal whose members are all writable data slots — an array
     literal, or an object literal that declares no accessor and installs no custom prototype (either could
     route a member write through a setter or an inherited non-writable). Every other base — an identifier,
-    a member, a call, `this`, a primitive literal, or a function literal (whose `name`/`length` are
-    non-writable) — may target a non-writable property and is not provably safe.
+    a member, a call, `this`, or a primitive literal — may target a non-writable property and is not
+    provably safe.
+
+    This is `container_literal_access_is_plain` minus the function literal, and the exclusion is the whole
+    reason this stays a separate predicate: a function's `name` and `length` are non-writable, so a write
+    through one is a silent no-op under sloppy and a `TypeError` under strict — exactly the divergence R4
+    detects — while a *read* of them runs no accessor, which is all the shared atom claims.
     """
     inner = strip_parens(base)
-    if isinstance(inner, JsArrayExpression):
-        return True
-    return isinstance(inner, JsObjectExpression) and not object_member_access_runs_accessor(inner)
+    if isinstance(inner, (JsFunctionExpression, JsArrowFunctionExpression)):
+        return False
+    return container_literal_access_is_plain(inner)
 
 
 def _has_block_function(parsed: JsScript) -> bool:
@@ -168,27 +186,12 @@ def _has_mapped_arguments(parsed: JsScript) -> bool:
     or generator function with a simple parameter list (all plain identifiers) gets an `arguments` object
     whose elements alias the parameters under sloppy but are an independent copy under strict; a default,
     rest, or destructuring parameter already unmaps it, so those do not diverge.
-    """
-    for node in parsed.walk():
-        if not isinstance(node, (JsFunctionExpression, JsFunctionDeclaration)):
-            continue
-        if not node.params or not all(isinstance(param, JsIdentifier) for param in node.params):
-            continue
-        if _references_own_arguments(node):
-            return True
-    return False
 
-
-def _references_own_arguments(func: Node) -> bool:
+    Every function is asked as though it were sloppy. That is what the rule needs: a body already strict
+    diverges nowhere, so seeding the whole payload sloppy can only decline more, and this predicate exists
+    to decline.
     """
-    Whether *func* references its own `arguments` object. The receiver scope is the argument scope: an arrow
-    inherits the enclosing `arguments` and is descended, a nested regular or generator function has its own
-    and is not, so `walk_receiver_scope` attributes each `arguments` use to the function that owns it.
-    """
-    return any(
-        isinstance(node, JsIdentifier) and node.name == 'arguments' and is_use_position(node)
-        for node in walk_receiver_scope(func)
-    )
+    return any(has_mapped_arguments(node, strict=False) for node in parsed.walk())
 
 
 def _reads_poison_pill(parsed: JsScript) -> bool:

@@ -1,13 +1,12 @@
 import json
 import random
 import uuid
-from typing import Optional
 
 import responses
 from requests import PreparedRequest
 
 
-def _dataset(variables_count: int = 5, dataset_id: Optional[int] = None) -> dict:
+def _dataset(variables_count: int = 5, dataset_id: int | None = None) -> dict:
     dataset_id = dataset_id or random.randint(1, 1000)
     return {
         "id": dataset_id,
@@ -82,12 +81,11 @@ def test_get_datasets(api, mock):
 
 
 def test_add_dataset(api, mock):
-    dataset_id, project_id = random.randint(1, 1000), random.randint(1, 1000)
+    project_id = random.randint(1, 1000)
     name = uuid.uuid4().hex
     variables = [{"name": uuid.uuid4().hex, "value": uuid.uuid4().hex} for _ in range(random.randint(1, 10))]
     mock.add_callback(responses.POST, f"add_dataset/{project_id}", _add_dataset)
-    resp = api.datasets.add_dataset(project_id=project_id, id=dataset_id, name=name, variables=variables)
-    assert resp["id"] == dataset_id
+    resp = api.datasets.add_dataset(project_id=project_id, name=name, variables=variables)
     assert resp["name"] == name
     assert len(resp["variables"]) == len(variables)
 

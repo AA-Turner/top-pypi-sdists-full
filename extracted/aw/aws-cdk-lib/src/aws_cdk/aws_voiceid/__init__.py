@@ -212,6 +212,7 @@ class CfnDomain(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -258,7 +259,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__002b737ed8a781b17e5a1be7775d5469aeb8b02435509e1c2a6dc9d02de2125b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="serverSideEncryptionConfiguration")
@@ -276,7 +277,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7a83764466ce64a696048b7bfb9e4dc3db36e95f14836d5a9db7b5be56039d95)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serverSideEncryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serverSideEncryptionConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -289,7 +290,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__84c8ddbb70fe4f0dfb48d9d9bacaceec42441bf7f3d8347e6f9673be934697b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -305,7 +306,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__527be53c27d83ed7810dae54c2f9db5a44833fe34116e6ea40c8378e858d9899)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_voiceid.CfnDomain.ServerSideEncryptionConfigurationProperty",

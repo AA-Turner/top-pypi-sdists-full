@@ -62,7 +62,7 @@ class ChannelConnectivityState(_message.Message):
     def __init__(self, state: _Optional[_Union[ChannelConnectivityState.State, str]] = ...) -> None: ...
 
 class ChannelData(_message.Message):
-    __slots__ = ("state", "target", "trace", "calls_started", "calls_succeeded", "calls_failed", "last_call_started_timestamp")
+    __slots__ = ("state", "target", "trace", "calls_started", "calls_succeeded", "calls_failed", "last_call_started_timestamp", "max_connections_per_subchannel")
     STATE_FIELD_NUMBER: _ClassVar[int]
     TARGET_FIELD_NUMBER: _ClassVar[int]
     TRACE_FIELD_NUMBER: _ClassVar[int]
@@ -70,6 +70,7 @@ class ChannelData(_message.Message):
     CALLS_SUCCEEDED_FIELD_NUMBER: _ClassVar[int]
     CALLS_FAILED_FIELD_NUMBER: _ClassVar[int]
     LAST_CALL_STARTED_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    MAX_CONNECTIONS_PER_SUBCHANNEL_FIELD_NUMBER: _ClassVar[int]
     state: ChannelConnectivityState
     target: str
     trace: ChannelTrace
@@ -77,7 +78,8 @@ class ChannelData(_message.Message):
     calls_succeeded: int
     calls_failed: int
     last_call_started_timestamp: _timestamp_pb2.Timestamp
-    def __init__(self, state: _Optional[_Union[ChannelConnectivityState, _Mapping]] = ..., target: _Optional[str] = ..., trace: _Optional[_Union[ChannelTrace, _Mapping]] = ..., calls_started: _Optional[int] = ..., calls_succeeded: _Optional[int] = ..., calls_failed: _Optional[int] = ..., last_call_started_timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    max_connections_per_subchannel: int
+    def __init__(self, state: _Optional[_Union[ChannelConnectivityState, _Mapping]] = ..., target: _Optional[str] = ..., trace: _Optional[_Union[ChannelTrace, _Mapping]] = ..., calls_started: _Optional[int] = ..., calls_succeeded: _Optional[int] = ..., calls_failed: _Optional[int] = ..., last_call_started_timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., max_connections_per_subchannel: _Optional[int] = ...) -> None: ...
 
 class ChannelTraceEvent(_message.Message):
     __slots__ = ("description", "severity", "timestamp", "channel_ref", "subchannel_ref")
@@ -186,7 +188,7 @@ class Socket(_message.Message):
     def __init__(self, ref: _Optional[_Union[SocketRef, _Mapping]] = ..., data: _Optional[_Union[SocketData, _Mapping]] = ..., local: _Optional[_Union[Address, _Mapping]] = ..., remote: _Optional[_Union[Address, _Mapping]] = ..., security: _Optional[_Union[Security, _Mapping]] = ..., remote_name: _Optional[str] = ...) -> None: ...
 
 class SocketData(_message.Message):
-    __slots__ = ("streams_started", "streams_succeeded", "streams_failed", "messages_sent", "messages_received", "keep_alives_sent", "last_local_stream_created_timestamp", "last_remote_stream_created_timestamp", "last_message_sent_timestamp", "last_message_received_timestamp", "local_flow_control_window", "remote_flow_control_window", "option")
+    __slots__ = ("streams_started", "streams_succeeded", "streams_failed", "messages_sent", "messages_received", "keep_alives_sent", "last_local_stream_created_timestamp", "last_remote_stream_created_timestamp", "last_message_sent_timestamp", "last_message_received_timestamp", "local_flow_control_window", "remote_flow_control_window", "option", "received_goaway_error", "peer_max_concurrent_streams")
     STREAMS_STARTED_FIELD_NUMBER: _ClassVar[int]
     STREAMS_SUCCEEDED_FIELD_NUMBER: _ClassVar[int]
     STREAMS_FAILED_FIELD_NUMBER: _ClassVar[int]
@@ -200,6 +202,8 @@ class SocketData(_message.Message):
     LOCAL_FLOW_CONTROL_WINDOW_FIELD_NUMBER: _ClassVar[int]
     REMOTE_FLOW_CONTROL_WINDOW_FIELD_NUMBER: _ClassVar[int]
     OPTION_FIELD_NUMBER: _ClassVar[int]
+    RECEIVED_GOAWAY_ERROR_FIELD_NUMBER: _ClassVar[int]
+    PEER_MAX_CONCURRENT_STREAMS_FIELD_NUMBER: _ClassVar[int]
     streams_started: int
     streams_succeeded: int
     streams_failed: int
@@ -213,7 +217,9 @@ class SocketData(_message.Message):
     local_flow_control_window: _wrappers_pb2.Int64Value
     remote_flow_control_window: _wrappers_pb2.Int64Value
     option: _containers.RepeatedCompositeFieldContainer[SocketOption]
-    def __init__(self, streams_started: _Optional[int] = ..., streams_succeeded: _Optional[int] = ..., streams_failed: _Optional[int] = ..., messages_sent: _Optional[int] = ..., messages_received: _Optional[int] = ..., keep_alives_sent: _Optional[int] = ..., last_local_stream_created_timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., last_remote_stream_created_timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., last_message_sent_timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., last_message_received_timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., local_flow_control_window: _Optional[_Union[_wrappers_pb2.Int64Value, _Mapping]] = ..., remote_flow_control_window: _Optional[_Union[_wrappers_pb2.Int64Value, _Mapping]] = ..., option: _Optional[_Iterable[_Union[SocketOption, _Mapping]]] = ...) -> None: ...
+    received_goaway_error: _wrappers_pb2.UInt32Value
+    peer_max_concurrent_streams: int
+    def __init__(self, streams_started: _Optional[int] = ..., streams_succeeded: _Optional[int] = ..., streams_failed: _Optional[int] = ..., messages_sent: _Optional[int] = ..., messages_received: _Optional[int] = ..., keep_alives_sent: _Optional[int] = ..., last_local_stream_created_timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., last_remote_stream_created_timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., last_message_sent_timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., last_message_received_timestamp: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., local_flow_control_window: _Optional[_Union[_wrappers_pb2.Int64Value, _Mapping]] = ..., remote_flow_control_window: _Optional[_Union[_wrappers_pb2.Int64Value, _Mapping]] = ..., option: _Optional[_Iterable[_Union[SocketOption, _Mapping]]] = ..., received_goaway_error: _Optional[_Union[_wrappers_pb2.UInt32Value, _Mapping]] = ..., peer_max_concurrent_streams: _Optional[int] = ...) -> None: ...
 
 class Address(_message.Message):
     __slots__ = ("tcpip_address", "uds_address", "other_address")

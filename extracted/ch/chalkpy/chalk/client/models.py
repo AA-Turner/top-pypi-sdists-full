@@ -2920,3 +2920,35 @@ class OfflineStoreTable(BaseModel, frozen=True):
 
     table_name: str
     """The offline store table name in the warehouse (e.g. ``feat_<58-hex-chars>``)."""
+
+
+class TeamMember(BaseModel, frozen=True):
+    """A member of your Chalk team. ``deactivated_at`` is set only for deactivated members, which ``list_team_members`` returns when ``include_deactivated=True``."""
+
+    id: str
+    """The member's Chalk user id."""
+
+    name: Optional[str]
+    """The member's display name, or ``None`` if none is set."""
+
+    email: Optional[str]
+    """The member's email address, or ``None`` if none is recorded."""
+
+    deactivated_at: Optional[datetime]
+    """When the member was deactivated, in UTC, or ``None`` if they are still active."""
+
+    @staticmethod
+    def from_proto(proto: Any) -> "TeamMember":
+        """Convert a proto ``User`` to a ``TeamMember``."""
+        from datetime import timezone
+
+        return TeamMember(
+            id=proto.id,
+            name=proto.name if proto.HasField("name") else None,
+            email=proto.email if proto.HasField("email") else None,
+            deactivated_at=(
+                datetime.fromtimestamp(proto.deactivated_at.seconds + proto.deactivated_at.nanos / 1e9, tz=timezone.utc)
+                if proto.HasField("deactivated_at")
+                else None
+            ),
+        )

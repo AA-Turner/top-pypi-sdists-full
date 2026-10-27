@@ -170,6 +170,7 @@ class TestKokoroModel(unittest.TestCase):
                 "dropout": 0.1,
             },
             "vocab": {"a": 1, "b": 2},
+            "model_path": "/mock/model",
         }
         mock_json_load.return_value = config
 
@@ -185,6 +186,7 @@ class TestKokoroModel(unittest.TestCase):
         # Check that the model was initialized correctly
         self.assertIsInstance(model, nn.Module)
         self.assertEqual(model.vocab, {"a": 1, "b": 2})
+        self.assertEqual(model.config.model_path, "/mock/model")
 
     def test_output_dataclass(self):
         """Test KokoroModel.Output dataclass."""
@@ -319,6 +321,7 @@ class TestKokoroPipeline(unittest.TestCase):
                     pipeline.voices = {}
                     # Add the missing repo_id attribute
                     pipeline.repo_id = "mlx-community/kokoro-tts"
+                    pipeline.model_path = None
 
                     # Mock the load voice return value
                     load_voice_tensor.return_value = mx.zeros((512, 1, 256))
@@ -4023,6 +4026,13 @@ class TestBailingMMModel(unittest.TestCase):
         mock_qwen2_lm.assert_called_once()
         mock_moe_lm.assert_not_called()
         self.assertEqual(model.llm_args.model_type, "qwen2")
+        self.assertEqual(model.generate_config["temperature"], 0.0)
+        self.assertFalse(_mock_flowloss.call_args.kwargs["ming3_sampling"])
+
+        config["ditar_config"] = {"patch_size": 1, "history_patch_size": 1}
+        model = Model(config)
+        self.assertTrue(model.ming3)
+        self.assertTrue(_mock_flowloss.call_args.kwargs["ming3_sampling"])
 
     @patch(
         "mlx_audio.tts.models.bailingmm.bailingmm.mx.get_peak_memory",
@@ -4040,7 +4050,7 @@ class TestBailingMMModel(unittest.TestCase):
         latent = mx.zeros((1, 1, 64), dtype=mx.float32)
         model.sample = MagicMock(return_value=iter([(latent, True)]))
 
-        # Torch path does not apply a trailing low-energy trim pass.
+        # Ming Omni decoding keeps trailing samples.
         chunk = mx.array([[0.25, 0.15, 0.0, 0.0, 0.0]], dtype=mx.float32)
         model.audio.decode.return_value = (chunk, (None, None, None), None)
 

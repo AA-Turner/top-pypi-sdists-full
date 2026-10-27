@@ -52,7 +52,8 @@ where
 /// - A link written without a scheme comes back with `https://`, since that is the URL it parsed
 ///   to: `discord.gg/abc` unparses as `https://discord.gg/abc`.
 ///
-/// Everything else round trips exactly.
+/// Everything else round trips exactly. For a tree that writes back byte for byte, parse with
+/// [`crate::parse_lossless`].
 #[must_use]
 pub fn unparse<T>(value: &T) -> String
 where

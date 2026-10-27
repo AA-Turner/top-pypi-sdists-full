@@ -7,9 +7,14 @@ import dataclasses
 import enum
 import zlib
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from typing import TYPE_CHECKING
 
+from refinery.lib.dt import filetime
 from refinery.lib.structures import EOF, StructReader
+
+if TYPE_CHECKING:
+    from refinery.lib.types import buf
 
 SIGNATURE = B'7z\xBC\xAF\x27\x1C'
 SIGNATURE_HEADER_SIZE = 32
@@ -33,6 +38,16 @@ class SzInvalidPassword(SzCannotUnpack):
 
 class SzCorruptArchive(SzCannotUnpack):
     pass
+
+
+class SzChecksumMismatch(SzCorruptArchive):
+    """
+    Raised when the data of a file does not match its CRC. The data is available as the attribute
+    `data` of the exception.
+    """
+    def __init__(self, message: str, data: buf):
+        super().__init__(message)
+        self.data = data
 
 
 class SzUnsupportedMethod(SzException):
@@ -114,15 +129,48 @@ class Folder:
 
     @property
     def main_unpack_size(self) -> int:
-        main_index = self._find_main_out_stream()
-        return self.unpack_sizes[main_index]
+        return self.unpack_sizes[self.main_out_stream]
 
-    def _find_main_out_stream(self) -> int:
+    @property
+    def main_out_stream(self) -> int:
         bound_out = {bp.out_index for bp in self.bind_pairs}
         for i in range(self.total_out_streams):
             if i not in bound_out:
                 return i
         return 0
+
+    def coder_of_out_stream(self, out_index: int) -> int:
+        end = 0
+        for coder_index, coder in enumerate(self.coders):
+            end += coder.num_out_streams
+            if out_index < end:
+                return coder_index
+        raise SzCorruptArchive(F'Output stream {out_index} does not exist.')
+
+    def in_streams_of(self, coder_index: int) -> range:
+        start = sum(coder.num_in_streams for coder in self.coders[:coder_index])
+        return range(start, start + self.coders[coder_index].num_in_streams)
+
+    def bound_out_stream(self, in_index: int) -> int | None:
+        """
+        The output stream that the given input stream is bound to, or `None` if the input stream
+        is fed by a packed stream.
+        """
+        for bp in self.bind_pairs:
+            if bp.in_index == in_index:
+                return bp.out_index
+        return None
+
+    def packed_stream(self, in_index: int) -> int:
+        """
+        The position, among the packed streams of this folder, of the packed stream that feeds the
+        given input stream. The k-th packed stream of the folder feeds input stream number
+        `packed_indices[k]`.
+        """
+        try:
+            return self.packed_indices.index(in_index)
+        except ValueError:
+            raise SzCorruptArchive(F'Input stream {in_index} is neither bound nor packed.') from None
 
 
 @dataclasses.dataclass
@@ -201,18 +249,6 @@ def read_crcs(reader: StructReader, count: int) -> list[int | None]:
         else:
             crcs.append(None)
     return crcs
-
-
-_FILETIME_EPOCH = datetime(1601, 1, 1, tzinfo=timezone.utc)
-
-
-def _filetime_to_datetime(ft: int) -> datetime | None:
-    if ft == 0:
-        return None
-    try:
-        return _FILETIME_EPOCH + timedelta(microseconds=ft // 10)
-    except (OverflowError, OSError):
-        return None
 
 
 def parse_signature_header(data: bytes | bytearray | memoryview) -> SignatureHeader:
@@ -360,8 +396,8 @@ def _parse_substreams_info(
     folders: list[Folder],
 ) -> SubstreamsInfo:
     num_unpack_streams = [1] * len(folders)
-    unpack_sizes: list[int] = []
-    crcs: list[int | None] = []
+    unpack_sizes: list[int] | None = None
+    crcs: list[int | None] | None = None
     while True:
         prop_id = reader.u8()
         if prop_id == PropertyID.END:
@@ -370,8 +406,10 @@ def _parse_substreams_info(
             for i in range(len(folders)):
                 num_unpack_streams[i] = read_7z_uint64(reader)
         elif prop_id == PropertyID.SIZE:
-            for i, folder in enumerate(folders):
-                ns = num_unpack_streams[i]
+            unpack_sizes = []
+            for ns, folder in zip(num_unpack_streams, folders):
+                if ns == 0:
+                    continue
                 subtotal = 0
                 for _ in range(ns - 1):
                     s = read_7z_uint64(reader)
@@ -379,29 +417,46 @@ def _parse_substreams_info(
                     subtotal += s
                 unpack_sizes.append(folder.main_unpack_size - subtotal)
         elif prop_id == PropertyID.CRC:
-            num_crc_streams = 0
-            for i, folder in enumerate(folders):
-                ns = num_unpack_streams[i]
-                if ns == 1 and folder.crc is not None:
-                    continue
-                num_crc_streams += ns
-            crcs = read_crcs(reader, num_crc_streams)
+            num_digests = sum(
+                ns for ns, folder in zip(num_unpack_streams, folders) if ns != 1 or folder.crc is None
+            )
+            crcs = _crcs_of_streams(folders, num_unpack_streams, read_crcs(reader, num_digests))
         else:
             skip = read_7z_uint64(reader)
             reader.seekrel(skip)
-    if not unpack_sizes:
-        for i, folder in enumerate(folders):
-            ns = num_unpack_streams[i]
+    if unpack_sizes is None:
+        unpack_sizes = []
+        for ns, folder in zip(num_unpack_streams, folders):
             if ns == 1:
                 unpack_sizes.append(folder.main_unpack_size)
             else:
-                for _ in range(ns):
-                    unpack_sizes.append(0)
+                unpack_sizes.extend([0] * ns)
+    if crcs is None:
+        crcs = _crcs_of_streams(folders, num_unpack_streams, [])
     return SubstreamsInfo(
         num_unpack_streams=num_unpack_streams,
         unpack_sizes=unpack_sizes,
         crcs=crcs,
     )
+
+
+def _crcs_of_streams(
+    folders: list[Folder],
+    num_unpack_streams: list[int],
+    digests: list[int | None],
+) -> list[int | None]:
+    """
+    One checksum for each unpack stream. A folder with a single unpack stream and a checksum of its
+    own has no entry among the digests; its stream takes the checksum of the folder.
+    """
+    remaining = iter(digests)
+    crcs: list[int | None] = []
+    for ns, folder in zip(num_unpack_streams, folders):
+        if ns == 1 and folder.crc is not None:
+            crcs.append(folder.crc)
+        else:
+            crcs.extend(next(remaining, None) for _ in range(ns))
+    return crcs
 
 
 def _parse_files_info(reader: StructReader, num_files: int) -> list[FileEntry]:
@@ -462,7 +517,7 @@ def _parse_files_info(reader: StructReader, num_files: int) -> list[FileEntry]:
             for i, d in enumerate(defined):
                 if d:
                     ft = reader.u64()
-                    dt = _filetime_to_datetime(ft)
+                    dt = filetime(ft)
                     if prop_id == PropertyID.CTIME:
                         files[i].ctime = dt
                     elif prop_id == PropertyID.ATIME:

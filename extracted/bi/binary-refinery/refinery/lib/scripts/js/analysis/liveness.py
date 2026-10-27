@@ -36,16 +36,18 @@ from __future__ import annotations
 from typing import Iterator
 
 from refinery.lib.scripts import Node
+from refinery.lib.scripts.analysis.liveness import solve_liveness
 from refinery.lib.scripts.js.analysis.cfg import (
     CfgNode,
     ControlFlowGraph,
     ControlFlowModel,
     build_control_flow_model,
 )
+from refinery.lib.scripts.js.analysis.evaluation import evaluated_whenever_completed
 from refinery.lib.scripts.js.analysis.model import (
+    FUNCTION_NODES,
     Binding,
     BindingKind,
-    FUNCTION_NODES,
     Role,
     Scope,
     ScopeKind,
@@ -57,10 +59,7 @@ from refinery.lib.scripts.js.analysis.model import (
 )
 from refinery.lib.scripts.js.model import (
     JsAssignmentExpression,
-    JsAssignmentPattern,
-    JsConditionalExpression,
     JsIdentifier,
-    JsLogicalExpression,
     JsVariableDeclarator,
 )
 
@@ -163,14 +162,18 @@ class LivenessModel:
         any read (so a value carried across calls or from load is never observed), it has no initializer
         whose load-time effect the move would strand, no reference reaches it through a global-object
         alias member (`globalThis.x`, which would no longer find it once it leaves the global object),
-        and the program keeps no reflection surface that could read it by name. Relocating it tightens a
-        pseudo-global into the local it behaves as.
+        it is not exported (an importer reads its value where the module leaves it, which a body local
+        cannot answer), the program keeps no reflection surface that could read it by name, and the
+        program stores no property on the global object under a runtime key
+        (`SemanticModel.has_opaque_global_write`) — such a write may target the binding's own name,
+        which a relocation would no longer receive.
+        Relocating it tightens a pseudo-global into the local it behaves as.
         """
-        if self.model.has_reflection_surface():
+        if self.model.has_reflection_surface() or self.model.has_opaque_global_write():
             return None
         if binding.kind is not BindingKind.VAR or binding.scope is not self.model.root_scope:
             return None
-        if binding.has_member_reference:
+        if binding.exported or binding.has_member_reference:
             return None
         if self._has_initializer(binding):
             return None
@@ -210,32 +213,13 @@ class LivenessModel:
 
     def _compute_graph(self, graph: ControlFlowGraph):
         owner_scope = self.model.function_scope(graph.owner)
-        use: dict[int, set[Binding]] = {}
-        kill: dict[int, set[Binding]] = {}
-        for node in graph.nodes:
-            use[id(node)], kill[id(node)] = self._node_sets(graph, node, owner_scope)
-        live_in: dict[int, set[Binding]] = {id(n): set() for n in graph.nodes}
-        live_out: dict[int, set[Binding]] = {id(n): set() for n in graph.nodes}
-        changed = True
-        while changed:
-            changed = False
-            for node in reversed(graph.nodes):
-                normal: set[Binding] = set()
-                exceptional: set[Binding] = set()
-                for successor in node.successors:
-                    if graph.is_exceptional(node, successor):
-                        exceptional |= live_in[id(successor)]
-                    else:
-                        normal |= live_in[id(successor)]
-                out = normal | exceptional
-                inn = use[id(node)] | (normal - kill[id(node)]) | exceptional
-                if out != live_out[id(node)] or inn != live_in[id(node)]:
-                    live_out[id(node)] = out
-                    live_in[id(node)] = inn
-                    changed = True
-        for node in graph.nodes:
-            self._live_in[id(node)] = frozenset(live_in[id(node)])
-            self._live_out[id(node)] = frozenset(live_out[id(node)])
+
+        def node_sets(_graph: ControlFlowGraph, node: CfgNode) -> tuple[set[Binding], set[Binding]]:
+            return self._node_sets(_graph, node, owner_scope)
+
+        live_in, live_out = solve_liveness(graph, node_sets)
+        self._live_in.update(live_in)
+        self._live_out.update(live_out)
 
     def _node_sets(
         self, graph: ControlFlowGraph, node: CfgNode, owner_scope: Scope | None,
@@ -290,18 +274,19 @@ class LivenessModel:
 
     def _shallow_idents(self, graph: ControlFlowGraph, element: Node) -> Iterator[JsIdentifier]:
         """
-        Yield the identifiers belonging to *element*'s own control-flow node: those in its subtree that
-        are not inside a nested function or a descendant that is itself a separate control-flow node
-        (whose identifiers are accounted there). This keeps a loop or branch head from double-counting
-        the body that follows it.
+        Yield the identifiers belonging to *element*'s own control-flow node: *element* itself and
+        those in its subtree that are not inside a nested function or a descendant that is itself a
+        separate control-flow node (whose identifiers are accounted there). This keeps a loop or
+        branch head from double-counting the body that follows it.
         """
-        stack: list[Node] = list(element.children())
+        stack: list[Node] = [element]
         while stack:
             current = stack.pop()
-            if isinstance(current, FUNCTION_NODES):
-                continue
-            if graph.node_of(current) is not None:
-                continue
+            if current is not element:
+                if isinstance(current, FUNCTION_NODES):
+                    continue
+                if graph.node_of(current) is not None:
+                    continue
             if isinstance(current, JsIdentifier):
                 yield current
             stack.extend(current.children())
@@ -338,7 +323,7 @@ class LivenessModel:
         governor = self._governor(ident)
         if not isinstance(governor, JsAssignmentExpression) or governor.operator != '=':
             return False
-        return self._is_unconditional(ident, element)
+        return evaluated_whenever_completed(ident, element)
 
     def _is_read(self, ident: JsIdentifier) -> bool:
         if not self.model.is_reference(ident):
@@ -372,35 +357,21 @@ class LivenessModel:
         governor, _ = _governing_target(ident)
         return governor
 
-    @staticmethod
-    def _is_unconditional(ident: JsIdentifier, element: Node) -> bool:
-        """
-        Whether *ident* is written every time its control-flow node *element* runs, i.e. its position is
-        not guarded by a short-circuit operand, a conditional branch, or a destructuring default.
-        """
-        cursor: Node = ident
-        while cursor is not element:
-            parent = cursor.parent
-            if parent is None:
-                return True
-            if isinstance(parent, JsLogicalExpression) and parent.right is cursor:
-                return False
-            if isinstance(parent, JsConditionalExpression) and cursor in (
-                parent.consequent, parent.alternate,
-            ):
-                return False
-            if isinstance(parent, JsAssignmentPattern) and parent.right is cursor:
-                return False
-            cursor = parent
-        return True
-
     def _trackable(self, binding: Binding, owner_scope: Scope | None) -> bool:
+        """
+        Whether *binding* is a local of the function *owner_scope* is the body scope of, so that the
+        graph built for that function sees every store to it.
+
+        The parameters of a function whose parameter list holds an expression are bound in a scope
+        of their own standing outside the body's, so their variable scope is that one rather than
+        the body's; `Scope.closure_home` says the two belong to one call, and is what this asks.
+        """
         return (
             binding.kind in _CANDIDATE_KINDS
             and not binding.captured
             and owner_scope is not None
             and owner_scope.kind is ScopeKind.FUNCTION
-            and binding.scope.var_scope is owner_scope
+            and binding.scope.closure_home is owner_scope
         )
 
     def _analysable(

@@ -61,6 +61,8 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Awaitable, Callable, Mapping
+from enum import StrEnum
+from types import ModuleType
 from typing import Any, TypeVar
 
 import httpx
@@ -74,6 +76,8 @@ from plato.chronos.api.login_vault import (
     get_login_vault_account,
     get_login_vault_app,
     get_login_vault_default,
+    get_login_vault_grant,
+    get_login_vault_grant_token,
     list_login_vault_accounts,
     list_login_vault_exits,
     restore_login_vault_account,
@@ -92,6 +96,8 @@ from plato.chronos.models import (
     LoginVaultBakeResponse,
     LoginVaultDefault,
     LoginVaultExitList,
+    LoginVaultGrant,
+    LoginVaultGrantToken,
 )
 
 __all__ = [
@@ -102,6 +108,7 @@ __all__ = [
     "VAULT_FIELDS",
     "AccountArchived",
     "AsyncLoginVault",
+    "GrantKind",
     "InvalidVaultFields",
     "LoginVault",
     "VaultBadReply",
@@ -138,6 +145,9 @@ VAULT_FIELDS = (
     "login_url",
     "browser_mode",
     "login_hint",
+    # Picks the mail-code inbox (plato.vault.mail_route). Unset, Chronos answers
+    # the username when that is an address.
+    "login_email",
     "proxy_exit",
     "auto_refresh",
     # How many live sessions (opens, bakes, runs) may use the account at once:
@@ -408,17 +418,31 @@ def _app_args(login_key: str, api_key: str) -> dict[str, Any]:
     return get_login_vault_app._build_request_args(login_key=_slug(login_key, "login_key"), x_api_key=api_key)
 
 
+class GrantKind(StrEnum):
+    """Which app grant of an account: ``api`` (the vendor's REST API) or ``hosted_mcp`` (its hosted MCP server)."""
+
+    api = "api"
+    hosted_mcp = "hosted_mcp"
+
+
+def _grant_args(route: ModuleType, login_key: str, account: str, kind: GrantKind, api_key: str) -> dict[str, Any]:
+    lk, ac = _keys(login_key, account)
+    return route._build_request_args(login_key=lk, account=ac, kind=GrantKind(kind).value, x_api_key=api_key)
+
+
 def _base_url(base_url: str | None) -> str:
     return (base_url or os.environ.get("CHRONOS_URL") or _DEFAULT_CHRONOS_URL).rstrip("/")
 
 
 # The account item's credential fields: 1Password field label -> the attribute
-# the Chronos read returns it in (see :func:`credential_resolver`).
+# the Chronos read returns it in (see :func:`credential_resolver`). ``login-email``
+# is a Chronos setting, not an item field: a ref to it reads the account's login email.
 _OP_CREDENTIAL_FIELDS = {
     "username": "username",
     "password": "password",
     "totp-seed": "totp_seed",
     "phone": "phone",
+    "login-email": "login_email",
 }
 
 # The 1Password items Chronos does not serve, which a run still reads with its
@@ -454,7 +478,8 @@ def credential_resolver(
     credentials by 1Password reference:
 
     * the account item's own credentials
-      (``op://login/<login_key>-<account>/{username,password,totp-seed,phone}``)
+      (``op://login/<login_key>-<account>/{username,password,totp-seed,phone}``,
+      and ``login-email``)
       come from ``account``, the Chronos read of that item, and from nowhere
       else: a field the read has empty is empty;
     * a reference to an item that stays in 1Password (:func:`is_1password_item`:
@@ -661,6 +686,22 @@ class LoginVault(_VaultBase):
         args = list_login_vault_exits._build_request_args(x_api_key=self._api_key)
         return _parse(LoginVaultExitList, self._call(args))
 
+    def get_grant(self, login_key: str, account: str, kind: GrantKind) -> LoginVaultGrant | None:
+        """The account's ``kind`` app grant without secrets:
+        its state, generation and expiry. None when there is no such grant."""
+        args = _grant_args(get_login_vault_grant, login_key, account, kind, self._api_key)
+        try:
+            return _parse(LoginVaultGrant, self._call(args))
+        except NotFoundError:
+            return None
+
+    def get_grant_token(self, login_key: str, account: str, kind: GrantKind) -> LoginVaultGrantToken:
+        """The grant's access token (never the refresh token). Chronos refreshes an
+        active grant first when it has little time left. Raises ``APIError``: 404 no
+        grant or token, 409 not active and expired, 502 the vendor refused the refresh."""
+        args = _grant_args(get_login_vault_grant_token, login_key, account, kind, self._api_key)
+        return _parse(LoginVaultGrantToken, self._call(args))
+
 
 class AsyncLoginVault(_VaultBase):
     """Async client (worlds, the console backend)."""
@@ -769,3 +810,14 @@ class AsyncLoginVault(_VaultBase):
     async def list_exits(self) -> LoginVaultExitList:
         args = list_login_vault_exits._build_request_args(x_api_key=self._api_key)
         return _parse(LoginVaultExitList, await self._call(args))
+
+    async def get_grant(self, login_key: str, account: str, kind: GrantKind) -> LoginVaultGrant | None:
+        args = _grant_args(get_login_vault_grant, login_key, account, kind, self._api_key)
+        try:
+            return _parse(LoginVaultGrant, await self._call(args))
+        except NotFoundError:
+            return None
+
+    async def get_grant_token(self, login_key: str, account: str, kind: GrantKind) -> LoginVaultGrantToken:
+        args = _grant_args(get_login_vault_grant_token, login_key, account, kind, self._api_key)
+        return _parse(LoginVaultGrantToken, await self._call(args))

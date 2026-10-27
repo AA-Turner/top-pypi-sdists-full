@@ -212,6 +212,7 @@ class CfnCalculatedAttributeDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -292,7 +293,7 @@ class CfnCalculatedAttributeDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc094b8898d98fbc0a232ed05081d6ffd11e6092cf72d062c7ab6a1a118b2655)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeDetails", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "attributeDetails", value)
 
     @builtins.property
     @jsii.member(jsii_name="calculatedAttributeName")
@@ -305,7 +306,7 @@ class CfnCalculatedAttributeDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f1874ab73c6c7fb500a83379a356ae12dde9d52f47b68d1b2dfe7fb7772ae682)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "calculatedAttributeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "calculatedAttributeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -318,7 +319,7 @@ class CfnCalculatedAttributeDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__806572f2b3c6f3d60619dab1026866577ec43486c44775df8e7f00f9ec946cc2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="statistic")
@@ -331,7 +332,7 @@ class CfnCalculatedAttributeDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__24137af23c238e226876684e3ad841c56564bd3e9f7c488415d38fbd9560440e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "statistic", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "statistic", value)
 
     @builtins.property
     @jsii.member(jsii_name="conditions")
@@ -349,7 +350,7 @@ class CfnCalculatedAttributeDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5d9f165d8e8dde422309619ae01ce8e4f77e67c1d8707134c0f7c2a25fd53ebc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "conditions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "conditions", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -362,7 +363,7 @@ class CfnCalculatedAttributeDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e94c935ac0604ce2b84a26b87f764d32bfa425eb59416e0935dca9d2a010ce58)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -375,7 +376,7 @@ class CfnCalculatedAttributeDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__64a1f1d0da7758807d6fc0184c03cfdc7c695677f2dd2cfeb300cb009b6e9d69)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "displayName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -391,7 +392,7 @@ class CfnCalculatedAttributeDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__66b41ae1f61b2d451c01e8a6b3eabc1ef1fe6f0e51c71a264d46a9df8ec0ad14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @builtins.property
     @jsii.member(jsii_name="useHistoricalData")
@@ -409,7 +410,7 @@ class CfnCalculatedAttributeDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7ab1072a749050ba2fecfbba8cc52cbc745e52869b7164a97ab6eb2dcdf582c4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "useHistoricalData", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "useHistoricalData", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinition.AttributeDetailsProperty",
@@ -1438,6 +1439,7 @@ class CfnDomain(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1520,7 +1522,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3d16654417fe9cbdb9f2b4f0145b59b3328699684a9b2c7ae7f2a3ad9b271e93)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultExpirationDays", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "defaultExpirationDays", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -1533,7 +1535,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5155d94ec0a92f02d3b08cff5971632f213635d3dd2577433bbe328e9fac1d90)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataStore")
@@ -1551,7 +1553,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__51b1b6fd1de18b8d346c70161b7cb61979e8eba7a051f991a07d629d32e2c641)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataStore", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataStore", value)
 
     @builtins.property
     @jsii.member(jsii_name="deadLetterQueueUrl")
@@ -1564,7 +1566,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__39213ab6c2161d29ce1bafee3ec589effa27e2d24da755fd856339bb486e25a2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deadLetterQueueUrl", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "deadLetterQueueUrl", value)
 
     @builtins.property
     @jsii.member(jsii_name="defaultEncryptionKey")
@@ -1577,7 +1579,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ed9ea79eb70814ff005e2ba351fe52042bea41d55509db4f24fbbf0d33cfb9a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "defaultEncryptionKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "defaultEncryptionKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="matching")
@@ -1595,7 +1597,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__38b62853e21632f695b18d1a2df674dd4f9112b5fa5e1f684278017a8ed38588)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "matching", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "matching", value)
 
     @builtins.property
     @jsii.member(jsii_name="ruleBasedMatching")
@@ -1613,7 +1615,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__868f26d6f7d5d3991c71c5dd31b8053c3dab74afec8faa28dab5dc89621ca137)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ruleBasedMatching", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "ruleBasedMatching", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1629,7 +1631,7 @@ class CfnDomain(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2cc3d01d93fe80a75ec77ac1c37d929543f51e4a47feb47e25ebd0afa5fee06a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnDomain.AttributeTypesSelectorProperty",
@@ -3000,6 +3002,7 @@ class CfnDomainObjectType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3057,7 +3060,7 @@ class CfnDomainObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db2f6b31f77510128bf8297a513857a5e319045fd652bb6f4f8b2b2d655f310c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="fields")
@@ -3075,7 +3078,7 @@ class CfnDomainObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__06e40ed70ca2f8885619acfb4ab16e630bbca3108311a4abd62c5e979ccead1e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fields", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fields", value)
 
     @builtins.property
     @jsii.member(jsii_name="objectTypeName")
@@ -3088,7 +3091,7 @@ class CfnDomainObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c5c6f816f6cf49bb5fda08e9e8954fbb9e111dbb3c67a713f6d5e0d74abfd1d4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "objectTypeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "objectTypeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -3101,7 +3104,7 @@ class CfnDomainObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__20842073551f582b5f0bf01d1c26ab1d6012d2d4ecef25f6ba247d25e62a1c6e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
@@ -3114,7 +3117,7 @@ class CfnDomainObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9fb991cefc3fbf7f446b4958820045095dd1bf9795a5f6ff09e49c2b214f326c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3130,7 +3133,7 @@ class CfnDomainObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__59cd9578083eb4a97dee92d4ac8dd5c0ccbc2a23fbd2023af92e04c01def9700)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnDomainObjectType.DomainObjectTypeFieldProperty",
@@ -3769,6 +3772,7 @@ class CfnEventStream(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3858,7 +3862,7 @@ class CfnEventStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e40edb2a552aa50e0d65e685a232d9e8b469877491c9fd016aaf025966b9a1b4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="eventStreamName")
@@ -3871,7 +3875,7 @@ class CfnEventStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__87ecaa8f57744bab81313074352cbc2f82cf8f797e78ce582ff548aa6251c330)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventStreamName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventStreamName", value)
 
     @builtins.property
     @jsii.member(jsii_name="uri")
@@ -3884,7 +3888,7 @@ class CfnEventStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8d80288203f7d0782baca6858266d8c740f3fda90b2d6ef328306f3e966d5ee4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "uri", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "uri", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3900,7 +3904,7 @@ class CfnEventStream(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5dcffaefd3d051ab25e983d551d4abe7f28bcc0ccc2cc0f00dfbe9151cc9bd64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventStream.DestinationDetailsProperty",
@@ -4226,6 +4230,7 @@ class CfnEventTrigger(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -4283,7 +4288,7 @@ class CfnEventTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46f0ca81a5f8cee1e0a4c4f9b3d38652326a6ebce5ed8f5ee45cd3300bc09d21)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="eventTriggerConditions")
@@ -4301,7 +4306,7 @@ class CfnEventTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6c4c9a1ce30ec03f18e86da98746e17633bdcc9de1f9657feb330288a5703464)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventTriggerConditions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventTriggerConditions", value)
 
     @builtins.property
     @jsii.member(jsii_name="eventTriggerName")
@@ -4314,7 +4319,7 @@ class CfnEventTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b9a32cfee1a68445fea2fa917fb431b02536069883dc6c492094b36c48158d6f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventTriggerName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventTriggerName", value)
 
     @builtins.property
     @jsii.member(jsii_name="objectTypeName")
@@ -4327,7 +4332,7 @@ class CfnEventTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__26f048d7d34ef17a451ca6afc9c754cf23e5448d0fa70d08e95941b41a53e15b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "objectTypeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "objectTypeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -4340,7 +4345,7 @@ class CfnEventTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__14f8e2b14eb300ec5bb3dbffd9fda2b1b3fa26a8ccb24220faf205a2c9252b16)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="eventTriggerLimits")
@@ -4358,7 +4363,7 @@ class CfnEventTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8577e6b11fafc0b473494e772f42df4b3a275f14decae7f35bf35c8ceca6efbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventTriggerLimits", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventTriggerLimits", value)
 
     @builtins.property
     @jsii.member(jsii_name="segmentFilter")
@@ -4371,7 +4376,7 @@ class CfnEventTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6ed3d132124c95676f8283662330dfc6f234432d197bcdb1846aeb9b55d6b31d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "segmentFilter", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "segmentFilter", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -4387,7 +4392,7 @@ class CfnEventTrigger(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0431604b79fa9f08ecdffc28b119f0c684057eb139cb8d0fcc9e51cc364ff34a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventTrigger.EventTriggerConditionProperty",
@@ -5238,6 +5243,7 @@ class CfnIntegration(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -5293,7 +5299,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d13bac4a06b95e4fadaf50aaed39e2383120484f2d6e868a652119e3c0741a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="eventTriggerNames")
@@ -5309,7 +5315,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2353defad4ed0b7f19993fda09b6c2619751d1fb77397c9b4957634b704a6fba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "eventTriggerNames", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "eventTriggerNames", value)
 
     @builtins.property
     @jsii.member(jsii_name="flowDefinition")
@@ -5327,7 +5333,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eda84696baed289de5f577073d9697fd7b0969af55567086ad86e6466b533e14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "flowDefinition", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "flowDefinition", value)
 
     @builtins.property
     @jsii.member(jsii_name="objectTypeName")
@@ -5340,7 +5346,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6ac4be2e5060d6806d086adb14efc1af2df364f07423ea56e6af2958c23fc2b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "objectTypeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "objectTypeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="objectTypeNames")
@@ -5358,7 +5364,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d19e3d184d030db553288fb9b5bf060b201c3b429358e9c4818b39453b44a060)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "objectTypeNames", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "objectTypeNames", value)
 
     @builtins.property
     @jsii.member(jsii_name="scope")
@@ -5371,7 +5377,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5951782c5dfd20dcc37da8ca97c3d2eb2923765a97d07febacc1724681ff339a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "scope", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -5387,7 +5393,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__55efe13391c8b01dcc8a4fc8cdb64b30e0590e3c2de5fbdfaf88656f9ad1a18e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="uri")
@@ -5400,7 +5406,7 @@ class CfnIntegration(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02e9de6347e213a96d6d3dc4870b6c07c7e7db9b8044cff9f9952e0192a795c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "uri", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "uri", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnIntegration.ConnectorOperatorProperty",
@@ -7427,6 +7433,7 @@ class CfnObjectType(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -7491,7 +7498,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aba990030ebf284cb51fc495ba3f894a3828072faa9f459784674e3467c4e696)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -7504,7 +7511,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b24cea9cf31f287c3b3c148ba0586506624f0432fe276fdb1ec08d552833ef32)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="objectTypeName")
@@ -7517,7 +7524,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__19dbd5a494e7060e32b7c4cc781d4cee2093bd041be3baf6d8b03e5f66d76985)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "objectTypeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "objectTypeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="allowProfileCreation")
@@ -7535,7 +7542,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9b0f4dc9c396c634c5fa55ab6032956c1c94c0dec83e089c60d92fb58640061c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "allowProfileCreation", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "allowProfileCreation", value)
 
     @builtins.property
     @jsii.member(jsii_name="encryptionKey")
@@ -7548,7 +7555,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4ca3be4f6e2ca6127ac1ca1adcf9552041402fd0c44217f1d4f13a4e14bf2b40)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "encryptionKey", value)
 
     @builtins.property
     @jsii.member(jsii_name="expirationDays")
@@ -7561,7 +7568,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__64d57ec4a44e9d66c50a3e82cedcef4d73b7c54672341cb6bdc26bb43d5048de)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "expirationDays", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "expirationDays", value)
 
     @builtins.property
     @jsii.member(jsii_name="fields")
@@ -7579,7 +7586,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eccf30ab38ee3158514f0243fca4f8f7f38ae86489a3784a2fee01eb15f10f58)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fields", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fields", value)
 
     @builtins.property
     @jsii.member(jsii_name="keys")
@@ -7597,7 +7604,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__521c1a4bfa097c3b1f3951ecd6980736e1de35a3bfe50227b262534c59370624)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keys", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "keys", value)
 
     @builtins.property
     @jsii.member(jsii_name="maxProfileObjectCount")
@@ -7610,7 +7617,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__edf9f4ddaedd0b5a755b294f08376889d206a0ce1a397886e2483e9471c6b184)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxProfileObjectCount", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "maxProfileObjectCount", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourceLastUpdatedTimestampFormat")
@@ -7626,7 +7633,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bc577e5c0fd1bd47194e04599a6df995f066e809b7c98cb3b2e9ef839eaca0bc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourceLastUpdatedTimestampFormat", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourceLastUpdatedTimestampFormat", value)
 
     @builtins.property
     @jsii.member(jsii_name="sourcePriority")
@@ -7639,7 +7646,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e2dccaa33976e8f3d995f17a23abe836ca88326cfac341af7300f473d6426834)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sourcePriority", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sourcePriority", value)
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -7655,7 +7662,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__034fbef34b9c45ddeef371cddf129b147eb3c6d5cb089d2a874dec871d849617)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value)
 
     @builtins.property
     @jsii.member(jsii_name="templateId")
@@ -7668,7 +7675,7 @@ class CfnObjectType(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5c3516f296b116ed334a16a7f280bc13da509b7cc1b2d0f53992808db2bf0433)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "templateId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "templateId", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnObjectType.FieldMapProperty",
@@ -8411,6 +8418,7 @@ class CfnRecommender(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -8510,7 +8518,7 @@ class CfnRecommender(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd03f33e5169fb5aabbe5673ca263f0e62f6013b671c8d60da4097cab3c5cbde)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="recommenderName")
@@ -8523,7 +8531,7 @@ class CfnRecommender(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2a1aacdb0bbfef701ca0a8e381250dc92187b8889df7e96cf05965c655bccffa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recommenderName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recommenderName", value)
 
     @builtins.property
     @jsii.member(jsii_name="recommenderRecipeName")
@@ -8536,7 +8544,7 @@ class CfnRecommender(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5e5ffa077e0481717aa7e37876976faaecf73523b98b0e62e9d1cec3ba410732)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recommenderRecipeName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recommenderRecipeName", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -8549,7 +8557,7 @@ class CfnRecommender(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b93e383b53fe83795dd28f0853d67c348047cb4c829af468d55697bcd7d33f0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="recommenderConfig")
@@ -8567,7 +8575,7 @@ class CfnRecommender(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bbf7b82297fef21f24e0a3f5e0f2bcf26b08e7dae8a27957726a72d5ce9e3ba8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recommenderConfig", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recommenderConfig", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -8583,7 +8591,7 @@ class CfnRecommender(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__61e56ecd7247ce9ead368e720411e5f7d85b95d7fc29a0916fd6a3b000b7f059)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommender.EventParametersProperty",
@@ -9132,6 +9140,480 @@ class CfnRecommender(
             )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_customerprofiles_6d5083f6.IRecommenderFilterRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRecommenderFilter(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommenderFilter",
+):
+    '''A recommender filter that specifies which items to include or exclude from recommendations under an Amazon Connect Customer Profiles domain.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderfilter.html
+    :cloudformationResource: AWS::CustomerProfiles::RecommenderFilter
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_customerprofiles as customerprofiles
+        
+        cfn_recommender_filter = customerprofiles.CfnRecommenderFilter(self, "MyCfnRecommenderFilter",
+            domain_name="domainName",
+            recommender_filter_expression="recommenderFilterExpression",
+            recommender_filter_name="recommenderFilterName",
+        
+            # the properties below are optional
+            description="description",
+            recommender_schema_name="recommenderSchemaName",
+            tags=[customerprofiles.CfnRecommenderFilter.TagsItemsProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        domain_name: builtins.str,
+        recommender_filter_expression: builtins.str,
+        recommender_filter_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        recommender_schema_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnRecommenderFilter.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CustomerProfiles::RecommenderFilter``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_name: The unique name of the domain.
+        :param recommender_filter_expression: The filter expression that defines which items to include or exclude from recommendations.
+        :param recommender_filter_name: The name of the recommender filter.
+        :param description: The description of the recommender filter.
+        :param recommender_schema_name: The name of the recommender schema to use for this recommender filter. If not specified, the default schema is used.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e3bdf34b30a1ca411158f064eb43a1d188e93a65fc09b008305e16ebca6fd4ae)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRecommenderFilterProps(
+            domain_name=domain_name,
+            recommender_filter_expression=recommender_filter_expression,
+            recommender_filter_name=recommender_filter_name,
+            description=description,
+            recommender_schema_name=recommender_schema_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRecommenderFilter")
+    @builtins.classmethod
+    def arn_for_recommender_filter(
+        cls,
+        resource: "_aws_customerprofiles_6d5083f6.IRecommenderFilterRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__299a27d90be85d339659e9ff1556d79050a86be445be7672097c2d41cd043cee)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRecommenderFilter", [resource]))
+
+    @jsii.member(jsii_name="isCfnRecommenderFilter")
+    @builtins.classmethod
+    def is_cfn_recommender_filter(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRecommenderFilter.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__01d2e9572783bae27a64cd9201714491bafe95e6ed029a5e9310b5267eff518e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecommenderFilter", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ab49b1d0c9ea503e29ff750a73bff955269eabb2908049c87aaebfa51e13bdb2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__14138803ab8013c9bd46a39396e49716573133cc11e326e3db8304583dd09f4f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp of when the recommender filter was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecommenderFilterArn")
+    def attr_recommender_filter_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the recommender filter.
+
+        :cloudformationAttribute: RecommenderFilterArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRecommenderFilterArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the recommender filter.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderFilterRef")
+    def recommender_filter_ref(
+        self,
+    ) -> "_aws_customerprofiles_6d5083f6.RecommenderFilterReference":
+        '''A reference to a RecommenderFilter resource.'''
+        return typing.cast("_aws_customerprofiles_6d5083f6.RecommenderFilterReference", jsii.get(self, "recommenderFilterRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainName")
+    def domain_name(self) -> builtins.str:
+        '''The unique name of the domain.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainName"))
+
+    @domain_name.setter
+    def domain_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__09edc94c9dc1bb72079a26aeb27a95a9cba02e90961ca64ce45f5d9fed9e18a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderFilterExpression")
+    def recommender_filter_expression(self) -> builtins.str:
+        '''The filter expression that defines which items to include or exclude from recommendations.'''
+        return typing.cast(builtins.str, jsii.get(self, "recommenderFilterExpression"))
+
+    @recommender_filter_expression.setter
+    def recommender_filter_expression(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2550f3e1d09dd2994a064effac64d1f5563243fd92368b1a9d168af6c309efa2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recommenderFilterExpression", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderFilterName")
+    def recommender_filter_name(self) -> builtins.str:
+        '''The name of the recommender filter.'''
+        return typing.cast(builtins.str, jsii.get(self, "recommenderFilterName"))
+
+    @recommender_filter_name.setter
+    def recommender_filter_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__91503ee148a7fe29e614ee232c26798b18e869ffe010500ff663be18047f90f1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recommenderFilterName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the recommender filter.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__84da4996dd03e98ca42b4b1bff5faaf64e1e876ad09eb02939125a108bd1c614)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="recommenderSchemaName")
+    def recommender_schema_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the recommender schema to use for this recommender filter.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "recommenderSchemaName"))
+
+    @recommender_schema_name.setter
+    def recommender_schema_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f9bc98c2b9d96216b3bce3b8cae7d00167b322a447d8c5cd478f76d89270fddf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recommenderSchemaName", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnRecommenderFilter.TagsItemsProperty"]]:
+        '''The tags used to organize, track, or control access for this resource.'''
+        return typing.cast(typing.Optional[typing.List["CfnRecommenderFilter.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnRecommenderFilter.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7c93744797a648d88bb9ad123bdfcfd0152cb536af26a2d1c39b5e8599581b55)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value)
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommenderFilter.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommenderfilter-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                tags_items_property = customerprofiles.CfnRecommenderFilter.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__dee609e687b77881f67e00ef0236cb247f60e83fe7c724d90b9a7996ef7d6331)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommenderfilter-tagsitems.html#cfn-customerprofiles-recommenderfilter-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-recommenderfilter-tagsitems.html#cfn-customerprofiles-recommenderfilter-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommenderFilterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "recommender_filter_expression": "recommenderFilterExpression",
+        "recommender_filter_name": "recommenderFilterName",
+        "description": "description",
+        "recommender_schema_name": "recommenderSchemaName",
+        "tags": "tags",
+    },
+)
+class CfnRecommenderFilterProps:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        recommender_filter_expression: builtins.str,
+        recommender_filter_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        recommender_schema_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnRecommenderFilter.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRecommenderFilter``.
+
+        :param domain_name: The unique name of the domain.
+        :param recommender_filter_expression: The filter expression that defines which items to include or exclude from recommendations.
+        :param recommender_filter_name: The name of the recommender filter.
+        :param description: The description of the recommender filter.
+        :param recommender_schema_name: The name of the recommender schema to use for this recommender filter. If not specified, the default schema is used.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderfilter.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_recommender_filter_props = customerprofiles.CfnRecommenderFilterProps(
+                domain_name="domainName",
+                recommender_filter_expression="recommenderFilterExpression",
+                recommender_filter_name="recommenderFilterName",
+            
+                # the properties below are optional
+                description="description",
+                recommender_schema_name="recommenderSchemaName",
+                tags=[customerprofiles.CfnRecommenderFilter.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__721d350655daa209c1ef74772af0852c3aba6c7e0a7baa7ef0b68ad3d201040a)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument recommender_filter_expression", value=recommender_filter_expression, expected_type=type_hints["recommender_filter_expression"])
+            check_type(argname="argument recommender_filter_name", value=recommender_filter_name, expected_type=type_hints["recommender_filter_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument recommender_schema_name", value=recommender_schema_name, expected_type=type_hints["recommender_schema_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+            "recommender_filter_expression": recommender_filter_expression,
+            "recommender_filter_name": recommender_filter_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if recommender_schema_name is not None:
+            self._values["recommender_schema_name"] = recommender_schema_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The unique name of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderfilter.html#cfn-customerprofiles-recommenderfilter-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recommender_filter_expression(self) -> builtins.str:
+        '''The filter expression that defines which items to include or exclude from recommendations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderfilter.html#cfn-customerprofiles-recommenderfilter-recommenderfilterexpression
+        '''
+        result = self._values.get("recommender_filter_expression")
+        assert result is not None, "Required property 'recommender_filter_expression' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recommender_filter_name(self) -> builtins.str:
+        '''The name of the recommender filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderfilter.html#cfn-customerprofiles-recommenderfilter-recommenderfiltername
+        '''
+        result = self._values.get("recommender_filter_name")
+        assert result is not None, "Required property 'recommender_filter_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the recommender filter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderfilter.html#cfn-customerprofiles-recommenderfilter-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def recommender_schema_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the recommender schema to use for this recommender filter.
+
+        If not specified, the default schema is used.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderfilter.html#cfn-customerprofiles-recommenderfilter-recommenderschemaname
+        '''
+        result = self._values.get("recommender_schema_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnRecommenderFilter.TagsItemsProperty"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-recommenderfilter.html#cfn-customerprofiles-recommenderfilter-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnRecommenderFilter.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRecommenderFilterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommenderProps",
     jsii_struct_bases=[],
@@ -9411,6 +9893,7 @@ class CfnRecommenderSchema(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -9473,7 +9956,7 @@ class CfnRecommenderSchema(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8ed553ddb65e2ccbe576c6c2cc56ff47c8b10f86cdb381260b17ab766d6cbc24)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="fields")
@@ -9490,7 +9973,7 @@ class CfnRecommenderSchema(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9d81297cc44e809963d83a3946cea31f2e000b2a041aaa4b2aa2cec24a6e56c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "fields", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "fields", value)
 
     @builtins.property
     @jsii.member(jsii_name="recommenderSchemaName")
@@ -9502,7 +9985,7 @@ class CfnRecommenderSchema(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__65d51904cdd04e44ac6393a54bf48d72c8b3b15f1ce7d2cb82a4f111c59f19c2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recommenderSchemaName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "recommenderSchemaName", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -9519,7 +10002,7 @@ class CfnRecommenderSchema(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__360581963a612b8d9e54af404a4fec0a6f17c2d2d2dd43ddce027627870e81d5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnRecommenderSchema.RecommenderSchemaFieldProperty",
@@ -10142,6 +10625,7 @@ class CfnSegmentDefinition(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -10212,7 +10696,7 @@ class CfnSegmentDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05d7eb6c9916e03c3799e9d2016d81426c2f6d43e95689ce0af12bfe09e6549f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "displayName", value)
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -10225,7 +10709,7 @@ class CfnSegmentDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__26ba965f3f83218ff70b8ea34f99b1d05bab7433a8807b2fbcdaf115b08b6ae9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "domainName", value)
 
     @builtins.property
     @jsii.member(jsii_name="segmentDefinitionName")
@@ -10238,7 +10722,7 @@ class CfnSegmentDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6bc5bbfa19f04ef37dd74fe0dab060cbd192ee5bb1b47e5b1508f67f27be5aa3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "segmentDefinitionName", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "segmentDefinitionName", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -10251,7 +10735,7 @@ class CfnSegmentDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__223f2ad9551b0ca745b7b727aa69f874d90c37d42f2d71a6e2b2fb44e7ade212)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="segmentGroups")
@@ -10269,7 +10753,7 @@ class CfnSegmentDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__744689fb47e84da608e8ce7c410f0a6489728b4132c9e51efab1802d01b77340)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "segmentGroups", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "segmentGroups", value)
 
     @builtins.property
     @jsii.member(jsii_name="segmentSort")
@@ -10287,7 +10771,7 @@ class CfnSegmentDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b0d3a6734c37a70bd1dbc7e6696ea08e721663cd16bf61b3c7ca22e1d3bf7384)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "segmentSort", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "segmentSort", value)
 
     @builtins.property
     @jsii.member(jsii_name="segmentSqlQuery")
@@ -10300,7 +10784,7 @@ class CfnSegmentDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dace184319b94ab26365d2f38874f09e109779b2ee272b904f375e8d8d5320e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "segmentSqlQuery", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "segmentSqlQuery", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -10316,7 +10800,7 @@ class CfnSegmentDefinition(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__238b83e5f2661e205fa241820b4292d8a4cb4f60bf75be3b31f1b17711318539)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnSegmentDefinition.AddressDimensionProperty",
@@ -13186,6 +13670,8 @@ __all__ = [
     "CfnObjectType",
     "CfnObjectTypeProps",
     "CfnRecommender",
+    "CfnRecommenderFilter",
+    "CfnRecommenderFilterProps",
     "CfnRecommenderProps",
     "CfnRecommenderSchema",
     "CfnRecommenderSchemaProps",
@@ -14422,6 +14908,100 @@ def _typecheckingstub__7b6ab453a202ce057e98af942458b4b8b199accea5961725709898b32
     *,
     metrics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRecommender.MetricsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     time: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3bdf34b30a1ca411158f064eb43a1d188e93a65fc09b008305e16ebca6fd4ae(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_name: builtins.str,
+    recommender_filter_expression: builtins.str,
+    recommender_filter_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    recommender_schema_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnRecommenderFilter.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__299a27d90be85d339659e9ff1556d79050a86be445be7672097c2d41cd043cee(
+    resource: _aws_customerprofiles_6d5083f6.IRecommenderFilterRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01d2e9572783bae27a64cd9201714491bafe95e6ed029a5e9310b5267eff518e(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab49b1d0c9ea503e29ff750a73bff955269eabb2908049c87aaebfa51e13bdb2(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__14138803ab8013c9bd46a39396e49716573133cc11e326e3db8304583dd09f4f(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09edc94c9dc1bb72079a26aeb27a95a9cba02e90961ca64ce45f5d9fed9e18a2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2550f3e1d09dd2994a064effac64d1f5563243fd92368b1a9d168af6c309efa2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91503ee148a7fe29e614ee232c26798b18e869ffe010500ff663be18047f90f1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84da4996dd03e98ca42b4b1bff5faaf64e1e876ad09eb02939125a108bd1c614(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9bc98c2b9d96216b3bce3b8cae7d00167b322a447d8c5cd478f76d89270fddf(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c93744797a648d88bb9ad123bdfcfd0152cb536af26a2d1c39b5e8599581b55(
+    value: typing.Optional[typing.List[CfnRecommenderFilter.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dee609e687b77881f67e00ef0236cb247f60e83fe7c724d90b9a7996ef7d6331(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__721d350655daa209c1ef74772af0852c3aba6c7e0a7baa7ef0b68ad3d201040a(
+    *,
+    domain_name: builtins.str,
+    recommender_filter_expression: builtins.str,
+    recommender_filter_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    recommender_schema_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnRecommenderFilter.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

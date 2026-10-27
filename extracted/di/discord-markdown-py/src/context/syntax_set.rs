@@ -52,7 +52,7 @@ where
 	E: ParseError<'data>,
 {
 	type Error = E;
-	type Output = Element<'data, S>;
+	type Output = (Element<'data, S>, S::Syntax);
 
 	#[tracing::instrument(name = "contextual_syntaxes", level = Level::TRACE, fields(ok, output))]
 	fn process<OM>(

@@ -23,6 +23,7 @@ class Tomography(Experiment):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.patterns = None
+        self.AcousticFields_demodulated = None
         self.theta = []
         self.decimations = []
         self.ActiveList = []
@@ -1108,20 +1109,15 @@ class Tomography(Experiment):
         structured_buffer = {}
 
         for i in trange(AOsignal.shape[1], desc="[AOT-biomaps] Demodulating AO signals (4-phases quadrature)"):
-            field_obj = self.AcousticFields[i]
-            label = field_obj.get_name_field()
-            parts = label.split("_")
-            hex_pattern = parts[1]
-            angle_code = parts[-1]
 
-            angle_deg = -int(angle_code[1:]) if angle_code.startswith("1") else int(angle_code)
+            angle_deg = self.theta[i]
             angle_rad = float(np.round(np.deg2rad(angle_deg), 6))
 
-            if set(hex_pattern.lower().replace(" ", "")) == {'f'}:
+            if np.all(self.ActiveList[i] == hex_to_binary_profile(int(n_piezos/4)*'f', n_piezos)):
                 fs_key = 0.0
                 phase = 0.0
             else:
-                profile = hex_to_binary_profile(hex_pattern, n_piezos)
+                profile = self.ActiveList[i]
                 ft_prof = np.fft.fft(profile)
                 idx_max = np.argmax(np.abs(ft_prof[1:n_piezos//2])) + 1
                 freqs = np.fft.fftfreq(n_piezos, d=delta_x)

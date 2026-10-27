@@ -32,6 +32,7 @@ import contextlib
 import copy
 import gzip
 import html
+import inspect
 import json
 import logging
 import os
@@ -77,6 +78,13 @@ from local_operator.mobile.auth import (
     sign_cookie,
     verify_cookie,
 )
+from local_operator.mobile.start_receipts import CAPABILITY as START_CAPABILITY
+from local_operator.mobile.start_receipts import (
+    START_BODY_MAX_BYTES,
+    StartReceipts,
+    StartRefusal,
+    canonical_request,
+)
 from local_operator.mobile.transfer_receipts import (
     ReceiptsUnreadable,
     TransferConflict,
@@ -112,6 +120,39 @@ from local_operator.session.store_failures import store_failure
 from local_operator.tui.sidebar_pins import PINS_FILE, read_pins, set_pin
 
 logger = logging.getLogger(__name__)
+#: The gateway's own spelling (``tunnels.gateway.STREAM_CLEANUP_FAILED``): one
+#: name for the one failure class, with the logger name carrying the surface.
+#: COPIED rather than imported on purpose — ``tunnels.gateway`` imports httpx,
+#: jwt and starlette at module scope, while this module defers starlette into
+#: ``build_app`` so a ``lop`` installed without the server extra never imports
+#: it. Importing the constant would put that whole stack on every CLI start.
+STREAM_CLEANUP_FAILED = "stream cleanup failed"
+
+
+async def _cleanup_stream(close: Callable[..., Any] | None) -> None:
+    """Run one stream cleanup, reporting a failure instead of raising it.
+
+    Every phone stream cleans up in two places, and both can be running with an
+    exception already in flight: the response's ``finally`` (a cancellation
+    parked on ``send``) and the body generator's own ``finally`` (a plain client
+    disconnect cancels the generator mid-await, where the response never sees
+    the failure). The second shape is why the generator routes through here too
+    — an exception escaping its cleanup replaces the request's CancelledError
+    and surfaces as uvicorn's "Exception in ASGI application" for what is only
+    a failed detach. ``CancelledError`` is a BaseException and still propagates.
+
+    Both shapes are accepted because the two callers differ: a route detaches
+    its subscriber synchronously, while the response closes an async generator.
+    """
+    if close is None:
+        return
+    try:
+        outcome = close()
+        if inspect.isawaitable(outcome):
+            await outcome
+    except Exception:
+        logger.warning(STREAM_CLEANUP_FAILED, exc_info=True)
+
 
 #: How often the record directory is scanned. Records change rarely (a
 #: session starts or dies); the scan is cheap, and 2 s makes a new terminal
@@ -3390,6 +3431,7 @@ class MobileDaemon:
         #: resolves at first use — tests patch the root after building the
         #: daemon, the same reason ``SessionTable.seen_store`` is lazy.
         self._transfer_receipts: TransferReceipts | None = None
+        self._start_receipts: StartReceipts | None = None
 
     def transfer_receipts(self) -> TransferReceipts:
         """The one :class:`TransferReceipts` for this daemon's config root.
@@ -3403,6 +3445,36 @@ class MobileDaemon:
 
             self._transfer_receipts = TransferReceipts(config_dir())
         return self._transfer_receipts
+
+    def start_receipts(self) -> StartReceipts:
+        """Resolve the owner-private root lazily, exactly like transfer receipts."""
+        if self._start_receipts is None:
+            from local_operator.paths import config_dir
+
+            self._start_receipts = StartReceipts(config_dir())
+        return self._start_receipts
+
+    async def recover_started_session(self, session_id: str) -> int | None:
+        """Adopt a verified exact owner, never speculate a second constructor.
+
+        A pending receipt survived an unknown crash edge. Absence of a record
+        is not proof that the first constructor did not start or is not still
+        booting, so this path deliberately never calls ``spawn_session``.
+        """
+        from local_operator.mobile.attach_client import find_runtime_record
+        from local_operator.paths import config_dir
+
+        record, _ = await asyncio.to_thread(find_runtime_record, config_dir(), session_id)
+        if record is None:
+            return None
+        try:
+            async with asyncio.timeout(SESSION_START_TIMEOUT_S):
+                await self._prepare_phone_record(record)
+            self._arm_phone_handoff(session_id)
+            return record.pid
+        except BaseException:
+            self.release_phone_view(session_id)
+            raise
 
     def watch_display_settings(self) -> None:
         """Make this daemon's folds follow ``display.*`` writes from other processes.
@@ -5178,20 +5250,8 @@ def build_app(daemon: MobileDaemon):
                 # async-for does not close its generator when sending a chunk
                 # raises. Explicit closure also covers cancelled proxy streams;
                 # otherwise their unseen subscriber can pin a viewer forever.
-                close = getattr(self.body_iterator, "aclose", None)
-                if close is not None:
-                    try:
-                        await close()
-                    except Exception:
-                        # The in-flight exception belongs to the request — the
-                        # CancelledError that brought us here — and a failing
-                        # detach must not replace it.
-                        logger.warning("phone stream cleanup failed", exc_info=True)
-                if self._release is not None:
-                    try:
-                        self._release()
-                    except Exception:
-                        logger.warning("session stream cleanup failed", exc_info=True)
+                await _cleanup_stream(getattr(self.body_iterator, "aclose", None))
+                await _cleanup_stream(self._release)
 
     # -- auth helpers -----------------------------------------------------------
 
@@ -5408,6 +5468,9 @@ def build_app(daemon: MobileDaemon):
                 # contract, not this app's routing table (see the i18n note
                 # above), and the two must not be conflated.
                 "session_tags": {"available": True},
+                # Authenticated build support, not a claim that receipt storage
+                # is writable right now. Typed refusals preserve the same key.
+                "session_start": dict(START_CAPABILITY),
                 # Conditional because this build may predate the Library module:
                 # the phone's footer shows the destination iff the key is here,
                 # and a missing key means "this relay cannot serve it".
@@ -5636,7 +5699,7 @@ def build_app(daemon: MobileDaemon):
                     yield _sse("projection", _latest_projection_frame(queue, frame))
                     sent_at = loop.time()
             finally:
-                release()
+                await _cleanup_stream(release)
 
         return SessionEventResponse(
             stream(),
@@ -5754,7 +5817,7 @@ def build_app(daemon: MobileDaemon):
                     except TimeoutError:
                         yield ": keepalive\n\n"
             finally:
-                release()
+                await _cleanup_stream(release)
 
         return SessionEventResponse(
             stream(),
@@ -5854,7 +5917,7 @@ def build_app(daemon: MobileDaemon):
                     yield event
                     wrote_at = loop.time()
             finally:
-                release()
+                await _cleanup_stream(release)
 
         return SessionEventResponse(
             stream(),
@@ -7796,12 +7859,86 @@ def build_app(daemon: MobileDaemon):
         denied = gate(request)
         if denied is not None:
             return denied
+        # BOUNDED BEFORE PARSING. ``request.json()`` buffers the whole body and
+        # parses it before any field check could run, so an authenticated
+        # caller could make the relay hold and parse megabytes it would only
+        # refuse afterwards. ``Content-Length`` is the honest client's fast
+        # path; the streamed byte count is the real bound, because the header
+        # can be absent (chunked) or lie. Nothing is claimed or spawned before
+        # the whole body is known to fit.
+        too_large = JSONResponse(
+            {"error": "start_request_too_large", "code": "start_request_too_large"},
+            status_code=413,
+        )
+        declared = request.headers.get("content-length")
+        if declared is not None and declared.isdigit() and int(declared) > START_BODY_MAX_BYTES:
+            return too_large
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw += chunk
+            if len(raw) > START_BODY_MAX_BYTES:
+                return too_large
         try:
-            body = await request.json()
+            body = json.loads(raw)
         except ValueError:
             return JSONResponse({"error": "invalid JSON"}, status_code=400)
         if not isinstance(body, dict):
             return JSONResponse({"error": "request body must be an object"}, status_code=400)
+        if "create_request_id" in body:
+            # The existing gate above precedes admission AND replay. A supplied
+            # account label is never authority; keyed input has an exact schema.
+            try:
+                _, encoded_intent = canonical_request(body)
+                intent = json.loads(encoded_intent)
+
+                def resolve_start() -> dict[str, str]:
+                    from argparse import Namespace
+
+                    from local_operator.config import ConfigManager
+                    from local_operator.paths import config_dir
+                    from local_operator.session_factory import resolve_hosting_model
+
+                    raw = intent["cwd"] or _default_start_cwd()
+                    path = Path(raw).expanduser().resolve()
+                    if not path.is_dir() or not _spawn_dir_allowed(path):
+                        raise StartRefusal("invalid_start_directory", 400)
+                    # Use the same birth precedence as the constructor, then
+                    # persist the resolved pair before it can observe a later
+                    # config edit. No alternate default-selection algorithm.
+                    try:
+                        provider, model = resolve_hosting_model(
+                            None,
+                            Namespace(hosting=intent["provider"], model=intent["model_id"]),
+                            ConfigManager(config_dir()),
+                        )
+                    except ValueError as exc:
+                        # A missing/unknown provider or model is a selection
+                        # refusal (400), never an unreadable receipt store.
+                        raise StartRefusal("invalid_start_selection", 400) from exc
+                    return {"cwd": str(path), "provider": provider, "model_id": model}
+
+                async def spawn_start(chosen: dict[str, str], sid: str) -> int:
+                    return await daemon.spawn_session(
+                        chosen["cwd"],
+                        provider=chosen["provider"],
+                        model_id=chosen["model_id"],
+                        resume=sid,
+                    )
+
+                answer = await daemon.start_receipts().start(
+                    body, resolve_start, spawn_start, daemon.recover_started_session
+                )
+            except StartRefusal as exc:
+                payload: dict[str, Any] = {"error": exc.code, "code": exc.code}
+                if exc.session_id is not None:
+                    payload["session_id"] = exc.session_id
+                return JSONResponse(payload, status_code=exc.status)
+            except ValueError:
+                return JSONResponse(
+                    {"error": "invalid_start_selection", "code": "invalid_start_selection"},
+                    status_code=400,
+                )
+            return JSONResponse(answer)
         # NO DIRECTORY NAMED MEANS "WHERE THE USER HAS BEEN WORKING LATELY".
         # The one-tap start posts no cwd at all, so the resolution lives here,
         # server-side, and is the SAME function ``GET /api/directories``

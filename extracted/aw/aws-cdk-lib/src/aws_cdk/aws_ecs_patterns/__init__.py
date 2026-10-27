@@ -3356,7 +3356,7 @@ class ApplicationMultipleTargetGroupsServiceBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4ce32419c103730d687d929ad3e0549575fbb87951cb910f7368ee6d7100fde1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logDriver", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logDriver", value)
 
 
 class _ApplicationMultipleTargetGroupsServiceBaseProxy(
@@ -5721,7 +5721,7 @@ class NetworkMultipleTargetGroupsServiceBase(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6be3093e7d26d71cbdd75ea955c17a38c66bdd2dd8a1746dd02daa5799410b76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "logDriver", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "logDriver", value)
 
 
 class _NetworkMultipleTargetGroupsServiceBaseProxy(
@@ -8740,6 +8740,7 @@ class ApplicationLoadBalancedFargateService(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -10291,6 +10292,7 @@ class ApplicationMultipleTargetGroupsFargateService(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -11707,6 +11709,7 @@ class NetworkLoadBalancedFargateService(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
@@ -13055,6 +13058,7 @@ class NetworkMultipleTargetGroupsFargateService(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    @builtins.classmethod
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
         '''Uniquely identifies this class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))

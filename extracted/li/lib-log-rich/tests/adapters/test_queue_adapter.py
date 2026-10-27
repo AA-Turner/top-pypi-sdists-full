@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import threading
 import time
@@ -11,7 +12,7 @@ import pytest
 
 from lib_log_rich.adapters.queue import QueueAdapter
 from lib_log_rich.domain.context import LogContext
-from lib_log_rich.domain.enums import QueuePolicy
+from lib_log_rich.domain.enums import DiagnosticEvent, QueuePolicy
 from lib_log_rich.domain.events import LogEvent
 from lib_log_rich.domain.levels import LogLevel
 from tests.os_markers import OS_AGNOSTIC
@@ -66,6 +67,27 @@ def test_queue_adapter_exposes_thread_worker() -> None:
         assert worker is not None and worker.is_alive()
     finally:
         adapter.stop(drain=True)
+
+
+def test_queue_adapter_has_no_hidden_internals_guidance() -> None:
+    # The internals are not attributes of the adapter; looking one up is a
+    # plain AttributeError naming it, with no special-cased message.
+    adapter = QueueAdapter(worker=None)
+    hidden_name = "_worker_failed"
+    with pytest.raises(AttributeError, match=hidden_name) as caught:
+        getattr(adapter, hidden_name)
+    assert "debug()" not in str(caught.value)
+
+
+def test_queue_diagnostic_hook_receives_plain_string_names() -> None:
+    names: list[object] = []
+    adapter = QueueAdapter(worker=None, maxsize=1, drop_policy=QueuePolicy.DROP, diagnostic=lambda name, payload: names.append(name))
+
+    assert adapter.put(build_event(0)) is True
+    assert adapter.put(build_event(1)) is False
+
+    assert names == ["queue_dropped"]
+    assert type(names[0]) is str
 
 
 def test_queue_drop_policy_invokes_callback() -> None:
@@ -145,17 +167,17 @@ def test_queue_stop_without_drain_resets_unfinished_tasks() -> None:
     adapter.put(build_event(1))
     adapter.put(build_event(2))
 
-    stop_started = threading.Event()
     stop_finished = threading.Event()
 
     def invoke_stop() -> None:
-        stop_started.set()
         adapter.stop(drain=False)
         stop_finished.set()
 
     stopper = threading.Thread(target=invoke_stop)
     stopper.start()
-    assert stop_started.wait(timeout=1.0)
+    # Release the worker only once stop() has chosen to drop: released earlier, it
+    # can process evt-1 and evt-2 before the stopper thread runs at all.
+    assert adapter.debug().wait_for_stop_request(timeout=1.0)
 
     release_first_event.set()
     stopper.join(timeout=2.0)
@@ -475,6 +497,83 @@ def test_queue_stop_waits_without_timeout(tmp_path: Path) -> None:
     assert processed == ["evt-0"]
 
 
+def test_the_worker_keeps_waiting_for_the_stop_signal_while_stop_is_under_way() -> None:
+    # stop() raises its stop flag before the stop signal is queued. A worker that
+    # finished an item in that gap and read "flag up, queue empty" as the end
+    # quit without taking the signal, so a stop() with no timeout waited for that
+    # signal's task_done forever (free-threaded Windows CI hung on the test
+    # above). on_drop is the one caller hook that runs inside that gap: with the
+    # single slot full, stop() drops an event to make room for the signal.
+    release = threading.Event()
+    alive_in_the_gap: list[bool] = []
+    adapter: QueueAdapter | None = None
+
+    def worker(event: LogEvent) -> None:
+        if event.event_id == "evt-0":
+            release.wait(5)
+
+    def on_drop(_event: LogEvent) -> None:
+        assert adapter is not None
+        thread = adapter.debug().worker_thread()
+        assert thread is not None
+        release.set()
+        thread.join(0.5)
+        alive_in_the_gap.append(thread.is_alive())
+
+    adapter = QueueAdapter(worker=worker, maxsize=1, on_drop=on_drop)
+    adapter.start()
+    adapter.put(build_event(0))
+    deadline = time.monotonic() + 5
+    while not adapter.debug().queue_empty() and time.monotonic() < deadline:
+        time.sleep(0.001)
+    adapter.put(build_event(1))
+
+    # The worker is held on evt-0 until on_drop releases it, and on_drop runs inside
+    # stop() and joins for up to 0.5 s, so this 0.05 s budget is spent before the drain
+    # starts and whether stop() reports a timeout depends on scheduling; the gap is
+    # the subject.
+    with contextlib.suppress(RuntimeError):
+        adapter.stop(timeout=0.05)
+
+    assert alive_in_the_gap == [True]
+    thread = adapter.debug().worker_thread()
+    if thread is not None:
+        thread.join(5)
+        assert not thread.is_alive()
+
+
+@pytest.mark.parametrize("drain", [True, False], ids=["drain", "no-drain"])
+def test_stop_on_a_full_queue_finishes_within_its_budget(drain: bool) -> None:
+    # stop() puts its stop signal with a blocking put bounded by the whole deadline,
+    # then drains and joins against the same deadline. On a full queue that put waits
+    # only while the worker finishes its current item, which the drain would have to
+    # wait for anyway, so a worker that is merely busy must not make stop() time out.
+    processed: list[str] = []
+
+    def worker(event: LogEvent) -> None:
+        time.sleep(0.05)
+        processed.append(event.event_id)
+
+    adapter = QueueAdapter(worker=worker, maxsize=1)
+    adapter.start()
+    adapter.put(build_event(0))
+    deadline = time.monotonic() + 5
+    while not adapter.debug().queue_empty() and time.monotonic() < deadline:
+        time.sleep(0.001)
+    adapter.put(build_event(1))
+    assert adapter.debug().queue_size() == 1
+
+    started = time.monotonic()
+    adapter.stop(drain=drain, timeout=1.0)
+    elapsed = time.monotonic() - started
+
+    assert adapter.debug().worker_thread() is None
+    assert elapsed < 0.5
+    assert processed[0] == "evt-0"
+    if drain:
+        assert processed == ["evt-0", "evt-1"]
+
+
 def test_queue_put_without_timeout() -> None:
     adapter = QueueAdapter(timeout=None)
     assert adapter.put(build_event(0)) is True
@@ -500,7 +599,7 @@ def test_queue_emit_diagnostic_handles_errors(caplog: pytest.LogCaptureFixture) 
     adapter = QueueAdapter(worker=None, diagnostic=failing)
     caplog.set_level(logging.ERROR)
     debug = adapter.debug()
-    debug.emit_diagnostic("queue_dropped", {})
+    debug.emit_diagnostic(DiagnosticEvent.QUEUE_DROPPED, {})
     assert any("Queue diagnostic hook raised" in record.message for record in caplog.records)
 
 

@@ -1,9 +1,10 @@
 """Pyodide sandbox for executing LLM-generated Prefab code.
 
 Manages a persistent Deno subprocess running Pyodide with the full
-Prefab library pre-loaded. Code runs inside WASM isolation — context
-managers, `.rx`, Pydantic validation all work identically to native
-Python.
+Prefab library pre-loaded. Context managers, `.rx`, and Pydantic
+validation work identically to native Python. The runner revokes Deno
+filesystem and network permissions after loading its runtime and sources.
+The Python interpreter and imported modules remain shared between calls.
 """
 
 from __future__ import annotations
@@ -15,9 +16,11 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 RUNNER_JS = Path(__file__).parent / "runner.js"
 PREFAB_SRC = Path(__file__).parent.parent  # src/prefab_ui/
+DENO_LOCK = Path(__file__).parent / "deno.lock"
 
 
 class PyodideSandbox:
@@ -66,16 +69,20 @@ class PyodideSandbox:
             "DENO_V8_FLAGS": "--max-old-space-size=4096",
             "DENO_UNSTABLE_DETECT_CJS": "1",
         }
-        proc = await loop.run_in_executor(
+        starting = loop.run_in_executor(
             None,
             lambda: subprocess.Popen(
                 [
                     deno,
                     "run",
+                    "--no-config",
+                    f"--lock={DENO_LOCK}",
+                    "--frozen",
                     "--unstable-detect-cjs",
+                    "--no-prompt",
                     "--allow-read",
                     "--allow-write",
-                    "--allow-net",
+                    "--allow-net=cdn.jsdelivr.net:443",
                     str(RUNNER_JS),
                     str(PREFAB_SRC),
                 ],
@@ -86,19 +93,39 @@ class PyodideSandbox:
             ),
         )
 
-        # Wait for the runner to signal readiness, collecting stderr
-        assert proc.stderr is not None
-        proc_stderr = proc.stderr
-        stderr_lines: list[str] = []
-        while True:
-            line = await loop.run_in_executor(None, proc_stderr.readline)
-            if not line and proc.poll() is not None:
-                err = "\n".join(stderr_lines)
-                raise RuntimeError(f"Pyodide sandbox failed to start:\n{err[-1000:]}")
-            decoded = line.decode().rstrip()
-            stderr_lines.append(decoded)
-            if "pyodide:ready" in decoded:
-                break
+        try:
+            proc = await asyncio.shield(starting)
+        except asyncio.CancelledError:
+            # Popen may still be running in its executor thread. Keep its
+            # result available so the process can be reclaimed when it returns.
+            def discard_startup(
+                future: asyncio.Future[subprocess.Popen[bytes]],
+            ) -> None:
+                if not future.cancelled() and future.exception() is None:
+                    self._stop_process(future.result())
+
+            starting.add_done_callback(discard_startup)
+            raise
+
+        try:
+            # Wait for the runner to signal readiness, collecting stderr
+            assert proc.stderr is not None
+            proc_stderr = proc.stderr
+            stderr_lines: list[str] = []
+            while True:
+                line = await loop.run_in_executor(None, proc_stderr.readline)
+                if not line and proc.poll() is not None:
+                    err = "\n".join(stderr_lines)
+                    if len(err) > 2000:
+                        err = f"{err[:1000]}\n...\n{err[-1000:]}"
+                    raise RuntimeError(f"Pyodide sandbox failed to start:\n{err}")
+                decoded = line.decode().rstrip()
+                stderr_lines.append(decoded)
+                if "pyodide:ready" in decoded:
+                    break
+        except (Exception, asyncio.CancelledError):
+            self._stop_process(proc)
+            raise
 
         self._process = proc
 
@@ -106,14 +133,21 @@ class PyodideSandbox:
         if self._process is not None:
             proc = self._process
             self._process = None
-            if proc.stdin:
-                proc.stdin.close()
-            if proc.stdout:
-                proc.stdout.close()
-            if proc.stderr:
-                proc.stderr.close()
+            self._stop_process(proc)
+
+    @staticmethod
+    def _stop_process(proc: subprocess.Popen[bytes]) -> None:
+        if proc.poll() is None:
             proc.terminate()
-            proc.wait()
+        try:
+            proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+        finally:
+            for stream in (proc.stdin, proc.stdout, proc.stderr):
+                if stream is not None:
+                    stream.close()
 
     async def run(
         self,
@@ -131,6 +165,9 @@ class PyodideSandbox:
         Returns:
             Prefab wire protocol dict (`$prefab`, `view`, `state`, etc.)
 
+        Cancellation during startup or execution discards the worker. The next
+        call starts a fresh process. Use `asyncio.wait_for()` to apply a timeout.
+
         Raises:
             RuntimeError: If the code fails or the sandbox is unavailable.
         """
@@ -143,16 +180,39 @@ class PyodideSandbox:
             if proc is None or proc.stdin is None or proc.stdout is None:
                 raise RuntimeError("Sandbox failed to start")
 
-            request = json.dumps({"code": code, "data": data or {}}) + "\n"
+            request_id = uuid4().hex
+            request = (
+                json.dumps({"id": request_id, "code": code, "data": data or {}}) + "\n"
+            )
             loop = asyncio.get_event_loop()
-            proc.stdin.write(request.encode())
-            proc.stdin.flush()
-            line = await loop.run_in_executor(None, proc.stdout.readline)
+            try:
+                proc.stdin.write(request.encode())
+                proc.stdin.flush()
+                line = await loop.run_in_executor(None, proc.stdout.readline)
+            except (OSError, asyncio.CancelledError):
+                self._stop()
+                raise
 
             if not line:
+                self._stop()
                 raise RuntimeError("Sandbox process died unexpectedly")
 
-            response = json.loads(line)
+            try:
+                response = json.loads(line)
+            except (ValueError, UnicodeDecodeError) as exc:
+                self._stop()
+                raise RuntimeError("Invalid sandbox response") from exc
+
+            if (
+                not isinstance(response, dict)
+                or response.get("id") != request_id
+                or not (
+                    isinstance(response.get("result"), dict)
+                    or isinstance(response.get("error"), str)
+                )
+            ):
+                self._stop()
+                raise RuntimeError("Invalid sandbox response")
             if "error" in response:
                 raise RuntimeError(response["error"])
             return response["result"]

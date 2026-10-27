@@ -61,6 +61,14 @@ CI_IMAGE_BASES        = ubuntu:22.04 ubuntu:24.04
 CI_IMAGE_GROUPS       = dev docs clang-rt
 CI_IMAGE_LANDING      = branch
 CI_IMAGE_SMOKE_TARGET = build
+# The CI-image rebuild fetches each pinned base the way every other stock pull
+# here does: through STOCK_REGISTRY, retried, falling back to STOCK_MIRROR. It
+# builds on buildx's container driver, which pulls its FROM inside BuildKit
+# where nothing retries a 429, so canonical's ci-image-base probes the
+# manifest first and the build pulls from the registry that answered
+# (#1982). The pin stays registry-free: a digest is the same image on both.
+CI_IMAGE_BASE_REGISTRY = $(STOCK_REGISTRY)
+CI_IMAGE_BASE_MIRROR   = $(STOCK_MIRROR)
 # The packager image: rpm-build baked into a manylinux_2_28 base, so the
 # package build never reaches a distro mirror at CI time (#2544). Its bases
 # are canonical's defaults; its package list is bootstrap.toml's [packager.dnf].
@@ -1775,7 +1783,8 @@ LOCAL_TARGETS = specan record-demo parallel-record-write acq-surface-record \
                 complex-helpers-check sdist release-notes \
                 release-pr release-notes-body-check \
                 release-freshness-check \
-                print-jm-version print-stock-registry print-uv-version \
+                print-jm-version print-stock-registry stock-registry \
+                print-uv-version \
                 print-python-matrix print-python-primary lock \
                 nats-up nats-down nats-purge \
                 docs-relink docs-drift-check drift-check changelog-check \
@@ -1805,7 +1814,7 @@ LOCAL_TARGETS = specan record-demo parallel-record-write acq-surface-record \
                 apt-stall-config deps-budget-check cargo-floor-check \
                 bench-coverage-check kwarg-parity-check issues issues-check \
                 gates-extra-home-check \
-                doc-sections-check \
+                doc-sections-check doc-symbols-check state-versions-check \
                 installed-headers-check exported-link-check symbol-prefix-check \
                 export-check public-symbols \
                 vendored-collision-check \
@@ -1921,6 +1930,7 @@ lint: tests-ssot characterization-check validation-report-check changelog-check 
       issue-link-check bootstrap-cmd-check deps-budget-check \
       ci-image-refs-check cargo-floor-check \
       bench-coverage-check kwarg-parity-check doc-sections-check \
+      doc-symbols-check state-versions-check \
       ccsds-isolation-check container-mount-check cargo-lock-check \
       instrumented-sweep-check mem-guard-check \
       design-pages-check gallery-scripts-check bench-commits-check \
@@ -2000,6 +2010,19 @@ kwarg-parity-check: ## Verify each binding accepts the keywords its stub publish
 # none -- the reader concludes the claim is unsupported (#795).
 doc-sections-check: ## Verify every `docs/x.md` section citation resolves
 	@$(UV) run python scripts/check_doc_sections.py
+
+# The third half of a prose citation: a `dp_*` name a page tells the reader
+# to call. A fence marked skip= is not compiled and prose is not a fence, so
+# a renamed or deleted symbol survived every other docs gate (#2580).
+doc-symbols-check: ## Verify every C symbol named in docs/ exists in the tree
+	@$(UV) run python scripts/check_doc_symbols.py
+
+# A state blob's `(magic, version)` names one layout for all time, or
+# `set_state` reinterprets an old blob instead of refusing it. Read from the
+# headers at every release tag, so it needs the tags (CI's lint checkout has
+# fetch-depth 0) and fails closed without them (#2569).
+state-versions-check: ## Verify no state magic's version reuses one it has shipped
+	@$(UV) run python scripts/check_state_versions.py
 
 # `build` as a prerequisite, not a note: this reads `nm` output, so without a
 # built archive it has nothing to check -- and a gate that skips when its
@@ -3326,6 +3349,18 @@ print-jm-version: ## Print the just-makeit pin (release.yml reads it from here)
 # The stock-image registry, for the builds release.yml runs itself (#1950).
 print-stock-registry: ## Print the registry stock images are pulled through
 	@echo "$(STOCK_REGISTRY)"
+
+# For a build that pulls inside BuildKit's own container (buildx's
+# docker-container driver, as release.yml's image builds run), where no
+# pre-pull reaches. This fetches the MANIFEST of each FROM in
+# STOCK_REGISTRY_FILES, with the helper's retry and mirror policy, pulling
+# nothing, and prints `stock_registry=<R>`, STOCK_MIRROR when any needed
+# it, to $STOCK_REGISTRY_OUT or stdout. The build takes that registry as its
+# STOCK_REGISTRY (#1982, #2572).
+STOCK_REGISTRY_FILES ?= deploy/docker/Dockerfile.cli \
+                        deploy/docker/Dockerfile.examples
+stock-registry: ## Probe release image FROMs' manifests; print the registry to build from
+	@$(STOCK_PULL) --registry-for $(STOCK_REGISTRY_FILES)
 
 # The same arrangement for the uv pin, which the SDK image bakes in.
 print-uv-version: ## Print the uv pin (release.yml reads it from here)
@@ -4750,8 +4785,12 @@ check-isotime-parity: build ## Check dp_isotime.h against just-bashit
 # counted them as five gates with no target (#555); they are three targets
 # because the snippet trio always runs together, under one CI condition.
 
+# A UserWarning is an error here: an example that warns (an under-powered
+# BurstAcquisition, #2581) teaches a reader the configuration the object
+# itself says is wrong. An example that warns ON PURPOSE catches the warning
+# in the example, where the reader can see it.
 test-stubs: ## Doctest every generated .pyi stub
-	$(UV) run python -m pytest --doctest-glob='*.pyi' -q \
+	$(UV) run python -m pytest --doctest-glob='*.pyi' -q -W error::UserWarning \
 	    $$(find $(PYEXT_DIR) -name '*.pyi')
 
 # 79-col gate for the generated .pyi stubs. They are jm-owned and excluded from
@@ -4810,6 +4849,8 @@ test-api-docs: ## Doctest the docs/api/*.md reference pages
 # Unscoped is still the gate. PAGE is an iteration aid, so it says so on the
 # way out rather than printing the same "ALL FENCE GATES PASS" line a full run
 # earns.
+# A UserWarning fails a fence, as in test-stubs: a page example that warns
+# shows the reader a configuration the object itself calls wrong (#2581).
 test-snippets: ## Run the python/C/shell doc-fence gates (PAGE=<path> to narrow)
 	@fail=0; empty=0; n=0; \
 	 for t in test_doc_snippets test_c_doc_snippets test_c_header_code \
@@ -4817,7 +4858,7 @@ test-snippets: ## Run the python/C/shell doc-fence gates (PAGE=<path> to narrow)
 	     echo "=== $$t ==="; \
 	     n=$$((n + 1)); \
 	     $(LEAK_CHECK) -- $(UV) run python -m pytest -m docs_snippets -q \
-	         $(if $(PAGE),-k "$(PAGE)") \
+	         -W error::UserWarning $(if $(PAGE),-k "$(PAGE)") \
 	         src/doppler/tests/$$t.py; rc=$$?; \
 	     : "5 is pytest's 'collected nothing'. Under PAGE that is the normal"; \
 	     : "answer for two of the three -- a page with only sh fences has no"; \

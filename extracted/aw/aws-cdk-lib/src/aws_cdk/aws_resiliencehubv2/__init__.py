@@ -225,6 +225,7 @@ class CfnPolicy(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -298,7 +299,7 @@ class CfnPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__91d259843c26b15a16dcbabd1e0e75fcbc09629b91a287d87104d92a18f19d2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="availabilitySlo")
@@ -315,7 +316,7 @@ class CfnPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__43a32bbfeaa8d459ff6083f2740f10c9ad8aca7eca836b39dc5f96859e83118f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "availabilitySlo", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "availabilitySlo", value)
 
     @builtins.property
     @jsii.member(jsii_name="dataRecovery")
@@ -332,7 +333,7 @@ class CfnPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__876c6cdf83b364b06e9611ae74176173ca5e80eb30145b85d0a5866ba6f8bc5f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataRecovery", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dataRecovery", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -345,7 +346,7 @@ class CfnPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ea3d4da539650d8938a395790f0d988b7ead316557ac6ead656ec0f538759099)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -358,7 +359,7 @@ class CfnPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3d4b0d8affbccb5e5c84f1894869b877f9d0d3ed0d024461283c9760be1c47ce)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="multiAz")
@@ -375,7 +376,7 @@ class CfnPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fe8c8e4e3a2ca89f1c4516be1382bfe9a786ae265c976fe75df7b71606d23ee5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiAz", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "multiAz", value)
 
     @builtins.property
     @jsii.member(jsii_name="multiRegion")
@@ -392,7 +393,7 @@ class CfnPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1b113d1c1a16d9a88d7758c26ad9a6eac43b4a8995ad9a6dfcb5c065a458e2aa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "multiRegion", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "multiRegion", value)
 
     @builtins.property
     @jsii.member(jsii_name="sharingEnabled")
@@ -410,7 +411,7 @@ class CfnPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e7f5052d3b009fbb8c921698743bcc3bbf0b7e4bd833c9732351fe23680ba182)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sharingEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sharingEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -426,7 +427,7 @@ class CfnPolicy(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6a07e642dc63b7980c82a54120ed7d01ba6c8a726bdfc0589953ca23747bd214)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_resiliencehubv2.CfnPolicy.AvailabilitySloProperty",
@@ -961,6 +962,9 @@ class CfnService(
             )],
             dependency_discovery="dependencyDiscovery",
             description="description",
+            dev_ops_agent_configuration=resiliencehubv2.CfnService.DevOpsAgentConfigurationProperty(
+                agent_space_arn="agentSpaceArn"
+            ),
             input_sources=[resiliencehubv2.CfnService.InputSourceDefinitionProperty(
                 resource_configuration=resiliencehubv2.CfnService.ResourceConfigurationProperty(
                     cfn_stack_arn="cfnStackArn",
@@ -1029,6 +1033,7 @@ class CfnService(
         associated_systems: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.AssociatedSystemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         dependency_discovery: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        dev_ops_agent_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.DevOpsAgentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         input_sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.InputSourceDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         permission_model: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.PermissionModelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1046,6 +1051,7 @@ class CfnService(
         :param associated_systems: Systems associated with this service.
         :param dependency_discovery: Dependency discovery state.
         :param description: The description of the service.
+        :param dev_ops_agent_configuration: Links the service to an AWS DevOps Agent Agent Space. Provide AgentSpaceArn to connect the service; omit this property to leave an existing link unchanged. The DevOps Agent integration is governed by the service's resilience policy and operates in analysis-only mode.
         :param input_sources: Input sources for this service.
         :param kms_key_id: The KMS key ID for encrypting service data.
         :param permission_model: 
@@ -1064,6 +1070,7 @@ class CfnService(
             associated_systems=associated_systems,
             dependency_discovery=dependency_discovery,
             description=description,
+            dev_ops_agent_configuration=dev_ops_agent_configuration,
             input_sources=input_sources,
             kms_key_id=kms_key_id,
             permission_model=permission_model,
@@ -1126,6 +1133,7 @@ class CfnService(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -1199,7 +1207,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a40654003c72cad607c2285fc9007b24841372f07282d2e1e0074d9e53de8da5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="regions")
@@ -1212,7 +1220,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__964bfce08922c4fb735abcd9089af81bd138fd8a4ffbb49d7c1e1d6f1549576e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "regions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "regions", value)
 
     @builtins.property
     @jsii.member(jsii_name="assertions")
@@ -1230,7 +1238,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d25bd9cec3047a0d0d7fe892cfb844e2cadbd370c4f6e00d03ec6668c3ae0bb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "assertions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "assertions", value)
 
     @builtins.property
     @jsii.member(jsii_name="associatedSystems")
@@ -1248,7 +1256,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5ebf53f05f27c31f326af1fc62ded64873bc1a58da7e10b94706eae63e148fb6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "associatedSystems", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "associatedSystems", value)
 
     @builtins.property
     @jsii.member(jsii_name="dependencyDiscovery")
@@ -1261,7 +1269,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f0b9e7e595d6c6af07c6a42ca51a94cbaf992a9a6f55a97552f6367b986ebe2c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dependencyDiscovery", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "dependencyDiscovery", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -1274,7 +1282,25 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0243afd562c00bc61ef677f20cecc4ac5705343dc87da0758a23a18fcdc47115)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
+
+    @builtins.property
+    @jsii.member(jsii_name="devOpsAgentConfiguration")
+    def dev_ops_agent_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DevOpsAgentConfigurationProperty"]]:
+        '''Links the service to an AWS DevOps Agent Agent Space.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DevOpsAgentConfigurationProperty"]], jsii.get(self, "devOpsAgentConfiguration"))
+
+    @dev_ops_agent_configuration.setter
+    def dev_ops_agent_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DevOpsAgentConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7e1c6afd124ae8803e48177cb90765a767ddc79c34fd8bc369ada48282ec894a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "devOpsAgentConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="inputSources")
@@ -1292,7 +1318,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9eb607cafec82377097ae094d11f8506899ea08c36738456c1134887ead12e36)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "inputSources", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "inputSources", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -1305,7 +1331,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__242b39ff6b3b9a87071efd4aa5b82fb4561d7e0da10e88151ba434b99256230c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="permissionModel")
@@ -1322,7 +1348,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__05f96997f389a164a9d59977b08fc63042a4bebad060235b2ad58734c1161867)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "permissionModel", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "permissionModel", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyArn")
@@ -1335,7 +1361,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bd2f304aa99feed1c072f06bf949b63b65fde2503fd90aaa86c7b1286b57e06a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="reportConfiguration")
@@ -1353,7 +1379,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ab4a4c62b7f037a37893fa13b7f13b0f1fabc51715e30be18ead891af7876e50)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "reportConfiguration", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "reportConfiguration", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -1369,7 +1395,7 @@ class CfnService(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__47a377d29fac1c509599600752f1645f130ab40efe1400fd62790e225e015fb1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_resiliencehubv2.CfnService.AssertionDefinitionProperty",
@@ -1567,6 +1593,60 @@ class CfnService(
 
         def __repr__(self) -> str:
             return "CrossAccountRoleConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_resiliencehubv2.CfnService.DevOpsAgentConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"agent_space_arn": "agentSpaceArn"},
+    )
+    class DevOpsAgentConfigurationProperty:
+        def __init__(self, *, agent_space_arn: builtins.str) -> None:
+            '''Links the service to an AWS DevOps Agent Agent Space.
+
+            Provide AgentSpaceArn to connect the service; omit this property to leave an existing link unchanged. The DevOps Agent integration is governed by the service's resilience policy and operates in analysis-only mode.
+
+            :param agent_space_arn: The ARN of the DevOps Agent Agent Space to link to this service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-devopsagentconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_resiliencehubv2 as resiliencehubv2
+                
+                dev_ops_agent_configuration_property = resiliencehubv2.CfnService.DevOpsAgentConfigurationProperty(
+                    agent_space_arn="agentSpaceArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2ade7274fe56a172320edc3232dad5eeb5b1e04a346849a69e9a10727172ead7)
+                check_type(argname="argument agent_space_arn", value=agent_space_arn, expected_type=type_hints["agent_space_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "agent_space_arn": agent_space_arn,
+            }
+
+        @builtins.property
+        def agent_space_arn(self) -> builtins.str:
+            '''The ARN of the DevOps Agent Agent Space to link to this service.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resiliencehubv2-service-devopsagentconfiguration.html#cfn-resiliencehubv2-service-devopsagentconfiguration-agentspacearn
+            '''
+            result = self._values.get("agent_space_arn")
+            assert result is not None, "Required property 'agent_space_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DevOpsAgentConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2919,6 +2999,7 @@ class CfnServiceFunction(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -2997,7 +3078,7 @@ class CfnServiceFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3643f0336d27164481b5c125dd7f35ebe4b09dcebbf8c5b9480d51ac5f29deca)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "criticality", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "criticality", value)
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3010,7 +3091,7 @@ class CfnServiceFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__beff5f5dafea49da6abc4de3e9b71a5f0d1e706b65cc44ef215efb19d4249452)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="serviceArn")
@@ -3023,7 +3104,7 @@ class CfnServiceFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fb383288f74ae56b541d028cdff4d06e0226c8285ee1cbe6070e370c47766cbb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "serviceArn", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -3036,7 +3117,7 @@ class CfnServiceFunction(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eed64e15fda69ee9dc3d694ecd60cf053a6a85cdec8ecf6c1c88eacf4db4c771)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
 
 @jsii.data_type(
@@ -3158,6 +3239,7 @@ class CfnServiceFunctionProps:
         "associated_systems": "associatedSystems",
         "dependency_discovery": "dependencyDiscovery",
         "description": "description",
+        "dev_ops_agent_configuration": "devOpsAgentConfiguration",
         "input_sources": "inputSources",
         "kms_key_id": "kmsKeyId",
         "permission_model": "permissionModel",
@@ -3176,6 +3258,7 @@ class CfnServiceProps:
         associated_systems: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.AssociatedSystemProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         dependency_discovery: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
+        dev_ops_agent_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.DevOpsAgentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         input_sources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.InputSourceDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
         permission_model: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.PermissionModelProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3191,6 +3274,7 @@ class CfnServiceProps:
         :param associated_systems: Systems associated with this service.
         :param dependency_discovery: Dependency discovery state.
         :param description: The description of the service.
+        :param dev_ops_agent_configuration: Links the service to an AWS DevOps Agent Agent Space. Provide AgentSpaceArn to connect the service; omit this property to leave an existing link unchanged. The DevOps Agent integration is governed by the service's resilience policy and operates in analysis-only mode.
         :param input_sources: Input sources for this service.
         :param kms_key_id: The KMS key ID for encrypting service data.
         :param permission_model: 
@@ -3224,6 +3308,9 @@ class CfnServiceProps:
                 )],
                 dependency_discovery="dependencyDiscovery",
                 description="description",
+                dev_ops_agent_configuration=resiliencehubv2.CfnService.DevOpsAgentConfigurationProperty(
+                    agent_space_arn="agentSpaceArn"
+                ),
                 input_sources=[resiliencehubv2.CfnService.InputSourceDefinitionProperty(
                     resource_configuration=resiliencehubv2.CfnService.ResourceConfigurationProperty(
                         cfn_stack_arn="cfnStackArn",
@@ -3288,6 +3375,7 @@ class CfnServiceProps:
             check_type(argname="argument associated_systems", value=associated_systems, expected_type=type_hints["associated_systems"])
             check_type(argname="argument dependency_discovery", value=dependency_discovery, expected_type=type_hints["dependency_discovery"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument dev_ops_agent_configuration", value=dev_ops_agent_configuration, expected_type=type_hints["dev_ops_agent_configuration"])
             check_type(argname="argument input_sources", value=input_sources, expected_type=type_hints["input_sources"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
             check_type(argname="argument permission_model", value=permission_model, expected_type=type_hints["permission_model"])
@@ -3306,6 +3394,8 @@ class CfnServiceProps:
             self._values["dependency_discovery"] = dependency_discovery
         if description is not None:
             self._values["description"] = description
+        if dev_ops_agent_configuration is not None:
+            self._values["dev_ops_agent_configuration"] = dev_ops_agent_configuration
         if input_sources is not None:
             self._values["input_sources"] = input_sources
         if kms_key_id is not None:
@@ -3378,6 +3468,19 @@ class CfnServiceProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def dev_ops_agent_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DevOpsAgentConfigurationProperty"]]:
+        '''Links the service to an AWS DevOps Agent Agent Space.
+
+        Provide AgentSpaceArn to connect the service; omit this property to leave an existing link unchanged. The DevOps Agent integration is governed by the service's resilience policy and operates in analysis-only mode.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-resiliencehubv2-service.html#cfn-resiliencehubv2-service-devopsagentconfiguration
+        '''
+        result = self._values.get("dev_ops_agent_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DevOpsAgentConfigurationProperty"]], result)
 
     @builtins.property
     def input_sources(
@@ -3570,6 +3673,7 @@ class CfnSystem(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3643,7 +3747,7 @@ class CfnSystem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7c81be8218e696748585e9504afb71bfa95b2c885eabe9fec53ac7aad8500f6d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -3656,7 +3760,7 @@ class CfnSystem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__177bd08243f175ccd6578b9d15d7c0bc862e83d7846efe0b211a282efe7ea14e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
@@ -3669,7 +3773,7 @@ class CfnSystem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f937a5a8a39f82303967ad20c105a8f63e81c586a41e86bfeac68e83d56db855)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "kmsKeyId", value)
 
     @builtins.property
     @jsii.member(jsii_name="sharingEnabled")
@@ -3687,7 +3791,7 @@ class CfnSystem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__426d5ee159954f2041a0f01076b81863bc40841a7b36d40e99a00c046ea29693)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "sharingEnabled", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "sharingEnabled", value)
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3703,7 +3807,7 @@ class CfnSystem(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8fff15930170fd51f973d7a70c82cae6b8d0acb3e045d9c219267c24ab332b55)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tags", value)
 
 
 @jsii.data_type(
@@ -3939,6 +4043,7 @@ class CfnUserJourney(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    @builtins.classmethod
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
@@ -3997,7 +4102,7 @@ class CfnUserJourney(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4afa7030d035277e2d93e5ebaa3755a61fdb6c3c751239ac58139a6f27743bb4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "name", value)
 
     @builtins.property
     @jsii.member(jsii_name="systemIdentifier")
@@ -4010,7 +4115,7 @@ class CfnUserJourney(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb0d8d5961f0175df0b078d515edaa4f546437971daf23f9b5f722c88255961e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "systemIdentifier", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "systemIdentifier", value)
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -4023,7 +4128,7 @@ class CfnUserJourney(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b59c36c1cc5c6ffc4f06475cc8b710f00dccfdc9ff46e08245f34f3c87b6696)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "description", value)
 
     @builtins.property
     @jsii.member(jsii_name="policyArn")
@@ -4036,7 +4141,7 @@ class CfnUserJourney(
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__27f14136224bd0bf550451b4284748c15dd38c68e1d9cdf14f8fc0548b03d219)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyArn", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "policyArn", value)
 
 
 @jsii.data_type(
@@ -4315,6 +4420,7 @@ def _typecheckingstub__b6bdd32c65d4a9df22e965e380026f55b7e059ad2c4bb5b54867d27ec
     associated_systems: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.AssociatedSystemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     dependency_discovery: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    dev_ops_agent_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.DevOpsAgentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.InputSourceDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     permission_model: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.PermissionModelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4385,6 +4491,12 @@ def _typecheckingstub__0243afd562c00bc61ef677f20cecc4ac5705343dc87da0758a23a18fc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7e1c6afd124ae8803e48177cb90765a767ddc79c34fd8bc369ada48282ec894a(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.DevOpsAgentConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9eb607cafec82377097ae094d11f8506899ea08c36738456c1134887ead12e36(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnService.InputSourceDefinitionProperty]]]],
 ) -> None:
@@ -4440,6 +4552,13 @@ def _typecheckingstub__6ebe7293c74e1e49a5c894dc42cf632e3b58feccb2d4f9d9c5b6d9f1e
     *,
     cross_account_role_arn: builtins.str,
     external_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ade7274fe56a172320edc3232dad5eeb5b1e04a346849a69e9a10727172ead7(
+    *,
+    agent_space_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4635,6 +4754,7 @@ def _typecheckingstub__7b8906af88284d1ba0ad97f215ad3c246bc5df190fa6886f254d66cb1
     associated_systems: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.AssociatedSystemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     dependency_discovery: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+    dev_ops_agent_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.DevOpsAgentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     input_sources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.InputSourceDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     permission_model: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.PermissionModelProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

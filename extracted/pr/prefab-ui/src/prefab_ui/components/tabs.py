@@ -77,20 +77,24 @@ class Tabs(StatefulMixin, ContainerComponent):
         value: Value of the initially active tab.
         name: State key for reactive binding. Auto-generated if omitted.
         orientation: Layout direction — `'horizontal'` or `'vertical'`.
-        on_change: Action(s) fired when the active tab changes.
+        on_change: Action(s) fired after the active tab updates its named state.
 
     **Example:**
 
     ```python
-    with Tabs(value="general"):
-        with Tab("General"):
+    from prefab_ui.actions import SetState
+    from prefab_ui.components import Tab, Tabs, Text
+
+    with Tabs(name="section", value="general",
+              on_change=SetState("last_section", "{{ section }}")):
+        with Tab("General", value="general"):
             Text("General settings")
-        with Tab("Advanced"):
+        with Tab("Advanced", value="advanced"):
             Text("Advanced settings")
     ```
     """
 
-    _auto_name: ClassVar[str] = "tabs"
+    _auto_name: ClassVar[str | None] = "tabs"
     type: Literal["Tabs"] = "Tabs"
     variant: TabsVariant = Field(
         default="default",
